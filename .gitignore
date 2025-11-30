@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.log
+.coverage
+coverage.xml
+
+# Virtual env
+.venv/
+venv/
+env/
+.env
+.env.*/
+
+# IDE / Editors
+.idea/
+.vscode/
+.cursor/
+
+# OS artifacts
+Thumbs.db
+.DS_Store
+
+# Jupyter notebooks（只在本地使用，不进仓库）
+*.ipynb
+
+# Project caches and local state
+runtime/cache/
+app/runtime/cache/
+user_settings.json
+
+# Local per-directory docs (do not version)
+**/claude.md
+
+# 旧版 runtime 缓存路径（兼容历史）
+runtime/graph_cache/
+runtime/resource_cache/
+runtime/node_cache/
+runtime/name_sync_state.json
+
+# 本地私有工程目录（不随仓库分发）
+docs/
+tests/
+projects/
+
+# ---------- 资源库上传策略 ----------
+# 默认忽略整个资源库内容
+assets/资源库/**
+
+# 但保留资源库及其子目录结构本身，便于后续精细控制
+!assets/资源库/
+!assets/资源库/**/
+
+# 允许：以“示例_”或“模板示例_”开头的资源文件（任意子目录、任意后缀）
+!assets/资源库/**/示例_*
+!assets/资源库/**/模板示例_*
+
+# 明确白名单：官方内置“信号/结构体全类型示例”及其功能包
+!assets/资源库/管理配置/结构体定义/struct_all_supported_types_example.py
+!assets/资源库/管理配置/信号/signal_all_supported_types_example.py
+!assets/资源库/地图索引/pkg_示例_信号全参数类型.json
+
+# 如需额外的测试资源，可以在此处增加精确白名单，例如：
+# !assets/资源库/实例/测试_关卡1.json
+# !assets/资源库/实例/测试用/**
+

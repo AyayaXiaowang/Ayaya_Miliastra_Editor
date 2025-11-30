@@ -1,0 +1,60 @@
+{
+  "package_id": "pkg_20251129_190700_266546",
+  "name": "示例_信号全参数类型",
+  "description": "演示 signal_all_supported_types_example 信号的发送与监听（覆盖全部参数类型）的示例存档包。",
+  "resources": {
+    "templates": [],
+    "instances": [
+      "level_pkg_20251129_190700_266546"
+    ],
+    "graphs": [
+      "server_signal_all_types_example_01",
+      "server_delay_composite_example_01"
+    ],
+    "composites": [
+      "composite_延迟执行_示例_类格式"
+    ],
+    "combat_presets": {
+      "player_templates": [],
+      "player_classes": [],
+      "unit_statuses": [],
+      "skills": [],
+      "projectiles": [],
+      "items": []
+    },
+    "management": {
+      "timers": [],
+      "level_variables": [],
+      "preset_points": [],
+      "skill_resources": [],
+      "currency_backpack": [],
+      "equipment_data": [],
+      "shop_templates": [],
+      "ui_layouts": [],
+      "ui_widget_templates": [],
+      "multi_language": [],
+      "main_cameras": [],
+      "light_sources": [],
+      "background_music": [],
+      "paths": [],
+      "entity_deployment_groups": [],
+      "unit_tags": [],
+      "scan_tags": [],
+      "shields": [],
+      "peripheral_systems": [],
+      "save_points": [],
+      "chat_channels": [],
+      "level_settings": [],
+      "signals": [],
+      "struct_definitions": [
+        "struct_all_supported_types_example"
+      ]
+    }
+  },
+  "level_entity_id": "level_pkg_20251129_190700_266546",
+  "signals": {
+    "signal_all_supported_types_example": {}
+  },
+  "created_at": "2025-11-29T19:07:00.271544",
+  "updated_at": "2025-11-30T12:11:06.603031"
+}

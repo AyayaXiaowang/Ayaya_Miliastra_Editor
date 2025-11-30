@@ -1,0 +1,10 @@
+* text=auto
+
+# Windows scripts
+*.ps1 eol=crlf
+*.bat eol=crlf
+
+# Unix shell
+*.sh eol=lf
+
+

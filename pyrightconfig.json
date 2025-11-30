@@ -1,0 +1,18 @@
+{
+  "include": ["."],
+  "exclude": [
+    "assets/资源库/节点图"
+  ],
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        "app",
+        "plugins",
+        "engine"
+      ]
+    }
+  ]
+}
+
+

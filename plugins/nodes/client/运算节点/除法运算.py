@@ -1,0 +1,16 @@
+from __future__ import annotations
+from engine.nodes.node_spec import node_spec
+from plugins.nodes.shared.client_运算节点_impl_helpers import *
+from engine.utils.logging.logger import log_info
+
+@node_spec(
+    name="除法运算",
+    category="运算节点",
+    outputs=[("结果", "泛型")],
+    description="除法运算，支持浮点数除法和整数除法。整数除法返回整除结果 除数不应为0，否则可能返回非法值",
+    doc_reference="客户端节点/运算节点/运算节点.md"
+)
+def 除法运算():
+    """除法运算，支持浮点数除法和整数除法。整数除法返回整除结果 除数不应为0，否则可能返回非法值"""
+    # 注意：参数在节点定义中缺失，这里返回Mock
+    return 0

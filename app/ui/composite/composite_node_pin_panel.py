@@ -1,0 +1,93 @@
+"""复合节点虚拟引脚面板 - 显示在主窗口右侧标签页"""
+
+from __future__ import annotations
+from PyQt6 import QtCore, QtWidgets
+from typing import Optional
+
+from ui.foundation.theme_manager import ThemeManager, Colors
+from engine.nodes.advanced_node_features import CompositeNodeConfig
+from ui.composite.composite_node_preview_widget import CompositeNodePreviewWidget
+
+
+class CompositeNodePinPanel(QtWidgets.QWidget):
+    """复合节点虚拟引脚面板
+    
+    显示虚拟引脚的预览图和详细列表
+    """
+    
+    # 信号：引脚已更新
+    pin_updated = QtCore.pyqtSignal()
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.current_composite: Optional[CompositeNodeConfig] = None
+        self.composite_widget = None  # 关联的复合节点管理器widget
+        
+        self._setup_ui()
+    
+    def _setup_ui(self) -> None:
+        """设置UI"""
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        
+        # 标题
+        title_label = QtWidgets.QLabel("虚拟引脚管理")
+        title_label.setStyleSheet(f"{ThemeManager.heading(level=2)} padding: 5px;")
+        layout.addWidget(title_label)
+        
+        # 提示标签
+        hint_label = QtWidgets.QLabel("💡 右键内部节点端口可暴露为虚拟引脚 | 右键引脚可合并或删除")
+        hint_label.setStyleSheet(f"color: {Colors.TEXT_PLACEHOLDER}; font-size: 11px; padding: 4px;")
+        hint_label.setWordWrap(True)
+        layout.addWidget(hint_label)
+        
+        # 预览组件（上方预览图 + 下方引脚表格）
+        self.preview_widget = CompositeNodePreviewWidget()
+        self.preview_widget.pin_updated.connect(self._on_pin_updated)
+        layout.addWidget(self.preview_widget)
+        
+        # 应用主题样式
+        self._apply_styles()
+    
+    def _apply_styles(self) -> None:
+        """应用主题样式"""
+        self.setStyleSheet(f"""
+            CompositeNodePinPanel {{
+                background-color: {Colors.BG_CARD};
+            }}
+            {ThemeManager.button_style()}
+            {ThemeManager.input_style()}
+            {ThemeManager.table_style()}
+            {ThemeManager.scrollbar_style()}
+        """)
+    
+    def set_composite_widget(self, widget) -> None:
+        """设置关联的复合节点管理器"""
+        self.composite_widget = widget
+        self.preview_widget.set_composite_widget(widget)
+    
+    def load_composite(self, composite: CompositeNodeConfig) -> None:
+        """加载复合节点数据"""
+        if composite is None:
+            self.clear()
+            return
+        
+        self.current_composite = composite
+        self.preview_widget.load_composite(composite)
+    
+    def clear(self) -> None:
+        """清空面板"""
+        self.current_composite = None
+        self.preview_widget.load_composite(None)
+    
+    def _on_pin_updated(self) -> None:
+        """引脚更新（由预览组件触发）"""
+        # 通知内部编辑器刷新端口显示
+        if self.composite_widget and hasattr(self.composite_widget, 'graph_scene'):
+            scene = self.composite_widget.graph_scene
+            if scene and hasattr(scene, '_refresh_all_ports'):
+                scene._refresh_all_ports()
+        
+        self.pin_updated.emit()
+
