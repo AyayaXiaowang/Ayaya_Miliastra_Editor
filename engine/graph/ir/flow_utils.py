@@ -8,6 +8,7 @@ import ast
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from engine.graph.models import NodeModel, EdgeModel
+from engine.graph.common import STRUCT_SPLIT_NODE_TITLE
 from .var_env import VarEnv
 from .validators import Validators
 from .node_factory import FactoryContext, create_node_from_call, extract_nested_nodes
@@ -57,6 +58,37 @@ def register_output_variables(
     """
     # 获取所有数据输出端口（排除流程端口）
     data_output_ports = [port.name for port in node.outputs if '流程' not in port.name]
+
+    # 对于【拆分结构体】这类“纯数据拆分”节点，若尚未声明任何数据输出端口，
+    # 则根据赋值目标动态补全一组输出端口，端口名与变量名一一对应。
+    if not data_output_ports and getattr(node, "title", "") == STRUCT_SPLIT_NODE_TITLE:
+        inferred_names: List[str] = []
+
+        # 处理 Assign 的 targets 列表（取第一个目标）
+        effective_targets: Union[ast.Name, ast.Tuple, List[ast.expr]]
+        if isinstance(targets, list):
+            if not targets:
+                return
+            effective_targets = targets[0]
+        else:
+            effective_targets = targets
+
+        if isinstance(effective_targets, ast.Tuple):
+            for elt in effective_targets.elts:
+                if isinstance(elt, ast.Name):
+                    name_text = elt.id.strip()
+                    if name_text and name_text not in inferred_names:
+                        inferred_names.append(name_text)
+        elif isinstance(effective_targets, ast.Name):
+            name_text = effective_targets.id.strip()
+            if name_text:
+                inferred_names.append(name_text)
+
+        for name in inferred_names:
+            node.add_output_port(name)
+
+        data_output_ports = [port.name for port in node.outputs if '流程' not in port.name]
+
     if not data_output_ports:
         return
     

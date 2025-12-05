@@ -13,7 +13,9 @@ class ChatChannelsSection(BaseManagementSection):
     def iter_rows(self, package: ManagementPackage) -> Iterable[ManagementRowData]:
         for channel_id, channel_payload in package.management.chat_channels.items():
             channel_name_value = str(channel_payload.get("channel_name", ""))
-            color_value = str(channel_payload.get("color", "#FFFFFF"))
+            color_value = str(
+                channel_payload.get("color", ThemeManager.Colors.TEXT_ON_PRIMARY)
+            )
             apply_mode_value = str(channel_payload.get("apply_mode", "all_players"))
             priority_value = channel_payload.get("priority", 0)
             description_value = str(channel_payload.get("description", ""))
@@ -73,7 +75,7 @@ class ChatChannelsSection(BaseManagementSection):
         initial_values: Dict[str, Any] = {
             "channel_id": "",
             "channel_name": "",
-            "color": "#FFFFFF",
+            "color": ThemeManager.Colors.TEXT_ON_PRIMARY,
             "apply_mode": "all_players",
             "priority": 0,
             "icon": "",
@@ -96,7 +98,7 @@ class ChatChannelsSection(BaseManagementSection):
         )
         color_widget = builder.add_color_picker(
             "颜色:",
-            str(initial_values.get("color", "#FFFFFF")),
+            str(initial_values.get("color", ThemeManager.Colors.TEXT_ON_PRIMARY)),
         )
         apply_mode_widget = builder.add_combo_box(
             "应用方式:",
@@ -181,7 +183,7 @@ class ChatChannelsSection(BaseManagementSection):
             channel_name=channel_name,
         )
         payload = channel_config.serialize()
-        payload["color"] = "#FFFFFF"
+        payload["color"] = ThemeManager.Colors.TEXT_ON_PRIMARY
         payload["apply_mode"] = "all_players"
         payload["priority"] = 0
         payload["icon"] = ""
@@ -207,7 +209,7 @@ class ChatChannelsSection(BaseManagementSection):
         initial_values = {
             "channel_id": item_id,
             "channel_name": channel_payload.get("channel_name", ""),
-            "color": channel_payload.get("color", "#FFFFFF"),
+            "color": channel_payload.get("color", ThemeManager.Colors.TEXT_ON_PRIMARY),
             "apply_mode": channel_payload.get("apply_mode", "all_players"),
             "priority": channel_payload.get("priority", 0),
             "icon": channel_payload.get("icon", ""),
@@ -260,7 +262,9 @@ class ChatChannelsSection(BaseManagementSection):
 
         def build_form(form_layout: QtWidgets.QFormLayout) -> None:
             channel_name_value = str(channel_payload.get("channel_name", ""))
-            color_value = str(channel_payload.get("color", "#FFFFFF"))
+            color_value = str(
+                channel_payload.get("color", ThemeManager.Colors.TEXT_ON_PRIMARY)
+            )
             apply_mode_value = str(channel_payload.get("apply_mode", "all_players"))
             priority_any = channel_payload.get("priority", 0)
             if isinstance(priority_any, int):
@@ -303,7 +307,9 @@ class ChatChannelsSection(BaseManagementSection):
                     channel_payload["channel_name"] = normalized_name
                 else:
                     channel_payload["channel_name"] = item_id
-                channel_payload["color"] = color_edit.text().strip() or "#FFFFFF"
+                channel_payload["color"] = (
+                    color_edit.text().strip() or ThemeManager.Colors.TEXT_ON_PRIMARY
+                )
                 channel_payload["apply_mode"] = str(apply_mode_widget.currentText())
                 channel_payload["priority"] = int(priority_widget.value())
                 channel_payload["icon"] = icon_edit.text().strip()

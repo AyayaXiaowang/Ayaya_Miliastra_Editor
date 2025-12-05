@@ -64,13 +64,13 @@ def execute_bind_signal(
     node_id_field = todo_item.get("node_id")
     node_id = str(node_id_field or "")
     if not node_id or node_id not in graph_model.nodes:
-        executor._log("✗ 信号绑定步骤缺少节点或节点不存在", log_callback)
+        executor.log("✗ 信号绑定步骤缺少节点或节点不存在", log_callback)
         return False
 
     node = graph_model.nodes[node_id]
     input_text = _resolve_signal_text(todo_item, graph_model, node_id)
     if not input_text:
-        executor._log("✗ 信号绑定步骤缺少可用的 signal_id / 信号名 文本", log_callback)
+        executor.log("✗ 信号绑定步骤缺少可用的 signal_id / 信号名 文本", log_callback)
         return False
 
     # 1. 确保节点进入视口
@@ -118,7 +118,7 @@ def execute_bind_signal(
         search_region=(node_left, node_top, node_width, node_height),
     )
     if not match:
-        executor._log("✗ 未在节点内找到 Signal 图标模板", log_callback)
+        executor.log("✗ 未在节点内找到 Signal 图标模板", log_callback)
         return False
 
     sig_x, sig_y, sig_w, sig_h, sig_conf = match
@@ -128,7 +128,7 @@ def execute_bind_signal(
         signal_center_editor_x,
         signal_center_editor_y,
     )
-    executor._log(
+    executor.log(
         f"[信号绑定] 点击 Signal: editor=({signal_center_editor_x},{signal_center_editor_y}) "
         f"screen=({signal_screen_x},{signal_screen_y}) 模板='Signal.png' "
         f"命中bbox=({sig_x},{sig_y},{sig_w},{sig_h}) conf={sig_conf:.2f}",
@@ -177,7 +177,7 @@ def execute_bind_signal(
         input_center_editor_y,
     )
 
-    executor._log(
+    executor.log(
         f"[信号绑定] 点击 Signal 下方输入区域: editor=({input_center_editor_x},{input_center_editor_y}) "
         f"screen=({input_screen_x},{input_screen_y}) offset=+{offset_pixels}px",
         log_callback,
@@ -221,11 +221,11 @@ def execute_bind_signal(
     )
     _exec_utils.log_wait_if_needed(executor, 0.2, "等待 0.20 秒", log_callback)
 
-    executor._log(
+    executor.log(
         f"[信号绑定] 注入信号标识: '{input_text}' (len={len(input_text)})",
         log_callback,
     )
-    if not executor._input_text_with_hooks(
+    if not executor.input_text_with_hooks(
         input_text,
         pause_hook,
         allow_continue,
@@ -235,39 +235,23 @@ def execute_bind_signal(
     _exec_utils.log_wait_if_needed(executor, 0.1, "等待 0.10 秒", log_callback)
 
     # 5. 在节点附近点击一次画布空白位置，视为收尾
-    # 复用端口类型/字典配置中的空白点击逻辑：以节点中心附近为起点，在画布区域内寻找安全空白点。
+    # 复用统一的画布空白点击 helper：以节点中心附近为起点，在画布区域内寻找安全空白点。
     blank_start_editor_x = int(node_left + node_width // 2)
     blank_start_editor_y = int(node_top + node_height // 2)
     blank_start_screen_x, blank_start_screen_y = executor.convert_editor_to_screen_coords(
         blank_start_editor_x,
         blank_start_editor_y,
     )
-    snapped_blank = _exec_utils.snap_screen_point_to_canvas_background(
+    _exec_utils.click_canvas_blank_near_screen_point(
         executor,
         int(blank_start_screen_x),
         int(blank_start_screen_y),
+        log_prefix="[信号绑定] 信号文本输入完成，",
+        wait_seconds=0.1,
+        wait_message="等待 0.10 秒（信号设置完成后画布状态稳定）",
         log_callback=log_callback,
         visual_callback=visual_callback,
     )
-    if snapped_blank is not None:
-        blank_screen_x, blank_screen_y = int(snapped_blank[0]), int(snapped_blank[1])
-        executor._log(
-            "[信号绑定] 信号文本输入完成，点击画布空白位置收尾",
-            log_callback,
-        )
-        _exec_utils.click_and_verify(
-            executor,
-            blank_screen_x,
-            blank_screen_y,
-            "[信号绑定] 信号设置完成后点击空白处",
-            log_callback,
-        )
-        _exec_utils.log_wait_if_needed(
-            executor,
-            0.1,
-            "等待 0.10 秒（信号设置完成后画布状态稳定）",
-            log_callback,
-        )
 
     # 标记节点快照为脏，后续步骤需重新识别端口与布局
     snapshot.mark_dirty(require_bbox=True)

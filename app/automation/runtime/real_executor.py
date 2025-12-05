@@ -235,6 +235,7 @@ class RealExecutor:
             log_callback=None,
             ordinal_fallback_index=None,
             ports_list=ports,
+            list_ports_for_bbox_func=list_ports,
         )
         if int(center[0]) == 0 and int(center[1]) == 0:
             raise RuntimeError("target port not found")

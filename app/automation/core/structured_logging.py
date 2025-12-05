@@ -40,7 +40,7 @@ class StructuredLogger:
 
     def log(self, category: str, message: str, **details: Any) -> None:
         event = LogEvent(category, message, details or None)
-        self._executor._log(event.format(self._prefix), self._log_callback)
+        self._executor.log(event.format(self._prefix), self._log_callback)
 
     def child(self, prefix: str) -> "StructuredLogger":
         next_prefix = f"{self._prefix}{prefix}"

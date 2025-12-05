@@ -168,9 +168,21 @@ def _emit_visual_if_supported(
     overlay_circles: list[dict],
     visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]],
 ) -> None:
-    """统一封装 _emit_visual 调用，避免多处重复 hasattr/callable 判断。"""
-    if hasattr(executor, "_emit_visual") and callable(getattr(executor, "_emit_visual")):
-        executor._emit_visual(
+    """统一封装可视化输出调用，避免多处重复 hasattr/callable 判断。"""
+    emit_method = getattr(executor, "emit_visual", None)
+    if callable(emit_method):
+        emit_method(
+            screenshot,
+            {
+                "rects": list(overlay_rects),
+                "circles": list(overlay_circles),
+            },
+            visual_callback,
+        )
+        return
+    private_emit = getattr(executor, "_emit_visual", None)
+    if callable(private_emit):
+        private_emit(
             screenshot,
             {
                 "rects": list(overlay_rects),
@@ -233,7 +245,7 @@ def snap_screen_point_to_canvas_background(
     if region_area <= 0 and int(img_w) > 0 and int(img_h) > 0:
         region_area = int(img_w) * int(img_h)
     super_large_threshold = int(region_area * 0.7) if region_area > 0 else 0
-    executor._log(
+    executor.log(
         f"[颜色约束] 画布区域=({int(rx)},{int(ry)},{int(rw)},{int(rh)}) 区域面积={int(region_area)} 超大节点面积阈值={int(super_large_threshold)}",
         log_callback,
     )
@@ -261,19 +273,19 @@ def snap_screen_point_to_canvas_background(
         node_bboxes_for_avoidance.append((bbox_x_i, bbox_y_i, bbox_w_i, bbox_h_i))
     node_bboxes = node_bboxes_for_avoidance
     if node_bboxes:
-        executor._log(
+        executor.log(
             f"[颜色约束] 节点识别：当前画布内检测到 {int(len(node_bboxes))} 个节点框(参与避让)，将尽量避开这些区域",
             log_callback,
         )
         max_preview = min(5, len(node_bboxes))
         for index in range(int(max_preview)):
             bbox_x_i, bbox_y_i, bbox_w_i, bbox_h_i = node_bboxes[index]
-            executor._log(
+            executor.log(
                 f"[颜色约束] 避让节点[{int(index)}] bbox=({int(bbox_x_i)},{int(bbox_y_i)},{int(bbox_w_i)},{int(bbox_h_i)})",
                 log_callback,
             )
     if skipped_super_large_count > 0:
-        executor._log(
+        executor.log(
             f"[颜色约束] 节点识别：额外忽略 {int(skipped_super_large_count)} 个面积近似整张画布的超大矩形，仅用于可视化，不参与避让",
             log_callback,
         )
@@ -282,7 +294,7 @@ def snap_screen_point_to_canvas_background(
     if int(editor_x) >= 0 and int(editor_x) < int(img_w) and int(editor_y) >= 0 and int(editor_y) < int(img_h):
         r, g, b = screenshot.getpixel((int(editor_x), int(editor_y)))
         sample_color_hex = f"{int(r):02X}{int(g):02X}{int(b):02X}"
-        executor._log(
+        executor.log(
             f"[颜色约束] 取样: editor=({int(editor_x)},{int(editor_y)}) color=#{sample_color_hex} 画布区域=({int(rx)},{int(ry)},{int(rw)},{int(rh)})",
             log_callback,
         )
@@ -314,18 +326,18 @@ def snap_screen_point_to_canvas_background(
         if node_bboxes:
             for bbox_x, bbox_y, bbox_w, bbox_h in node_bboxes:
                 if _is_point_inside_bbox(int(editor_x), int(editor_y), int(bbox_x), int(bbox_y), int(bbox_w), int(bbox_h)):
-                    executor._log(
+                    executor.log(
                         "[颜色约束] 点击点虽为允许底色，但位于已有节点内部，强制进入吸附扫描以寻找空白区域",
                         log_callback,
                     )
                     break
             else:
-                executor._log(f"[颜色约束] 点击点已为允许底色 #{sample_color_hex}，且未落在节点框内，跳过吸附", log_callback)
-                executor._last_context_click_editor_pos = (int(editor_x), int(editor_y))
+                executor.log(f"[颜色约束] 点击点已为允许底色 #{sample_color_hex}，且未落在节点框内，跳过吸附", log_callback)
+                executor.set_last_context_click_editor_pos(int(editor_x), int(editor_y))
                 return (int(screen_x), int(screen_y))
         else:
-            executor._log(f"[颜色约束] 点击点已为允许底色 #{sample_color_hex}，跳过吸附", log_callback)
-            executor._last_context_click_editor_pos = (int(editor_x), int(editor_y))
+            executor.log(f"[颜色约束] 点击点已为允许底色 #{sample_color_hex}，跳过吸附", log_callback)
+            executor.set_last_context_click_editor_pos(int(editor_x), int(editor_y))
             return (int(screen_x), int(screen_y))
 
     overlay_rects: list[dict] = []
@@ -361,7 +373,7 @@ def snap_screen_point_to_canvas_background(
 
     for tolerance in CANVAS_COLOR_TOLERANCES:
         for max_distance in CANVAS_COLOR_MAX_DISTANCES:
-            executor._log(
+            executor.log(
                 f"[颜色约束] 搜索允许背景色: tol={int(tolerance)} max_d={int(max_distance)} near=({int(editor_x)},{int(editor_y)})",
                 log_callback,
             )
@@ -377,7 +389,7 @@ def snap_screen_point_to_canvas_background(
                     max_distance=int(max_distance),
                     prepared_bgr=color_scan_image,
                 )
-                executor._log(f"  · 颜色#{str(color_hex)} 命中矩形数={int(len(rects))}", log_callback)
+                executor.log(f"  · 颜色#{str(color_hex)} 命中矩形数={int(len(rects))}", log_callback)
                 for rect_x, rect_y, rect_w, rect_h, rect_distance in rects:
                     rect_center_x = int(rect_x + rect_w / 2)
                     rect_center_y = int(rect_y + rect_h / 2)
@@ -397,7 +409,7 @@ def snap_screen_point_to_canvas_background(
             break
 
     if len(candidates) == 0:
-        executor._log("✗ 未在画布内找到允许背景色(#323237/#35353B)，尝试按几何空隙兜底", log_callback)
+        executor.log("✗ 未在画布内找到允许背景色(#323237/#35353B)，尝试按几何空隙兜底", log_callback)
         if sample_color_hex:
             sample_red = int(sample_color_hex[0:2], 16)
             sample_green = int(sample_color_hex[2:4], 16)
@@ -410,7 +422,7 @@ def snap_screen_point_to_canvas_background(
                 diff_green = sample_green - allow_green
                 diff_blue = sample_blue - allow_blue
                 distance_value = (diff_red * diff_red + diff_green * diff_green + diff_blue * diff_blue) ** 0.5
-                executor._log(
+                executor.log(
                     f"  · 样本色#{sample_color_hex} 相对允许#{allow}: Δ=({int(diff_red)},{int(diff_green)},{int(diff_blue)}) |dist|≈{float(distance_value):.1f}",
                     log_callback,
                 )
@@ -436,8 +448,8 @@ def snap_screen_point_to_canvas_background(
         safe_editor_x, safe_editor_y = fallback_point
         snapped_screen_x = int(win_left) + int(safe_editor_x)
         snapped_screen_y = int(win_top) + int(safe_editor_y)
-        executor._last_context_click_editor_pos = (int(safe_editor_x), int(safe_editor_y))
-        executor._log(
+        executor.set_last_context_click_editor_pos(int(safe_editor_x), int(safe_editor_y))
+        executor.log(
             f"[颜色约束] 未命中允许背景色，按几何兜底选择空白点 editor=({int(safe_editor_x)},{int(safe_editor_y)})",
             log_callback,
         )
@@ -473,7 +485,7 @@ def snap_screen_point_to_canvas_background(
         for bbox_x, bbox_y, bbox_w, bbox_h in node_bboxes:
             if _is_point_inside_bbox(candidate_editor_x, candidate_editor_y, int(bbox_x), int(bbox_y), int(bbox_w), int(bbox_h)):
                 inside_existing_node = True
-                executor._log(
+                executor.log(
                     f"[颜色约束] 候选吸附点 editor=({candidate_editor_x},{candidate_editor_y}) 落在节点矩形 ({int(bbox_x)},{int(bbox_y)},{int(bbox_w)},{int(bbox_h)}) 内，尝试在该矩形内寻找空白位置",
                     log_callback,
                 )
@@ -495,7 +507,7 @@ def snap_screen_point_to_canvas_background(
         chosen_rect = (int(rect_x), int(rect_y), int(rect_w), int(rect_h), float(rect_distance), str(color_hex))
         chosen_editor_x = int(candidate_editor_x)
         chosen_editor_y = int(candidate_editor_y)
-        executor._log(
+        executor.log(
             f"[颜色约束] 预选吸附点: rect=({int(rect_x)},{int(rect_y)},{int(rect_w)},{int(rect_h)}) "
             f"candidate_editor=({int(chosen_editor_x)},{int(chosen_editor_y)})",
             log_callback,
@@ -503,7 +515,7 @@ def snap_screen_point_to_canvas_background(
         break
 
     if chosen_rect is None or chosen_editor_x is None or chosen_editor_y is None:
-        executor._log("✗ 找到允许背景色候选，但全部落在已有节点内部，尝试按几何空隙兜底", log_callback)
+        executor.log("✗ 找到允许背景色候选，但全部落在已有节点内部，尝试按几何空隙兜底", log_callback)
         fallback_point = _find_safe_point_in_region_by_grid(
             (int(rx), int(ry), int(rw), int(rh)),
             node_bboxes,
@@ -525,8 +537,8 @@ def snap_screen_point_to_canvas_background(
         safe_editor_x, safe_editor_y = fallback_point
         snapped_screen_x = int(win_left) + int(safe_editor_x)
         snapped_screen_y = int(win_top) + int(safe_editor_y)
-        executor._last_context_click_editor_pos = (int(safe_editor_x), int(safe_editor_y))
-        executor._log(
+        executor.set_last_context_click_editor_pos(int(safe_editor_x), int(safe_editor_y))
+        executor.log(
             f"[颜色约束] 候选均在节点内，按几何兜底选择空白点 editor=({int(safe_editor_x)},{int(safe_editor_y)})",
             log_callback,
         )
@@ -550,9 +562,16 @@ def snap_screen_point_to_canvas_background(
     if node_bboxes:
         still_inside = False
         for bbox_x, bbox_y, bbox_w, bbox_h in node_bboxes:
-            if _is_point_inside_bbox(int(chosen_editor_x), int(chosen_editor_y), int(bbox_x), int(bbox_y), int(bbox_w), int(bbox_h)):
+            if _is_point_inside_bbox(
+                int(chosen_editor_x),
+                int(chosen_editor_y),
+                int(bbox_x),
+                int(bbox_y),
+                int(bbox_w),
+                int(bbox_h),
+            ):
                 still_inside = True
-                executor._log(
+                executor.log(
                     f"[颜色约束] 警告: 预选吸附结果 editor=({int(chosen_editor_x)},{int(chosen_editor_y)}) 仍位于节点矩形 ({int(bbox_x)},{int(bbox_y)},{int(bbox_w)},{int(bbox_h)}) 内，改用几何兜底点",
                     log_callback,
                 )
@@ -565,7 +584,7 @@ def snap_screen_point_to_canvas_background(
                 CANVAS_FALLBACK_GRID_STEPS_Y,
             )
             if fallback_point is None:
-                executor._log(
+                executor.log(
                     "[颜色约束] 几何兜底失败：在画布区域内未能找到任何不落在节点矩形内的安全点，本次吸附放弃",
                     log_callback,
                 )
@@ -582,8 +601,8 @@ def snap_screen_point_to_canvas_background(
             safe_editor_x, safe_editor_y = fallback_point
             snapped_screen_x = int(win_left) + int(safe_editor_x)
             snapped_screen_y = int(win_top) + int(safe_editor_y)
-            executor._last_context_click_editor_pos = (int(safe_editor_x), int(safe_editor_y))
-            executor._log(
+            executor.set_last_context_click_editor_pos(int(safe_editor_x), int(safe_editor_y))
+            executor.log(
                 f"[颜色约束] 预选吸附点在节点内，按几何兜底选择最终空白点 editor=({int(safe_editor_x)},{int(safe_editor_y)})",
                 log_callback,
             )
@@ -600,9 +619,9 @@ def snap_screen_point_to_canvas_background(
 
     snapped_screen_x = int(win_left) + int(chosen_editor_x)
     snapped_screen_y = int(win_top) + int(chosen_editor_y)
-    executor._last_context_click_editor_pos = (int(chosen_editor_x), int(chosen_editor_y))
+    executor.set_last_context_click_editor_pos(int(chosen_editor_x), int(chosen_editor_y))
 
-    executor._log(
+    executor.log(
         f"[颜色约束] 吸附结果: 目标(editor)=({int(editor_x)},{int(editor_y)}) → 吸附(editor)=({int(chosen_editor_x)},{int(chosen_editor_y)}) 颜色=#{color_hex} 候选数={int(len(candidates))}",
         log_callback,
     )

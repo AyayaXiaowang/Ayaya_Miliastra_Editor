@@ -77,7 +77,7 @@ class UIPreviewCanvas(QtWidgets.QGraphicsView):
         device_rect = QtCore.QRectF(0, 0, self.device_width, self.device_height)
         device_item = self.scene.addRect(
             device_rect,
-            QtGui.QPen(QtGui.QColor("#666666"), 2),
+            QtGui.QPen(QtGui.QColor(Colors.BORDER_DARK), 2),
             QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush),
         )
         device_item.setZValue(-100)

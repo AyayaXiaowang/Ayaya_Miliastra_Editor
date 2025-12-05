@@ -36,6 +36,7 @@ Thumbs.db
 # Project caches and local state
 runtime/cache/
 app/runtime/cache/
+app/runtime/todo_states/
 user_settings.json
 
 # Local per-directory docs (do not version)

@@ -52,7 +52,7 @@ class TodoPreviewPanel(QtWidgets.QWidget):
         toolbar_layout.setSpacing(10)
 
         self.back_button = QtWidgets.QPushButton("← 返回详情")
-        self.back_button.setStyleSheet(TodoStyles.BACK_BUTTON_QSS)
+        self.back_button.setStyleSheet(TodoStyles.back_button_qss())
         self.back_button.clicked.connect(self.back_to_detail_requested.emit)
         toolbar_layout.addWidget(self.back_button)
 
@@ -64,7 +64,7 @@ class TodoPreviewPanel(QtWidgets.QWidget):
 
         # 执行剩余步骤（预览工具条版本）
         self.execute_remaining_button = QtWidgets.QPushButton("执行剩余步骤")
-        self.execute_remaining_button.setStyleSheet(TodoStyles.EXECUTE_BUTTON_QSS)
+        self.execute_remaining_button.setStyleSheet(TodoStyles.execute_button_qss())
         self.execute_remaining_button.setVisible(False)
         # 将按钮点击转发为自身信号（供宿主连接）
         self.execute_remaining_button.clicked.connect(self.execute_remaining_clicked.emit)
@@ -91,14 +91,7 @@ class TodoPreviewPanel(QtWidgets.QWidget):
         self.preview_edit_button = QtWidgets.QPushButton("编辑", self.preview_view)
         self.preview_edit_button.setObjectName("previewEditButton")
         self.preview_edit_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.preview_edit_button.setStyleSheet(
-            """
-            QPushButton { background-color: #4A9EFF; color: white; border: none; border-radius: 4px; padding: 8px 16px; font-size: 13px; font-weight: bold; }
-            QPushButton:hover { background-color: #5AAFFF; }
-            QPushButton:pressed { background-color: #3A8EEF; }
-            QPushButton:disabled { background-color: #666666; color: #999999; }
-            """
-        )
+        self.preview_edit_button.setStyleSheet(TodoStyles.execute_button_qss())
         self.preview_edit_button.clicked.connect(self._emit_edit_requested)
         if hasattr(self.preview_view, 'set_extra_top_right_button'):
             self.preview_view.set_extra_top_right_button(self.preview_edit_button)
@@ -146,6 +139,9 @@ class TodoPreviewPanel(QtWidgets.QWidget):
     def set_execute_text(self, text: str) -> None:
         self.execute_button.setText(text)
 
+    def set_execute_remaining_text(self, text: str) -> None:
+        self.execute_remaining_button.setText(text)
+
     def get_current_graph_info(self) -> Tuple[Optional[str], Optional[dict], object]:
         return (self.current_graph_id, self.current_graph_data, self.current_template_or_instance)
 
@@ -191,8 +187,18 @@ class TodoPreviewPanel(QtWidgets.QWidget):
                 getattr(main_window, "todo_tree_manager", None) if main_window is not None else None,
             )
             if graph_data:
-                prev_graph_id = self.current_graph_id
-                is_same_graph = (prev_graph_id == graph_id) and bool(getattr(self, "preview_scene", None))
+                previous_graph_id = self.current_graph_id
+                previous_graph_data = self.current_graph_data
+
+                is_same_graph_id = (
+                    (previous_graph_id == graph_id)
+                    or (previous_graph_id is None and (graph_id is None or graph_id == ""))
+                )
+                is_same_graph = (
+                    bool(getattr(self, "preview_scene", None))
+                    and is_same_graph_id
+                    and (previous_graph_data is graph_data)
+                )
 
                 self.current_graph_id = graph_id
                 self.current_template_or_instance = template_or_instance
@@ -200,7 +206,10 @@ class TodoPreviewPanel(QtWidgets.QWidget):
 
                 if not is_same_graph:
                     if settings.PREVIEW_VERBOSE:
-                        print(f"[PREVIEW] (root) 预览切换 → 重建场景: prev={prev_graph_id}, curr={graph_id}")
+                        print(
+                            "[PREVIEW] (root) 预览切换 → 重建场景: "
+                            f"prev_id={previous_graph_id}, curr_id={graph_id}"
+                        )
                     self._load_graph_preview(graph_data)
                     # 重建场景后同步节点库
                     if main_window and hasattr(main_window, 'library') and getattr(main_window, 'library'):
@@ -225,8 +234,18 @@ class TodoPreviewPanel(QtWidgets.QWidget):
             )
             # 放宽条件：只要有 graph_data 即可展示预览；graph_id 可为空
             if graph_data:
-                prev_graph_id = self.current_graph_id
-                is_same_graph = (prev_graph_id == graph_id) and bool(getattr(self, "preview_scene", None))
+                previous_graph_id = self.current_graph_id
+                previous_graph_data = self.current_graph_data
+
+                is_same_graph_id = (
+                    (previous_graph_id == graph_id)
+                    or (previous_graph_id is None and (graph_id is None or graph_id == ""))
+                )
+                is_same_graph = (
+                    bool(getattr(self, "preview_scene", None))
+                    and is_same_graph_id
+                    and (previous_graph_data is graph_data)
+                )
 
                 self.current_graph_id = graph_id
                 self.current_template_or_instance = template_or_instance
@@ -234,7 +253,10 @@ class TodoPreviewPanel(QtWidgets.QWidget):
 
                 if not is_same_graph:
                     if settings.PREVIEW_VERBOSE:
-                        print(f"[PREVIEW] 预览切换 → 重建场景: prev={prev_graph_id}, curr={graph_id}")
+                        print(
+                            "[PREVIEW] 预览切换 → 重建场景: "
+                            f"prev_id={previous_graph_id}, curr_id={graph_id}"
+                        )
                     self._load_graph_preview(graph_data)
                     # 重建场景后同步节点库
                     if main_window and hasattr(main_window, 'library') and getattr(main_window, 'library'):

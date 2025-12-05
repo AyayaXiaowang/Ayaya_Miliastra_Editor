@@ -1,8 +1,11 @@
-"""Color tokens for the global UI theme."""
+"""Color tokens for the global UI theme.
+
+默认提供浅色主题配色，并支持在应用启动时切换到深色主题。
+"""
 
 
 class Colors:
-    """浅色主题配色（偏现代、低饱和，兼顾深色画布对比度）。"""
+    """主题配色（支持浅色/深色，通过 `apply_theme_palette` 选择当前调色板）。"""
 
     # 主题色（冷静的蓝色系）
     PRIMARY = "#3B82F6"         # 主色：蓝 500
@@ -76,13 +79,131 @@ class Colors:
     MANAGEMENT_LIGHT = "#CCFBF1"
     COMPLETED = "#9CA3AF"
 
+    # 节点类别颜色（用于节点标题栏渐变、添加节点弹窗等）
+    NODE_CATEGORY_QUERY = "#2D5FE3"
+    NODE_CATEGORY_QUERY_DARK = "#1B3FA8"
+    NODE_CATEGORY_EVENT = "#FF5E9C"
+    NODE_CATEGORY_EVENT_DARK = "#C23A74"
+    NODE_CATEGORY_COMPUTE = "#2FAACB"
+    NODE_CATEGORY_COMPUTE_DARK = "#1D6F8A"
+    NODE_CATEGORY_EXECUTION = "#9CD64B"
+    NODE_CATEGORY_EXECUTION_DARK = "#6BA633"
+    NODE_CATEGORY_FLOW = "#FF9955"
+    NODE_CATEGORY_FLOW_DARK = "#E87722"
+    # 虚拟引脚节点（输入/输出）标题栏渐变
+    NODE_CATEGORY_VIRTUAL_INPUT = "#AA55FF"
+    NODE_CATEGORY_VIRTUAL_INPUT_DARK = "#8833DD"
+    NODE_CATEGORY_VIRTUAL_OUTPUT = "#55AAFF"
+    NODE_CATEGORY_VIRTUAL_OUTPUT_DARK = "#3388DD"
+
+    # Todo 步骤类型颜色（任务清单）
+    TODO_STEP_TEMPLATE_GRAPH_ROOT = "#0D47A1"
+    TODO_STEP_EVENT_FLOW_ROOT = "#006064"
+    TODO_STEP_GRAPH_CREATE_NODE = "#1B5E20"
+    TODO_STEP_GRAPH_CREATE_AND_CONNECT = "#2E7D32"
+    TODO_STEP_GRAPH_CREATE_AND_CONNECT_REVERSE = "#43A047"
+    TODO_STEP_GRAPH_CREATE_AND_CONNECT_DATA = "#00796B"
+    TODO_STEP_GRAPH_CONNECT = "#BF360C"
+    TODO_STEP_GRAPH_CONNECT_MERGED = "#D84315"
+    TODO_STEP_GRAPH_CONFIG_NODE = "#512DA8"
+    TODO_STEP_GRAPH_CONFIG_NODE_MERGED = "#673AB7"
+    TODO_STEP_GRAPH_SET_PORT_TYPES_MERGED = "#0097A7"
+    TODO_STEP_GRAPH_ADD_VARIADIC_INPUTS = "#0277BD"
+    TODO_STEP_GRAPH_ADD_DICT_PAIRS = "#01579B"
+    TODO_STEP_GRAPH_ADD_BRANCH_OUTPUTS = "#FF6F00"
+    TODO_STEP_GRAPH_CONFIG_BRANCH_OUTPUTS = "#E65100"
+    TODO_STEP_GRAPH_SIGNALS_OVERVIEW = "#006064"
+    TODO_STEP_GRAPH_BIND_SIGNAL = "#6A1B9A"
+
     # 特殊用途
     OVERLAY = "rgba(0, 0, 0, 0.5)"
     SHADOW = "rgba(0, 0, 0, 0.1)"
     SHADOW_DARK = "rgba(0, 0, 0, 0.2)"
 
+    # Y 调试链路高亮调色板
+    YDEBUG_CHAIN_1 = "#B388FF"
+    YDEBUG_CHAIN_2 = "#00E5FF"
+    YDEBUG_CHAIN_3 = "#FF9100"
+    YDEBUG_CHAIN_4 = "#FF4081"
+
     # 节点图标题栏（复合节点银白渐变，适配深色画布）
     NODE_HEADER_COMPOSITE_START = "#F9FAFB"
     NODE_HEADER_COMPOSITE_END = "#E5E7EB"
 
+    # 记录当前是否为深色主题，仅供调试/样式层按需分支使用
+    IS_DARK: bool = False
+
+    @classmethod
+    def apply_theme_palette(cls, theme_mode: str) -> None:
+        """根据主题模式切换当前调色板。
+
+        参数:
+            theme_mode: "light" / "dark" / 其他值（默认按浅色处理）
+        """
+        normalized_mode = theme_mode.lower()
+        if normalized_mode == "dark":
+            cls._apply_dark_overrides()
+            cls.IS_DARK = True
+        else:
+            cls._reset_to_light()
+            cls.IS_DARK = False
+
+    @classmethod
+    def _reset_to_light(cls) -> None:
+        """恢复到浅色主题的默认配色。"""
+        for name, value in _LIGHT_PALETTE.items():
+            setattr(cls, name, value)
+
+    @classmethod
+    def _apply_dark_overrides(cls) -> None:
+        """在浅色基础上叠加深色主题差异值。"""
+        cls._reset_to_light()
+        for name, value in _DARK_OVERRIDES.items():
+            setattr(cls, name, value)
+
+
+# 浅色主题默认调色板快照（用于在浅色/深色之间切换时恢复）
+_LIGHT_PALETTE = {
+    name: getattr(Colors, name)
+    for name in dir(Colors)
+    if name.isupper()
+}
+
+# 深色主题相对于浅色主题的差异表：未在此处列出的 token 复用浅色值
+_DARK_OVERRIDES = {
+    # 背景：采用接近 VSCode Dark 的深灰分层，而非纯黑
+    "BG_MAIN": "#181818",           # 应用主背景
+    "BG_CARD": "#1F1F1F",           # 卡片/对话框背景
+    "BG_CARD_HOVER": "#262626",     # 悬停：略亮一档
+    "BG_SELECTED": "#264F78",       # 选中背景：偏柔和的蓝灰
+    "BG_SELECTED_HOVER": "#31679C", # 选中悬停：稍亮一档
+    "BG_INPUT": "#1F1F1F",          # 输入框背景，与卡片一致
+    "BG_DISABLED": "#262626",       # 禁用背景：略偏灰的深色
+    "BG_HEADER": "#262626",         # 页头/表头背景
+    "BG_DARK": "#141414",           # 更深一档，用于画布/强调区域
+
+    # 文字：在深灰背景上使用略压暗的浅灰，避免纯黑↔纯白极端对比
+    "TEXT_PRIMARY": "#D4D4D4",      # 主文本：接近 VSCode 的默认前景
+    "TEXT_SECONDARY": "#9CA3AF",    # 次文本：中灰
+    "TEXT_DISABLED": "#6B7280",     # 禁用文本：更深一档
+    "TEXT_HINT": "#9CA3AF",
+    "TEXT_PLACEHOLDER": "#6B7280",  # 占位略深，避免过亮
+
+    # 边框与分隔线：中灰层次，拉开层级但不过亮
+    "BORDER_LIGHT": "#333333",
+    "BORDER_NORMAL": "#3F3F46",
+    "BORDER_DARK": "#52525B",
+    "DIVIDER": "#2A2A2A",
+    "DIVIDER_DARK": "#3F3F46",
+
+    # 状态背景：在深灰上使用更深的色块以保持对比
+    "SUCCESS_BG": "#14532D",        # 深绿背景
+    "WARNING_BG": "#7C2D12",        # 深橙背景
+    "ERROR_BG": "#7F1D1D",          # 深红背景
+    "INFO_BG": "#0B1120",           # 深青背景
+
+    # Toast 卡片等阴影在深色背景下略微增强
+    "SHADOW": "rgba(0, 0, 0, 0.4)",
+    "SHADOW_DARK": "rgba(0, 0, 0, 0.6)",
+}
 

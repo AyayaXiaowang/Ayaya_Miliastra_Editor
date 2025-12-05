@@ -94,6 +94,12 @@ class Settings:
     # 默认 False（关闭），减少控制台输出
     GRAPH_GENERATOR_VERBOSE: bool = False
     
+    # 界面主题模式：
+    # - "auto"：跟随系统浅色/深色（默认）
+    # - "light"：始终使用浅色主题
+    # - "dark"：始终使用深色主题
+    UI_THEME_MODE: str = "auto"
+    
     # ========== 布局增强（默认关闭/中性） ==========
     # 纯数据图：层内排序策略
     # 可选： "none"（不排序，保持旧行为）、"out_degree"（出度降序）、"in_degree"（入度升序）、"hybrid"（出度降序+入度升序）
@@ -231,7 +237,9 @@ class Settings:
         Args:
             workspace_path: 工作空间根目录
         """
-        cls._config_file = workspace_path / "user_settings.json"
+        config_file = workspace_path / "user_settings.json"
+        log_info("[BOOT][Settings] set_config_path: workspace_path={} -> {}", workspace_path, config_file)
+        cls._config_file = config_file
     
     def _get_all_settings(self) -> Dict[str, Any]:
         """获取所有设置项的字典
@@ -271,22 +279,29 @@ class Settings:
         Returns:
             是否加载成功
         """
-        if self.__class__._config_file is None:
+        config_file = self.__class__._config_file
+        if config_file is None:
             # 配置文件路径未设置，使用默认值
+            log_info("[BOOT][Settings] load: _config_file 未设置，跳过加载，使用类默认值")
             return False
         
-        if not self.__class__._config_file.exists():
+        if not config_file.exists():
             # 配置文件不存在，使用默认值
+            log_info("[BOOT][Settings] load: 配置文件不存在（{}），跳过加载，使用类默认值", config_file)
             return False
         
-        with open(self.__class__._config_file, 'r', encoding='utf-8') as file:
+        log_info("[BOOT][Settings] load: 准备从 {} 加载配置", config_file)
+        with open(config_file, 'r', encoding='utf-8') as file:
             settings_dict = json.load(file)
         
         # 应用加载的设置到实例
+        applied_count = 0
         for key, value in settings_dict.items():
             if hasattr(self.__class__, key) and key.isupper():
                 setattr(self, key, value)
+                applied_count += 1
         
+        log_info("[BOOT][Settings] load: 配置加载完成，共应用 {} 个键", applied_count)
         return True
     
     @classmethod
@@ -347,6 +362,7 @@ class Settings:
         cls.VALIDATOR_VERBOSE = False
         cls.GRAPH_PARSER_VERBOSE = False
         cls.GRAPH_GENERATOR_VERBOSE = False
+        cls.UI_THEME_MODE = "auto"
         log_info("✅ 已禁用调试模式：恢复默认设置")
 
 

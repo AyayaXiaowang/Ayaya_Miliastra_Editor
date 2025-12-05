@@ -293,7 +293,7 @@ def _ensure_cache(window_image: Image.Image) -> None:
         canvas_image,
         template_dir,
         header_height=28,
-        threshold=0.75,
+        threshold=0.80,
     )
 
     # 将坐标转回窗口相对坐标（加上画布偏移）

@@ -52,6 +52,10 @@ class ParamUsageTracker:
         self.state_pin_usage: Dict[str, List[Tuple[str, str]]] = {
             pin_name: [] for pin_name in self.state_attr_to_param.values()
         }
+
+        # 形参是否在控制流条件中被使用（例如 if 条件: / while 条件:）
+        # 键为入口形参名，值为布尔标记；用于支持“仅通过控制流使用”的虚拟引脚判定。
+        self.control_flow_usage: Dict[str, bool] = {param_name: False for param_name in param_names}
         
         # 别名映射：别名 -> 原始形参名
         self.alias_of_param: Dict[str, str] = {}
@@ -83,6 +87,19 @@ class ParamUsageTracker:
             title_to_queue: 节点标题到节点队列的映射（按创建顺序）
         """
         self._traverse_and_record_usage(stmts, title_to_queue)
+
+    def collect_control_flow_usage(self, stmts: List[ast.stmt]) -> None:
+        """采集形参在控制流条件中的使用情况。
+
+        目前关注典型结构：
+        - if 条件:
+        - while 条件:
+        其中 条件 可以是：
+        - 直接引用入口形参；
+        - 入口形参的简单别名；
+        - self.xxx 形式且 xxx 与入口形参存在别名关系。
+        """
+        self._collect_control_flow_usage_recursive(stmts)
     
     def backfill_constants_to_nodes(self, stmts: List[ast.stmt], nodes: List[NodeModel]) -> None:
         """将常量值回填到节点的 input_constants
@@ -185,9 +202,101 @@ class ParamUsageTracker:
             elif isinstance(stmt, ast.For):
                 self._collect_constant_vars_recursive(stmt.body or [])
                 self._collect_constant_vars_recursive(getattr(stmt, "orelse", []) or [])
+
+    def _collect_control_flow_usage_recursive(self, stmts: List[ast.stmt]) -> None:
+        """递归采集控制流条件中对入口形参的使用。"""
+        for stmt in stmts:
+            if isinstance(stmt, ast.If):
+                self._record_control_flow_from_expr(stmt.test)
+                self._collect_control_flow_usage_recursive(stmt.body or [])
+                self._collect_control_flow_usage_recursive(stmt.orelse or [])
             elif isinstance(stmt, ast.While):
-                self._collect_constant_vars_recursive(stmt.body or [])
-                self._collect_constant_vars_recursive(getattr(stmt, "orelse", []) or [])
+                self._record_control_flow_from_expr(stmt.test)
+                self._collect_control_flow_usage_recursive(stmt.body or [])
+                self._collect_control_flow_usage_recursive(getattr(stmt, "orelse", []) or [])
+            elif hasattr(ast, "Match") and isinstance(stmt, getattr(ast, "Match")):
+                # match 语句的 subject 也视为控制流条件来源：
+                #   match 控制表达式:
+                #       case ...:
+                #           ...
+                # 若 subject 为入口形参或者其别名/实例字段别名，需要将其标记为控制流使用，
+                # 以便后续将对应的数据输入虚拟引脚映射到“多分支”节点的控制表达式输入端口。
+                subject = getattr(stmt, "subject", None)
+                if isinstance(subject, ast.expr):
+                    self._record_control_flow_from_expr(subject)
+                for case in getattr(stmt, "cases", []):
+                    self._collect_control_flow_usage_recursive(getattr(case, "body", []) or [])
+            elif isinstance(stmt, ast.For):
+                self._collect_control_flow_usage_recursive(stmt.body or [])
+                self._collect_control_flow_usage_recursive(getattr(stmt, "orelse", []) or [])
+            elif isinstance(stmt, ast.Try):
+                # 按当前项目约定不会使用 try/except 包裹复合节点逻辑，但为了稳健仍递归子块
+                self._collect_control_flow_usage_recursive(stmt.body or [])
+                self._collect_control_flow_usage_recursive(stmt.finalbody or [])
+                self._collect_control_flow_usage_recursive(stmt.orelse or [])
+                for handler in getattr(stmt, "handlers", []):
+                    self._collect_control_flow_usage_recursive(getattr(handler, "body", []) or [])
+
+    def _record_control_flow_from_expr(self, expr: ast.expr) -> None:
+        """在单个条件表达式中标记入口形参的控制流使用。"""
+        if isinstance(expr, ast.Name):
+            self._mark_param_control_flow_usage(expr.id)
+        elif isinstance(expr, ast.Attribute):
+            # 例如：if self.xxx:
+            self._record_state_alias_usage_in_control_flow(expr)
+        elif isinstance(expr, ast.UnaryOp):
+            # 例如：if not 条件:
+            operand = getattr(expr, "operand", None)
+            if isinstance(operand, ast.expr):
+                self._record_control_flow_from_expr(operand)
+        elif isinstance(expr, ast.BoolOp):
+            # 例如：if 条件 and 其他:
+            for value in getattr(expr, "values", []):
+                if isinstance(value, ast.expr):
+                    self._record_control_flow_from_expr(value)
+        elif isinstance(expr, ast.Compare):
+            # 例如：if 条件 == 1:
+            left = getattr(expr, "left", None)
+            if isinstance(left, ast.expr):
+                self._record_control_flow_from_expr(left)
+            for comparator in getattr(expr, "comparators", []):
+                if isinstance(comparator, ast.expr):
+                    self._record_control_flow_from_expr(comparator)
+        elif isinstance(expr, ast.Call):
+            # 例如：if IsTrue(条件):
+            for arg_expr in getattr(expr, "args", []):
+                if isinstance(arg_expr, ast.expr):
+                    self._record_control_flow_from_expr(arg_expr)
+            for keyword in getattr(expr, "keywords", []):
+                value_expr = getattr(keyword, "value", None)
+                if isinstance(value_expr, ast.expr):
+                    self._record_control_flow_from_expr(value_expr)
+        elif isinstance(expr, ast.IfExp):
+            # 三元表达式内部的条件
+            test_expr = getattr(expr, "test", None)
+            if isinstance(test_expr, ast.expr):
+                self._record_control_flow_from_expr(test_expr)
+
+    def _mark_param_control_flow_usage(self, name: str) -> None:
+        """根据变量名标记其来源入口形参的控制流使用。"""
+        if name in self.control_flow_usage:
+            self.control_flow_usage[name] = True
+        elif name in self.alias_of_param:
+            original_param_name = self.alias_of_param[name]
+            if original_param_name in self.control_flow_usage:
+                self.control_flow_usage[original_param_name] = True
+
+    def _record_state_alias_usage_in_control_flow(self, expr: ast.Attribute) -> None:
+        """当条件表达式中出现 self.xxx 且 xxx 对应入口形参别名时，标记该入口形参。"""
+        owner = expr.value
+        if not isinstance(owner, ast.Name) or owner.id != "self":
+            return
+        attribute_name = expr.attr
+        param_name = self.state_attr_to_param.get(attribute_name)
+        if not param_name:
+            return
+        if param_name in self.control_flow_usage:
+            self.control_flow_usage[param_name] = True
     
     def _traverse_and_record_usage(self, stmts: List[ast.stmt], title_to_queue: Dict[str, List[NodeModel]]) -> None:
         """递归遍历并记录参数使用"""

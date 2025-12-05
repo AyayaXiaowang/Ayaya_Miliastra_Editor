@@ -30,6 +30,9 @@ class NodeDef:
     # 泛型约束：限定声明为泛型的端口实际允许的具体类型集合
     input_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
     output_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
+    # 输入/输出端口的枚举候选项配置：{端口名: [选项1, 选项2, ...]}
+    input_enum_options: Dict[str, List[str]] = field(default_factory=dict)
+    output_enum_options: Dict[str, List[str]] = field(default_factory=dict)
     
     # 动态端口类型（用于支持运行时添加的端口）
     dynamic_port_type: str = ""  # 动态端口的默认类型，如"流程"、"泛型"等

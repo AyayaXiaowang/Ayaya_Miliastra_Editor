@@ -38,12 +38,25 @@ SAFETY_NOTICE = (
 
 
 def main() -> None:
+    workspace = WORKSPACE_ROOT
+    # 在应用创建前尽早加载用户设置，确保主题模式等开关在启动阶段生效
+    settings.set_config_path(workspace)
+    settings.load()
+    # GUI/CLI 入口统一在启动阶段打开信息级日志，确保控制台可见关键进度
+    settings.NODE_IMPL_LOG_VERBOSE = True
+
     # 显示 OCR 引擎预加载结果（已在文件顶部完成）
     log_info("[OK] OCR 引擎预加载完成")
     log_info(SAFETY_NOTICE)
 
+    # 启动阶段关键步骤打点，便于排查 UI 未弹出的问题
+    log_info("[BOOT] 准备创建 QApplication 实例")
     app = QtWidgets.QApplication(sys.argv)
+    log_info("[BOOT] QApplication 创建成功")
+
+    log_info("[BOOT] 应用全局主题样式...")
     ThemeManager.apply_app_style(app)
+    log_info("[BOOT] 主题样式应用完成")
 
     def exception_hook(exctype, value, traceback_obj):
         # 使用原始 stdout；若不可用则回退到当前 stdout，避免类型检查器对 Optional 的报错
@@ -57,13 +70,17 @@ def main() -> None:
         output_stream.flush()
 
     sys.excepthook = exception_hook
+    log_info("[BOOT] 全局异常钩子已安装")
 
-    workspace = WORKSPACE_ROOT
+    log_info("[BOOT] 准备创建主窗口 MainWindowV2")
     win = MainWindowV2(workspace)
+    log_info("[BOOT] 主窗口创建完成")
     win.setWindowTitle(APP_TITLE)
     win.show()
+    log_info("[BOOT] 主窗口 show() 已调用")
 
     if not settings.SAFETY_NOTICE_SUPPRESSED:
+        log_info("[BOOT] 准备弹出安全声明对话框")
         suppress = dialog_utils.ask_acknowledge_or_suppress_dialog(
             win,
             "安全声明",
@@ -74,7 +91,11 @@ def main() -> None:
         if suppress:
             settings.SAFETY_NOTICE_SUPPRESSED = True
             settings.save()
+            log_info("[BOOT] 用户选择不再提醒安全声明，已更新设置并保存")
+    else:
+        log_info("[BOOT] 已跳过安全声明对话框（之前选择不再提醒）")
 
+    log_info("[BOOT] 进入 Qt 事件循环 app.exec()")
     sys.exit(app.exec())
 
 

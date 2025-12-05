@@ -113,19 +113,21 @@ class GraphCardWidget(QtWidgets.QWidget):
         # 引用次数（可点击）
         self.ref_button = QtWidgets.QPushButton()
         self.ref_button.setFont(QtGui.QFont("Microsoft YaHei UI", 9))
-        self.ref_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3A5A7A;
-                color: #A0C0E0;
-                border: 1px solid #4A6A8A;
+        self.ref_button.setStyleSheet(
+            f"""
+            QPushButton {{
+                background-color: {Colors.SECONDARY_DARK};
+                color: {Colors.TEXT_ON_PRIMARY};
+                border: 1px solid {Colors.SECONDARY_DARK};
                 border-radius: 10px;
                 padding: 2px 10px;
-            }
-            QPushButton:hover {
-                background-color: #4A6A8A;
-                color: #C0E0FF;
-            }
-        """)
+            }}
+            QPushButton:hover {{
+                background-color: {Colors.SECONDARY};
+                color: {Colors.TEXT_ON_PRIMARY};
+            }}
+        """
+        )
         self.ref_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.ref_button.clicked.connect(lambda: self.reference_clicked.emit(self.graph_id))
         header_layout.addWidget(self.ref_button)
@@ -213,8 +215,8 @@ class GraphCardWidget(QtWidgets.QWidget):
     def _apply_unselected_styles(self) -> None:
         """应用卡片未选中时的文字样式。"""
         self.name_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
-        self.nodes_label.setStyleSheet("color: #B0B0B0;")
-        self.edges_label.setStyleSheet("color: #B0B0B0;")
+        self.nodes_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
+        self.edges_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
         self.time_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
         self.description_label.setStyleSheet(f"color: {Colors.TEXT_DISABLED}; font-style: italic;")
 
@@ -430,8 +432,8 @@ class GraphCardWidget(QtWidgets.QWidget):
         center_x = rect.right() - margin - indicator_size / 2
         center_y = rect.top() + margin + indicator_size / 2
         
-        # 绘制黄色圆形背景
-        painter.setBrush(QtGui.QColor("#FFA500"))  # 橙黄色
+        # 绘制强调色圆形背景
+        painter.setBrush(QtGui.QColor(Colors.WARNING))
         painter.setPen(QtCore.Qt.PenStyle.NoPen)
         painter.drawEllipse(
             QtCore.QPointF(center_x, center_y),
@@ -440,7 +442,7 @@ class GraphCardWidget(QtWidgets.QWidget):
         )
         
         # 绘制感叹号
-        painter.setPen(QtGui.QPen(QtGui.QColor("#FFFFFF"), 2))
+        painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 2))
         font = QtGui.QFont("Arial", 14, QtGui.QFont.Weight.Bold)
         painter.setFont(font)
         

@@ -120,10 +120,14 @@ class DynamicPortStepPlanner:
         constants = getattr(node_obj, "input_constants", None)
         if not constants:
             return []
+        node_title = str(getattr(node_obj, "title", "") or "")
 
         if self._edge_lookup is None:
             payload: List[Dict[str, Any]] = []
             for constant_name, constant_value in constants.items():
+                # 信号发送节点的“信号名”端口由专门的信号绑定步骤处理，这里不再生成重复的配置参数步骤。
+                if node_title == SIGNAL_SEND_NODE_TITLE and str(constant_name) == "信号名":
+                    continue
                 if self._should_skip_constant_param(constant_value):
                     continue
                 payload.append({"param_name": constant_name, "param_value": constant_value})
@@ -133,6 +137,9 @@ class DynamicPortStepPlanner:
         node_id = getattr(node_obj, "id", "")
         for key, value in constants.items():
             port_name = str(key)
+            # 同样地，信号发送节点的“信号名”端口不参与通用参数配置步骤。
+            if node_title == SIGNAL_SEND_NODE_TITLE and port_name == "信号名":
+                continue
             if self._should_skip_constant_param(value):
                 continue
             edges_for_input = self._edge_lookup.input_edges_map.get((node_id, port_name), [])
@@ -151,8 +158,8 @@ class DynamicPortStepPlanner:
         """根据约定判断某个输入常量是否应当跳过参数配置步骤。
 
         当前规则：
-        - 若常量值等同于布尔“真”（如 True/true/是，忽略英文大小写与首尾空白），
-          视为“默认恒为真”的条件，不生成对应的配置参数步骤。
+        - 仅将文本常量 "None"/"none" 视为“端口留空”的占位值，不生成参数配置步骤。
+        - 布尔常量（无论 True/False，或其它等价写法）一律保留，由任务清单显式生成配置步骤。
         """
         if isinstance(param_value, str):
             value_text = param_value.strip()
@@ -161,13 +168,7 @@ class DynamicPortStepPlanner:
 
         lower = value_text.lower()
 
-        # 1) 跳过“默认恒为真”的布尔常量
-        if lower == "true":
-            return True
-        if value_text == "是":
-            return True
-
-        # 2) 将文本常量 "None" 视为“未填写”，不生成参数配置步骤
+        # 仅将文本常量 "None" 视为“未填写”，不生成参数配置步骤
         if lower == "none":
             return True
 
@@ -203,9 +204,14 @@ class DynamicPortStepPlanner:
 
         # 仅围绕“需要显式设置类型的泛型端口”构建类型步骤 payload：
         # - 初始 payload 仅保留在 params_payload 中出现的泛型端口；
-        # - 随后再补齐剩余未出现在 params_payload 中的泛型输入/输出端口。
+        # - 随后为所有“泛型输出端口”补齐明细；
+        # - 输入侧则在此基础上补齐“非字典类”的泛型输入端口，
+        #   对于以“字典”命名的泛型输入端口，仅当其已出现在 params_payload 中时才参与类型步骤，
+        #   以避免在 Todo 未显式声明时对上游已确定类型的字典端口重复发出类型设置指引。
         generic_inputs = self.type_helper.list_generic_input_ports(node_obj)
         generic_outputs = self.type_helper.list_generic_output_ports(node_obj)
+        generic_input_names: set[str] = set(generic_inputs)
+        generic_output_names: set[str] = set(generic_outputs)
         generic_names: set[str] = set(generic_inputs) | set(generic_outputs)
 
         payload: List[Dict[str, Any]] = []
@@ -220,9 +226,7 @@ class DynamicPortStepPlanner:
                     continue
                 payload.append(dict(entry))
 
-        # 补充所有需要显式设置类型的端口：
-        # 1) 泛型输入端口（用于选择具体类型）；
-        # 2) 泛型输出端口（用于在步骤明细中呈现需要设置的输出类型）。
+        # 已通过 params_payload 声明的端口名集合（输入/输出均可）
         existing_names: set[str] = set()
         for entry in payload:
             name_raw = entry.get("param_name")
@@ -230,16 +234,28 @@ class DynamicPortStepPlanner:
             if name:
                 existing_names.add(name)
 
-        for name in generic_inputs:
-            if name not in existing_names:
-                payload.append({"param_name": name, "param_value": ""})
-                existing_names.add(name)
-
+        # 为“需要显式设置类型的泛型输出端口”补充明细，
+        # 这样即便没有常量示例值也能在步骤中呈现输出类型（例如“以键查询字典值”的“值”端口）。
         for name in generic_outputs:
             if name not in existing_names:
                 payload.append({"param_name": name, "param_value": ""})
                 existing_names.add(name)
 
+        # 同样地，为“非字典类”的泛型输入端口补充明细。
+        # 字典输入端口（端口名中包含“字典”）如果未在 params_payload 中出现，则不在此处自动补齐，
+        # 保持与端口类型设置层“仅按 Todo 中显式给出的输入端口集合执行类型设置（例如未列出的字典输入端口不参与）”的约定一致。
+        for name in generic_inputs:
+            if name in existing_names:
+                continue
+            # 跳过尚未在 payload 中声明的“字典”类泛型输入端口，
+            # 这类端口的具体键/值类型通常由上游字典构造节点或结构体字段定义决定，
+            # 不需要也不应该在通用类型步骤中重复设置基础“字典”类型。
+            if "字典" in str(name):
+                continue
+            payload.append({"param_name": name, "param_value": ""})
+            existing_names.add(name)
+
+        # 若最终既没有任何需要设置类型的端口，又未显式要求 force，则不生成类型步骤。
         if not payload and not force:
             return
         types_todo = build_set_port_types_todo(

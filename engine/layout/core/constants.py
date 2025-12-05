@@ -37,7 +37,8 @@ BLOCK_X_SPACING_DEFAULT: float = 200.0
 BLOCK_Y_SPACING_DEFAULT: float = 40.0
 INITIAL_X_DEFAULT: float = 100.0
 INITIAL_Y_DEFAULT: float = 100.0
-EVENT_Y_GAP_DEFAULT: float = 500.0
+# 事件组（事件流）之间的默认垂直间距
+EVENT_Y_GAP_DEFAULT: float = 100
 
 # 数据与流程之间的安全间隔
 FLOW_TO_DATA_GAP_DEFAULT: float = 50.0

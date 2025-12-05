@@ -23,8 +23,9 @@ def sync_package_signals_to_index_and_aggregate(
     - PackageIndex.signals 仅作为“当前包引用了哪些信号”的摘要：
       - 键：signal_id（字符串）
       - 值：空字典，占位用，不再存放完整配置；
-    - 具体信号定义由 `engine.configs.specialized.signal_definitions_data` 中的
-      代码级常量提供，资源库中不再写入 `ResourceType.SIGNAL` 聚合 JSON。
+    - 具体信号定义由 `engine.signal.SignalDefinitionRepository` 基于
+      `assets/资源库/管理配置/信号` 目录下的代码资源聚合得到，资源库中不再写入
+      `ResourceType.SIGNAL` 聚合 JSON。
     """
     if not isinstance(serialized_signals, dict):
         serialized_signals = {}

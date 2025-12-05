@@ -28,6 +28,8 @@ class ModeSwitchMixin:
             return "职业"
         if tab_id == "skill_editor":
             return "技能"
+        if tab_id == "validation_detail":
+            return "详细信息"
         return tab_id
 
     def _is_dynamic_tab_allowed_in_mode(self, tab_id: str, view_mode: ViewMode) -> bool:
@@ -45,8 +47,8 @@ class ModeSwitchMixin:
                 ViewMode.TODO,
             )
         if tab_id == "management_property":
-            # 管理配置通用“属性”标签仅在管理模式下使用
-            return view_mode == ViewMode.MANAGEMENT
+            # 管理配置通用“属性”标签在管理模式与存档库模式下使用
+            return view_mode in (ViewMode.MANAGEMENT, ViewMode.PACKAGES)
         if tab_id in (
             "signal_editor",
             "struct_editor",
@@ -56,8 +58,9 @@ class ModeSwitchMixin:
             # 信号 / 结构体 / 主镜头 / 外围系统等专用编辑面板仅在管理模式下使用
             return view_mode == ViewMode.MANAGEMENT
         if tab_id in ("player_editor", "player_class_editor", "skill_editor"):
-            # 战斗预设相关详情面板仅在战斗预设模式下使用
-            return view_mode == ViewMode.COMBAT
+            # 战斗预设相关详情面板在战斗预设模式下使用，
+            # 同时允许在存档库模式下通过选中战斗预设条目临时拉起。
+            return view_mode in (ViewMode.COMBAT, ViewMode.PACKAGES)
         # 其余标签默认不做额外模式限制
         return True
 
@@ -75,6 +78,7 @@ class ModeSwitchMixin:
             "player_editor": getattr(self, 'player_editor_panel', None),
             "player_class_editor": getattr(self, 'player_class_panel', None),
             "skill_editor": getattr(self, 'skill_panel', None),
+            "validation_detail": getattr(self, 'validation_detail_panel', None),
         }
         # 管理模式下，“界面控件设置”标签由 `_update_ui_settings_tab_for_management` 单独控制，这里不参与集中配置管理
         if view_mode == ViewMode.MANAGEMENT:
@@ -498,10 +502,13 @@ class ModeSwitchMixin:
         self.nav_bar.set_current_mode(nav_mode)
 
     def _switch_to_validation_and_validate(self) -> None:
-        """切换到验证页面并触发验证（F5快捷键）"""
+        """切换到验证页面（F5快捷键）。
+
+        实际的验证逻辑在进入验证模式时由 `_on_mode_changed` 统一触发，
+        以便与通过导航栏切换到验证页面的行为保持一致。
+        """
         self.nav_bar.set_current_mode("validation")
         self._on_mode_changed("validation")
-        self._trigger_validation()
 
     def _on_mode_changed(self, mode: str) -> None:
         """模式切换主方法"""
@@ -671,6 +678,8 @@ class ModeSwitchMixin:
             self.property_panel.clear()
             self._remove_property_in_other_modes()
             self._remove_ui_settings_tab()
+            if hasattr(self, "_trigger_validation"):
+                self._trigger_validation()
         elif view_mode == ViewMode.PACKAGES:
             # 存档页面：不显示右侧任何标签
             graph_prop_idx = self.side_tab.indexOf(self.graph_property_panel)
@@ -815,4 +824,8 @@ class ModeSwitchMixin:
         # 根据模式刷新右上角保存状态提示（例如节点图库/复合节点下显示“当前页面不允许修改”）
         if hasattr(self, "_refresh_save_status_label_for_mode"):
             self._refresh_save_status_label_for_mode(view_mode)
+
+        # 视图模式变化时，按需保存一次 UI 会话状态，兼容非常规退出场景。
+        if hasattr(self, "_schedule_ui_session_state_save"):
+            self._schedule_ui_session_state_save()
 

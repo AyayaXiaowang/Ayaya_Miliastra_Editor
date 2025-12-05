@@ -2,12 +2,18 @@
 """
 OCR 模块
 负责文字识别功能
+
+说明：
+- 为了避免在未实际使用 OCR 时就强制加载 RapidOCR/ONNXRuntime，
+  本模块对 RapidOCR 采用惰性导入，仅在第一次调用 ``get_ocr_engine`` 时才导入依赖。
 """
 
+from __future__ import annotations
+
+from typing import Tuple, List, Any, Union, Optional, TYPE_CHECKING
+
 import numpy as np
-from typing import Tuple, List, Any, Union, Optional
 from PIL import Image
-from rapidocr_onnxruntime import RapidOCR
 
 from .cache import get_ocr_cache, _hash_ndarray
 from .roi_constraints import clip_region_with_graph
@@ -15,14 +21,21 @@ from .emitters import emit_visual_overlay, emit_log_message
 from .overlay_helpers import build_overlay_for_text_region
 from .reference_panels import build_reference_panel_payload
 
-_OCR_ENGINE: Optional[RapidOCR] = None
+if TYPE_CHECKING:
+    # 仅用于类型检查，运行时不导入 RapidOCR，避免环境缺失时在导入阶段就失败
+    from rapidocr_onnxruntime import RapidOCR
+
+_OCR_ENGINE: Optional["RapidOCR"] = None
 
 
-def get_ocr_engine() -> RapidOCR:
+def get_ocr_engine() -> "RapidOCR":
     """懒加载并复用 RapidOCR 引擎实例。"""
     global _OCR_ENGINE
     if _OCR_ENGINE is None:
-        _OCR_ENGINE = RapidOCR()
+        # 在首次实际使用时才导入 RapidOCR，避免在未使用 OCR 的场景中强依赖 onnxruntime
+        from rapidocr_onnxruntime import RapidOCR as RapidOCRImpl
+
+        _OCR_ENGINE = RapidOCRImpl()
     return _OCR_ENGINE
 
 

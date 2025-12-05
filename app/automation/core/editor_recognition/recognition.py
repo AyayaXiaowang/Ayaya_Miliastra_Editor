@@ -19,10 +19,12 @@ from app.automation.input.common import build_graph_region_overlay, compute_posi
 from app.automation.vision import invalidate_cache, list_nodes
 from engine.graph.models.graph_model import GraphModel
 from app.automation.core.editor_mapping import FIXED_SCALE_RATIO
+from app.automation.core.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
 from .constants import (
     FIT_STRATEGY_ORIGIN_TRANSLATION,
     FIT_STRATEGY_ORDINARY_NODES,
     FIT_STRATEGY_RELATIVE_ANCHORS,
+    FIT_STRATEGY_SINGLE_ANCHOR,
     ORDINARY_NODES_MIN_MATCHES,
     ORDINARY_NODES_POSITION_TOLERANCE_MULTIPLIER,
     RELATIVE_ANCHOR_MAX_ANISOTROPY,
@@ -151,8 +153,9 @@ def _dump_last_focus_detection_snapshot(
         bbox_x, bbox_y, bbox_w, bbox_h = detection.bbox
         raw_name_cn = str(getattr(detection, "name_cn", "") or "")
         title_cn = ""
-        if hasattr(executor, "_extract_chinese"):
-            title_cn = executor._extract_chinese(raw_name_cn)
+        extract_method = getattr(executor, "extract_chinese", None)
+        if callable(extract_method):
+            title_cn = extract_method(raw_name_cn)
         detections_payload.append(
             {
                 "title_cn": title_cn,
@@ -177,6 +180,104 @@ def _dump_last_focus_detection_snapshot(
         import json
 
         json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def _try_single_anchor_mapping(
+    executor,
+    mappings: MappingData,
+    screenshot: Image.Image,
+    detected: list,
+    log_callback,
+) -> Optional[ViewMappingFitResult]:
+    """
+    在原点平移投票失败时，基于单个锚点节点建立退化视口映射。
+
+    约定：
+    - 仅依赖一个“程序节点 ↔ 检测框”配对来估算原点平移；
+    - 缩放比例仍固定为 1.0，只将锚点估计的缩放用于环境健康检查与日志；
+    - 优先选择“模型与检测均唯一”的标题作为锚点，其次退回到任意共享标题。
+    """
+    centers_by_title = _build_detection_centers_by_title(mappings)
+    if not centers_by_title:
+        executor.log("[单锚点] 当前画面无可用检测节点，无法建立退化视口映射", log_callback)
+        return None
+
+    candidate_titles: list[str] = []
+    for name in mappings.shared_names:
+        model_nodes = mappings.name_to_model_nodes.get(name, [])
+        det_centers = centers_by_title.get(name, [])
+        if not model_nodes or not det_centers:
+            continue
+        candidate_titles.append(name)
+
+    if not candidate_titles:
+        executor.log("[单锚点] 当前画面与图模型之间无共享标题，无法建立退化视口映射", log_callback)
+        return None
+
+    def _title_sort_key(title: str) -> tuple[int, int]:
+        models = mappings.name_to_model_nodes.get(title, [])
+        detections = centers_by_title.get(title, [])
+        is_unique_model = len(models) == 1
+        is_unique_detection = len(detections) == 1
+        # 唯一模型+唯一检测优先，其次按“模型+检测数量”从少到多
+        uniqueness_rank = 0 if (is_unique_model and is_unique_detection) else 1
+        count_score = len(models) + len(detections)
+        return (uniqueness_rank, count_score)
+
+    candidate_titles.sort(key=_title_sort_key)
+    anchor_title = candidate_titles[0]
+    model_nodes_for_title = mappings.name_to_model_nodes.get(anchor_title, [])
+    det_centers_for_title = centers_by_title.get(anchor_title, [])
+    if not model_nodes_for_title or not det_centers_for_title:
+        executor.log("[单锚点] 选定锚点标题缺少模型或检测数据，放弃退化映射", log_callback)
+        return None
+
+    anchor_model = model_nodes_for_title[0]
+    anchor_detection = det_centers_for_title[0]
+    bbox_x, bbox_y, bbox_w, bbox_h = anchor_detection["bbox"]
+
+    program_node_width = NODE_VIEW_WIDTH_PX
+    program_node_height = NODE_VIEW_HEIGHT_PX
+    scale_x = float(bbox_w) / program_node_width if bbox_w > 0 else 0.0
+    scale_y = float(bbox_h) / program_node_height if bbox_h > 0 else 0.0
+    if scale_x <= 0.0 or scale_y <= 0.0:
+        executor.log("[单锚点] 锚点识别结果异常：节点尺寸为 0，无法估算缩放比例", log_callback)
+        return None
+
+    avg_scale = (scale_x + scale_y) * 0.5
+    if avg_scale <= 1e-6:
+        executor.log("[单锚点] 锚点识别结果异常：估算缩放比例过小", log_callback)
+        return None
+
+    executor.scale_ratio = FIXED_SCALE_RATIO
+
+    anchor_prog_x = float(anchor_model.pos[0])
+    anchor_prog_y = float(anchor_model.pos[1])
+    origin_x = float(bbox_x) - anchor_prog_x * float(executor.scale_ratio)
+    origin_y = float(bbox_y) - anchor_prog_y * float(executor.scale_ratio)
+    executor.origin_node_pos = (int(round(origin_x)), int(round(origin_y)))
+
+    expected_scale = float(FIXED_SCALE_RATIO)
+    scale_deviation = abs(avg_scale - expected_scale)
+    if scale_deviation >= 0.10:
+        executor.log(
+            f"· 环境检查：检测到锚点缩放≈{avg_scale:.4f}，与固定比例 {expected_scale:.4f} 差异较大，"
+            f"请检查系统显示缩放与编辑器节点图缩放是否满足预期",
+            log_callback,
+        )
+
+    executor.log(
+        f"✓ 单锚点匹配成功：锚点 '{anchor_title}' scale_est≈{avg_scale:.4f} → 固定 {executor.scale_ratio:.2f} "
+        f"origin=({executor.origin_node_pos[0]},{executor.origin_node_pos[1]})",
+        log_callback,
+    )
+
+    fit_result = ViewMappingFitResult(success=True, strategy=FIT_STRATEGY_SINGLE_ANCHOR)
+    if hasattr(executor, "__dict__"):
+        setattr(executor, "_last_view_mapping_strategy", fit_result.strategy)
+        setattr(executor, "_last_recognition_screenshot", screenshot)
+        setattr(executor, "_last_recognition_detected", detected)
+    return fit_result
 
 
 def _generate_origin_samples(mappings: MappingData) -> list[tuple[float, float]]:
@@ -441,11 +542,11 @@ def _try_relative_anchor_alignment(
 ) -> Optional[ViewMappingFitResult]:
     centers_by_title = _build_detection_centers_by_title(mappings)
     if not centers_by_title:
-        executor._log("[相对匹配] 当前画面无可用检测节点", log_callback)
+        executor.log("[相对匹配] 当前画面无可用检测节点", log_callback)
         return None
     all_model_nodes = _flatten_model_nodes(mappings)
     if not all_model_nodes:
-        executor._log("[相对匹配] 模型节点为空", log_callback)
+        executor.log("[相对匹配] 模型节点为空", log_callback)
         return None
     prog_center, _ = _compute_global_centers(mappings, centers_by_title)
     anchor_candidates: list[dict[str, Any]] = []
@@ -471,9 +572,9 @@ def _try_relative_anchor_alignment(
             )
     if not anchor_candidates:
         if prefer_unique:
-            executor._log("[相对匹配] 未找到唯一标题锚点，转为普通节点", log_callback)
+            executor.log("[相对匹配] 未找到唯一标题锚点，转为普通节点", log_callback)
         else:
-            executor._log("[相对匹配] 无可用锚点候选", log_callback)
+            executor.log("[相对匹配] 无可用锚点候选", log_callback)
         return None
     anchor_candidates.sort(key=lambda item: item["dist2"])
     best_choice: Optional[dict[str, Any]] = None
@@ -547,7 +648,7 @@ def _try_relative_anchor_alignment(
         if best_choice is not None:
             break
     if best_choice is None:
-        executor._log(
+        executor.log(
             "[相对匹配] 未找到满足邻域匹配条件的锚点" + ("（唯一模式）" if prefer_unique else ""),
             log_callback,
         )
@@ -583,7 +684,7 @@ def _try_relative_anchor_alignment(
     total = best_choice["support"]["total"]
     ratio = best_choice["support"]["ratio"]
     tol_x, tol_y = best_choice["support"]["tolerance"]
-    executor._log(
+    executor.log(
         f"[相对匹配] 锚点 '{best_choice['anchor_name']}'：命中 {matched}/{total} ({ratio:.2f}) "
         f"scale_est=({best_choice['scale_x']:.4f},{best_choice['scale_y']:.4f}) avg≈{measured_scale:.4f}→固定 {executor.scale_ratio:.2f} "
         f"origin=({executor.origin_node_pos[0]},{executor.origin_node_pos[1]}) "
@@ -594,7 +695,7 @@ def _try_relative_anchor_alignment(
         preview = best_choice["support"]["matches"][:5]
         for idx, match in enumerate(preview, start=1):
             err_x, err_y = match["error"]
-            executor._log(
+            executor.log(
                 f"    · 匹配{idx}: '{match['title']}' exp={match['expected_center']} det={match['detection_center']} "
                 f"err=({err_x:.1f},{err_y:.1f})",
                 log_callback,
@@ -620,7 +721,7 @@ def _try_ordinary_nodes_position_match(
     当唯一节点不足时，遍历所有共享节点，对比程序坐标与检测坐标的匹配程度。
     """
     if executor.scale_ratio is None or executor.origin_node_pos is None:
-        executor._log("[普通节点] 坐标未校准，无法进行位置匹配", log_callback)
+        executor.log("[普通节点] 坐标未校准，无法进行位置匹配", log_callback)
         return None
     
     scale_ratio = float(executor.scale_ratio)
@@ -631,7 +732,7 @@ def _try_ordinary_nodes_position_match(
     pos_threshold_x *= ORDINARY_NODES_POSITION_TOLERANCE_MULTIPLIER
     pos_threshold_y *= ORDINARY_NODES_POSITION_TOLERANCE_MULTIPLIER
     
-    executor._log(
+    executor.log(
         f"[普通节点] 开始位置匹配：scale={scale_ratio:.4f} origin=({origin_x:.1f},{origin_y:.1f}) "
         f"容差=({pos_threshold_x:.1f},{pos_threshold_y:.1f})px",
         log_callback,
@@ -663,7 +764,7 @@ def _try_ordinary_nodes_position_match(
                 if delta_x <= pos_threshold_x and delta_y <= pos_threshold_y:
                     matched_nodes.append((name, prog_x, prog_y, det_left, det_top, 
                                          (delta_x * delta_x + delta_y * delta_y) ** 0.5))
-                    executor._log(
+                    executor.log(
                         f"  [匹配{len(matched_nodes)}] '{name}': prog=({prog_x:.1f},{prog_y:.1f}) "
                         f"→ 预期=({expected_x:.1f},{expected_y:.1f}) vs 检测=({det_left:.1f},{det_top:.1f}) "
                         f"偏差=({delta_x:.1f},{delta_y:.1f})px",
@@ -671,23 +772,23 @@ def _try_ordinary_nodes_position_match(
                     )
                     break
     
-    executor._log(
+    executor.log(
         f"[普通节点] 匹配完成：共匹配 {len(matched_nodes)} 个节点（需要≥{ORDINARY_NODES_MIN_MATCHES}）",
         log_callback,
     )
     
     if len(matched_nodes) >= ORDINARY_NODES_MIN_MATCHES:
-        executor._log(
+        executor.log(
             f"✓ 普通节点位置匹配成功：{len(matched_nodes)} 个节点匹配，视口校准完成",
             log_callback,
         )
         return ViewMappingFitResult(success=True, strategy=FIT_STRATEGY_ORDINARY_NODES)
     
-    executor._log(
+    executor.log(
         f"✗ 普通节点匹配不足：仅匹配 {len(matched_nodes)} 个节点，无法确认视口",
         log_callback,
     )
-    executor._log(
+    executor.log(
         "  · 建议：移动视口让更多节点完整可见，或放大图形/调整缩放等级",
         log_callback,
     )
@@ -865,7 +966,7 @@ def recognize_visible_nodes(executor, graph_model: GraphModel) -> Dict[str, Dict
     # 按中文标题分桶候选检测，沿用原有的“标题优先”策略
     title_to_detections: Dict[str, list] = {}
     for detection in detected_nodes:
-        det_title = executor._extract_chinese(getattr(detection, "name_cn", "") or "")
+        det_title = executor.extract_chinese(getattr(detection, "name_cn", "") or "")
         if not det_title:
             continue
         title_to_detections.setdefault(det_title, []).append(detection)
@@ -876,7 +977,7 @@ def recognize_visible_nodes(executor, graph_model: GraphModel) -> Dict[str, Dict
     skipped_no_det_index = 0
     skipped_fallback_too_far = 0
     for node_id, node in graph_model.nodes.items():
-        title_cn = executor._extract_chinese(node.title)
+        title_cn = executor.extract_chinese(node.title)
         program_pos = (float(node.pos[0]), float(node.pos[1]))
         detection_pool = title_to_detections.get(title_cn) if title_cn else None
         candidates = detection_pool if detection_pool else detected_nodes
@@ -954,7 +1055,7 @@ def recognize_visible_nodes(executor, graph_model: GraphModel) -> Dict[str, Dict
         for node_id, node in graph_model.nodes.items():
             if node_id not in node_candidates:
                 continue
-            node_title_cn = executor._extract_chinese(getattr(node, "title", "") or "")
+            node_title_cn = executor.extract_chinese(getattr(node, "title", "") or "")
             if node_title_cn == title:
                 same_title_nodes.append((node_id, node))
         if len(same_title_nodes) < 2:
@@ -1141,7 +1242,7 @@ def verify_and_update_view_mapping_by_recognition(
         visual_callback=visual_callback,
     )
     if not screenshot:
-        executor._log("✗ 截图失败（识别校验）", log_callback)
+        executor.log("✗ 截图失败（识别校验）", log_callback)
         return False
 
     invalidate_cache()
@@ -1165,7 +1266,7 @@ def verify_and_update_view_mapping_by_recognition(
 
     mappings = build_detection_mappings(executor, graph_model, detected)
 
-    executor._log(
+    executor.log(
         f"[识别] 模型节点 {len(mappings.unique_model_names)} 个，检测节点 {len(mappings.unique_detected_names)} 个，"
         f"共同标题 {len(mappings.shared_names)} 个",
         log_callback,
@@ -1173,17 +1274,25 @@ def verify_and_update_view_mapping_by_recognition(
 
     origin_samples = _generate_origin_samples(mappings)
     if not origin_samples:
-        executor._log("[平移投票] 无可用原点样本，可能缺少共享标题或检测结果为空", log_callback)
-        return False
+        executor.log("[平移投票] 无可用原点样本，可能缺少共享标题或检测结果为空", log_callback)
+        if not allow_degraded_fallback:
+            return False
+        executor.log("[平移投票] 尝试退化策略：单锚点匹配", log_callback)
+        fit_single = _try_single_anchor_mapping(executor, mappings, screenshot, detected, log_callback)
+        return bool(fit_single and fit_single.success)
 
-    executor._log(
+    executor.log(
         f"[平移投票] 原点样本数={len(origin_samples)}，开始网格聚类",
         log_callback,
     )
     candidate_origins = _cluster_origin_samples(origin_samples)
     if not candidate_origins:
-        executor._log("[平移投票] 无法从样本中构造原点候选簇", log_callback)
-        return False
+        executor.log("[平移投票] 无法从样本中构造原点候选簇", log_callback)
+        if not allow_degraded_fallback:
+            return False
+        executor.log("[平移投票] 尝试退化策略：单锚点匹配", log_callback)
+        fit_single = _try_single_anchor_mapping(executor, mappings, screenshot, detected, log_callback)
+        return bool(fit_single and fit_single.success)
 
     region_x: int
     region_y: int
@@ -1217,7 +1326,7 @@ def verify_and_update_view_mapping_by_recognition(
         matched_count = int(evaluation["matched"])
         missing_count = int(evaluation["missing"])
         score_value = float(evaluation["score"])
-        executor._log(
+        executor.log(
             f"[平移投票] 候选{index}: origin≈({candidate_origin_x:.1f},{candidate_origin_y:.1f}) "
             f"投票={vote_count} 命中={matched_count} 缺失={missing_count} 得分={score_value:.1f}",
             log_callback,
@@ -1228,11 +1337,27 @@ def verify_and_update_view_mapping_by_recognition(
             best_origin_y = float(candidate_origin_y)
 
     if best_result is None or int(best_result["matched"]) < ORIGIN_VOTING_MIN_INLIERS:
-        executor._log(
+        executor.log(
             f"[平移投票] 校准失败：有效原点候选不足（命中样本 {0 if best_result is None else int(best_result['matched'])}）",
             log_callback,
         )
-        return False
+        if not allow_degraded_fallback:
+            return False
+        # 先尝试相对锚点匹配，再退化到单锚点匹配
+        executor.log("[平移投票] 尝试退化策略：相对锚点匹配", log_callback)
+        fit_relative = _try_relative_anchor_alignment(executor, mappings, prefer_unique=True, log_callback=log_callback)
+        if fit_relative is None:
+            fit_relative = _try_relative_anchor_alignment(
+                executor,
+                mappings,
+                prefer_unique=False,
+                log_callback=log_callback,
+            )
+        if fit_relative is not None and fit_relative.success:
+            return True
+        executor.log("[平移投票] 相对锚点匹配未能建立稳定视口映射，退化到单锚点匹配", log_callback)
+        fit_single = _try_single_anchor_mapping(executor, mappings, screenshot, detected, log_callback)
+        return bool(fit_single and fit_single.success)
 
     executor.scale_ratio = FIXED_SCALE_RATIO
     executor.origin_node_pos = (int(round(best_origin_x)), int(round(best_origin_y)))
@@ -1246,7 +1371,7 @@ def verify_and_update_view_mapping_by_recognition(
         setattr(executor, "_last_recognition_screenshot", screenshot)
         setattr(executor, "_last_recognition_detected", detected)
     
-    executor._log(
+    executor.log(
         f"✓ 视口映射成功：策略={fit_result.strategy} scale={executor.scale_ratio:.4f} "
         f"origin=({executor.origin_node_pos[0]},{executor.origin_node_pos[1]})",
         log_callback,
@@ -1283,68 +1408,20 @@ def synchronize_visible_nodes_positions(
     visible_map = recognize_visible_nodes(executor, graph_model)
     if not visible_map:
         if hasattr(executor, "__dict__"):
-            executor._recent_node_position_deltas = {}
-            executor._position_delta_token = getattr(executor, "_view_state_token", 0)
+            setattr(executor, "_recent_node_position_deltas", {})
+            setattr(executor, "_position_delta_token", getattr(executor, "_view_state_token", 0))
         return 0
 
-    # 步骤感知重映射：当同名节点存在多个实例且包含“未来步骤节点”时，
-    # 优先将检测结果绑定到“已到达当前步骤”的实例，避免偏移被未来步骤抢占。
-    node_first_index_map = getattr(executor, "_node_first_create_step_index", None)
-    current_step_index = getattr(executor, "_current_step_index", None)
-    if isinstance(node_first_index_map, dict) and isinstance(current_step_index, int):
-        title_groups: Dict[str, list[tuple[str, Optional[int], bool, Optional[tuple[int, int, int, int]]]]] = {}
-        for node_id, node in graph_model.nodes.items():
-            info = visible_map.get(node_id)
-            is_visible = bool(info and info.get("visible"))
-            bbox = info.get("bbox") if info else None
-            first_index = node_first_index_map.get(node_id)
-            title = getattr(node, "title", "")
-            title_groups.setdefault(title, []).append((node_id, first_index, is_visible, bbox))
-
-        for _title, group in title_groups.items():
-            if len(group) <= 1:
-                continue
-            visible_entries = [entry for entry in group if entry[2] and entry[3] is not None]
-            if not visible_entries:
-                continue
-            eligible_entries = [
-                entry
-                for entry in group
-                if (entry[1] is None) or (entry[1] <= current_step_index)
-            ]
-            if not eligible_entries:
-                continue
-
-            def _step_distance(entry: tuple[str, Optional[int], bool, Optional[tuple[int, int, int, int]]]) -> int:
-                first_idx = entry[1]
-                if first_idx is None:
-                    return 10**9
-                return abs(int(first_idx) - int(current_step_index))
-
-            eligible_sorted = sorted(eligible_entries, key=_step_distance)
-            bboxes = [entry[3] for entry in visible_entries]
-
-            # 先清空该标题下所有节点的可见标记与 bbox
-            for node_id, _first_idx, _is_visible, _bbox in group:
-                info = visible_map.get(node_id)
-                if info is not None:
-                    info["visible"] = False
-                    info["bbox"] = None
-
-            # 再依次将现有 bbox 分配给“离当前步骤最近的已创建实例”
-            for index, bbox in enumerate(bboxes):
-                if bbox is None or index >= len(eligible_sorted):
-                    break
-                target_id = eligible_sorted[index][0]
-                info = visible_map.get(target_id)
-                if info is None:
-                    continue
-                info["visible"] = True
-                info["bbox"] = bbox
+    # 此处不再根据步骤索引对同名节点的 bbox 进行二次重分配：
+    # - `recognize_visible_nodes` 已经在几何与标题层面完成了一次全局一对一匹配；
+    # - 创建节点阶段的“前置参考节点”过滤由 `editor_nodes._is_reference_node_allowed` 负责，
+    #   通过 `_node_first_create_step_index` 与 `_current_step_index` 排除“未来步骤节点”；
+    # 在坐标同步阶段直接信任识别得到的 node_id → bbox 绑定，避免之后的邻居偏移/最近偏移
+    # 使用与“定位镜头”等工具观察到的不一致的节点 ID。
 
     position_deltas: Dict[str, Tuple[float, float]] = {}
     if hasattr(executor, "__dict__"):
-        executor._recent_node_position_deltas = position_deltas
+        setattr(executor, "_recent_node_position_deltas", position_deltas)
     else:
         position_deltas = {}
 
@@ -1376,7 +1453,7 @@ def synchronize_visible_nodes_positions(
         delta_x = new_prog_x - old_prog_x
         delta_y = new_prog_y - old_prog_y
         updated += 1
-        executor._log(
+        executor.log(
             f"[识别同步] '{node.title}' 偏移≈({dx:.1f},{dy:.1f}) → 记录程序坐标偏移 Δ≈({delta_x:.1f},{delta_y:.1f})",
             log_callback,
         )
@@ -1384,7 +1461,7 @@ def synchronize_visible_nodes_positions(
             position_deltas[node_id] = (delta_x, delta_y)
 
     if hasattr(executor, "__dict__"):
-        executor._position_delta_token = getattr(executor, "_view_state_token", 0)
+        setattr(executor, "_position_delta_token", getattr(executor, "_view_state_token", 0))
 
     return updated
 
@@ -1438,8 +1515,8 @@ def _update_position_delta_cache_from_matches(
     existing = getattr(executor, "_recent_node_position_deltas", None)
     if isinstance(existing, dict):
         existing.update(deltas)
-        executor._recent_node_position_deltas = existing
+        setattr(executor, "_recent_node_position_deltas", existing)
     else:
-        executor._recent_node_position_deltas = deltas
-    executor._position_delta_token = getattr(executor, "_view_state_token", 0)
+        setattr(executor, "_recent_node_position_deltas", deltas)
+    setattr(executor, "_position_delta_token", getattr(executor, "_view_state_token", 0))
 

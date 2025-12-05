@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from typing import Iterable, List, Sequence, TypeVar
 
 
 WINDOWS_RESERVED_NAMES = {
@@ -28,6 +28,22 @@ WINDOWS_RESERVED_NAMES = {
     "LPT8",
     "LPT9",
 }
+
+
+T = TypeVar("T")
+
+
+def dedupe_preserve_order(items: Sequence[T]) -> List[T]:
+    """按首次出现顺序对序列去重。
+
+    说明：
+    - 输入为任意可下标访问序列，元素需可作为 dict 的键（与原有用法一致）；
+    - 返回列表中元素顺序与它们在原序列中的首次出现顺序一致。
+    """
+    if not items:
+        return []
+    # 利用 dict 的插入顺序实现“去重但保序”
+    return list(dict.fromkeys(items))
 
 
 def make_valid_identifier(name: str) -> str:
@@ -211,6 +227,7 @@ def generate_unique_name(
 
 __all__ = [
     "WINDOWS_RESERVED_NAMES",
+    "dedupe_preserve_order",
     "make_valid_identifier",
     "sanitize_class_name",
     "sanitize_node_filename",

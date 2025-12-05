@@ -107,6 +107,8 @@ class GraphEventsMixin:
         # 在图库模式下也监控当前选中的节点图，支持外部修改后自动刷新右侧变量视图
         if hasattr(self, "file_watcher_manager"):
             self.file_watcher_manager.setup_file_watcher(graph_id)
+        if hasattr(self, "_schedule_ui_session_state_save"):
+            self._schedule_ui_session_state_save()
 
     def _on_graph_library_double_clicked(
         self,

@@ -29,6 +29,7 @@ from engine.graph.common import (
     STRUCT_BUILD_STATIC_OUTPUTS,
     STRUCT_MODIFY_STATIC_INPUTS,
     STRUCT_MODIFY_STATIC_OUTPUTS,
+    STRUCT_NAME_PORT_NAME,
 )
 from engine.resources.definition_schema_view import (
     get_default_definition_schema_view,
@@ -65,6 +66,11 @@ def get_current_package_structs(scene: "GraphScene") -> Optional[Dict[str, dict]
 
     返回 {struct_id: payload}，payload 为结构体定义的原始字典载荷，
     结构与早期 STRUCT_DEFINITION JSON 资源保持一致。
+
+    约定：
+    - 仅暴露“基础结构体”（struct_ype == "basic" 或未显式标注 struct_ype）；
+    - 跳过局内存档等运行期存档结构体（例如 struct_ype == "ingame_save"），
+      避免在图编辑层直接操作存档内部结构。
     """
     package = _get_current_package(scene)
     if package is None:
@@ -80,6 +86,13 @@ def get_current_package_structs(scene: "GraphScene") -> Optional[Dict[str, dict]
         type_value = data.get("type")
         if isinstance(type_value, str) and type_value != "Struct":
             continue
+        struct_type_raw = data.get("struct_ype")
+        if isinstance(struct_type_raw, str):
+            struct_type = struct_type_raw.strip()
+            # 仅保留基础结构体；显式标记为其它类型（如 "ingame_save"）的结构体在
+            # 图编辑层不提供为【拆分/拼装/修改结构体】节点绑定选项。
+            if struct_type and struct_type != "basic":
+                continue
         structs[str(struct_id)] = dict(data)
     return structs
 
@@ -295,6 +308,16 @@ def bind_struct_for_node(scene: "GraphScene", node_id: str) -> None:
     }
     scene.model.set_node_struct_binding(node_id, binding_payload)
 
+    # 若节点上存在“结构体名”输入端口，则同步其常量值，便于在 Graph Code 与 UI 中直观看到已绑定结构体。
+    has_struct_name_port = any(
+        getattr(port, "name", "") == STRUCT_NAME_PORT_NAME
+        for port in getattr(node, "inputs", []) or []
+    )
+    if has_struct_name_port:
+        if not isinstance(node.input_constants, dict):
+            node.input_constants = {}
+        node.input_constants[STRUCT_NAME_PORT_NAME] = struct_name
+
     # 基于最新绑定信息补全端口
     sync_struct_ports_for_node(scene, node_id, structs)
 
@@ -344,6 +367,26 @@ def sync_struct_ports_for_node(
         return
 
     node_title = getattr(node, "title", "") or ""
+
+    # 若节点上存在“结构体名”输入端口，则基于绑定信息或结构体定义同步其常量值，便于在 UI 与 Graph Code 中展示已绑定结构体。
+    struct_name_text = ""
+    raw_struct_name = binding.get("struct_name")
+    if isinstance(raw_struct_name, str) and raw_struct_name.strip():
+        struct_name_text = raw_struct_name.strip()
+    else:
+        raw_name_from_def = struct_data.get("name")
+        if isinstance(raw_name_from_def, str) and raw_name_from_def.strip():
+            struct_name_text = raw_name_from_def.strip()
+        else:
+            struct_name_text = struct_id
+    has_struct_name_port = any(
+        getattr(port, "name", "") == STRUCT_NAME_PORT_NAME
+        for port in getattr(node, "inputs", []) or []
+    )
+    if has_struct_name_port and struct_name_text:
+        if not isinstance(node.input_constants, dict):
+            node.input_constants = {}
+        node.input_constants[STRUCT_NAME_PORT_NAME] = struct_name_text
 
     if node_title == STRUCT_SPLIT_NODE_TITLE:
         static_outputs = set(STRUCT_SPLIT_STATIC_OUTPUTS)

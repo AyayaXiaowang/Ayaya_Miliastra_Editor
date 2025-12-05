@@ -168,7 +168,7 @@ class BlockLayoutContext:
         """返回可用于端口索引的全局上下文"""
         return self._global_layout_context
 
-    def get_data_in_edges(self, node_id: str) -> List:
+    def get_in_data_edges(self, node_id: str) -> List:
         """获取节点的数据输入边（使用索引）"""
         if self._global_edge_api is not None and not self._edge_indices_are_mutable:
             return self._global_edge_api.get_in_data_edges(node_id)

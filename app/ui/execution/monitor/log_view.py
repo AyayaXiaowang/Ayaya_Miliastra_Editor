@@ -8,6 +8,8 @@ from datetime import datetime
 from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtCore import Qt
 
+from ui.foundation.theme_manager import Colors
+
 
 class LogViewController:
     """日志子系统控制器：管理日志记录、筛选、搜索与HTML渲染"""
@@ -78,7 +80,8 @@ class LogViewController:
         elif self._current_step_title or step_title:
             title_text = step_title or self._current_step_title
             context_html_snapshot = (
-                f"<span style='color:#4B5563;font-weight:600;'>{self._escape_html(title_text)}</span> "
+                f"<span style='color:{Colors.TEXT_SECONDARY};font-weight:600;'>"
+                f"{self._escape_html(title_text)}</span> "
             )
         else:
             context_html_snapshot = ""
@@ -309,53 +312,53 @@ class LogViewController:
         is_success = bool(rec.get("is_success"))
         is_error = bool(rec.get("is_error"))
 
-        # 颜色方案（白底清晰）
+        # 颜色方案：基于主题 token 的语义配色
         left_colors = {
-            "mouse": "#1565C0",
-            "click": "#1976D2",
-            "drag": "#0D47A1",
-            "recognize": "#6A1B9A",
-            "ocr": "#00897B",
-            "screenshot": "#455A64",
-            "wait": "#EF6C00",
-            "connect": "#D84315",
-            "create": "#00695C",
-            "config": "#512DA8",
-            "retry": "#F9A825",
-            "calibrate": "#0277BD",
-            "viewport": "#00796B",
-            "step": "#374151",
-            "other": "#9E9E9E",
+            "mouse": Colors.PRIMARY_DARK,
+            "click": Colors.PRIMARY,
+            "drag": Colors.PRIMARY_DARK,
+            "recognize": Colors.SECONDARY,
+            "ocr": Colors.MANAGEMENT,
+            "screenshot": Colors.TEXT_SECONDARY,
+            "wait": Colors.WARNING,
+            "connect": Colors.WARNING,
+            "create": Colors.SUCCESS,
+            "config": Colors.SECONDARY_DARK,
+            "retry": Colors.WARNING,
+            "calibrate": Colors.INFO,
+            "viewport": Colors.INFO,
+            "step": Colors.TEXT_PRIMARY,
+            "other": Colors.TEXT_DISABLED,
         }
         badge_bg = {
-            "mouse": ("#E3F2FD", "#0D47A1", "鼠标"),
-            "click": ("#E3F2FD", "#0D47A1", "点击"),
-            "drag": ("#E3F2FD", "#0B4F8A", "拖拽"),
-            "recognize": ("#F3E5F5", "#4A148C", "识别"),
-            "ocr": ("#E0F2F1", "#004D40", "OCR"),
-            "screenshot": ("#ECEFF1", "#263238", "截图"),
-            "wait": ("#FFF3E0", "#E65100", "等待"),
-            "connect": ("#FBE9E7", "#BF360C", "连线"),
-            "create": ("#E0F2F1", "#00695C", "创建"),
-            "config": ("#EDE7F6", "#311B92", "参数"),
-            "retry": ("#FFF8E1", "#F57F17", "重试"),
-            "calibrate": ("#E1F5FE", "#01579B", "校准"),
-            "viewport": ("#E0F2F1", "#004D40", "视口"),
-            "step": ("#F5F5F5", "#1F2937", "步骤"),
-            "other": ("#F5F5F5", "#424242", "其它"),
+            "mouse": (Colors.BG_SELECTED, Colors.PRIMARY_DARK, "鼠标"),
+            "click": (Colors.BG_SELECTED, Colors.PRIMARY_DARK, "点击"),
+            "drag": (Colors.BG_SELECTED_HOVER, Colors.PRIMARY_DARK, "拖拽"),
+            "recognize": (Colors.BG_CARD_HOVER, Colors.SECONDARY_DARK, "识别"),
+            "ocr": (Colors.INFO_BG, Colors.INFO, "OCR"),
+            "screenshot": (Colors.BG_HEADER, Colors.TEXT_SECONDARY, "截图"),
+            "wait": (Colors.WARNING_BG, Colors.WARNING, "等待"),
+            "connect": (Colors.WARNING_BG, Colors.WARNING, "连线"),
+            "create": (Colors.SUCCESS_BG, Colors.SUCCESS, "创建"),
+            "config": (Colors.BG_CARD_HOVER, Colors.SECONDARY_DARK, "参数"),
+            "retry": (Colors.WARNING_BG, Colors.WARNING, "重试"),
+            "calibrate": (Colors.INFO_BG, Colors.INFO, "校准"),
+            "viewport": (Colors.INFO_BG, Colors.INFO, "视口"),
+            "step": (Colors.BG_CARD, Colors.TEXT_PRIMARY, "步骤"),
+            "other": (Colors.BG_CARD, Colors.TEXT_SECONDARY, "其它"),
         }
-        left = left_colors.get(category, "#9E9E9E")
-        bg, fg, label = badge_bg.get(category, ("#F5F5F5", "#424242", ""))
+        left = left_colors.get(category, Colors.TEXT_DISABLED)
+        bg, fg, label = badge_bg.get(category, (Colors.BG_CARD, Colors.TEXT_SECONDARY, ""))
 
         msg_html = self._escape_html(msg)
-        ts_html = f"<span style='color:#6B7280;'>[{self._escape_html(ts)}]</span>"
+        ts_html = f"<span style='color:{Colors.TEXT_SECONDARY};'>[{self._escape_html(ts)}]</span>"
 
         # 成功/失败强调（文本色）
-        text_color = "#111827"
+        text_color = Colors.TEXT_PRIMARY
         if is_success:
-            text_color = "#2E7D32"
+            text_color = Colors.SUCCESS
         if is_error:
-            text_color = "#C62828"
+            text_color = Colors.ERROR
 
         badge_html = (
             f"<span style='margin-right:6px;background:{bg};color:{fg};border-radius:3px;padding:0 4px;font-size:11px;'>{label}</span>"
@@ -383,7 +386,7 @@ class LogViewController:
             txt = str(token.get("text", ""))
             if not txt:
                 continue
-            color = str(token.get("color", "#333333"))
+            color = str(token.get("color", Colors.TEXT_PRIMARY))
             bg = str(token.get("bg", "")) if token.get("bg") else ""
             bold = bool(token.get("bold", False))
             style_bits = [f"color:{color}"]

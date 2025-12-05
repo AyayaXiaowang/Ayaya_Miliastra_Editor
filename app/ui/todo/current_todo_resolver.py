@@ -167,15 +167,39 @@ def resolve_current_todo_for_root(
     detail_type = detail_info.get("type", "")
 
     if root_type == "template":
-        # 模板图根执行：如果当前不是模板图根，沿父链回溯
+        # 模板图根执行：如果当前不是模板图根，优先沿树项回溯，其次沿 parent_id 回溯。
         if detail_type != "template_graph_root":
+            # 1) 若调用方提供了树项回调，则优先使用（保持与 UI 行为一致）
             if find_template_root_for_item and context.get_item_by_id:
                 item = context.get_item_by_id(current_todo.todo_id)
                 if item is not None:
                     root_todo = find_template_root_for_item(item)
                     if root_todo is not None:
                         return root_todo
-            # 回溯失败，返回当前 todo（让调用方决定如何处理）
+
+            # 2) 测试 / 纯逻辑场景下没有树时，退化为基于 parent_id 的简单回溯：
+            #    沿父链向上查找第一个 detail_type 为 "template_graph_root" 的 Todo。
+            todo_map = context.todo_map
+            cursor = current_todo
+            visited_ids: set[str] = set()
+            while True:
+                parent_id = getattr(cursor, "parent_id", "") or ""
+                if not parent_id:
+                    break
+                if parent_id in visited_ids:
+                    # 防御性：避免异常 parent_id 配置导致的死循环
+                    break
+                visited_ids.add(parent_id)
+                parent = todo_map.get(parent_id)
+                if parent is None:
+                    break
+                parent_detail = getattr(parent, "detail_info", None) or {}
+                parent_type = parent_detail.get("type", "")
+                if parent_type == "template_graph_root":
+                    return parent
+                cursor = parent
+
+            # 3) 回溯失败，返回当前 todo（让调用方决定如何处理）
             return current_todo
         return current_todo
 

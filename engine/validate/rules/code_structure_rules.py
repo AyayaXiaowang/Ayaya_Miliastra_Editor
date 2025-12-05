@@ -11,8 +11,12 @@ from engine.configs.specialized.node_graph_configs import StructDefinition
 from engine.nodes.node_registry import get_node_registry
 from engine.nodes.port_type_system import FLOW_PORT_TYPE, ANY_PORT_TYPE, GENERIC_PORT_TYPE
 from engine.graph.utils.metadata_extractor import extract_graph_variables_from_ast
-from engine.graph.common import SIGNAL_SEND_NODE_TITLE, SIGNAL_SEND_STATIC_INPUTS
-from engine.resources.definition_schema_view import get_default_definition_schema_view
+from engine.graph.common import (
+    SIGNAL_SEND_NODE_TITLE,
+    SIGNAL_SEND_STATIC_INPUTS,
+    SIGNAL_NAME_PORT_NAME,
+)
+from engine.signal import get_default_signal_repository
 
 from ..context import ValidationContext
 from ..issue import EngineIssue
@@ -321,45 +325,13 @@ class SignalParamNamesRule(ValidationRule):
         file_path: Path = ctx.file_path
         tree = get_cached_module(ctx)
 
-        # 加载全局信号定义（来自 assets/资源库/管理配置/信号 或引擎内置常量）。
-        schema_view = get_default_definition_schema_view()
-        all_signals: Dict[str, Dict] = schema_view.get_all_signal_definitions()
-        if not all_signals:
-            return []
-
-        # 预构建：
-        # - signal_id -> {param_name}
-        # - signal_name -> signal_id
-        # - payload_by_id: signal_id -> payload（用于报错时给出友好提示）
-        allowed_params_by_id: Dict[str, Set[str]] = {}
-        id_by_name: Dict[str, str] = {}
-        payload_by_id: Dict[str, Dict] = {}
-
-        for signal_id, payload in all_signals.items():
-            signal_id_str = str(signal_id)
-            payload_by_id[signal_id_str] = payload
-
-            params_list = payload.get("parameters") or []
-            param_names: Set[str] = set()
-            if isinstance(params_list, list):
-                for entry in params_list:
-                    if not isinstance(entry, dict):
-                        continue
-                    name_value = entry.get("name")
-                    if isinstance(name_value, str):
-                        stripped = name_value.strip()
-                        if stripped:
-                            param_names.add(stripped)
-            allowed_params_by_id[signal_id_str] = param_names
-
-            signal_name_value = payload.get("signal_name")
-            if isinstance(signal_name_value, str):
-                stripped_name = signal_name_value.strip()
-                if stripped_name and stripped_name not in id_by_name:
-                    id_by_name[stripped_name] = signal_id_str
-
+        # 加载全局信号定义视图（来自代码级 Schema 视图或内置常量）。
+        repo = get_default_signal_repository()
+        allowed_params_by_id: Dict[str, Set[str]] = repo.get_allowed_param_names_by_id()
         if not allowed_params_by_id:
             return []
+
+        all_signals: Dict[str, Dict] = repo.get_all_payloads()
 
         issues: List[EngineIssue] = []
         static_inputs = set(SIGNAL_SEND_STATIC_INPUTS)
@@ -379,7 +351,7 @@ class SignalParamNamesRule(ValidationRule):
                 signal_key = ""
                 for kw in getattr(node, "keywords", []) or []:
                     name = kw.arg
-                    if name != "信号名":
+                    if name != SIGNAL_NAME_PORT_NAME:
                         continue
                     value = getattr(kw, "value", None)
                     if isinstance(value, ast.Constant) and isinstance(getattr(value, "value", None), str):
@@ -394,13 +366,13 @@ class SignalParamNamesRule(ValidationRule):
                 # 约定：Graph Code 中“信号名”参数必须使用『信号名称』，禁止直接填写信号 ID；
                 # 若发现填写的是某个 signal_id，则单独报错提示改为使用名称。
                 signal_id = ""
-                mapped_id = id_by_name.get(signal_key, "")
-                if mapped_id:
-                    signal_id = mapped_id
+                resolved_id = repo.resolve_id_by_name(signal_key)
+                if resolved_id:
+                    signal_id = resolved_id
                 else:
                     # 未匹配到任何名称，进一步判断是否误用 ID。
-                    if signal_key in payload_by_id:
-                        payload = payload_by_id.get(signal_key, {}) or {}
+                    payload = repo.get_payload(signal_key)
+                    if payload is not None:
                         signal_display_name = str(payload.get("signal_name") or signal_key)
                         msg = (
                             f"{line_span_text(node)}: 【发送信号】的“信号名”参数值 '{signal_key}' "
@@ -418,23 +390,6 @@ class SignalParamNamesRule(ValidationRule):
                         )
                         continue
 
-                    msg = (
-                        f"{line_span_text(node)}: 【发送信号】的“信号名”参数值 '{signal_key}' "
-                        f"在当前信号定义中不存在，请先在信号管理的代码资源中定义该信号，"
-                        f"或改用已有信号的名称。"
-                    )
-                    issues.append(
-                        create_rule_issue(
-                            self,
-                            file_path,
-                            node,
-                            "CODE_SIGNAL_UNKNOWN_ID",
-                            msg,
-                        )
-                    )
-                    continue
-
-                if not signal_id:
                     msg = (
                         f"{line_span_text(node)}: 【发送信号】的“信号名”参数值 '{signal_key}' "
                         f"在当前信号定义中不存在，请先在信号管理的代码资源中定义该信号，"
@@ -547,6 +502,7 @@ class EventNameRule(ValidationRule):
         file_path: Path = ctx.file_path
         tree = get_cached_module(ctx)
         valid_event_names = event_node_names(ctx.workspace_path)
+        signal_repo = get_default_signal_repository()
         issues: List[EngineIssue] = []
 
         for _, method in iter_class_methods(tree):
@@ -582,6 +538,10 @@ class EventNameRule(ValidationRule):
 
                 # 信号 ID（signal_xxx）作为事件名时放行，由信号系统规则单独校验
                 if event_name.startswith("signal_"):
+                    continue
+
+                # 显示名称为已知信号名时同样视为合法，解析为 ID 的职责交给信号系统与图解析器。
+                if signal_repo.resolve_id_by_name(event_name):
                     continue
 
                 if event_name in valid_event_names:

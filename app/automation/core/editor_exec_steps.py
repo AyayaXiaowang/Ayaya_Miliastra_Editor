@@ -82,11 +82,13 @@ class _StepExecutionPlan:
 
 
 def _prepare_for_connect_if_needed(executor, log_callback) -> None:
-    if getattr(executor, "_last_connect_prepare_token", -1) != getattr(executor, "_view_state_token", 0):
+    last_token = getattr(executor, "_last_connect_prepare_token", -1)
+    current_token = getattr(executor, "_view_state_token", 0)
+    if last_token != current_token:
         _rec.prepare_for_connect(executor, log_callback)
-        executor._last_connect_prepare_token = executor._view_state_token
+        setattr(executor, "_last_connect_prepare_token", current_token)
     else:
-        executor._log("· 连线预热：视口未变化，跳过识别缓存刷新", log_callback)
+        executor.log("· 连线预热：视口未变化，跳过识别缓存刷新", log_callback)
 
 
 def _handle_graph_create_node(
@@ -175,9 +177,11 @@ def _handle_graph_connect_merged(
     node2_id = todo_item.get("node2_id")
     edges_list = todo_item.get("edges") or []
     if not node1_id or not node2_id or not isinstance(edges_list, list) or len(edges_list) == 0:
-        executor._log("✗ 合并连线步骤缺少必要信息", log_callback)
+        executor.log("✗ 合并连线步骤缺少必要信息", log_callback)
         return False
     orig_x, orig_y = editor_capture.get_cursor_pos()
+    # 复用链上下文仅用于保留节点级快照等结构化信息，
+    # 截图与检测结果会在每条连线前强制清理，以便重新截图并识别端口位置。
     reuse_context = executor.begin_connect_chain_step()
     if not reuse_context:
         reuse_context = {
@@ -189,6 +193,12 @@ def _handle_graph_connect_merged(
         reuse_context.setdefault("screenshot", None)
     ok_all = True
     for edge_info in edges_list:
+         # 每条连线开始前显式丢弃上一条连线产生的截图与检测缓存，
+         # 确保当前连线在最新画面上重新截图并识别端口位置。
+        if reuse_context is not None:
+            for key in ("screenshot", "screenshot_token", "detected_nodes", "detected_nodes_token"):
+                if key in reuse_context:
+                    reuse_context.pop(key, None)
         edge_payload = {
             "type": "graph_connect",
             "src_node": node1_id,
@@ -430,7 +440,7 @@ def _ensure_zoom_ready(
         visual_callback=visual_callback,
     )
     if not ok_zoom_pre:
-        executor._log("✗ 无法将缩放调整为 50%，终止此步", log_callback)
+        executor.log("✗ 无法将缩放调整为 50%，终止此步", log_callback)
         return False
     return True
 
@@ -443,7 +453,7 @@ def _resolve_step_plan(step_type_raw: object, executor, log_callback) -> tuple[s
     step_type = str(step_type_raw or "")
     step_plan = _STEP_PLANS.get(step_type or "")
     if step_plan is None:
-        executor._log(f"✗ 不支持的步骤类型: {step_type}", log_callback)
+        executor.log(f"✗ 不支持的步骤类型: {step_type}", log_callback)
     return step_type, step_plan
 
 
@@ -468,16 +478,16 @@ def _sync_view_if_needed(
                 threshold_px=60.0,
                 log_callback=log_callback,
             )
-            executor._last_synced_view_state_token = executor._view_state_token
+            setattr(executor, "_last_synced_view_state_token", current_token)
             if synced_count > 0:
-                executor._log(
+                executor.log(
                     f"· 单步：同步可见节点坐标 {synced_count} 个，避免使用过期位置",
                     log_callback,
                 )
             else:
-                executor._log("· 单步：重新确认视口，无可更新坐标", log_callback)
+                executor.log("· 单步：重新确认视口，无可更新坐标", log_callback)
         else:
-            executor._log("· 单步：视口未变化，跳过可见节点同步", log_callback)
+            executor.log("· 单步：视口未变化，跳过可见节点同步", log_callback)
 
 
 def _execute_step_within_graph_roi(
@@ -597,7 +607,7 @@ def execute_step(
                     anchor_title = anchor_node.title
                     anchor_program_pos = tuple(anchor_node.pos)
                 if not anchor_title or not anchor_program_pos:
-                    executor._log("✗ 未能获取锚点节点信息，无法完成坐标校准", log_callback)
+                    executor.log("✗ 未能获取锚点节点信息，无法完成坐标校准", log_callback)
                     log_fail(
                         "core.automation.EditorExecutor.execute_step",
                         start_ms,
@@ -652,7 +662,7 @@ def execute_step(
                 )
                 return True
 
-        executor._log("✗ 坐标未校准，请先调用calibrate_coordinates()", log_callback)
+        executor.log("✗ 坐标未校准，请先调用calibrate_coordinates()", log_callback)
         log_fail(
             "core.automation.EditorExecutor.execute_step",
             log_start("core.automation.EditorExecutor.execute_step", step=str(step_type or "")),

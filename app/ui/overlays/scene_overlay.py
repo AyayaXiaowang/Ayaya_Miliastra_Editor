@@ -211,17 +211,69 @@ class SceneOverlayMixin:
             return
         try:
             from engine.layout import LayoutService
+            from engine.layout.core.layout_context import LayoutContext
+            from engine.layout.flow.event_flow_analyzer import find_event_roots
+            from engine.layout.utils.graph_query_utils import has_flow_edges
             result = LayoutService.compute_layout(self.model, include_augmented_model=True)
             augmented = getattr(result, "augmented_model", None)
-            debug_map_aug = getattr(augmented, "_layout_y_debug_info", None)
+            debug_map_aug = getattr(augmented, "_layout_y_debug_info", None) if augmented is not None else None
+
+            final_debug_map = None
             if isinstance(debug_map_aug, dict) and debug_map_aug:
-                setattr(self.model, "_layout_y_debug_info", dict(debug_map_aug))
-                self._layout_y_debug_lazy_synced = True
-                return
-            print("[YDebug] 布局完成但未生成调试信息，稍后重试…")
+                final_debug_map = dict(debug_map_aug)
+            elif getattr(result, "y_debug_info", None):
+                final_debug_map = dict(result.y_debug_info)
+
+            if final_debug_map:
+                setattr(self.model, "_layout_y_debug_info", final_debug_map)
+            else:
+                target_model = augmented if augmented is not None else self.model
+                graph_name = getattr(target_model, "graph_name", "") or "<unnamed>"
+                node_count = len(getattr(target_model, "nodes", {}) or {})
+                edge_count = len(getattr(target_model, "edges", {}) or {})
+
+                cached_ctx = getattr(target_model, "_layout_context_cache", None)
+                layout_ctx = cached_ctx if isinstance(cached_ctx, LayoutContext) else LayoutContext(target_model)
+
+                has_flow = has_flow_edges(target_model)
+                flow_node_count = len(getattr(layout_ctx, "flowCapableNodeIds", []) or [])
+                event_roots = find_event_roots(
+                    target_model,
+                    include_virtual_pin_roots=True,
+                    layout_context=layout_ctx,
+                )
+
+                if edge_count == 0 and flow_node_count > 0:
+                    category_desc = (
+                        "仅包含流程控制/执行节点但没有任何流程连线"
+                        "（例如只有一个带“流程入/流程出”的节点尚未接线）"
+                    )
+                elif not has_flow:
+                    category_desc = "纯数据图（图结构中不存在任何流程边）"
+                elif has_flow and not event_roots:
+                    category_desc = "仅包含流程连线但未识别到事件起点（例如只有流程入口/流程控制节点）"
+                else:
+                    category_desc = "存在事件起点但布局调试信息为空（需要检查块识别与调试写入逻辑）"
+
+                print(
+                    "[YDebug] 布局完成但未生成Y轴调试信息："
+                    f"图='{graph_name}'，节点数={node_count}，边数={edge_count}，"
+                    f"flow_nodes={flow_node_count}，has_flow_edges={has_flow}，事件起点数量={len(event_roots)}，"
+                    f"分类={category_desc}；不再重复尝试。"
+                )
+                # 为了进一步排查，将前若干个事件起点打印出来（若存在）
+                max_roots_preview = 5
+                for root in event_roots[:max_roots_preview]:
+                    title = getattr(root, "title", "") or "<no-title>"
+                    category = getattr(root, "category", "") or "<no-category>"
+                    print(
+                        f"[YDebug]  事件起点: id={root.id}, 标题='{title}', category='{category}'"
+                    )
+            self._layout_y_debug_lazy_synced = True
         except Exception as exc:
             print(f"[YDebug] 无法自动生成布局Y调试信息: {exc}")
-            self._layout_y_debug_lazy_synced = False
+            # 若布局始终失败，记住状态以避免不断重试导致控制台刷屏
+            self._layout_y_debug_lazy_synced = True
     
     def _draw_block_label(self, painter: QtGui.QPainter, block_rect: QtCore.QRectF, 
                           block_number: int, block_color: QtGui.QColor) -> None:

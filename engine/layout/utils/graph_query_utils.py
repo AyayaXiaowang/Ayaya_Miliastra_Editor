@@ -605,7 +605,7 @@ def estimate_node_height_ui_exact_with_context(context, node_id: str) -> float:
         return NODE_HEIGHT_DEFAULT
 
     connected_input_ports: Set[str] = set()
-    for edge in context.get_data_in_edges(node_id):
+    for edge in context.get_in_data_edges(node_id):
         if edge.dst_port:
             connected_input_ports.add(str(edge.dst_port))
 
@@ -839,7 +839,11 @@ def count_outgoing_data_edges(
 
 def has_flow_edges(model: GraphModel) -> bool:
     """
-    全图是否存在实际的流程连线（源为流程输出且目标为流程输入）
+    全图是否存在实际的流程连线。
+
+    判定规则（与 `is_flow_edge` 一致，略宽松）：
+    - 若目标端口被识别为流程输入（如“流程入/是/否/默认/循环体/循环完成/跳出循环”），视为流程边；
+    - 否则回退到：源端口名称规则被识别为流程输出。
     
     Args:
         model: 图模型
@@ -848,13 +852,7 @@ def has_flow_edges(model: GraphModel) -> bool:
         True 如果存在流程边
     """
     for edge in model.edges.values():
-        src_node = model.nodes.get(edge.src_node)
-        dst_node = model.nodes.get(edge.dst_node)
-        if not src_node or not dst_node:
-            continue
-        src_port = src_node.get_output_port(edge.src_port)
-        dst_port = dst_node.get_input_port(edge.dst_port)
-        if src_port and dst_port and is_flow_output_port(src_node, src_port.name) and is_flow_port_name(dst_port.name):
+        if is_flow_edge(model, edge):
             return True
     return False
 

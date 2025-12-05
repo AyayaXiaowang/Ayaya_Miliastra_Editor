@@ -34,8 +34,8 @@ class PackageLibraryWidget(PanelScaffold, SearchFilterMixin, ConfirmDialogMixin,
     - 顶部：操作区（重命名、删除、刷新）
     """
 
-    # 当用户在右侧详情树中点击某个资源条目时发射：
-    # kind: "template" | "instance" | "level_entity" | "graph"
+    # 当用户在右侧详情树中点击某个基础资源条目时发射：
+    # kind: "template" | "instance" | "level_entity" | "graph" | "combat_*"
     # resource_id: 资源 ID 或实例 ID（关卡实体情况下为实例 ID）
     resource_activated = QtCore.pyqtSignal(str, str)
 
@@ -55,6 +55,11 @@ class PackageLibraryWidget(PanelScaffold, SearchFilterMixin, ConfirmDialogMixin,
     # item_id:     管理记录 ID；单配置类管理项下为空字符串
     # package_id:  当前存档 ID 或特殊视图 ID（"global_view" / "unclassified_view"）
     management_item_requested = QtCore.pyqtSignal(str, str, str)
+
+    # 当用户在右侧详情树中点击管理配置条目时发射（用于在当前视图右侧展示管理属性摘要）：
+    # resource_key: PackageIndex.resources.management 中的键（如 "timer" / "save_points" / "signals"）
+    # resource_id : 聚合资源 ID；为空字符串时表示仅选中了分类节点
+    management_resource_activated = QtCore.pyqtSignal(str, str)
 
     # 存档结构发生变化（新增/重命名/删除）时发射，用于上层刷新存档下拉框等视图。
     packages_changed = QtCore.pyqtSignal()
@@ -254,18 +259,34 @@ class PackageLibraryWidget(PanelScaffold, SearchFilterMixin, ConfirmDialogMixin,
         """当用户在存档内容详情中点击某一行时，发射资源激活信号。
 
         设计约定：
-        - 仅对真正代表资源条目的行生效（模板/实例/关卡实体/节点图）；
+        - 对真正代表资源条目的行生效（模板/实例/关卡实体/节点图/部分战斗预设类型）；
+        - 管理配置条目通过独立信号 `management_resource_activated` 通知主窗口；
         - 根分组行或仅用于展示统计信息的行不发射任何信号。
         """
         value = item.data(0, QtCore.Qt.ItemDataRole.UserRole)
-        if not isinstance(value, tuple) or len(value) != 2:
-            return
-        kind, resource_id = value
-        if not isinstance(kind, str) or not isinstance(resource_id, str):
-            return
-        if not kind or not resource_id:
-            return
-        self.resource_activated.emit(kind, resource_id)
+        management_value = item.data(0, QtCore.Qt.ItemDataRole.UserRole + 1)
+        print(
+            "[PACKAGES] detail item activated:",
+            f"column={column}, raw_kind={value!r}, management={management_value!r}",
+        )
+
+        if isinstance(value, tuple) and len(value) == 2:
+            kind, resource_id = value
+            if isinstance(kind, str) and isinstance(resource_id, str) and kind and resource_id:
+                self.resource_activated.emit(kind, resource_id)
+                return
+
+        # 管理配置条目：仅当 UserRole+1 中标记了 (resource_key, resource_id) 时发射单击信号，
+        # 用于在当前视图右侧通过 ManagementPropertyPanel 展示摘要与“所属存档”行。
+        if isinstance(management_value, tuple) and len(management_value) == 2:
+            resource_key, resource_id = management_value
+            if (
+                isinstance(resource_key, str)
+                and isinstance(resource_id, str)
+                and resource_key
+                and resource_id
+            ):
+                self.management_resource_activated.emit(resource_key, resource_id)
 
     def _on_detail_item_double_clicked(
         self,
@@ -779,7 +800,9 @@ class PackageLibraryWidget(PanelScaffold, SearchFilterMixin, ConfirmDialogMixin,
                 extra_info_resolver=self._get_resource_extra_info,
             )
         else:
-            # 非管理类嵌套资源（目前用于战斗预设）：保持简单的“分类 → 资源条目”结构。
+            # 非管理类嵌套资源（目前用于战斗预设）：保持简单的“分类 → 资源条目”结构，
+            # 并为部分类型（玩家模板/职业/技能）写入可点击的资源标记，供主窗口在存档视图中
+            # 拉起对应的战斗详情面板。
             total_count = 0
             for resource_key in sorted(category_resources_map.keys()):
                 resource_ids, resource_type = category_resources_map[resource_key]
@@ -811,6 +834,23 @@ class PackageLibraryWidget(PanelScaffold, SearchFilterMixin, ConfirmDialogMixin,
                         [category_label, display_name, guid_text, graphs_text]
                     )
                     entry_item.setToolTip(1, resource_id)
+
+                    combat_kind: Optional[str]
+                    if resource_key == "player_templates":
+                        combat_kind = "combat_player_template"
+                    elif resource_key == "player_classes":
+                        combat_kind = "combat_player_class"
+                    elif resource_key == "skills":
+                        combat_kind = "combat_skill"
+                    else:
+                        combat_kind = None
+                    if combat_kind is not None:
+                        entry_item.setData(
+                            0,
+                            QtCore.Qt.ItemDataRole.UserRole,
+                            (combat_kind, resource_id),
+                        )
+
                     category_item.addChild(entry_item)
 
                 root_item.addChild(category_item)

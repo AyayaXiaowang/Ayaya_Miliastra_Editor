@@ -4,6 +4,7 @@ from PyQt6 import QtCore, QtWidgets
 from typing import Optional, List
 from engine.nodes.advanced_node_features import VirtualPinConfig, MappedPort
 from ui.foundation.base_widgets import BaseDialog
+from ui.foundation.theme_manager import ThemeManager, Colors
 
 
 class CreateVirtualPinDialog(BaseDialog):
@@ -45,7 +46,9 @@ class CreateVirtualPinDialog(BaseDialog):
         
         # 内部映射（只读显示）
         mapping_label = QtWidgets.QLabel(f"• {self.node_id}.{self.port_name} ({self.port_type})")
-        mapping_label.setStyleSheet("color: #666; font-size: 11px; padding: 5px;")
+        mapping_label.setStyleSheet(
+            f"color: {Colors.TEXT_SECONDARY}; font-size: 11px; padding: 5px;"
+        )
         form_layout.addRow("内部映射:", mapping_label)
         
         layout.addLayout(form_layout)
@@ -89,7 +92,9 @@ class AddToVirtualPinDialog(BaseDialog):
             f"选择要添加到的虚拟引脚：\n"
             f"端口: {self.node_id}.{self.port_name} ({self.port_type})"
         )
-        info_label.setStyleSheet("padding: 10px; background-color: #f0f0f0; border-radius: 4px;")
+        info_label.setStyleSheet(
+            f"{ThemeManager.info_label_simple_style()} border-radius: 4px;"
+        )
         layout.addWidget(info_label)
         
         # 虚拟引脚列表

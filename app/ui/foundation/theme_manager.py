@@ -13,6 +13,7 @@ from typing import Callable, cast
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+from engine.configs.settings import settings
 from ui.foundation.canvas_background import draw_grid_background as _draw_grid_background
 from ui.foundation.theme import ThemeRegistry
 from ui.foundation.theme.styles import (
@@ -228,6 +229,56 @@ class ThemeManager:
 
     @classmethod
     def apply_app_style(cls, app: QtWidgets.QApplication) -> None:
+        # 1) 根据全局设置与系统配色选择当前主题调色板
+        effective_theme_mode = cls._select_theme_mode(app)
+        if hasattr(cls.Colors, "apply_theme_palette"):
+            cls.Colors.apply_theme_palette(effective_theme_mode)
+
+        # 2) 根据当前主题调整应用调色板：
+        #    - 避免未显式设置 QSS 的控件仍使用系统默认黑色文本，导致深色主题下“黑底黑字”；
+        #    - 让 QComboBox 下拉列表、原生 QAbstractItemView 等基于调色板绘制的控件自动跟随 Colors。
+        palette = app.palette()
+        if effective_theme_mode == "dark":
+            bg_main = QtGui.QColor(cls.Colors.BG_MAIN)
+            bg_card = QtGui.QColor(cls.Colors.BG_CARD)
+            bg_hover = QtGui.QColor(cls.Colors.BG_CARD_HOVER)
+            text_primary = QtGui.QColor(cls.Colors.TEXT_PRIMARY)
+            text_on_primary = QtGui.QColor(cls.Colors.TEXT_ON_PRIMARY)
+            highlight = QtGui.QColor(cls.Colors.BG_SELECTED)
+
+            palette.setColor(QtGui.QPalette.ColorRole.Window, bg_main)
+            palette.setColor(QtGui.QPalette.ColorRole.WindowText, text_primary)
+            palette.setColor(QtGui.QPalette.ColorRole.Base, bg_card)
+            palette.setColor(QtGui.QPalette.ColorRole.AlternateBase, bg_hover)
+            palette.setColor(QtGui.QPalette.ColorRole.Text, text_primary)
+            palette.setColor(QtGui.QPalette.ColorRole.Button, bg_card)
+            palette.setColor(QtGui.QPalette.ColorRole.ButtonText, text_primary)
+            palette.setColor(QtGui.QPalette.ColorRole.ToolTipBase, bg_card)
+            palette.setColor(QtGui.QPalette.ColorRole.ToolTipText, text_primary)
+            palette.setColor(QtGui.QPalette.ColorRole.Highlight, highlight)
+            palette.setColor(QtGui.QPalette.ColorRole.HighlightedText, text_on_primary)
+        else:
+            bg_main = QtGui.QColor(cls.Colors.BG_MAIN)
+            bg_card = QtGui.QColor(cls.Colors.BG_CARD)
+            text_primary = QtGui.QColor(cls.Colors.TEXT_PRIMARY)
+            text_on_primary = QtGui.QColor(cls.Colors.TEXT_ON_PRIMARY)
+            highlight = QtGui.QColor(cls.Colors.BG_SELECTED)
+
+            palette.setColor(QtGui.QPalette.ColorRole.Window, bg_main)
+            palette.setColor(QtGui.QPalette.ColorRole.WindowText, text_primary)
+            palette.setColor(QtGui.QPalette.ColorRole.Base, bg_card)
+            palette.setColor(QtGui.QPalette.ColorRole.AlternateBase, bg_card)
+            palette.setColor(QtGui.QPalette.ColorRole.Text, text_primary)
+            palette.setColor(QtGui.QPalette.ColorRole.Button, bg_card)
+            palette.setColor(QtGui.QPalette.ColorRole.ButtonText, text_primary)
+            palette.setColor(QtGui.QPalette.ColorRole.ToolTipBase, bg_card)
+            palette.setColor(QtGui.QPalette.ColorRole.ToolTipText, text_primary)
+            palette.setColor(QtGui.QPalette.ColorRole.Highlight, highlight)
+            palette.setColor(QtGui.QPalette.ColorRole.HighlightedText, text_on_primary)
+
+        app.setPalette(palette)
+
+        # 3) 应用字体与全局样式表（依赖上一步选定的 Colors）
         app.setFont(QtGui.QFont("Microsoft YaHei UI", Sizes.FONT_NORMAL))
         app.setStyleSheet(cls.global_style())
 
@@ -324,6 +375,36 @@ class ThemeManager:
         wheel_guard_filter = WheelGuardFilter(app)
         app._wheel_guard_filter = wheel_guard_filter  # type: ignore[attr-defined]
         app.installEventFilter(wheel_guard_filter)
+
+    @classmethod
+    def _select_theme_mode(cls, app: QtWidgets.QApplication) -> str:
+        """根据设置与系统状态选择实际使用的主题模式。
+
+        返回值恒为 "light" 或 "dark"，避免在后续逻辑中出现不受支持的枚举。
+        """
+        preferred_mode = getattr(settings, "UI_THEME_MODE", "auto")
+        normalized_mode = preferred_mode.lower()
+        if normalized_mode == "light":
+            return "light"
+        if normalized_mode == "dark":
+            return "dark"
+
+        # 跟随系统：优先使用 Qt6 提供的颜色方案枚举，其次根据调色板亮度粗略判断
+        style_hints = app.styleHints()
+        if hasattr(style_hints, "colorScheme") and hasattr(QtCore.Qt, "ColorScheme"):
+            color_scheme = style_hints.colorScheme()
+            if color_scheme == QtCore.Qt.ColorScheme.Dark:
+                return "dark"
+            if color_scheme == QtCore.Qt.ColorScheme.Light:
+                return "light"
+
+        palette = app.palette()
+        window_color = palette.color(QtGui.QPalette.ColorRole.Window)
+        text_color = palette.color(QtGui.QPalette.ColorRole.WindowText)
+        # 若窗口背景明显深于文字颜色，则视为深色模式
+        if window_color.value() < text_color.value():
+            return "dark"
+        return "light"
 
     @staticmethod
     def draw_grid_background(painter, rect, grid_size: int = 50) -> None:

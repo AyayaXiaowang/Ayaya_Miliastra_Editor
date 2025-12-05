@@ -20,6 +20,9 @@ class ExtractedSpec:
     aliases: List[str] = field(default_factory=list)
     input_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
     output_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
+    # 直接从 @node_spec 抽取的输入/输出端口枚举候选项
+    input_enum_options: Dict[str, List[str]] = field(default_factory=dict)
+    output_enum_options: Dict[str, List[str]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
@@ -42,6 +45,8 @@ class ExtractedSpec:
             aliases=list(item.get("aliases") or []),
             input_generic_constraints=dict(item.get("input_generic_constraints") or {}),
             output_generic_constraints=dict(item.get("output_generic_constraints") or {}),
+            input_enum_options=dict(item.get("input_enum_options") or {}),
+            output_enum_options=dict(item.get("output_enum_options") or {}),
         )
 
 
@@ -63,6 +68,9 @@ class NormalizedSpec:
     outputs: List[List[Any]] = field(default_factory=list)
     input_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
     output_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
+    # 规范化后透传的枚举候选项（键仍为端口名）
+    input_enum_options: Dict[str, List[str]] = field(default_factory=dict)
+    output_enum_options: Dict[str, List[str]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
@@ -88,6 +96,8 @@ class NormalizedSpec:
             outputs=list(item.get("outputs") or []),
             input_generic_constraints=dict(item.get("input_generic_constraints") or {}),
             output_generic_constraints=dict(item.get("output_generic_constraints") or {}),
+            input_enum_options=dict(item.get("input_enum_options") or {}),
+            output_enum_options=dict(item.get("output_enum_options") or {}),
         )
 
 

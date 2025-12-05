@@ -13,7 +13,7 @@
 from PyQt6 import QtCore, QtWidgets
 from typing import Optional, Tuple, Any
 
-from ui.foundation.theme_manager import Sizes
+from ui.foundation.theme_manager import Sizes, ThemeManager
 from ui.panels.ui_control_group_store import UIControlGroupStore
 from ui.panels.panel_scaffold import PanelScaffold, SectionCard
 from ui.panels.ui_widget_config_panels import BaseWidgetConfigPanel, create_config_panel
@@ -74,7 +74,7 @@ class UIControlSettingsPanel(PanelScaffold):
         self.type_stack.setContentsMargins(0, 0, 0, 0)
         self._placeholder_widget = QtWidgets.QLabel("未选中任何界面控件\n请在中部预览中点击一个控件")
         self._placeholder_widget.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._placeholder_widget.setStyleSheet("color:#888; padding:20px;")
+        self._placeholder_widget.setStyleSheet(f"{ThemeManager.hint_text_style()} padding:20px;")
         self.type_stack.addWidget(self._placeholder_widget)
         self.type_panel_widget = self._placeholder_widget
         type_section.add_content_widget(type_container)

@@ -29,7 +29,7 @@ def build_virtual_pins_from_class(class_def: ast.ClassDef) -> List[VirtualPinCon
     Returns:
         虚拟引脚配置列表
     """
-    virtual_pins = []
+    virtual_pins: List[VirtualPinConfig] = []
     pin_index = 1
     
     # 遍历类的所有方法
@@ -140,7 +140,9 @@ def build_virtual_pins_from_class(class_def: ast.ClassDef) -> List[VirtualPinCon
                     mapped_ports=[]
                 ))
                 pin_index += 1
-    
+
+    # 复合节点允许根据需要暴露多个流程出口（例如条件分支、多分支等），
+    # 具体分支结构由后续 IR 构建与布局逻辑处理。
     return virtual_pins
 
 
@@ -396,7 +398,7 @@ def build_virtual_pins_from_signature(func_def: ast.FunctionDef) -> List[Virtual
     Returns:
         虚拟引脚配置列表（输入+输出）
     """
-    virtual_pins = []
+    virtual_pins: List[VirtualPinConfig] = []
     pin_index = 1
     
     # 解析输入参数（跳过第一个game参数）
@@ -423,7 +425,9 @@ def build_virtual_pins_from_signature(func_def: ast.FunctionDef) -> List[Virtual
             return_pin.pin_index = pin_index
             virtual_pins.append(return_pin)
             pin_index += 1
-    
+
+    # 函数格式复合节点也支持多个流程出口（通过返回值类型声明多个“流程”端口），
+    # 具体分支结构同样由 IR 构建层处理。
     return virtual_pins
 
 

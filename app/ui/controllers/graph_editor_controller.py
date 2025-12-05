@@ -11,6 +11,13 @@ from engine.graph.models.graph_model import GraphModel
 from engine.graph.models.graph_config import GraphConfig
 from engine.layout import layout_by_event_regions
 from engine.resources.resource_manager import ResourceManager, ResourceType
+from engine.signal import compute_signal_schema_hash
+from engine.graph.common import (
+    SIGNAL_SEND_NODE_TITLE,
+    SIGNAL_LISTEN_NODE_TITLE,
+    SIGNAL_SEND_STATIC_INPUTS,
+    SIGNAL_LISTEN_STATIC_OUTPUTS,
+)
 from ui.graph.graph_undo import AddNodeCommand
 from engine.nodes.node_definition_loader import NodeDef
 from ui.graph.graph_scene import GraphScene
@@ -73,6 +80,106 @@ class GraphEditorController(QtCore.QObject):
     def schedule_reparse_on_next_auto_layout(self) -> None:
         """安排在下一次自动排版前强制从 .py 重新解析当前图（忽略持久化缓存）。"""
         self._force_reparse_on_next_auto_layout = True
+
+    # ===== 信号 schema 版本控制：仅在版本不一致时刷新信号端口 =====
+
+    def _maybe_sync_signals_for_model(self) -> None:
+        """在图加载后按需根据信号定义刷新信号节点端口。
+
+        - 若当前上下文无法获取包视图，则退回到旧行为：始终刷新一次信号端口；
+        - 若可获取 `{signal_id: SignalConfig}` 字典，则基于 compute_signal_schema_hash
+          计算当前 schema 版本；
+          · 若 GraphModel.metadata 中未记录或版本不一致，则执行一次端口同步；
+          · 若版本一致但检测到“旧缓存缺少参数端口”，同样强制执行一次端口同步，
+            防止早期版本写入的 graph_cache 避开了新的动态端口补全逻辑。
+        """
+        scene = self.scene
+        model = self.model
+        if scene is None or model is None:
+            return
+
+        # 未注入 current_package 获取回调时，保持旧行为，避免影响只读预览等场景。
+        get_current_package = getattr(self, "get_current_package", None)
+        if not callable(get_current_package):
+            scene._on_signals_updated_from_manager()  # type: ignore[call-arg]
+            return
+
+        current_package = get_current_package()
+        if current_package is None:
+            scene._on_signals_updated_from_manager()  # type: ignore[call-arg]
+            return
+
+        signals_dict = getattr(current_package, "signals", None)
+        if not isinstance(signals_dict, dict):
+            scene._on_signals_updated_from_manager()  # type: ignore[call-arg]
+            return
+
+        current_hash = compute_signal_schema_hash(signals_dict)
+        metadata = model.metadata or {}
+        last_hash_value = metadata.get("signal_schema_hash")
+
+        # 当 schema 哈希已一致时，额外检查一次发送/监听信号节点是否已具备
+        # 当前信号定义声明的全部参数端口；若发现缺失，视为旧缓存并强制重同步。
+        need_force_resync: bool = False
+        if isinstance(last_hash_value, str) and last_hash_value == current_hash:
+            bindings = model.get_signal_bindings()
+
+            for node_id, node in model.nodes.items():
+                node_title = getattr(node, "title", "") or ""
+                if node_title not in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE):
+                    continue
+
+                binding_info = bindings.get(str(node_id)) or {}
+                signal_id_value = binding_info.get("signal_id")
+                if not isinstance(signal_id_value, str) or not signal_id_value:
+                    continue
+
+                signal_config = signals_dict.get(signal_id_value)
+                if signal_config is None:
+                    continue
+
+                parameters = getattr(signal_config, "parameters", []) or []
+                param_names: list[str] = []
+                for param in parameters:
+                    name_value = getattr(param, "name", "")
+                    if isinstance(name_value, str) and name_value:
+                        param_names.append(name_value)
+                if not param_names:
+                    continue
+
+                if node_title == SIGNAL_SEND_NODE_TITLE:
+                    static_inputs = set(SIGNAL_SEND_STATIC_INPUTS)
+                    existing_names = {
+                        str(getattr(port, "name", ""))
+                        for port in (getattr(node, "inputs", []) or [])
+                        if hasattr(port, "name")
+                    }
+                else:
+                    static_inputs = set(SIGNAL_LISTEN_STATIC_OUTPUTS)
+                    existing_names = {
+                        str(getattr(port, "name", ""))
+                        for port in (getattr(node, "outputs", []) or [])
+                        if hasattr(port, "name")
+                    }
+
+                for param_name in param_names:
+                    if param_name in static_inputs:
+                        continue
+                    if param_name not in existing_names:
+                        need_force_resync = True
+                        break
+                if need_force_resync:
+                    break
+
+            if not need_force_resync:
+                # 当前图已经对齐到这一版信号定义，且端口结构完整，直接使用现有模型。
+                return
+
+        # schema 版本缺失、不一致，或检测到旧缓存缺少参数端口：
+        # 执行一次端口同步，然后记录最新版本哈希。
+        scene._on_signals_updated_from_manager()  # type: ignore[call-arg]
+        metadata["signal_schema_hash"] = current_hash
+        model.metadata = metadata
 
     def prepare_for_auto_layout(self) -> None:
         """在自动排版前按需（一次性标记）重建模型：清缓存→从 .py 解析→替换到场景。
@@ -225,10 +332,10 @@ class GraphEditorController(QtCore.QObject):
         self.scene.setItemIndexMethod(QtWidgets.QGraphicsScene.ItemIndexMethod.NoIndex)
         populate_scene_from_model(self.scene, enable_batch_mode=True)
 
-        # 在批量装配完成后，若图中已存在信号绑定信息，则尝试根据信号定义
-        # 为所有“发送信号/监听信号”节点补全参数端口与端口类型，仅新增缺失端口。
+        # 在批量装配完成后，仅当“信号 schema 版本”与当前包不一致时，才根据信号定义
+        # 为“发送信号/监听信号”节点补全参数端口，避免在信号未变更时重复扰动端口结构。
         if hasattr(self.scene, "_on_signals_updated_from_manager"):
-            self.scene._on_signals_updated_from_manager()  # type: ignore[call-arg]
+            self._maybe_sync_signals_for_model()
 
         # 恢复索引/信号并强制刷新（并确保小地图可见）
         self.scene.setItemIndexMethod(QtWidgets.QGraphicsScene.ItemIndexMethod.BspTreeIndex)

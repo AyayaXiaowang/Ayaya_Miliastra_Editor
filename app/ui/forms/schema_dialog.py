@@ -5,6 +5,7 @@ from typing import Optional, Sequence, Tuple
 from PyQt6 import QtGui, QtWidgets
 
 from ui.foundation.base_widgets import FormDialog
+from ui.foundation.theme_manager import Colors
 
 
 class FormDialogBuilder:
@@ -113,7 +114,7 @@ class FormDialogBuilder:
     def add_color_picker(
         self,
         label: str,
-        color: str = "#FFFFFF",
+        color: str = Colors.BG_CARD,
         button_text: str = "选择颜色",
     ) -> QtWidgets.QLineEdit:
         container = QtWidgets.QWidget()
@@ -124,7 +125,7 @@ class FormDialogBuilder:
         pick_button = QtWidgets.QPushButton(button_text)
 
         def choose_color() -> None:
-            initial = QtGui.QColor(color_edit.text() or "#FFFFFF")
+            initial = QtGui.QColor(color_edit.text() or Colors.BG_CARD)
             selected = QtWidgets.QColorDialog.getColor(initial, self.dialog)
             if selected.isValid():
                 color_edit.setText(selected.name())

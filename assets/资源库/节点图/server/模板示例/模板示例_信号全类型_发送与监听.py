@@ -149,6 +149,9 @@ class 模板示例_信号全类型_发送与监听:
             self.on_实体创建时,
             owner=self.owner_entity,
         )
+        # 监听信号事件：事件名现在直接使用“信号名（显示名称）”，
+        # 解析器会在构建 GraphModel 时将该名称解析为稳定的 signal_id 并写入
+        # GraphModel.metadata["signal_bindings"]，从而驱动端口补全与类型校验。
         self.game.register_event_handler(
             "测试信号_全部参数类型",
             self.on_监听信号,

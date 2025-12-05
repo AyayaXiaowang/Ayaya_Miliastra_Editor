@@ -472,7 +472,7 @@ class DataCoordinatePlanner:
             if not target_node_obj:
                 continue
 
-            target_in_edges = self.context.get_data_in_edges(target_node_id)
+            target_in_edges = self.context.get_in_data_edges(target_node_id)
 
             connected_ports_ordered = self._target_connected_ports_cache.get(target_node_id)
             if connected_ports_ordered is None:
@@ -563,7 +563,7 @@ class DataCoordinatePlanner:
         if not flow_node_obj:
             return None
         connected_input_ports: Set[str] = set()
-        for edge in self.context.get_data_in_edges(flow_node_id):
+        for edge in self.context.get_in_data_edges(flow_node_id):
             if edge.dst_port:
                 connected_input_ports.add(str(edge.dst_port))
         plan = build_input_port_layout_plan(flow_node_obj, connected_input_ports)

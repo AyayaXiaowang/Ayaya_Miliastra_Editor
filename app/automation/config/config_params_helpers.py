@@ -14,6 +14,7 @@ from app.automation.core import executor_utils as _exec_utils
 from app.automation.ports._ports import normalize_kind_text, is_non_connectable_kind
 from app.automation.ports.port_picker import filter_screen_port_candidates as _filter_port_candidates
 from engine.utils.graph.graph_utils import is_flow_port_name
+from engine.graph.common import is_selection_input_port
 from engine.graph.models.graph_model import NodeModel
 from app.automation.vision.ocr_utils import normalize_ocr_bbox
 
@@ -37,12 +38,19 @@ def compute_port_ordinal_in_model(
         return None
     
     names_all_inputs = [p.name for p in (node_model.inputs or [])]
-    
+
     if expected_kind == 'flow':
+        # 仅统计流程端口
         names_filtered = [n for n in names_all_inputs if is_flow_port_name(n)]
     elif expected_kind == 'data':
-        names_filtered = [n for n in names_all_inputs if not is_flow_port_name(n)]
+        # 数据端口：排除流程端口以及“选择端口”（如发送/监听信号的“信号名”、结构体节点的“结构体名”），
+        # 这些选择端口在 UI 中通常以独立对话框或行内选择控件呈现，不参与常规参数配置与连线。
+        names_filtered = [
+            n for n in names_all_inputs
+            if (not is_flow_port_name(n)) and (not is_selection_input_port(node_model, n))
+        ]
     else:
+        # 未指定 kind 时，保留全部输入端口名称
         names_filtered = names_all_inputs
     
     if target_port_name in names_filtered:

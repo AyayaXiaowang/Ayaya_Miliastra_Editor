@@ -10,15 +10,19 @@ port_picker: 端口挑选与几何/命名/序号回退逻辑
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, List, Any
+from typing import Optional, Tuple, List, Any, Callable, NamedTuple
 import re
 
 from app.automation.ports._ports import (
-    normalize_kind_text,
-    is_non_connectable_kind,
+    filter_ports_for_screen_candidates as _filter_ports_for_screen,
+    get_port_category,
+    get_port_center_y,
 )
 from app.automation.ports.settings_locator import select_settings_center
 from engine.utils.graph.graph_utils import is_flow_port_name
+from app.automation.core import executor_utils as _exec_utils
+from app.automation import capture as editor_capture
+from app.automation.input import win_input
 
 
 def filter_screen_port_candidates(
@@ -29,25 +33,13 @@ def filter_screen_port_candidates(
     """
     按侧别/类型筛选端口候选，并按垂直位置排序。
 
-    Args:
-        ports_all: 识别到的端口列表
-        preferred_side: 'left' 或 'right'，None 表示不限制
-        expected_kind: 'flow' / 'data' / None
+    具体过滤规则委托给 `_ports.filter_ports_for_screen_candidates`，这里仅作为便捷包装。
     """
-    candidates = list(ports_all)
-    side = (preferred_side or "").lower()
-    if side in ("left", "right"):
-        specific = [p for p in candidates if str(getattr(p, "side", "")).lower() == side]
-        if len(specific) > 0:
-            candidates = specific
-    candidates = [p for p in candidates if not is_non_connectable_kind(getattr(p, "kind", ""))]
-    if expected_kind in ("flow", "data"):
-        kind_norm = expected_kind
-        by_kind = [p for p in candidates if normalize_kind_text(getattr(p, "kind", "")) == kind_norm]
-        if len(by_kind) > 0:
-            candidates = by_kind
-    candidates = sorted(candidates, key=lambda p: int(getattr(p, "center", (0, 0))[1]))
-    return candidates
+    return _filter_ports_for_screen(
+        ports_all=ports_all,
+        preferred_side=preferred_side,
+        expected_kind=expected_kind,
+    )
 
 
 def pick_settings_center_by_recognition(
@@ -63,12 +55,18 @@ def pick_settings_center_by_recognition(
     基于一步式识别结果，选择与给定行 y 最接近的 Settings 行中心点。
     - 不依赖行内模板横向搜索，直接使用识别到的 'settings' 端口（按侧优先）。
     - 若在容差内未找到，返回 (0, 0) 由调用方决定回退策略。
-    """
-    from app.automation.vision import list_ports as list_ports_for_bbox
-    ports = ports_list if ports_list is not None else list_ports_for_bbox(screenshot, node_bbox)
 
-    def _log(message: str) -> None:
-        executor._log(message, None)
+    约定：
+    - 调用方需提供 ports_list（基于视觉识别得到的端口列表），本函数不再直接调用视觉识别；
+    - 当 ports_list 为空或 None 时，返回 (0, 0)，由上层决定是否重试识别或走模板搜索等回退路径。
+    """
+    ports = list(ports_list) if ports_list is not None else []
+    log = _exec_utils.make_executor_log_fn(executor, None)
+    if len(ports) == 0:
+        log(
+            "[端口类型/Settings] 未提供端口识别结果，无法基于识别结果选择 Settings 行（返回 (0,0)）",
+        )
+        return (0, 0)
 
     return select_settings_center(
         ports=ports,
@@ -76,8 +74,403 @@ def pick_settings_center_by_recognition(
         row_center_y=row_center_y,
         desired_side=desired_side,
         y_tolerance=y_tolerance,
-        log_fn=_log,
+        log_fn=log,
     )
+
+
+def _pick_port_center_from_ports(
+    executor,
+    ports: List[Any],
+    desired_port: str,
+    want_output: bool,
+    expected_kind: str | None,
+    log_callback=None,
+    ordinal_fallback_index: Optional[int] = None,
+) -> Tuple[int, int]:
+    target_side = "right" if want_output else "left"
+
+    effective_expected_kind = expected_kind
+    if effective_expected_kind is None and desired_port:
+        effective_expected_kind = "flow" if is_flow_port_name(desired_port) else "data"
+
+    log_kind_miss = _exec_utils.make_executor_log_fn(executor, log_callback)
+
+    candidates = _filter_ports_for_screen(
+        ports_all=ports,
+        preferred_side=target_side,
+        expected_kind=effective_expected_kind,
+        log_kind_miss=log_kind_miss,
+    )
+
+    desired_port_text = str(desired_port or "").strip()
+    ordered_candidates = _order_port_candidates(candidates)
+
+    context = PortPickContext(
+        executor=executor,
+        candidates=candidates,
+        ordered_candidates=ordered_candidates,
+        desired_port=desired_port,
+        desired_port_text=desired_port_text,
+        expected_kind=effective_expected_kind,
+        ordinal_fallback_index=ordinal_fallback_index,
+        log_callback=log_callback,
+    )
+
+    strategies: List[PortPickStrategy] = [
+        _strategy_pick_by_name,
+        _strategy_pick_by_ordinal_index,
+        _strategy_pick_by_numeric_name,
+        _strategy_pick_by_index_suffix,
+        _strategy_pick_first_fallback,
+    ]
+
+    for strategy in strategies:
+        chosen = strategy(context)
+        if chosen is not None:
+            return _extract_port_center(chosen)
+
+    return (0, 0)
+
+
+class PortPickContext(NamedTuple):
+    executor: Any
+    candidates: List[Any]
+    ordered_candidates: List[Any]
+    desired_port: str
+    desired_port_text: str
+    expected_kind: str | None
+    ordinal_fallback_index: Optional[int]
+    log_callback: Any
+
+
+PortPickStrategy = Callable[[PortPickContext], Any | None]
+
+
+def _port_matches_expected_kind(port_obj: Any, expected_kind: str | None) -> bool:
+    """统一判断端口是否符合期望的 kind（flow/data）。
+
+    通过 `_ports.get_port_category` 映射到高层语义，避免在此处重复维护
+    对 flow/data/行内元素的细节判断逻辑。
+    """
+    if expected_kind not in ("flow", "data"):
+        return True
+
+    category = get_port_category(port_obj)
+    if expected_kind == "flow":
+        return category in ("flow_input", "flow_output")
+    return category in ("data_input", "data_output")
+
+
+def _pick_candidate_with_kind_preference(
+    primary_candidates: List[Any],
+    all_candidates: List[Any],
+    expected_kind: str | None,
+) -> Any | None:
+    """在给定候选集中根据期望 kind 挑选端口。
+
+    优先顺序：
+    1. primary_candidates 的首个元素；
+    2. primary_candidates 中首个 kind 匹配 expected_kind 的元素；
+    3. all_candidates 中首个 kind 匹配 expected_kind 的元素；
+    若均未命中，则回退到 primary_candidates[0]。
+    """
+    if len(primary_candidates) == 0:
+        return None
+
+    chosen = primary_candidates[0]
+    if _port_matches_expected_kind(chosen, expected_kind):
+        return chosen
+
+    same_kind_primary = [
+        port_obj
+        for port_obj in primary_candidates
+        if _port_matches_expected_kind(port_obj, expected_kind)
+    ]
+    if len(same_kind_primary) > 0:
+        return same_kind_primary[0]
+
+    same_kind_all = [
+        port_obj
+        for port_obj in all_candidates
+        if _port_matches_expected_kind(port_obj, expected_kind)
+    ]
+    if len(same_kind_all) > 0:
+        return same_kind_all[0]
+
+    return chosen
+
+
+def _order_port_candidates(candidates: List[Any]) -> List[Any]:
+    def _sort_key(port_obj: Any) -> Tuple[int, int]:
+        index_attr = getattr(port_obj, "index", None)
+        index_value = int(index_attr) if index_attr is not None else 10 ** 6
+        center_y = get_port_center_y(port_obj)
+        return index_value, center_y
+
+    return sorted(candidates, key=_sort_key)
+
+
+def _extract_port_center(port_obj: Any) -> Tuple[int, int]:
+    center_value = getattr(port_obj, "center")
+    return int(center_value[0]), int(center_value[1])
+
+
+def _log_picked_port(
+    executor,
+    chosen: Any,
+    prefix: str,
+    log_callback=None,
+) -> None:
+    center_x, center_y = _extract_port_center(chosen)
+    log = _exec_utils.make_executor_log_fn(executor, log_callback)
+    log(
+        f"{prefix} center=({center_x},{center_y}) side={str(chosen.side)} kind={str(getattr(chosen,'kind',''))} name='{str(getattr(chosen,'name_cn',''))}'",
+    )
+
+
+def _strategy_pick_by_name(context: PortPickContext) -> Any | None:
+    return _pick_port_by_name(
+        executor=context.executor,
+        candidates=context.candidates,
+        desired_port=context.desired_port,
+        desired_port_text=context.desired_port_text,
+        expected_kind=context.expected_kind,
+        log_callback=context.log_callback,
+    )
+
+
+def _strategy_pick_by_ordinal_index(context: PortPickContext) -> Any | None:
+    return _pick_port_by_ordinal_index(
+        executor=context.executor,
+        ordered_candidates=context.ordered_candidates,
+        ordinal_fallback_index=context.ordinal_fallback_index,
+        log_callback=context.log_callback,
+    )
+
+
+def _strategy_pick_by_numeric_name(context: PortPickContext) -> Any | None:
+    return _pick_port_by_numeric_name(
+        executor=context.executor,
+        ordered_candidates=context.ordered_candidates,
+        desired_port_text=context.desired_port_text,
+        log_callback=context.log_callback,
+    )
+
+
+def _strategy_pick_by_index_suffix(context: PortPickContext) -> Any | None:
+    return _pick_port_by_index_suffix(
+        executor=context.executor,
+        candidates=context.candidates,
+        desired_port_text=context.desired_port_text,
+        expected_kind=context.expected_kind,
+        log_callback=context.log_callback,
+    )
+
+
+def _strategy_pick_first_fallback(context: PortPickContext) -> Any | None:
+    return _pick_port_first_fallback(
+        executor=context.executor,
+        ordered_candidates=context.ordered_candidates,
+        log_callback=context.log_callback,
+    )
+
+
+def _pick_port_by_name(
+    executor,
+    candidates: List[Any],
+    desired_port: str,
+    desired_port_text: str,
+    expected_kind: str | None,
+    log_callback=None,
+) -> Any | None:
+    if not desired_port:
+        return None
+
+    named_candidates = [
+        port_obj
+        for port_obj in candidates
+        if str(getattr(port_obj, "name_cn", "") or "") == desired_port_text
+    ]
+
+    chosen = _pick_candidate_with_kind_preference(
+        primary_candidates=named_candidates,
+        all_candidates=candidates,
+        expected_kind=expected_kind,
+    )
+    if chosen is None:
+        return None
+
+    center_x, center_y = _extract_port_center(chosen)
+    executor.log(
+        f"[端口定位] 命名优先: 端口='{desired_port}' 选择 center=({center_x},{center_y}) side={str(chosen.side)} kind={str(getattr(chosen,'kind',''))}",
+        log_callback,
+    )
+    return chosen
+
+
+def _pick_port_by_ordinal_index(
+    executor,
+    ordered_candidates: List[Any],
+    ordinal_fallback_index: Optional[int],
+    log_callback=None,
+) -> Any | None:
+    if ordinal_fallback_index is None or len(ordered_candidates) == 0:
+        return None
+
+    ordinal_index_value = int(ordinal_fallback_index)
+    if ordinal_index_value < 0:
+        ordinal_index_value = 0
+    if ordinal_index_value >= len(ordered_candidates):
+        ordinal_index_value = len(ordered_candidates) - 1
+
+    chosen = ordered_candidates[ordinal_index_value]
+    _log_picked_port(
+        executor,
+        chosen,
+        f"[端口定位] 序号优先: ordinal={int(ordinal_index_value)} 选择",
+        log_callback,
+    )
+    return chosen
+
+
+def _pick_port_by_numeric_name(
+    executor,
+    ordered_candidates: List[Any],
+    desired_port_text: str,
+    log_callback=None,
+) -> Any | None:
+    if not desired_port_text.isdigit() or len(ordered_candidates) == 0:
+        return None
+
+    ordinal_value = int(desired_port_text)
+    if ordinal_value < 1:
+        return None
+    if ordinal_value > len(ordered_candidates):
+        return None
+
+    chosen = ordered_candidates[ordinal_value - 1]
+    _log_picked_port(
+        executor,
+        chosen,
+        f"[端口定位] 序号优先: ordinal={int(ordinal_value)} 选择",
+        log_callback,
+    )
+    return chosen
+
+
+def _pick_port_by_index_suffix(
+    executor,
+    candidates: List[Any],
+    desired_port_text: str,
+    expected_kind: str | None,
+    log_callback=None,
+) -> Any | None:
+    if desired_port_text.isdigit():
+        return None
+
+    match = re.search(r"(\d+)\s*$", desired_port_text)
+    if not match:
+        return None
+
+    index_value = int(match.group(1))
+    index_candidates = [
+        port_obj
+        for port_obj in candidates
+        if getattr(port_obj, "index", None) is not None
+        and int(port_obj.index) == int(index_value)
+    ]
+
+    chosen = _pick_candidate_with_kind_preference(
+        primary_candidates=index_candidates,
+        all_candidates=index_candidates,
+        expected_kind=expected_kind,
+    )
+    if chosen is None:
+        return None
+
+    _log_picked_port(
+        executor,
+        chosen,
+        f"[端口定位] 索引优先: index={int(index_value)} 选择",
+        log_callback,
+    )
+    return chosen
+
+
+def _pick_port_first_fallback(
+    executor,
+    ordered_candidates: List[Any],
+    log_callback=None,
+) -> Any | None:
+    if len(ordered_candidates) == 0:
+        return None
+
+    chosen = ordered_candidates[0]
+    _log_picked_port(
+        executor,
+        chosen,
+        "[端口定位] 回退首项:",
+        log_callback,
+    )
+    return chosen
+
+
+def _reinspect_ports_after_moving_cursor_outside_node(
+    executor,
+    node_bbox: Tuple[int, int, int, int],
+    log_callback=None,
+    *,
+    list_ports_for_bbox_func: Callable[[Any, Tuple[int, int, int, int]], List[Any]],
+) -> Tuple[List[Any] | None, Any]:
+    """
+    当当前帧端口识别结果为空时，先尝试将鼠标移出节点到画布空白区域，再重新识别端口列表。
+
+    仅在执行器具备窗口标题与坐标转换能力时启用；其它执行环境（如离线 real_executor）保持原行为。
+    """
+    log = _exec_utils.make_executor_log_fn(executor, log_callback)
+
+    if not hasattr(executor, "convert_editor_to_screen_coords") or not hasattr(executor, "window_title"):
+        log("[端口定位] 执行器不支持坐标转换/窗口访问，跳过移出节点后重试端口识别")
+        return None, None
+
+    nx, ny, nw, nh = node_bbox
+    node_center_editor_x = int(nx + nw // 2)
+    node_center_editor_y = int(ny + nh // 2)
+    node_center_screen_x, node_center_screen_y = executor.convert_editor_to_screen_coords(
+        node_center_editor_x,
+        node_center_editor_y,
+    )
+
+    snapped_blank = _exec_utils.snap_screen_point_to_canvas_background(
+        executor,
+        int(node_center_screen_x),
+        int(node_center_screen_y),
+        log_callback=log_callback,
+        visual_callback=None,
+    )
+    if snapped_blank is None:
+        log("[端口定位] 未在画布内找到可用空白点，跳过移出节点后重试端口识别")
+        return None, None
+
+    blank_screen_x, blank_screen_y = int(snapped_blank[0]), int(snapped_blank[1])
+    log(
+        f"[端口定位] 本帧端口识别为空，先将鼠标移出节点到画布空白位置 screen=({blank_screen_x},{blank_screen_y}) 后重试一次端口识别",
+    )
+    win_input.move_mouse_absolute(int(blank_screen_x), int(blank_screen_y))
+    _exec_utils.log_wait_if_needed(
+        executor,
+        0.1,
+        "等待 0.10 秒（鼠标移出节点后重试端口识别）",
+        log_callback,
+    )
+
+    retry_frame = editor_capture.capture_window(executor.window_title)
+    if not retry_frame:
+        log("[端口定位] 鼠标移出节点后截图失败，放弃本次端口重试")
+        return None, None
+
+    retry_ports = list_ports_for_bbox_func(retry_frame, node_bbox)
+    return retry_ports, retry_frame
 
 
 def pick_port_center_for_node(
@@ -90,14 +483,16 @@ def pick_port_center_for_node(
     log_callback=None,
     ordinal_fallback_index: Optional[int] = None,
     ports_list: Optional[List[Any]] = None,
+    *,
+    list_ports_for_bbox_func: Optional[Callable[[Any, Tuple[int, int, int, int]], List[Any]]] = None,
 ) -> Tuple[int, int]:
     """
     为节点选择端口中心点。
 
     选择策略（优先级从高到低）：
-    1. 序号优先（ordinal_fallback_index 不为 None 时）：按模型顺序的 0-based 序号选择第 N 个端口
-    2. 数字端口名：按识别顺序（自上而下）选择第 N 个（1-based）
-    3. 命名匹配：按端口名精确匹配
+    1. 命名匹配：按端口名精确匹配
+    2. 序号优先（ordinal_fallback_index 不为 None 时）：按模型顺序的 0-based 序号选择第 N 个端口
+    3. 数字端口名：按识别顺序（自上而下）选择第 N 个（1-based）
     4. 索引匹配：提取末尾数字作为索引匹配
     5. 回退首项：选择第一个候选
 
@@ -115,117 +510,50 @@ def pick_port_center_for_node(
     返回：
     - (center_x, center_y) 或 (0, 0) 表示未找到
     """
-    from app.automation.vision import list_ports as list_ports_for_bbox
-    ports = ports_list if ports_list is not None else list_ports_for_bbox(screenshot, node_bbox)
+    log = _exec_utils.make_executor_log_fn(executor, log_callback)
 
-    target_side = 'right' if want_output else 'left'
-    base_candidates = filter_screen_port_candidates(
+    ports: List[Any]
+    if ports_list is not None:
+        ports = list(ports_list)
+    else:
+        if list_ports_for_bbox_func is None:
+            log("[端口定位] 未提供端口识别结果或 list_ports_for_bbox 函数，无法定位端口")
+            return (0, 0)
+        ports = list(list_ports_for_bbox_func(screenshot, node_bbox))
+
+    center = _pick_port_center_from_ports(
+        executor,
         ports,
-        preferred_side=target_side,
-        expected_kind=None,
+        desired_port,
+        want_output,
+        expected_kind,
+        log_callback,
+        ordinal_fallback_index,
     )
-    kind_expected = expected_kind
-    if kind_expected is None and desired_port:
-        kind_expected = 'flow' if is_flow_port_name(desired_port) else 'data'
-    candidates = base_candidates
-    if kind_expected in ('flow', 'data'):
-        candidates_by_kind = [p for p in base_candidates if normalize_kind_text(getattr(p, 'kind', '')) == kind_expected]
-        if len(candidates_by_kind) == 0:
-            # 不再直接失败：保留原 candidates，继续尝试命名/索引/序号回退
-            executor._log(f"[端口定位] 期望类型 '{kind_expected}' 无候选，改为不限制类型继续匹配", log_callback)
-        else:
-            candidates = candidates_by_kind
+    if int(center[0]) != 0 or int(center[1]) != 0:
+        return center
 
-    ordered_candidates_cache: List[Any] | None = None
-
-    def _get_ordered_candidates() -> List[Any]:
-        nonlocal ordered_candidates_cache
-        if ordered_candidates_cache is None:
-            def _sort_key(port_obj):
-                idx_attr = getattr(port_obj, 'index', None)
-                idx_val = int(idx_attr) if idx_attr is not None else 10**6
-                center_val = getattr(port_obj, 'center', (0, 0))
-                center_y = int(center_val[1]) if isinstance(center_val, tuple) and len(center_val) >= 2 else 0
-                return (idx_val, center_y)
-            ordered_candidates_cache = sorted(candidates, key=_sort_key)
-        return ordered_candidates_cache
-
-    dp = str(desired_port or "").strip()
-    if desired_port:
-        named = [p for p in candidates if str(getattr(p, 'name_cn', '') or '') == dp]
-        if len(named) > 0:
-            chosen = named[0]
-            if kind_expected in ('flow','data') and normalize_kind_text(getattr(chosen, 'kind', '')) != kind_expected:
-                same_kind = [p for p in named if normalize_kind_text(getattr(p,'kind','')) == kind_expected]
-                if len(same_kind) == 0:
-                    same_kind = [p for p in candidates if normalize_kind_text(getattr(p,'kind','')) == kind_expected]
-                if len(same_kind) > 0:
-                    chosen = same_kind[0]
-            executor._log(
-                f"[端口定位] 命名优先: 端口='{desired_port}' 选择 center=({int(chosen.center[0])},{int(chosen.center[1])}) side={str(chosen.side)} kind={str(getattr(chosen,'kind',''))}",
-                log_callback
-            )
-            return (int(chosen.center[0]), int(chosen.center[1]))
-
-    # 优先遵循调用方提供的序号（来自模型顺序的 0-based 序号）
-    if ordinal_fallback_index is not None and len(candidates) > 0:
-        ord_idx = int(ordinal_fallback_index)
-        if ord_idx < 0:
-            ord_idx = 0
-        ordered = _get_ordered_candidates()
-        if ord_idx >= len(ordered):
-            ord_idx = len(ordered) - 1
-        chosen = ordered[ord_idx]
-        executor._log(
-            f"[端口定位] 序号优先: ordinal={int(ord_idx)} 选择 center=({int(chosen.center[0])},{int(chosen.center[1])}) side={str(chosen.side)} kind={str(getattr(chosen,'kind',''))} name='{str(getattr(chosen,'name_cn',''))}'",
-            log_callback
+    if len(ports) == 0 and list_ports_for_bbox_func is not None:
+        retry_ports, _retry_frame = _reinspect_ports_after_moving_cursor_outside_node(
+            executor,
+            node_bbox,
+            log_callback,
+            list_ports_for_bbox_func=list_ports_for_bbox_func,
         )
-        return (int(chosen.center[0]), int(chosen.center[1]))
-
-    # 数字端口名：按定义序号（优先 index，其次垂直顺序）选择第 N 个（1-based）
-    if dp.isdigit():
-        ord_val = int(dp)
-        if ord_val >= 1 and len(candidates) > 0:
-            ordered = _get_ordered_candidates()
-            if ord_val <= len(ordered):
-                chosen = ordered[ord_val - 1]
-                executor._log(
-                    f"[端口定位] 序号优先: ordinal={int(ord_val)} 选择 center=({int(chosen.center[0])},{int(chosen.center[1])}) side={str(chosen.side)} kind={str(getattr(chosen,'kind',''))} name='{str(getattr(chosen,'name_cn',''))}'",
-                    log_callback
-                )
-                return (int(chosen.center[0]), int(chosen.center[1]))
-
-    idx_val: int | None = None
-    # 兼容带数字后缀的命名（如 '分支_2'）：提取末尾数字作为索引匹配
-    if not dp.isdigit():
-        m = re.search(r"(\d+)\s*$", dp)
-        if m:
-            idx_val = int(m.group(1))
-    if idx_val is not None:
-        by_index = [p for p in candidates if getattr(p, 'index', None) is not None and int(p.index) == int(idx_val)]
-        if len(by_index) > 0:
-            chosen = by_index[0]
-            if kind_expected in ('flow','data') and normalize_kind_text(getattr(chosen, 'kind', '')) != kind_expected:
-                same_kind = [p for p in by_index if normalize_kind_text(getattr(p,'kind','')) == kind_expected]
-                if len(same_kind) > 0:
-                    chosen = same_kind[0]
-            executor._log(
-                f"[端口定位] 索引优先: index={int(idx_val)} 选择 center=({int(chosen.center[0])},{int(chosen.center[1])}) side={str(chosen.side)} kind={str(getattr(chosen,'kind',''))} name='{str(getattr(chosen,'name_cn',''))}'",
-                log_callback
+        if retry_ports is not None and len(retry_ports) > 0:
+            center_retry = _pick_port_center_from_ports(
+                executor,
+                retry_ports,
+                desired_port,
+                want_output,
+                expected_kind,
+                log_callback,
+                ordinal_fallback_index,
             )
-            return (int(chosen.center[0]), int(chosen.center[1]))
+            if int(center_retry[0]) != 0 or int(center_retry[1]) != 0:
+                log("[端口定位] 鼠标移出节点后重试端口识别成功")
+                return center_retry
 
-    # 注：若未提供 ordinal，后续不再进行"序号回退"，只保留最终首项回退。
-
-    if len(candidates) > 0:
-        ordered = _get_ordered_candidates()
-        chosen = ordered[0]
-        executor._log(
-            f"[端口定位] 回退首项: center=({int(chosen.center[0])},{int(chosen.center[1])}) side={str(chosen.side)} kind={str(getattr(chosen,'kind',''))} name='{str(getattr(chosen,'name_cn',''))}'",
-            log_callback
-        )
-        return (int(chosen.center[0]), int(chosen.center[1]))
-
-    executor._log("[端口定位] 无可用候选", log_callback)
+    log("[端口定位] 无可用候选")
     return (0, 0)
 

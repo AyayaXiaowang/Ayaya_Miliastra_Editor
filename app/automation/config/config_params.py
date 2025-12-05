@@ -10,7 +10,9 @@ from typing import Optional, Dict, Any, Callable, List
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
+from app.automation.core.executor_protocol import EditorExecutorWithViewport, AutomationStepContext
+from app.automation.core import executor_utils as _exec_utils
+from app.automation.input.common import sleep_seconds
 from app.automation.ports._type_utils import infer_type_from_value
 from engine.graph.models.graph_model import GraphModel
 
@@ -19,6 +21,7 @@ from app.automation.config.config_node_steps import (
     log_port_candidates_debug,
     locate_input_port,
     handle_boolean_param,
+    handle_enum_param,
     find_warning_region_for_port,
     handle_regular_param_with_warning,
     handle_regular_param_fallback,
@@ -60,10 +63,17 @@ def execute_config_node_merged(
     params_list = todo_item.get("params") or []
     
     if not node_id or node_id not in graph_model.nodes:
-        executor._log("✗ 参数配置缺少节点或节点不存在", log_callback)
+        executor.log("✗ 参数配置缺少节点或节点不存在", log_callback)
         return False
     
     node = graph_model.nodes[node_id]
+
+    step_ctx = AutomationStepContext(
+        log_callback=log_callback,
+        visual_callback=visual_callback,
+        pause_hook=pause_hook,
+        allow_continue=allow_continue,
+    )
     
     # 确保节点在可见区域
     executor.ensure_program_point_visible(
@@ -89,12 +99,12 @@ def execute_config_node_merged(
     visualize_node_and_ports(executor, snapshot.screenshot, node_bbox, node.title, visual_callback)
     
     # 输出节点信息
-    node_def = executor._get_node_def_for_model(node)
-    executor._log(f"[参数配置] 节点 '{node.title}'({node.id}) 参数项数={len(params_list)}", log_callback)
+    node_def = executor.get_node_def_for_model(node)
+    executor.log(f"[参数配置] 节点 '{node.title}'({node.id}) 参数项数={len(params_list)}", log_callback)
     
     # 无参数时跳过
     if len(params_list) == 0:
-        executor._log("[参数配置] 无参数项：跳过类型识别与设置（请使用独立步骤 graph_set_port_types_merged）", log_callback)
+        executor.log("[参数配置] 无参数项：跳过类型识别与设置（请使用独立步骤 graph_set_port_types_merged）", log_callback)
         return True
     
     # 记录已配置的端口中心（避免重复使用）
@@ -108,7 +118,7 @@ def execute_config_node_merged(
         if pause_hook is not None:
             pause_hook()
         if allow_continue is not None and not allow_continue():
-            executor._log("用户终止/暂停，放弃参数配置", log_callback)
+            executor.log("用户终止/暂停，放弃参数配置", log_callback)
             return False
 
         if not snapshot.ensure(reason=f"参数配置#{param_index}", require_bbox=True):
@@ -126,25 +136,38 @@ def execute_config_node_merged(
         # 获取端口类型，若节点未声明则回退至值推断
         port_type = "泛型"
         if node_def is not None:
-            try:
-                port_type = node_def.get_port_type(param_name, is_input=True)
-            except ValueError as exc:
-                executor._log(f"[参数配置] 输入端口 '{param_name}' 未声明类型：{exc} -> 使用值推断", log_callback)
+            has_explicit_type = False
+            if param_name in (node_def.input_types or {}):
+                port_type = node_def.input_types[param_name]
+                has_explicit_type = True
         
-        # 推断有效类型（用于布尔/向量等判定）
+        # 推断有效类型（用于布尔/枚举/向量等判定）
         if (not port_type) or (isinstance(port_type, str) and (port_type == "泛型" or port_type.startswith("泛型"))):
             effective_type = infer_type_from_value(param_value)
         else:
             effective_type = port_type
-        
-        executor._log(
+
+        executor.log(
             f"[参数配置] 处理输入端口: '{param_name}' 原始值='{param_value}' 声明类型='{port_type or ''}' → 有效类型='{effective_type}'",
-            log_callback
+            log_callback,
         )
+
+        is_enum_type = isinstance(effective_type, str) and ("枚举" in effective_type)
+        enum_index_for_param = None
+        if is_enum_type and node_def is not None:
+            input_enum_options = getattr(node_def, "input_enum_options", {}) or {}
+            options_for_param = input_enum_options.get(param_name)
+            if isinstance(options_for_param, list):
+                for option_position, option_text in enumerate(options_for_param, start=1):
+                    if param_value == str(option_text):
+                        enum_index_for_param = option_position
+                        break
+
+        is_boolean_type = isinstance(effective_type, str) and ("布尔" in effective_type)
         
         # 跳过实体类型
         if isinstance(effective_type, str) and ("实体" in effective_type):
-            executor._log(f"· 跳过实体类型输入端口『{param_name}』", log_callback)
+            executor.log(f"· 跳过实体类型输入端口『{param_name}』", log_callback)
             continue
         
         # 输出调试信息
@@ -171,29 +194,26 @@ def execute_config_node_merged(
         
         # 可视化：当前端口
         if visual_callback is not None:
-            rects = [{
-                'bbox': (int(node_bbox[0]), int(node_bbox[1]), int(node_bbox[2]), int(node_bbox[3])),
-                'color': (120, 200, 255),
-                'label': f"参数: {param_name}"
-            }]
-            circles = [{
-                'center': (int(port_center[0]), int(port_center[1])),
-                'radius': 6,
-                'color': (255, 200, 0),
-                'label': ''
-            }]
-            visual_callback(screenshot, {'rects': rects, 'circles': circles})
-        
-        # ========== 3. 处理布尔参数 ==========
-        if isinstance(effective_type, str) and ("布尔" in effective_type):
-            should_continue = handle_boolean_param(executor, port_center, param_name, param_value, log_callback)
-            snapshot.mark_dirty(require_bbox=False)
-            if not should_continue:
-                continue  # 布尔处理完毕，跳到下一个参数
-        
-        # ========== 4. 处理普通/向量参数 ==========
+            rects = [
+                {
+                    "bbox": (int(node_bbox[0]), int(node_bbox[1]), int(node_bbox[2]), int(node_bbox[3])),
+                    "color": (120, 200, 255),
+                    "label": f"参数: {param_name}",
+                }
+            ]
+            circles = [
+                {
+                    "center": (int(port_center[0]), int(port_center[1])),
+                    "radius": 6,
+                    "color": (255, 200, 0),
+                    "label": "",
+                }
+            ]
+            visual_callback(screenshot, {"rects": rects, "circles": circles})
+
+        # ========== 3. 处理普通/向量/枚举/布尔参数 ==========
         width, height = screenshot.size
-        executor._log(f"[截图] 当前画面={width}x{height}", log_callback)
+        executor.log(f"[截图] 当前画面={width}x{height}", log_callback)
         
         # 查找Warning搜索区域
         cache_key = (frame_id, param_name)
@@ -215,12 +235,81 @@ def execute_config_node_merged(
             warning_region_cache[cache_key] = warning_region_result if warning_region_result is not None else False
 
         if warning_region_result is None:
+            # Warning 搜索失败：布尔参数回退到端口偏移点击逻辑，其它类型视为致命错误
+            if is_boolean_type:
+                executor.log("[参数配置/布尔] Warning 区域未找到，回退端口偏移点击逻辑", log_callback)
+                should_continue_bool = handle_boolean_param(
+                    executor,
+                    port_center,
+                    param_name,
+                    param_value,
+                    log_callback,
+                )
+                snapshot.mark_dirty(require_bbox=False)
+                if not should_continue_bool:
+                    continue
+                continue
             return False
         
         search_region, current_port, next_port = warning_region_result
         
-        # 尝试通过Warning模板处理
+        # 优先处理布尔/枚举/向量等特殊类型
+        if is_boolean_type:
+            # 将布尔视为“双选枚举”：True 视为第 1 项，False 视为第 2 项
+            value_text = str(param_value or "").strip()
+            value_lower = value_text.lower()
+            is_true = (value_text == "是") or (value_lower == "true") or (value_text == "1")
+            bool_enum_index = 1 if is_true else 2
+
+            ok_bool_enum = handle_enum_param(
+                executor,
+                screenshot,
+                search_region,
+                bool_enum_index,
+                pause_hook,
+                allow_continue,
+                log_callback,
+                visual_callback,
+                log_prefix="[参数配置/布尔]",
+            )
+            if ok_bool_enum:
+                snapshot.mark_dirty(require_bbox=True)
+                continue
+
+            executor.log(
+                "[参数配置/布尔] Warning 模板未命中或几何点击失败，回退端口偏移点击逻辑",
+                log_callback,
+            )
+            should_continue_bool = handle_boolean_param(
+                executor,
+                port_center,
+                param_name,
+                param_value,
+                log_callback,
+            )
+            snapshot.mark_dirty(require_bbox=False)
+            if not should_continue_bool:
+                continue
+
+        # 尝试通过Warning模板处理（向量 / 普通参数 / 显式枚举）
         is_vector = isinstance(effective_type, str) and ("三维向量" in effective_type)
+
+        # 优先：若为枚举类型且存在有效枚举序号，则使用枚举几何点击
+        if is_enum_type and enum_index_for_param is not None:
+            ok_enum = handle_enum_param(
+                executor,
+                screenshot,
+                search_region,
+                enum_index_for_param,
+                pause_hook,
+                allow_continue,
+                log_callback,
+                visual_callback,
+            )
+            if not ok_enum:
+                return False
+            snapshot.mark_dirty(require_bbox=True)
+            continue
         
         if is_vector:
             # 三维向量：先尝试Warning几何法
@@ -245,12 +334,21 @@ def execute_config_node_merged(
                 current_port_bbox = tuple(int(v) for v in getattr(current_port, 'bbox', (0, 0, 0, 0)))
                 
                 ok = input_vector3_by_geometry(
-                    executor, screenshot, warning_bbox, node_bbox, current_port_bbox,
-                    param_value, pause_hook, allow_continue, log_callback, visual_callback
+                    executor,
+                    screenshot,
+                    warning_bbox,
+                    node_bbox,
+                    current_port_bbox,
+                    param_value,
+                    step_ctx,
                 )
                 
                 if ok:
-                    _exec_utils.log_wait_if_needed(executor, 0.1, "等待 0.10 秒", log_callback)
+                    # 优先使用统一的执行器等待工具；若当前环境未注入 `_exec_utils`，则退化为固定 sleep，避免 NameError
+                    if "_exec_utils" in globals():
+                        _exec_utils.log_wait_if_needed(executor, 0.1, "等待 0.10 秒", log_callback)
+                    else:
+                        sleep_seconds(0.1)
                     snapshot.mark_dirty(require_bbox=True)
                     continue
             

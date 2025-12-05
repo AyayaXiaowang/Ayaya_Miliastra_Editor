@@ -65,6 +65,8 @@ def tree_style() -> str:
     return f"""
         QTreeWidget {{
             background-color: {Colors.BG_CARD};
+            color: {Colors.TEXT_PRIMARY};
+            alternate-background-color: {Colors.BG_CARD_HOVER};
             border: none;
             border-radius: {Sizes.RADIUS_MEDIUM}px;
             outline: none;
@@ -75,6 +77,7 @@ def tree_style() -> str:
             padding: {Sizes.PADDING_SMALL}px;
             border-radius: 0px;
             margin: 0px;
+            color: {Colors.TEXT_PRIMARY};
         }}
         QTreeWidget::item:hover {{
             background-color: {Colors.BG_CARD_HOVER};
@@ -117,6 +120,7 @@ def left_panel_style() -> str:
     return f"""
         QTreeWidget#leftPanel, QTreeView#leftPanel, QListWidget#leftPanel {{
             background-color: {Colors.BG_CARD};
+            color: {Colors.TEXT_PRIMARY};
             border: none;
             outline: none;
             selection-background-color: transparent;
@@ -139,6 +143,7 @@ def left_panel_style() -> str:
             padding: {Sizes.PADDING_SMALL}px {Sizes.PADDING_MEDIUM}px;
             margin: 2px {Sizes.PADDING_SMALL}px;
             border-radius: {Sizes.RADIUS_SMALL}px;
+            color: {Colors.TEXT_PRIMARY};
         }}
 
         QTreeWidget#leftPanel::item:hover,

@@ -4,7 +4,12 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional, Tuple, Any
 
 from app.automation.core import executor_utils as _exec_utils
-from app.automation.ports._ports import normalize_kind_text
+from app.automation.ports._ports import (
+    normalize_kind_text,
+    get_port_category,
+    get_port_center_x,
+    get_port_center_y,
+)
 from app.automation.capture.template_matcher import match_template_candidates
 
 
@@ -18,20 +23,28 @@ class SettingsPortSnapshot:
     raw_kind: str
 
 
+def _iter_settings_ports_with_raw_kind(
+    ports: Iterable[Any],
+) -> Iterable[Tuple[Any, str]]:
+    """在端口列表中筛选 kind 归一化后为 'settings' 的端口，返回 (port, raw_kind)。"""
+    for port_object in ports or []:
+        raw_kind = str(getattr(port_object, "kind", "") or "")
+        if normalize_kind_text(raw_kind) != "settings":
+            continue
+        yield port_object, raw_kind
+
+
 def collect_settings_rows(ports: Iterable[Any]) -> List[SettingsPortSnapshot]:
     """收敛 kind=='settings' 的端口，返回统一的快照结构。"""
     rows: List[SettingsPortSnapshot] = []
-    for port in ports or []:
-        raw_kind = str(getattr(port, "kind", "") or "")
-        if normalize_kind_text(raw_kind) != "settings":
-            continue
-        center = getattr(port, "center", (0, 0))
-        bbox = getattr(port, "bbox", (0, 0, 0, 0))
-        index_val = getattr(port, "index", None)
+    for port_object, raw_kind in _iter_settings_ports_with_raw_kind(ports):
+        center = getattr(port_object, "center", (0, 0))
+        bbox = getattr(port_object, "bbox", (0, 0, 0, 0))
+        index_value = getattr(port_object, "index", None)
         rows.append(
             SettingsPortSnapshot(
-                side=str(getattr(port, "side", "")),
-                index=None if index_val is None else int(index_val),
+                side=str(getattr(port_object, "side", "")),
+                index=None if index_value is None else int(index_value),
                 center=(int(center[0]), int(center[1])),
                 bbox=(
                     int(bbox[0]),
@@ -39,7 +52,7 @@ def collect_settings_rows(ports: Iterable[Any]) -> List[SettingsPortSnapshot]:
                     int(bbox[2]),
                     int(bbox[3]),
                 ),
-                name_cn=str(getattr(port, "name_cn", "") or ""),
+                name_cn=str(getattr(port_object, "name_cn", "") or ""),
                 raw_kind=raw_kind,
             )
         )
@@ -63,15 +76,13 @@ def select_settings_center(
 
     ports_all = list(ports or [])
     settings_ports = [
-        port_obj
-        for port_obj in ports_all
-        if normalize_kind_text(str(getattr(port_obj, "kind", "") or "")) == "settings"
+        port_object for port_object, _ in _iter_settings_ports_with_raw_kind(ports_all)
     ]
 
     def _filter_by_y(port_list: List[Any]) -> List[Any]:
         kept: List[Any] = []
         for candidate in port_list:
-            center_y = int(getattr(candidate, "center", (0, 0))[1])
+            center_y = get_port_center_y(candidate)
             if abs(center_y - int(row_center_y)) <= int(y_tolerance):
                 kept.append(candidate)
         return kept
@@ -110,8 +121,8 @@ def select_settings_center(
             pool = preferred
         pool.sort(
             key=lambda candidate: (
-                abs(int(getattr(candidate, "center", (0, 0))[1]) - int(row_center_y)),
-                -int(getattr(candidate, "center", (0, 0))[0]),
+                abs(get_port_center_y(candidate) - int(row_center_y)),
+                -get_port_center_x(candidate),
             )
         )
         best = pool[0]
@@ -121,21 +132,26 @@ def select_settings_center(
         )
 
     if len(settings_ports) == 0:
-        row_candidates = []
+        row_candidates: List[Any] = []
         for port in ports_all:
-            center = getattr(port, "center", (0, 0))
-            dy = abs(int(center[1]) - int(row_center_y))
+            center_y = get_port_center_y(port)
+            dy = abs(center_y - int(row_center_y))
             if dy <= int(y_tolerance):
                 row_candidates.append(port)
-        non_connectable_like = [
+        # 选取“行内非数据/流程端口”作为 Settings 候选，包括各类行内按钮/图标。
+        non_connectable_like: List[Any] = [
             port
             for port in row_candidates
-            if normalize_kind_text(str(getattr(port, "kind", "") or ""))
-            not in ("data", "flow")
+            if get_port_category(port)
+            not in ("data_input", "data_output", "flow_input", "flow_output")
         ]
         if len(non_connectable_like) > 0:
             if isinstance(desired_side, str) and desired_side in ("left", "right"):
-                pool = [p for p in non_connectable_like if str(getattr(p, "side", "")) == desired_side]
+                pool = [
+                    p
+                    for p in non_connectable_like
+                    if str(getattr(p, "side", "")) == desired_side
+                ]
                 if len(pool) == 0:
                     pool = non_connectable_like
             else:
@@ -148,12 +164,12 @@ def select_settings_center(
             )
             if desired_side == "right":
                 min_x = int(bx + bw * 0.60)
-                pool = [p for p in pool if int(getattr(p, "center", (0, 0))[0]) >= min_x]
+                pool = [p for p in pool if get_port_center_x(p) >= min_x]
             elif desired_side == "left":
                 max_x = int(bx + bw * 0.40)
-                pool = [p for p in pool if int(getattr(p, "center", (0, 0))[0]) <= max_x]
+                pool = [p for p in pool if get_port_center_x(p) <= max_x]
             if len(pool) > 0:
-                pool.sort(key=lambda p: int(getattr(p, "center", (0, 0))[0]), reverse=True)
+                pool.sort(key=lambda p: get_port_center_x(p), reverse=True)
                 best_any = pool[0]
                 cx_any, cy_any = int(best_any.center[0]), int(best_any.center[1])
                 _log(f"[端口类型] 识别缺少 Settings 标签：改用行内最右非数据元素 center=({cx_any},{cy_any})")

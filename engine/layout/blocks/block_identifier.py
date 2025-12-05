@@ -38,13 +38,17 @@ def identify_block_flow_nodes(
     """
     if layout_context is None:
         raise ValueError("identify_block_flow_nodes requires a LayoutContext instance.")
-
     if start_node_id in visited_readonly:
         return []
     current_block_nodes: List[str] = []
     current_node_id = start_node_id
     while current_node_id:
         if current_node_id in visited_readonly:
+            break
+        # 防御性处理：若在同一基本块识别过程中再次遇到已加入的节点，
+        # 说明流程图中存在环路（例如 A→B→A 或自环），继续前进将导致无限循环。
+        # 这里直接终止当前块的扩展，将环入口视为块的终点，并交由后续块/关系分析处理。
+        if current_node_id in current_block_nodes:
             break
         node = model.nodes.get(current_node_id)
         if not node:

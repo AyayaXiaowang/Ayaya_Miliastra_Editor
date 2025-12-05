@@ -312,13 +312,41 @@ class TodoListOrchestrator:
         current_item: QtWidgets.QTreeWidgetItem,
         previous_item: QtWidgets.QTreeWidgetItem,
     ) -> None:
-        """树项选中变化：高亮 BasicBlock，刷新详情与预览。"""
+        """树项选中变化：高亮 BasicBlock，刷新详情与预览。
+
+        约定：
+        - 当存在“按节点过滤步骤”的置灰模式时，若用户点到的树项不是当前节点相关步骤，
+          则自动清除由节点选中产生的高亮与置灰效果，恢复整棵树的正常配色；
+        - 若仍然点在相关步骤上（含锚点与其它关联步骤），则保留当前节点高亮状态。
+        """
         if not current_item:
             return
 
         host = self.host
-        if hasattr(host.tree_manager, "highlight_block_for_item"):
-            host.tree_manager.highlight_block_for_item(current_item)
+        tree_manager = getattr(host, "tree_manager", None)
+
+        # 若当前处于“按节点过滤步骤”的置灰模式，且本次选中项不在高亮集合中，则清除节点高亮。
+        if (
+            tree_manager is not None
+            and getattr(tree_manager, "_node_filter_active", False)
+        ):
+            todo_id_for_filter = current_item.data(0, Qt.ItemDataRole.UserRole)
+            related_ids = getattr(tree_manager, "_current_node_highlight_ids", set())
+            marker_for_filter = current_item.data(
+                0, Qt.ItemDataRole.UserRole + 2
+            )
+            is_block_header = marker_for_filter == "block_header"
+            if (
+                is_block_header
+                or not todo_id_for_filter
+                or todo_id_for_filter not in related_ids
+            ):
+                tree_manager.clear_node_highlight()
+
+        if tree_manager is not None and hasattr(
+            tree_manager, "highlight_block_for_item"
+        ):
+            tree_manager.highlight_block_for_item(current_item)
 
         marker = current_item.data(0, Qt.ItemDataRole.UserRole + 2)
         if marker == "block_header":
@@ -461,23 +489,36 @@ class TodoListOrchestrator:
                 )
 
     def on_execute_remaining_clicked(self) -> None:
-        """执行剩余步骤（从当前叶子步骤到同级末尾）。"""
+        """执行剩余序列：叶子步骤 → 同级末尾；事件流根 → 当前及后续事件流。"""
         host = self.host
         if not host.current_detail_info:
             host._notify("内部错误：当前详情为空，无法执行", "error")
             return
         detail_type = host.current_detail_info.get("type", "")
         execution_profile = StepTypeRules.build_execution_profile(detail_type)
-        if not execution_profile.is_leaf_graph_step:
-            host._notify("仅支持在叶子图步骤上执行剩余步骤", "warning")
+
+        if execution_profile.is_leaf_graph_step:
+            leaf_todo = self._resolve_leaf_todo_for_execution()
+            if leaf_todo is None:
+                host._notify(
+                    "当前选中的任务已不在最新的任务清单中，请重新选择要执行的步骤", "warning"
+                )
+                return
+            host.executor_bridge.execute_from_this_step(leaf_todo)
             return
-        leaf_todo = self._resolve_leaf_todo_for_execution()
-        if leaf_todo is None:
-            host._notify(
-                "当前选中的任务已不在最新的任务清单中，请重新选择要执行的步骤", "warning"
-            )
+
+        if execution_profile.is_event_flow_root:
+            executor_bridge = getattr(host, "executor_bridge", None)
+            if executor_bridge is None:
+                host._notify("内部错误：执行桥接层不存在，无法启动执行", "error")
+                return
+            if hasattr(executor_bridge, "execute_remaining_event_flows"):
+                executor_bridge.execute_remaining_event_flows()
+            else:
+                host._notify("内部错误：当前版本暂不支持按事件流执行剩余序列", "error")
             return
-        host.executor_bridge.execute_from_this_step(leaf_todo)
+
+        host._notify("仅支持在叶子图步骤或事件流根上执行剩余序列", "warning")
 
     def _resolve_leaf_todo_for_execution(self) -> Optional[TodoItem]:
         """根据当前上下文解析出可执行的叶子 Todo。
@@ -535,6 +576,12 @@ class TodoListOrchestrator:
             return "查看复合节点指引"
         return "执行"
 
+    def _compute_execute_remaining_button_text(self, execution_profile) -> str:
+        """根据执行能力画像，为“执行剩余”按钮计算语义化文案。"""
+        if getattr(execution_profile, "is_event_flow_root", False):
+            return "执行剩余事件流"
+        return "执行剩余步骤"
+
     def show_detail(self, todo: TodoItem) -> None:
         """显示任务详情 + 懒加载图步骤 + 右侧预览/执行按钮状态。"""
         host = self.host
@@ -582,10 +629,17 @@ class TodoListOrchestrator:
         host.preview_panel.set_execute_text(execute_button_text)
 
         show_exec_remaining = execution_profile.supports_execute_remaining
+        execute_remaining_text = self._compute_execute_remaining_button_text(
+            execution_profile
+        )
         if hasattr(host.detail_panel, "set_execute_remaining_visible"):
             host.detail_panel.set_execute_remaining_visible(show_exec_remaining)
+        if hasattr(host.detail_panel, "set_execute_remaining_text"):
+            host.detail_panel.set_execute_remaining_text(execute_remaining_text)
         if hasattr(host.preview_panel, "set_execute_remaining_visible"):
             host.preview_panel.set_execute_remaining_visible(show_exec_remaining)
+        if hasattr(host.preview_panel, "set_execute_remaining_text"):
+            host.preview_panel.set_execute_remaining_text(execute_remaining_text)
 
         if settings.PREVIEW_VERBOSE:
             print(

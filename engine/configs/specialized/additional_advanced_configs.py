@@ -439,7 +439,7 @@ class MultiplayerTestConfig:
     support_terminate: bool = True  # 中断挑战
     
     # 报告存储路径
-    report_storage_path: str = r"C:\Users\%USERPROFILE%\AppData\LocalLow\miHoYo\原神\BeyondLocal\{UID}\Beyond_Performance_Report"
+    report_storage_path: str = r""
     
     notes: str = "多人试玩功能配置"
     

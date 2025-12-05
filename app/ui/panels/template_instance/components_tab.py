@@ -14,7 +14,7 @@ from engine.graph.models.package_model import ComponentConfig
 from ui.foundation import input_dialogs
 from ui.foundation.dialog_utils import show_warning_dialog
 from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Sizes
+from ui.foundation.theme_manager import Colors, Sizes
 from ui.foundation.toast_notification import ToastNotification
 from ui.panels.template_instance.component_form_factory import create_component_form
 from ui.panels.template_instance.tab_base import TemplateInstanceTabBase
@@ -121,7 +121,7 @@ class ComponentsTab(TemplateInstanceTabBase):
                 QtCore.Qt.AlignmentFlag.AlignLeft
                 | QtCore.Qt.AlignmentFlag.AlignTop
             )
-            placeholder.setStyleSheet("color: #808080;")
+            placeholder.setStyleSheet(f"color: {Colors.TEXT_HINT};")
             self._components_layout.addWidget(placeholder)
             self._components_layout.addStretch(1)
             return
@@ -192,7 +192,7 @@ class ComponentsTab(TemplateInstanceTabBase):
         if description_text:
             desc_label = QtWidgets.QLabel(description_text, body_widget)
             desc_label.setWordWrap(True)
-            desc_label.setStyleSheet("color: #666666;")
+            desc_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
             body_layout.addWidget(desc_label)
 
         # 配置表单区域：尝试根据组件类型创建表单，失败则展示占位说明
@@ -212,7 +212,7 @@ class ComponentsTab(TemplateInstanceTabBase):
             )
             placeholder_label.setWordWrap(True)
             placeholder_label.setStyleSheet(
-                "color: #999999; font-size: 9pt;"
+                f"color: {Colors.TEXT_HINT}; font-size: 9pt;"
             )
             body_layout.addWidget(placeholder_label)
 
@@ -351,12 +351,21 @@ class ComponentsTab(TemplateInstanceTabBase):
             return
         if self.object_type == "level_entity":
             for comp in level_components:
-                yield ComponentRow(comp, f"【额外】 ⚙️ {comp.component_type}", "additional")
+                yield ComponentRow(
+                    comp, f"【额外】 ⚙️ {comp.component_type}", "additional"
+                )
             return
         for comp in template_components:
-            yield ComponentRow(comp, f"🔗 [继承] ⚙️ {comp.component_type}", "inherited", foreground="#888")
+            yield ComponentRow(
+                comp,
+                f"🔗 [继承] ⚙️ {comp.component_type}",
+                "inherited",
+                foreground=Colors.TEXT_DISABLED,
+            )
         for comp in instance_components:
-            yield ComponentRow(comp, f"【额外】 ⚙️ {comp.component_type}", "additional")
+            yield ComponentRow(
+                comp, f"【额外】 ⚙️ {comp.component_type}", "additional"
+            )
 
     # 只读模式 ---------------------------------------------------------------
     def set_read_only(self, read_only: bool) -> None:

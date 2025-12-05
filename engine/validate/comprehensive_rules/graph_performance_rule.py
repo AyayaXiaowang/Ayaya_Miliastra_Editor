@@ -23,28 +23,8 @@ def validate_graph_performance(validator) -> List[ValidationIssue]:
     resource_manager = validator.resource_manager
     if not resource_manager:
         return []
-    issues: List[ValidationIssue] = []
-    attachments = iter_all_package_graphs(
-        resource_manager,
-        validator.package.templates,
-        validator.package.instances,
-        validator.package.level_entity,
-    )
-    for attachment in attachments:
-        if attachment.owner_kind == "template" and not can_entity_have_node_graphs(
-            attachment.entity_type
-        ):
-            continue
-        detail = dict(attachment.detail)
-        detail["hint"] = "performance_and_reusability"
-        issues.extend(
-            check_graph_hardcoded_values(
-                attachment.graph_config.data,
-                attachment.location_full,
-                detail,
-            )
-        )
-    return issues
+    # 当前关闭节点图硬编码常量的提示，不再返回任何与复用性相关的 Issue。
+    return []
 
 
 def check_graph_hardcoded_values(

@@ -263,6 +263,9 @@ class TodoEventsMixin:
         if hasattr(self, "_ensure_property_tab_visible"):
             self._ensure_property_tab_visible(True)
 
+        if hasattr(self, "_schedule_ui_session_state_save"):
+            self._schedule_ui_session_state_save()
+
     def _update_execution_monitor_tab_for_todo(self, todo: TodoItem) -> None:
         """根据 Todo 步骤类型按需显示/隐藏右侧“执行监控”标签页。
 

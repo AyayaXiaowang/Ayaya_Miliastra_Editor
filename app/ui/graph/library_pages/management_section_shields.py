@@ -56,7 +56,7 @@ class ShieldSection(BaseManagementSection):
             "damage_ratio": 1.0,
             "remove_when_depleted": True,
             "show_ui": True,
-            "ui_color": "#00FFFF",
+            "ui_color": ThemeManager.Colors.INFO,
             "absorption_ratio": 1.0,
             "infinite_absorption": False,
             "settlement_priority": 0,
@@ -111,7 +111,7 @@ class ShieldSection(BaseManagementSection):
         )
         ui_color_edit = builder.add_color_picker(
             "UI颜色:",
-            str(initial_values.get("ui_color", "#00FFFF")),
+            str(initial_values.get("ui_color", ThemeManager.Colors.INFO)),
         )
 
         builder.add_custom_row("", QtWidgets.QLabel("<b>高级配置</b>"))
@@ -206,7 +206,7 @@ class ShieldSection(BaseManagementSection):
             "damage_ratio": float(damage_ratio_spin.value()),
             "remove_when_depleted": bool(remove_when_depleted_check.isChecked()),
             "show_ui": bool(show_ui_check.isChecked()),
-            "ui_color": ui_color_edit.text().strip() or "#00FFFF",
+            "ui_color": ui_color_edit.text().strip() or ThemeManager.Colors.INFO,
             "absorption_ratio": float(absorption_ratio_spin.value()),
             "infinite_absorption": bool(infinite_absorption_check.isChecked()),
             "settlement_priority": int(settlement_priority_spin.value()),
@@ -355,7 +355,9 @@ class ShieldSection(BaseManagementSection):
                 shield_payload.get("remove_when_depleted", True),
             )
             show_ui_value = bool(shield_payload.get("show_ui", True))
-            ui_color_value = str(shield_payload.get("ui_color", "#00FFFF"))
+            ui_color_value = str(
+                shield_payload.get("ui_color", ThemeManager.Colors.INFO)
+            )
             absorption_ratio_any = shield_payload.get("absorption_ratio", 1.0)
             if isinstance(absorption_ratio_any, (int, float)):
                 absorption_ratio_value = float(absorption_ratio_any)
@@ -455,7 +457,7 @@ class ShieldSection(BaseManagementSection):
                     remove_when_depleted_check.isChecked(),
                 )
                 shield_payload["show_ui"] = bool(show_ui_check.isChecked())
-                shield_payload["ui_color"] = ui_color_edit.text().strip() or "#00FFFF"
+                shield_payload["ui_color"] = ui_color_edit.text().strip() or ThemeManager.Colors.INFO
                 shield_payload["absorption_ratio"] = float(
                     absorption_ratio_spin.value(),
                 )

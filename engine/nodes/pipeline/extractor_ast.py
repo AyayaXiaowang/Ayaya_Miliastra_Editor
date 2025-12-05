@@ -66,6 +66,8 @@ def extract_specs(file_paths: List[Path]) -> List[ExtractedSpec]:
                 aliases=list(spec_kwargs.get("aliases") or []),
                 input_generic_constraints=dict(spec_kwargs.get("input_generic_constraints") or {}),
                 output_generic_constraints=dict(spec_kwargs.get("output_generic_constraints") or {}),
+                input_enum_options=dict(spec_kwargs.get("input_enum_options") or {}),
+                output_enum_options=dict(spec_kwargs.get("output_enum_options") or {}),
             )
             extracted.append(spec)
 

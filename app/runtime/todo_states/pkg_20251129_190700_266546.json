@@ -33,5 +33,9 @@
   "instance:level_pkg_20251129_190700_266546:graph:server_signal_all_types_example_01:flow:event_实体创建时_ff2b9605:create:node_拼装列表_a23b86cf:types": true,
   "instance:level_pkg_20251129_190700_266546:graph:server_signal_all_types_example_01:flow:event_实体创建时_ff2b9605:create:node_是否相等_570f8416:params": true,
   "instance:level_pkg_20251129_190700_266546:graph:server_signal_all_types_example_01:flow:event_实体创建时_ff2b9605:create:node_创建三维向量_355fcf5e:params": true,
-  "instance:level_pkg_20251129_190700_266546:graph:server_signal_all_types_example_01:flow:event_实体创建时_ff2b9605:create:node_拼装列表_a23b86cf:params": true
+  "instance:level_pkg_20251129_190700_266546:graph:server_signal_all_types_example_01:flow:event_实体创建时_ff2b9605:create:node_拼装列表_a23b86cf:params": true,
+  "template:template_20251130_190000_000001_signal_all_types_example:graph:server_signal_all_types_example_01:signals": false,
+  "template:template_20251130_190000_000001_signal_all_types_example:graph:server_signal_all_types_example_01:variables": false,
+  "instance:instance_20251130_190000_000001_signal_all_types_example:graph:server_delay_composite_example_01:variables": false,
+  "combat:skill:skill_signal_all_types_debug": false
 }

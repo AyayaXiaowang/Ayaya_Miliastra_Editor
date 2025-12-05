@@ -1,7 +1,7 @@
 """验证结果面板 - 显示存档验证结果"""
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 from ui.foundation.context_menu_builder import ContextMenuBuilder
@@ -11,10 +11,12 @@ from engine.validate.comprehensive_validator import ValidationIssue
 
 class ValidationPanel(PanelScaffold):
     """验证结果面板"""
-    
+
     # 信号：跳转到错误位置
     jump_to_issue = QtCore.pyqtSignal(dict)
-    
+    # 信号：选中问题用于右侧详情面板
+    issue_selected = QtCore.pyqtSignal(object)
+
     def __init__(self, parent=None):
         super().__init__(
             parent,
@@ -42,19 +44,12 @@ class ValidationPanel(PanelScaffold):
         self.tree_widget = QtWidgets.QTreeWidget()
         self.tree_widget.setHeaderLabels(["验证结果"])
         self.tree_widget.setAlternatingRowColors(True)
+        self.tree_widget.itemSelectionChanged.connect(self._on_selection_changed)
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.tree_widget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
         issues_section.add_content_widget(self.tree_widget, stretch=1)
         self.body_layout.addWidget(issues_section, 2)
-
-        detail_section = SectionCard("详细信息", "双击问题项查看详细描述与建议")
-        self.detail_text = QtWidgets.QTextEdit()
-        self.detail_text.setReadOnly(True)
-        self.detail_text.setMaximumHeight(100)
-        self.detail_text.setPlaceholderText("双击问题项查看详细信息...")
-        detail_section.add_content_widget(self.detail_text)
-        self.body_layout.addWidget(detail_section)
         self.setMinimumWidth(260)
 
     def update_issues(self, issues: List[ValidationIssue]):
@@ -131,10 +126,13 @@ class ValidationPanel(PanelScaffold):
         self.summary_badge.setText(summary_text)
         
         if error_count > 0:
+            # 错误：使用语义红底 + 红字，保持高可见度
             self.summary_badge.apply_palette(Colors.ERROR_BG, Colors.ERROR)
         elif warning_count > 0:
-            self.summary_badge.apply_palette(Colors.WARNING_BG, Colors.WARNING)
+            # 仅有警告时：使用柔和的卡片悬停底色 + 橙色文字，避免大块高亮刺眼
+            self.summary_badge.apply_palette(Colors.BG_CARD_HOVER, Colors.WARNING)
         else:
+            # 仅提示信息：使用信息色系
             self.summary_badge.apply_palette(Colors.INFO_BG, Colors.INFO)
     
     def _get_level_icon(self, level: str) -> str:
@@ -156,34 +154,29 @@ class ValidationPanel(PanelScaffold):
     @staticmethod
     def _level_priority(level: str) -> int:
         return {"error": 0, "warning": 1, "info": 2}.get(level, 3)
-    
+
+    def _on_selection_changed(self) -> None:
+        """选中项变化时，实时通知右侧详情面板。"""
+        current_item = self.tree_widget.currentItem()
+        if current_item is None:
+            self.issue_selected.emit(None)
+            return
+        issue = current_item.data(0, QtCore.Qt.ItemDataRole.UserRole)
+        if issue and isinstance(issue, ValidationIssue):
+            self.issue_selected.emit(issue)
+        else:
+            self.issue_selected.emit(None)
+
     def _on_item_double_clicked(self, item: QtWidgets.QTreeWidgetItem, column: int):
         """双击项目"""
         issue = item.data(0, QtCore.Qt.ItemDataRole.UserRole)
         if issue and isinstance(issue, ValidationIssue):
-            # 显示详细信息
-            self._show_issue_detail(issue)
-            
+            # 通知外部显示详细信息
+            self.issue_selected.emit(issue)
+
             # 发送跳转信号
             if issue.detail:
                 self.jump_to_issue.emit(issue.detail)
-    
-    def _show_issue_detail(self, issue: ValidationIssue):
-        """显示问题详细信息"""
-        detail_parts = []
-        detail_parts.append(f"【{issue.category}】{issue.location}")
-        detail_parts.append("")
-        detail_parts.append(f"问题：{issue.message}")
-        
-        if issue.suggestion:
-            detail_parts.append("")
-            detail_parts.append(f"💡 建议：{issue.suggestion}")
-        
-        if issue.reference:
-            detail_parts.append("")
-            detail_parts.append(f"📖 参考：{issue.reference}")
-        
-        self.detail_text.setPlainText("\n".join(detail_parts))
     
     def _show_context_menu(self, pos: QtCore.QPoint):
         """显示右键菜单"""
@@ -219,9 +212,9 @@ class ValidationPanel(PanelScaffold):
         """清空显示"""
         self.issues = []
         self.tree_widget.clear()
-        self.detail_text.clear()
         self.summary_badge.setText("✅ 未验证")
         self.summary_badge.apply_palette(Colors.INFO_BG, Colors.TEXT_PRIMARY)
+        self.issue_selected.emit(None)
     
     def get_error_count(self) -> int:
         """获取错误数量"""

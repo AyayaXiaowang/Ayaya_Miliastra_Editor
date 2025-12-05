@@ -69,6 +69,11 @@ class VirtualPinConfig:
     # "first": 取第一个值
     # "array": 合并为数组
     merge_strategy: str = "last"
+
+    # 是否允许在没有内部端口映射的情况下视为“已使用”
+    # 用于支持某些仅在控制流条件中使用的数据输入引脚：
+    # 这类引脚不会绑定到具体节点端口，但在复合节点代码层面已参与逻辑判断。
+    allow_unmapped: bool = False
     
     def serialize(self) -> dict:
         return {
@@ -79,7 +84,8 @@ class VirtualPinConfig:
             "is_flow": self.is_flow,
             "description": self.description,
             "mapped_ports": [port.serialize() for port in self.mapped_ports],
-            "merge_strategy": self.merge_strategy
+            "merge_strategy": self.merge_strategy,
+            "allow_unmapped": self.allow_unmapped,
         }
     
     @staticmethod
@@ -92,7 +98,8 @@ class VirtualPinConfig:
             is_flow=data.get("is_flow", False),
             description=data.get("description", ""),
             mapped_ports=[MappedPort.deserialize(p) for p in data.get("mapped_ports", [])],
-            merge_strategy=data.get("merge_strategy", "last")
+            merge_strategy=data.get("merge_strategy", "last"),
+            allow_unmapped=data.get("allow_unmapped", False),
         )
 
 

@@ -21,7 +21,6 @@ from ui.foundation.theme_manager import (
     Colors as ThemeColors,
     Sizes as ThemeSizes,
     Icons as ThemeIcons,
-    HTMLStyles,
 )
 
 
@@ -223,48 +222,48 @@ class StepTypeColors:
     - 步骤类型优先，其次（针对节点图步骤）尝试按节点类别着色
     """
 
-    # 步骤类型 → 颜色
+    # 步骤类型 → 颜色（统一从 ThemeColors 中取值，便于主题统一管理）
     STEP_COLORS = {
         # 图根/事件流容器（深色以示区分）
-        "template_graph_root": "#0D47A1",              # 深蓝
-        "event_flow_root": "#006064",                  # 深青
+        "template_graph_root": ThemeColors.TODO_STEP_TEMPLATE_GRAPH_ROOT,
+        "event_flow_root": ThemeColors.TODO_STEP_EVENT_FLOW_ROOT,
 
         # 创建/连线/配置（为每种类型分配更显眼且彼此区分的颜色）
-        "graph_create_node": "#1B5E20",                # 深绿（创建）
-        "graph_create_and_connect": "#2E7D32",         # 绿（连线并创建）
-        "graph_create_and_connect_reverse": "#43A047", # 亮绿（逆向连线并创建）
-        "graph_create_and_connect_data": "#00796B",    # 青（数据连线并创建）
+        "graph_create_node": ThemeColors.TODO_STEP_GRAPH_CREATE_NODE,
+        "graph_create_and_connect": ThemeColors.TODO_STEP_GRAPH_CREATE_AND_CONNECT,
+        "graph_create_and_connect_reverse": ThemeColors.TODO_STEP_GRAPH_CREATE_AND_CONNECT_REVERSE,
+        "graph_create_and_connect_data": ThemeColors.TODO_STEP_GRAPH_CREATE_AND_CONNECT_DATA,
 
-        "graph_connect": "#BF360C",                    # 棕橙（连接）
-        "graph_connect_merged": "#D84315",             # 橙红（合并连接）
+        "graph_connect": ThemeColors.TODO_STEP_GRAPH_CONNECT,
+        "graph_connect_merged": ThemeColors.TODO_STEP_GRAPH_CONNECT_MERGED,
 
-        "graph_config_node": "#512DA8",                # 深紫（参数配置）
-        "graph_config_node_merged": "#673AB7",         # 紫（合并参数配置）
-        "graph_set_port_types_merged": "#0097A7",      # 青色（端口类型设置-合并，与参数紫色明显区分）
+        "graph_config_node": ThemeColors.TODO_STEP_GRAPH_CONFIG_NODE,
+        "graph_config_node_merged": ThemeColors.TODO_STEP_GRAPH_CONFIG_NODE_MERGED,
+        "graph_set_port_types_merged": ThemeColors.TODO_STEP_GRAPH_SET_PORT_TYPES_MERGED,
 
         # 动态端口与分支配置
-        "graph_add_variadic_inputs": "#0277BD",        # 蓝（新增变参）
-        "graph_add_dict_pairs": "#01579B",             # 深蓝（新增字典键值）
-        "graph_add_branch_outputs": "#FF6F00",         # 琥珀（新增分支输出）
-        "graph_config_branch_outputs": "#E65100",      # 深橙（分支输出配置）
+        "graph_add_variadic_inputs": ThemeColors.TODO_STEP_GRAPH_ADD_VARIADIC_INPUTS,
+        "graph_add_dict_pairs": ThemeColors.TODO_STEP_GRAPH_ADD_DICT_PAIRS,
+        "graph_add_branch_outputs": ThemeColors.TODO_STEP_GRAPH_ADD_BRANCH_OUTPUTS,
+        "graph_config_branch_outputs": ThemeColors.TODO_STEP_GRAPH_CONFIG_BRANCH_OUTPUTS,
         # 信号相关步骤
-        "graph_signals_overview": "#006064",           # 深青（全图信号概览）
-        "graph_bind_signal": "#6A1B9A",                # 深紫（为节点绑定信号）
+        "graph_signals_overview": ThemeColors.TODO_STEP_GRAPH_SIGNALS_OVERVIEW,
+        "graph_bind_signal": ThemeColors.TODO_STEP_GRAPH_BIND_SIGNAL,
     }
 
     # 节点类别 → 颜色（与图场景标题栏色系一致）
     NODE_CATEGORY_COLORS = {
         # 简称/完整版均支持
-        "查询": "#2D5FE3",
-        "查询节点": "#2D5FE3",
-        "事件": "#FF5E9C",
-        "事件节点": "#FF5E9C",
-        "运算": "#2FAACB",
-        "运算节点": "#2FAACB",
-        "执行": "#9CD64B",
-        "执行节点": "#9CD64B",
-        "流程控制": "#FF9955",
-        "流程控制节点": "#FF9955",
+        "查询": ThemeColors.NODE_CATEGORY_QUERY,
+        "查询节点": ThemeColors.NODE_CATEGORY_QUERY,
+        "事件": ThemeColors.NODE_CATEGORY_EVENT,
+        "事件节点": ThemeColors.NODE_CATEGORY_EVENT,
+        "运算": ThemeColors.NODE_CATEGORY_COMPUTE,
+        "运算节点": ThemeColors.NODE_CATEGORY_COMPUTE,
+        "执行": ThemeColors.NODE_CATEGORY_EXECUTION,
+        "执行节点": ThemeColors.NODE_CATEGORY_EXECUTION,
+        "流程控制": ThemeColors.NODE_CATEGORY_FLOW,
+        "流程控制节点": ThemeColors.NODE_CATEGORY_FLOW,
         # 复合节点在白底上用次要紫，避免纯白不可读
         "复合": ThemeColors.SECONDARY,
         "复合节点": ThemeColors.SECONDARY,
@@ -293,12 +292,6 @@ class TodoStyles:
     # 布局尺寸
     FOCUS_MARGIN = 100  # 聚焦边距（像素）
     
-    # HTML基础样式模板 - 从主题管理器获取
-    HTML_BASE_STYLE = HTMLStyles.base_style()
-    
-    # HTML结束标签 - 从主题管理器获取
-    HTML_FOOTER = HTMLStyles.footer()
-
     # 节点图任务类型（用于右侧预览切换条件）
     GRAPH_TASK_TYPES = [
         "template_graph_root",
@@ -327,130 +320,43 @@ class TodoStyles:
         "graph_variables_table",
     ]
 
-    # 按钮样式常量
-    EXECUTE_BUTTON_QSS = """
-        QPushButton {
-            background-color: #4CAF50;
-            color: white;
-            font-size: 14px;
-            font-weight: bold;
-            border: none;
-            border-radius: 5px;
-            padding: 8px;
-        }
-        QPushButton:hover { background-color: #45a049; }
-        QPushButton:pressed { background-color: #3d8b40; }
-    """
+    # 按钮样式（从主题色构建，避免直接写死十六进制）
+    @staticmethod
+    def execute_button_qss() -> str:
+        return (
+            f"QPushButton {{"
+            f" background-color: {ThemeColors.SUCCESS};"
+            f" color: {ThemeColors.TEXT_ON_PRIMARY};"
+            " font-size: 14px; font-weight: bold; border: none; border-radius: 5px; padding: 8px;"
+            " }"
+            f" QPushButton:hover {{ background-color: {ThemeColors.SUCCESS_LIGHT}; }}"
+            f" QPushButton:pressed {{ background-color: {ThemeColors.SUCCESS}; }}"
+        )
 
-    BACK_BUTTON_QSS = """
-        QPushButton {
-            background-color: #757575;
-            color: white;
-            font-size: 12px;
-            border: none;
-            border-radius: 5px;
-            padding: 6px 12px;
-        }
-        QPushButton:hover { background-color: #616161; }
-    """
+    @staticmethod
+    def back_button_qss() -> str:
+        return (
+            f"QPushButton {{"
+            f" background-color: {ThemeColors.BORDER_DARK};"
+            f" color: {ThemeColors.TEXT_ON_PRIMARY};"
+            " font-size: 12px; border: none; border-radius: 5px; padding: 6px 12px;"
+            " }"
+            f" QPushButton:hover {{ background-color: {ThemeColors.BORDER_NORMAL}; }}"
+        )
 
     @staticmethod
     def widget_stylesheet() -> str:
-        """任务清单组件整体样式（原内联QSS，集中管理）。"""
-        return """
-        /* 整体背景 */
-        TodoListWidget { background-color: #F5F5F5; }
+        """任务清单组件整体样式（简化版，依赖全局主题提供大部分外观）。"""
+        bg_main = ThemeColors.BG_MAIN
+        bg_card = ThemeColors.BG_CARD
+        text_primary = ThemeColors.TEXT_PRIMARY
 
-        /* 左侧卡片（统一样式：白底、无边框、无渐变）*/
-        #leftCard {
-            background: #FFFFFF;
-            border-radius: 0px;
-            border: none;
-        }
-
-        /* 标题区域 */
-        #headerWidget { background: transparent; padding: 10px; border-radius: 8px; }
-        #titleLabel {
-            color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4A9EFF, stop:1 #7B68EE);
-            padding: 5px 0;
-        }
-
-        /* 统计标签 - 徽章样式 */
-        #statsLabel {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1976D2, stop:1 #2196F3);
-            color: white; padding: 8px 16px; border-radius: 16px;
-            font-size: 13px; font-weight: bold; border: 1px solid #2196F3;
-        }
-
-        /* 任务树 */
-        #todoTree {
-            background-color: #FFFFFF; border: none; border-radius: 8px;
-            font-size: 13px; outline: none; padding: 5px;
-        }
-        #todoTree::item { padding: 8px 5px; border-radius: 4px; margin: 2px 0; }
-        #todoTree::item:hover { background-color: #F0F0F0; }
-        #todoTree::item:selected {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #E3F2FD, stop:1 #BBDEFB);
-            color: #1976D2;
-        }
-
-        /* 右侧详情卡片 */
-        #detailCard {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FAFAFA);
-            border-radius: 12px; border: 1px solid #E0E0E0;
-        }
-        #detailTitleLabel {
-            color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4A9EFF, stop:1 #7B68EE);
-            padding: 5px 0; background: transparent;
-        }
-
-        /* 滚动区域 */
-        #detailScrollArea { background-color: #FAFAFA; border: none; }
-        #detailScrollArea QWidget { background-color: #FAFAFA; }
-        QScrollArea { background-color: #FAFAFA; border: none; }
-
-        /* 详情内容容器 */
-        QWidget { background-color: transparent; color: #333333; }
-        #detailContentTitle { color: #1976D2; padding: 10px; background-color: #F5F5F5; border-radius: 6px; border-left: 4px solid #4A9EFF; }
-        #detailContentDesc { color: #666666; padding: 10px; font-size: 12px; background-color: transparent; }
-        #detailContentText {
-            background-color: #FAFAFA; color: #333333; border: 1px solid #E0E0E0; border-radius: 8px; padding: 10px; font-size: 12px;
-            selection-background-color: #4A9EFF; selection-color: #FFFFFF;
-        }
-        QTextEdit { background-color: #FAFAFA; color: #333333; }
-
-        /* 预览卡片 */
-        #previewCard {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FAFAFA);
-            border-radius: 12px; border: 1px solid #E0E0E0;
-        }
-        #previewTitleLabel {
-            color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4A9EFF, stop:1 #7B68EE);
-            padding: 5px 0; background: transparent;
-        }
-        #previewGraphView { background-color: #FAFAFA; border: 2px solid #E0E0E0; border-radius: 8px; }
-
-        /* QLabel 全局样式 */
-        QLabel { color: #333333; background-color: transparent; }
-
-        /* 滚动条样式 */
-        QScrollBar:vertical { background: #F5F5F5; width: 12px; border-radius: 6px; }
-        QScrollBar::handle:vertical { background: #4A9EFF; border-radius: 6px; min-height: 30px; }
-        QScrollBar::handle:vertical:hover { background: #5AAFFF; }
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
-        QScrollBar:horizontal { background: #F5F5F5; height: 12px; border-radius: 6px; }
-        QScrollBar::handle:horizontal { background: #4A9EFF; border-radius: 6px; min-width: 30px; }
-        QScrollBar::handle:horizontal:hover { background: #5AAFFF; }
-        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
-
-        /* QStackedWidget 和其子widget */
-        QStackedWidget { background-color: transparent; }
-        QStackedWidget > QWidget { background-color: transparent; }
-
-        /* QSplitter 样式 */
-        QSplitter { background-color: #F5F5F5; }
-        QSplitter::handle { background-color: #E0E0E0; }
-        """
+        # 仅保留最基础、语法绝对安全的样式，避免触发 Qt 样式表解析错误。
+        return (
+            f"TodoListWidget {{ background-color: {bg_main}; }}"
+            f"#leftCard {{ background-color: {bg_card}; border: none; }}"
+            f"QLabel {{ color: {text_primary}; }}"
+        )
 
 
 @dataclass(frozen=True)
@@ -483,8 +389,8 @@ class StepExecutionProfile:
 
     @property
     def supports_execute_remaining(self) -> bool:
-        """是否支持“从当前步骤执行剩余步骤”功能。"""
-        return self.is_leaf_graph_step
+        """是否支持“从当前步骤 / 事件流起执行剩余序列”功能。"""
+        return self.is_leaf_graph_step or self.is_event_flow_root
 
 
 class StepTypeRules:
@@ -642,12 +548,13 @@ class StepTypeRules:
 
         目前仅用于：
         - 合并参数配置：graph_config_node_merged
+        - 多分支分支输出配置：graph_config_branch_outputs
         - 合并端口类型设置：graph_set_port_types_merged
         """
         normalized = cls._normalize_detail_type(detail_type)
         if cls.is_type_setting_step(normalized):
             return True
-        return normalized == "graph_config_node_merged"
+        return normalized in ("graph_config_node_merged", "graph_config_branch_outputs")
 
     # === 能力标签 ===
 

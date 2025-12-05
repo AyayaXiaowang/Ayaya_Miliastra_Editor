@@ -19,7 +19,7 @@ from ui.dialogs.struct_definition_types import (
 from ui.dialogs.struct_list_item_dialog import StructListItemEditDialog
 from ui.dialogs.variable_edit_dialogs import EntityVariableEditDialog
 from ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
-from ui.foundation.theme_manager import Sizes, ThemeManager
+from ui.foundation.theme_manager import Sizes, ThemeManager, Colors
 from ui.foundation.toast_notification import ToastNotification
 from ui.foundation.toolbar_utils import apply_standard_toolbar
 from ui.panels.template_instance.tab_base import TemplateInstanceTabBase
@@ -437,11 +437,11 @@ class VariablesTab(TemplateInstanceTabBase):
         legend_label = QtWidgets.QLabel(self)
         legend_label.setText(
             (
-                '<span style="background-color:#F5F5F5; padding:2px 6px;'
+                f'<span style="background-color:{Colors.BG_MAIN}; padding:2px 6px;'
                 ' border-radius:4px;">继承变量（只读）</span>'
-                '  <span style="background-color:#EFF6FF; color:#2563EB; padding:2px 6px;'
+                f'  <span style="background-color:{Colors.BG_SELECTED}; color:{Colors.PRIMARY}; padding:2px 6px;'
                 ' border-radius:4px;">覆写变量</span>'
-                '  <span style="background-color:#ECFDF5; padding:2px 6px;'
+                f'  <span style="background-color:{Colors.SUCCESS_BG}; padding:2px 6px;'
                 ' border-radius:4px;">额外变量</span>'
             )
         )
@@ -723,7 +723,7 @@ class VariablesTab(TemplateInstanceTabBase):
                 yield VariableRow(
                     var,
                     "additional",
-                    background="#ECFDF5",
+                    background=Colors.SUCCESS_BG,
                 )
             return
         override_map = {var.name: var for var in instance_vars}
@@ -734,16 +734,16 @@ class VariablesTab(TemplateInstanceTabBase):
                 yield VariableRow(
                     override_var,
                     "overridden",
-                    foreground="#2563EB",
+                    foreground=Colors.PRIMARY,
                     # 浅蓝底色提示为“覆写”变量
-                    background="#EFF6FF",
+                    background=Colors.BG_SELECTED,
                 )
             else:
                 yield VariableRow(
                     base_var,
                     "inherited",
-                    foreground="#888",
-                    background="#F5F5F5",
+                    foreground=Colors.TEXT_SECONDARY,
+                    background=Colors.BG_MAIN,
                 )
         for var in instance_vars:
             if var.name in template_var_names:
@@ -752,7 +752,7 @@ class VariablesTab(TemplateInstanceTabBase):
             yield VariableRow(
                 var,
                 "additional",
-                background="#ECFDF5",
+                background=Colors.SUCCESS_BG,
             )
 
     # 只读模式 ---------------------------------------------------------------

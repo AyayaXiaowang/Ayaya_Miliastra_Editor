@@ -9,6 +9,7 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, TYPE_CHECKING
 from engine.nodes.port_type_system import can_connect_ports
+from ui.foundation.theme_manager import Colors
 
 if TYPE_CHECKING:
     from ui.graph.items.port_item import PortGraphicsItem
@@ -78,7 +79,7 @@ class SceneInteractionMixin:
             event.scenePos().x(),
             event.scenePos().y(),
         )
-        pen = QtGui.QPen(QtGui.QColor("#FFAA00"), 2, QtCore.Qt.PenStyle.DashLine)
+        pen = QtGui.QPen(QtGui.QColor(Colors.ACCENT), 2, QtCore.Qt.PenStyle.DashLine)
         self.temp_connection_line.setPen(pen)
         self.temp_connection_line.setZValue(10)
         self.addItem(self.temp_connection_line)

@@ -12,8 +12,7 @@ from __future__ import annotations
 from typing import Optional, Dict, Any, Callable
 from PIL import Image
 
-from app.automation.config.branch_config import execute_add_with_icon_clicks
-from app.automation.ports._add_ports_common import resolve_node_and_initial_add_count
+from app.automation.ports._add_ports_common import execute_add_ports_generic
 from engine.graph.models.graph_model import GraphModel
 
 
@@ -26,23 +25,12 @@ def execute_add_dict_pairs(
     allow_continue: Optional[Callable[[], bool]] = None,
     visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
 ) -> bool:
-    node_model, add_count = resolve_node_and_initial_add_count(
+    return execute_add_ports_generic(
         executor,
         todo_item,
         graph_model,
         feature_label="字典端口添加",
-        log_callback=log_callback,
-    )
-    if node_model is None:
-        return False
-    if add_count <= 0:
-        return True
-    return execute_add_with_icon_clicks(
-        executor,
-        node_model,
-        add_count,
         prefer_multi=False,
-        graph_model=graph_model,
         log_callback=log_callback,
         pause_hook=pause_hook,
         allow_continue=allow_continue,

@@ -11,6 +11,7 @@ from engine.nodes.port_name_rules import (
     parse_range_definition,
 )
 from ui.foundation.dialog_utils import show_warning_dialog
+from ui.foundation.theme_manager import Colors
 
 if TYPE_CHECKING:
     from ui.graph.graph_scene import NodeGraphicsItem, GraphScene
@@ -47,15 +48,15 @@ class AddPortButton(QtWidgets.QGraphicsItem):
     def paint(self, painter: QtGui.QPainter, option, widget=None) -> None:
         # 绘制圆形按钮背景
         if self.is_hovered:
-            painter.setBrush(QtGui.QColor('#5A9EFF'))
+            painter.setBrush(QtGui.QColor(Colors.PRIMARY))
         else:
-            painter.setBrush(QtGui.QColor('#4A8EEF'))
+            painter.setBrush(QtGui.QColor(Colors.PRIMARY_DARK))
         
-        painter.setPen(QtGui.QPen(QtGui.QColor('#FFFFFF'), 1))
+        painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 1))
         painter.drawEllipse(self.boundingRect())
         
         # 绘制"+"号
-        painter.setPen(QtGui.QPen(QtGui.QColor('#FFFFFF'), 2))
+        painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 2))
         center_x = 0
         center_y = 0
         line_length = 6

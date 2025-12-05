@@ -107,7 +107,9 @@ class CombatPresetsWidget(
         self.category_tree.itemClicked.connect(self._on_category_clicked)
         self.add_btn.clicked.connect(self._add_item)
         self.delete_btn.clicked.connect(self._delete_item)
+        # 选中变化用于处理程序化刷新；点击事件用于保证“已选中条目首次点击”同样能驱动右侧面板。
         self.item_list.itemSelectionChanged.connect(self._on_item_selection_changed)
+        self.item_list.itemClicked.connect(self._on_item_clicked)
         self.connect_search(self.search_edit, self._filter_items, placeholder="搜索战斗预设...")
 
     def _init_category_tree(self) -> None:
@@ -398,8 +400,10 @@ class CombatPresetsWidget(
         current_item = self.item_list.currentItem()
         user_data = self._get_item_user_data(current_item)
         if not user_data:
+            print("[COMBAT-PRESETS] selection changed: <none>")
             return
         section_key, item_id = user_data
+        print(f"[COMBAT-PRESETS] selection changed: section_key={section_key!r}, item_id={item_id!r}")
         if section_key == "player_template" and item_id:
             self.player_template_selected.emit(item_id)
             # 切换到玩家模板时，清空职业选中上下文
@@ -415,6 +419,10 @@ class CombatPresetsWidget(
             # 切换到技能时，清空玩家模板与职业选中上下文
             self.player_template_selected.emit("")
             self.player_class_selected.emit("")
+
+    def _on_item_clicked(self, _item: QtWidgets.QListWidgetItem) -> None:
+        """列表项单击时，同步触发选中逻辑，避免当前已选中条目首次点击不刷新右侧面板。"""
+        self._on_item_selection_changed()
 
     def _add_item(self) -> None:
         """添加项目"""

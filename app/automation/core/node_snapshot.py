@@ -6,11 +6,12 @@ from PIL import Image
 
 from app.automation import capture as editor_capture
 from app.automation.core.executor_protocol import EditorExecutorProtocol
+from app.automation.core.ui_constants import (
+    NODE_DRAG_UPDATE_MIN_SCREEN_PX,
+    NODE_DRAG_UPDATE_MIN_PROGRAM_UNITS,
+)
 from app.automation.vision import list_ports as list_ports_for_bbox, list_nodes
 from engine.graph.models.graph_model import NodeModel
-
-NODE_DRAG_UPDATE_MIN_SCREEN_PX: float = 16.0
-NODE_DRAG_UPDATE_MIN_PROGRAM_UNITS: float = 8.0
 
 
 class GraphSceneSnapshot:
@@ -151,7 +152,7 @@ class NodePortsSnapshotCache:
         self._frame_token: int | None = None
 
     def _log(self, message: str) -> None:
-        self._executor._log(message, self._log_callback)
+        self._executor.log(message, self._log_callback)
 
     def refresh(
         self,
@@ -195,7 +196,7 @@ class NodePortsSnapshotCache:
         if self._bbox is None or refresh_bbox:
             strict_for_connect = isinstance(reason, str) and reason.startswith("连接/")
             debug_dict: Dict[str, Any] = debug if debug is not None else {}
-            bbox = self._executor._find_best_node_bbox(
+            bbox = self._executor.find_best_node_bbox(
                 frame,
                 self._node.title,
                 self._node.pos,

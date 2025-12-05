@@ -37,11 +37,11 @@ def execute_scan_settings(
     if pause_hook is not None:
         pause_hook()
     if allow_continue is not None and not allow_continue():
-        executor._log("用户终止/暂停，放弃设置扫描", log_callback)
+        executor.log("用户终止/暂停，放弃设置扫描", log_callback)
         return {}
     screenshot = executor.capture_and_emit(label="设置扫描", overlays_builder=None, visual_callback=visual_callback)
     if not screenshot:
-        executor._log("✗ 截图失败（设置扫描）", log_callback)
+        executor.log("✗ 截图失败（设置扫描）", log_callback)
         return {}
 
     node_ids = []
@@ -67,25 +67,41 @@ def execute_scan_settings(
             continue
         settings_rows = collect_settings_rows(ports)
         if len(settings_rows) == 0:
-            executor._log(f"[设置扫描] 无设置按钮: {node.title}({nid})", log_callback)
+            executor.log(f"[设置扫描] 无设置按钮: {node.title}({nid})", log_callback)
             continue
         items: List[Dict[str, object]] = []
         for snapshot in settings_rows:
-            side = snapshot.side or "unknown"
-            index_val = snapshot.index
+            side_text = snapshot.side or "unknown"
+            index_value = snapshot.index
             mapped_name = None
-            if isinstance(index_val, int):
-                mapped_name = map_port_index_to_name(node.title, side, int(index_val))
-            items.append({
-                'side': side,
-                'index': index_val,
-                'port_name': None if mapped_name is None else str(mapped_name),
-            })
+            if isinstance(index_value, int):
+                mapped_name = map_port_index_to_name(node.title, side_text, int(index_value))
+            center_x, center_y = int(snapshot.center[0]), int(snapshot.center[1])
+            item_payload: Dict[str, object] = {
+                "side": side_text,
+                "index": index_value,
+                "port_name": None if mapped_name is None else str(mapped_name),
+                "center": (center_x, center_y),
+                "bbox": tuple(int(v) for v in snapshot.bbox),
+                "name_cn": snapshot.name_cn,
+                "raw_kind": snapshot.raw_kind,
+            }
+            items.append(item_payload)
         scanned[nid] = items
-        executor._log(
-            f"[设置扫描] {node.title}({nid}) 命中 {len(items)} 项: " + \
-            ", ".join([f"{it.get('side','?')}#{it.get('index','?')}→{it.get('port_name','?')}" for it in items]),
-            log_callback
+        summary_parts = []
+        for item in items:
+            side_display = item.get("side", "?")
+            index_display = item.get("index", "?")
+            name_display = item.get("name_cn", "") or "?"
+            center_value = item.get("center") or (0, 0)
+            center_display = f"({int(center_value[0])},{int(center_value[1])})"
+            port_name_display = item.get("port_name", "?")
+            summary_parts.append(
+                f"{side_display}#{index_display}[{name_display}]@{center_display}→{port_name_display}"
+            )
+        executor.log(
+            f"[设置扫描] {node.title}({nid}) 命中 {len(items)} 项: " + ", ".join(summary_parts),
+            log_callback,
         )
 
     return scanned

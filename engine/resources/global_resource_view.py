@@ -10,10 +10,10 @@ from engine.resources.management_view_helpers import (
     MANAGEMENT_FIELD_TO_RESOURCE_TYPE,
     SINGLE_CONFIG_MANAGEMENT_FIELDS,
 )
-from engine.resources.definition_schema_view import DefinitionSchemaView
 from engine.resources.ingame_save_template_schema_view import (
     get_default_ingame_save_template_schema_view,
 )
+from engine.signal import get_default_signal_repository
 from engine.graph.models.package_model import (
     TemplateConfig,
     InstanceConfig,
@@ -269,8 +269,8 @@ class GlobalResourceView:
     def signals(self) -> Dict[str, SignalConfig]:
         """获取所有信号配置（基于代码级定义的全局聚合视图）。"""
         if self._signals_cache is None:
-            schema_view = DefinitionSchemaView()
-            all_signal_payloads = schema_view.get_all_signal_definitions()
+            repo = get_default_signal_repository()
+            all_signal_payloads = repo.get_all_payloads()
             cache: Dict[str, SignalConfig] = {}
 
             for signal_id, payload in all_signal_payloads.items():

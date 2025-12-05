@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
-from pathlib import Path
-import json
 
 from app.automation.ports._type_utils import infer_type_from_value
 from app.automation.ports.port_type_inference import (
@@ -11,90 +9,18 @@ from app.automation.ports.port_type_inference import (
     infer_output_type_from_edges,
     infer_output_type_from_self_inputs,
     is_generic_type_name,
+    lookup_struct_field_type_by_name,
 )
 from app.models import TodoItem
 from app.models.todo_node_type_helper import NodeTypeHelper
 from engine.graph.models.graph_model import GraphModel
-from app.ui.dialogs.struct_definition_types import param_type_to_canonical
-
-
-_STRUCT_FIELD_TYPE_CACHE: Dict[str, str] = {}
-_STRUCT_FIELD_CACHE_BUILT: bool = False
-
-
-def _build_struct_field_type_cache() -> None:
-    """扫描结构体定义文件，为字段名建立到规范类型名的映射。
-
-    当同名字段在不同结构体中出现且类型不一致时，该字段映射为空字符串，表示类型不确定。
-    """
-    global _STRUCT_FIELD_TYPE_CACHE
-    global _STRUCT_FIELD_CACHE_BUILT
-
-    mapping: Dict[str, str] = {}
-
-    base_path = Path(__file__).resolve()
-    struct_dir: Optional[Path] = None
-    for parent in base_path.parents:
-        candidate = parent / "assets" / "资源库" / "管理配置" / "结构体定义"
-        if candidate.is_dir():
-            struct_dir = candidate
-            break
-
-    if struct_dir is None:
-        _STRUCT_FIELD_TYPE_CACHE = mapping
-        _STRUCT_FIELD_CACHE_BUILT = True
-        return
-
-    for path in struct_dir.glob("*.json"):
-        text = path.read_text(encoding="utf-8")
-        data = json.loads(text)
-        value_items = data.get("value") or []
-        if not isinstance(value_items, list):
-            continue
-        for item in value_items:
-            if not isinstance(item, dict):
-                continue
-            field_name_raw = item.get("key")
-            param_type_raw = item.get("param_type")
-            field_name = str(field_name_raw) if field_name_raw is not None else ""
-            param_type = str(param_type_raw) if param_type_raw is not None else ""
-            if not field_name or not param_type:
-                continue
-            canonical_type = param_type_to_canonical(param_type)
-            if not canonical_type:
-                continue
-            previous = mapping.get(field_name)
-            if previous is None:
-                mapping[field_name] = canonical_type
-            elif previous != canonical_type:
-                mapping[field_name] = ""
-
-    _STRUCT_FIELD_TYPE_CACHE = mapping
-    _STRUCT_FIELD_CACHE_BUILT = True
-
-
-def _lookup_struct_field_type_by_name(field_name: str) -> str:
-    """根据字段名查找在结构体定义中的规范类型名。"""
-    global _STRUCT_FIELD_CACHE_BUILT
-
-    if not isinstance(field_name, str) or field_name == "":
-        return ""
-
-    if not _STRUCT_FIELD_CACHE_BUILT:
-        _build_struct_field_type_cache()
-
-    type_name = _STRUCT_FIELD_TYPE_CACHE.get(field_name, "")
-    if not isinstance(type_name, str):
-        return ""
-    if type_name.strip() == "":
-        return ""
-    return type_name
 
 
 class PortTypeExecutorAdapter:
     """为端口类型推断提供最小 executor 适配器。
 
-    仅实现 `_get_node_def_for_model` 与 `_log`，复用 NodeTypeHelper 的节点库。
+    复用 `NodeTypeHelper` 的节点库，并实现 `get_node_def_for_model` / `log`
+    及其对应的私有变体，以兼容端口类型推断工具期望的 executor 接口。
     不依赖 Qt，仅承担适配作用。
     """
 
@@ -104,10 +30,18 @@ class PortTypeExecutorAdapter:
     def _get_node_def_for_model(self, node_model: Any) -> Any:
         return self._type_helper.get_node_def_for_model(node_model)
 
+    def get_node_def_for_model(self, node_model: Any) -> Any:
+        """公开节点定义查询接口，语义与 `_get_node_def_for_model` 一致。"""
+        return self._get_node_def_for_model(node_model)
+
     def _log(self, message: str, log_callback=None) -> None:
         # UI 场景下不输出日志；仅满足推断工具的接口要求
         if callable(log_callback):
             log_callback(str(message))
+
+    def log(self, message: str, log_callback=None) -> None:
+        """公开日志接口，语义与 `_log` 一致。"""
+        self._log(message, log_callback)
 
 
 def _infer_output_type_from_struct_field_for_dict_lookup(
@@ -138,7 +72,7 @@ def _infer_output_type_from_struct_field_for_dict_lookup(
     if not key_name:
         return ""
 
-    return _lookup_struct_field_type_by_name(key_name)
+    return lookup_struct_field_type_by_name(key_name)
 
 
 def infer_concrete_port_type_for_step(

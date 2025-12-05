@@ -90,6 +90,38 @@ def input_generic_constraints_by_func(workspace: Path) -> Dict[str, Dict[str, Li
 
 
 @lru_cache(maxsize=8)
+def input_enum_options_by_func(workspace: Path) -> Dict[str, Dict[str, List[str]]]:
+    """按函数名返回输入端口的枚举候选项映射。
+
+    结构：
+        {
+          "开启定点运动器": {
+              "移动方式": ["瞬间移动", "匀速直线运动"],
+              "参数类型": ["固定速度", "固定时间"],
+          },
+          ...
+        }
+    仅当节点定义中显式声明了 input_enum_options 时才会出现在结果中。
+    """
+    registry = get_node_registry(workspace, include_composite=True)
+    lib = registry.get_library()
+    result: Dict[str, Dict[str, List[str]]] = {}
+    for _, nd in lib.items():
+        options_raw = getattr(nd, "input_enum_options", {}) or {}
+        if not isinstance(options_raw, dict) or not options_raw:
+            continue
+        options_normalized: Dict[str, List[str]] = {}
+        for port_name, candidates in options_raw.items():
+            if not isinstance(port_name, str) or port_name == "":
+                continue
+            if isinstance(candidates, list):
+                options_normalized[port_name] = [str(c) for c in candidates if str(c)]
+        if options_normalized:
+            result[nd.name] = options_normalized
+    return result
+
+
+@lru_cache(maxsize=8)
 def output_types_by_func(workspace: Path) -> Dict[str, List[str]]:
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
@@ -125,5 +157,6 @@ def clear_node_index_caches() -> None:
     input_generic_constraints_by_func.cache_clear()
     output_types_by_func.cache_clear()
     output_generic_constraints_by_func.cache_clear()
+    input_enum_options_by_func.cache_clear()
 
 

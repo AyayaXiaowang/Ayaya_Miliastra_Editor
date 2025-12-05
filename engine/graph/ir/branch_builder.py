@@ -178,15 +178,6 @@ def create_dual_branch_node(
                         break
 
         if true_nodes:
-            first_flow = find_first_flow_node(true_nodes)
-            if first_flow and (not is_event_node(first_flow)):
-                branch_edges.append(EdgeModel(
-                    id=str(uuid.uuid4()),
-                    src_node=branch_node_id,
-                    src_port="是",
-                    dst_node=first_flow.id,
-                    dst_port="流程入",
-                ))
             last_flow = find_last_flow_node(true_nodes)
             has_ret = block_has_return(stmt.body)
             if last_flow and (not has_ret):
@@ -220,15 +211,6 @@ def create_dual_branch_node(
                         break
 
         if false_nodes:
-            first_flow = find_first_flow_node(false_nodes)
-            if first_flow and (not is_event_node(first_flow)):
-                branch_edges.append(EdgeModel(
-                    id=str(uuid.uuid4()),
-                    src_node=branch_node_id,
-                    src_port="否",
-                    dst_node=first_flow.id,
-                    dst_port="流程入",
-                ))
             last_flow = find_last_flow_node(false_nodes)
             has_ret2 = block_has_return(stmt.orelse)
             if last_flow and (not has_ret2):

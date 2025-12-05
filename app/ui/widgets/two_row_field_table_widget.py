@@ -222,8 +222,8 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
             value: 默认值/数据值
             readonly: 是否只读
             name_prefix: 名字前缀（如"🔗 [继承] "）
-            foreground: 前景色（如"#888"）
-            background: 背景色（如"#F5F5F5"）
+            foreground: 前景色（例如 Colors.TEXT_SECONDARY）
+            background: 背景色（例如 Colors.BG_MAIN / Colors.BG_SELECTED 等）
         """
         self._add_field_row_internal(
             name,

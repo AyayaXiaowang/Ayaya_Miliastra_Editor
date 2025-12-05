@@ -16,6 +16,7 @@ from PIL import Image
 from app.automation import capture as editor_capture
 from app.automation.core import executor_utils as _exec_utils
 from app.automation.core.executor_protocol import EditorExecutorWithViewport
+from app.automation.input import win_input
 from app.automation.ports.port_picker import pick_port_center_for_node
 from app.automation.vision import invalidate_cache, list_ports as list_ports_for_bbox
 from app.automation.config.config_node_steps import (
@@ -35,38 +36,108 @@ def click_add_icon_within_node(
     *,
     screenshot: Optional[Image.Image] = None,
 ) -> bool:
-    frame = screenshot if screenshot is not None else editor_capture.capture_window(executor.window_title)
-    if not frame:
-        executor._log("✗ 截图失败（查找Add）", log_callback)
-        return False
     nx, ny, nw, nh = node_bbox
-    match = None
-    if prefer_multi:
-        match = editor_capture.match_template(
-            frame,
-            str(executor.node_add_multi_template_path),
-            search_region=(int(nx), int(ny), int(nw), int(nh))
+
+    def _match_add_icon(current_frame: Image.Image):
+        local_match = None
+        if prefer_multi:
+            local_match = editor_capture.match_template(
+                current_frame,
+                str(executor.node_add_multi_template_path),
+                search_region=(int(nx), int(ny), int(nw), int(nh)),
+            )
+        if not local_match:
+            local_match = editor_capture.match_template(
+                current_frame,
+                str(executor.node_add_template_path),
+                search_region=(int(nx), int(ny), int(nw), int(nh)),
+            )
+        return local_match
+
+    # 无论是否已有截图输入，点击 Add 前都统一执行一次“移出节点到画布空白区域后再截图匹配”的流程。
+    # 空白点查找策略：
+    # 1. 优先从“节点顶部上方、与节点水平居中对齐”的位置作为起点，在画布区域内寻找安全空白点；
+    # 2. 若该方向未能找到合适空白点，则回退到以“节点中心”作为起点的原有策略。
+    node_center_editor_x = int(nx + nw // 2)
+    node_center_editor_y = int(ny + nh // 2)
+    preferred_offset_pixels = max(int(min(nh * 0.8, 80)), 20)
+    preferred_top_editor_x = node_center_editor_x
+    preferred_top_editor_y = int(ny) - int(preferred_offset_pixels)
+
+    def _find_blank_point_prefer_top() -> Optional[tuple[int, int]]:
+        candidate_editor_positions = [
+            (int(preferred_top_editor_x), int(preferred_top_editor_y)),
+            (int(node_center_editor_x), int(node_center_editor_y)),
+        ]
+        for editor_x, editor_y in candidate_editor_positions:
+            screen_x, screen_y = executor.convert_editor_to_screen_coords(
+                int(editor_x),
+                int(editor_y),
+            )
+            snapped = _exec_utils.snap_screen_point_to_canvas_background(
+                executor,
+                int(screen_x),
+                int(screen_y),
+                log_callback=log_callback,
+                visual_callback=visual_callback,
+            )
+            if snapped is not None:
+                return int(snapped[0]), int(snapped[1])
+        return None
+
+    snapped_blank = _find_blank_point_prefer_top()
+    if snapped_blank is None:
+        executor.log(
+            "✗ 未在画布内找到可用空白点（Add重试），放弃本次重试",
+            log_callback,
         )
-    if not match:
-        match = editor_capture.match_template(
-            frame,
-            str(executor.node_add_template_path),
-            search_region=(int(nx), int(ny), int(nw), int(nh))
+        executor.log(
+            "✗ Add 按钮重试前置条件失败：未能在画布上找到安全空白点",
+            log_callback,
         )
-    if not match:
-        if visual_callback is not None:
-            rects = [
-                { 'bbox': (int(nx), int(ny), int(nw), int(nh)), 'color': (255, 120, 120), 'label': 'Add搜索区域' }
-            ]
-            visual_callback(frame, { 'rects': rects })
-        executor._log("✗ 未在节点内找到 Add 按钮", log_callback)
         return False
+
+    blank_screen_x, blank_screen_y = int(snapped_blank[0]), int(snapped_blank[1])
+    executor.log(
+        f"[Add重试] 将鼠标移出节点到画布空白位置 screen=({blank_screen_x},{blank_screen_y}) 后重试一次模板匹配",
+        log_callback,
+    )
+    win_input.move_mouse_absolute(int(blank_screen_x), int(blank_screen_y))
+    _exec_utils.log_wait_if_needed(
+        executor,
+        0.1,
+        "等待 0.10 秒（鼠标移出节点后重试 Add）",
+        log_callback,
+    )
+
+    def _capture_and_match() -> tuple[Optional[Image.Image], Any]:
+        local_frame = editor_capture.capture_window(executor.window_title)
+        if not local_frame:
+            executor.log("✗ 截图失败（查找Add）", log_callback)
+            return None, None
+        local_match = _match_add_icon(local_frame)
+        if not local_match and visual_callback is not None:
+            rects = [
+                {
+                    "bbox": (int(nx), int(ny), int(nw), int(nh)),
+                    "color": (255, 120, 120),
+                    "label": "Add搜索区域",
+                }
+            ]
+            visual_callback(local_frame, {"rects": rects})
+        return local_frame, local_match
+
+    frame, match = _capture_and_match()
+    if not frame or not match:
+        executor.log("✗ 未在节点内找到 Add 按钮", log_callback)
+        return False
+
     mx, my, mw, mh, conf = match
     cx = int(mx + mw // 2 + 3)
     cy = int(my + mh // 2)
     sx, sy = executor.convert_editor_to_screen_coords(cx, cy)
-    executor._log(f"点击 Add 按钮：窗口坐标({cx},{cy})，置信度={conf:.2f}", log_callback)
-    if visual_callback is not None:
+    executor.log(f"点击 Add 按钮：窗口坐标({cx},{cy})，置信度={conf:.2f}", log_callback)
+    if visual_callback is not None and frame is not None:
         rects = [
             { 'bbox': (int(nx), int(ny), int(nw), int(nh)), 'color': (120, 180, 255), 'label': '节点' },
             { 'bbox': (int(mx), int(my), int(mw), int(mh)), 'color': (255, 180, 0), 'label': f'Add模板 命中{conf:.2f}' }
@@ -111,11 +182,11 @@ def execute_add_with_icon_clicks(
     def _capture_node_bbox() -> tuple[Optional[Image.Image], tuple[int, int, int, int]]:
         screenshot = editor_capture.capture_window(executor.window_title)
         if not screenshot:
-            executor._log("✗ 截图失败（Add 流程）", log_callback)
+            executor.log("✗ 截图失败（Add 流程）", log_callback)
             return None, (0, 0, 0, 0)
-        node_bbox = executor._find_best_node_bbox(screenshot, node.title, node.pos)
+        node_bbox = executor.find_best_node_bbox(screenshot, node.title, node.pos)
         if node_bbox[2] <= 0:
-            executor._log("✗ 未能定位目标节点（Add 流程）", log_callback)
+            executor.log("✗ 未能定位目标节点（Add 流程）", log_callback)
             return None, (0, 0, 0, 0)
         if visual_callback is not None:
             rects = [
@@ -136,7 +207,7 @@ def execute_add_with_icon_clicks(
         if pause_hook is not None:
             pause_hook()
         if allow_continue is not None and not allow_continue():
-            executor._log("用户终止/暂停，放弃添加端口", log_callback)
+            executor.log("用户终止/暂停，放弃添加端口", log_callback)
             return False
         ok = click_add_icon_within_node(
             executor,
@@ -168,7 +239,7 @@ def execute_add_branch_outputs(
     node_id = todo_item.get("node_id")
     add_count = int(todo_item.get("add_count") or 0)
     if not node_id or node_id not in graph_model.nodes:
-        executor._log("✗ 分支端口添加缺少节点或节点不存在", log_callback)
+        executor.log("✗ 分支端口添加缺少节点或节点不存在", log_callback)
         return False
     if add_count <= 0:
         return True
@@ -202,11 +273,22 @@ def execute_config_branch_outputs(
     node_id = todo_item.get("node_id")
     branches = todo_item.get("branches") or []
     if not node_id or node_id not in graph_model.nodes:
-        executor._log("✗ 分支输出配置缺少节点或节点不存在", log_callback)
+        executor.log("✗ 分支输出配置缺少节点或节点不存在", log_callback)
         return False
     if not isinstance(branches, list) or len(branches) == 0:
         return True
     node = graph_model.nodes[node_id]
+
+    # 多分支节点始终包含一个“默认”流程输出端口，该端口作为第一个输出口存在，
+    # 但在配置分支输出步骤中不需要也不应该被写入匹配值。
+    # 因此在按序号回退时，需要整体跳过该默认端口，从第二个输出端口开始对应分支列表。
+    output_ports = list(getattr(node, "outputs", []) or [])
+    has_default_output_port = any(
+        isinstance(getattr(port_obj, "name", None), str)
+        and str(getattr(port_obj, "name")).strip() == "默认"
+        for port_obj in output_ports
+    )
+    ordinal_offset_for_branches = 1 if has_default_output_port else 0
     executor.ensure_program_point_visible(
         node.pos[0],
         node.pos[1],
@@ -223,11 +305,11 @@ def execute_config_branch_outputs(
     def _capture_node_context() -> tuple[Optional[Image.Image], tuple[int, int, int, int], List]:
         screenshot = editor_capture.capture_window(executor.window_title)
         if not screenshot:
-            executor._log("✗ 截图失败（分支输出配置）", log_callback)
+            executor.log("✗ 截图失败（分支输出配置）", log_callback)
             return None, (0, 0, 0, 0), []
-        node_bbox = executor._find_best_node_bbox(screenshot, node.title, node.pos)
+        node_bbox = executor.find_best_node_bbox(screenshot, node.title, node.pos)
         if node_bbox[2] <= 0:
-            executor._log("✗ 未能定位目标节点（分支输出配置）", log_callback)
+            executor.log("✗ 未能定位目标节点（分支输出配置）", log_callback)
             return None, (0, 0, 0, 0), []
         ports_snapshot = list_ports_for_bbox(screenshot, node_bbox)
         return screenshot, node_bbox, ports_snapshot
@@ -240,30 +322,32 @@ def execute_config_branch_outputs(
         visual_callback(screenshot, { 'rects': rects })
 
     # 逐一设置每个分支端口
-    for idx, item in enumerate(branches):
+    for branch_index, item in enumerate(branches):
         if pause_hook is not None:
             pause_hook()
         if allow_continue is not None and not allow_continue():
-            executor._log("用户终止/暂停，放弃分支输出配置", log_callback)
+            executor.log("用户终止/暂停，放弃分支输出配置", log_callback)
             return False
         port_name = str(item.get("port_name") or item.get("name") or "")
         value_text = str(item.get("value") or port_name)
         if not port_name:
             continue
         # 定位端口中心（输出侧）
+        ordinal_index_value = int(branch_index) + int(ordinal_offset_for_branches)
         port_center = pick_port_center_for_node(
             executor,
             screenshot,
             node_bbox,
             port_name,
             want_output=True,
-            expected_kind='flow',
+            expected_kind="flow",
             log_callback=log_callback,
-            ordinal_fallback_index=idx,
+            ordinal_fallback_index=ordinal_index_value,
             ports_list=ports_snapshot,
+            list_ports_for_bbox_func=list_ports_for_bbox,
         )
         if port_center == (0, 0):
-            executor._log(f"✗ 未能定位分支输出端口: {port_name}", log_callback)
+            executor.log(f"✗ 未能定位分支输出端口: {port_name}", log_callback)
             return False
         region_info = find_warning_region_for_flow_output(
             executor,

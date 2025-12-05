@@ -147,14 +147,28 @@ def collect_block_node_ids_for_header_item(
 def create_block_header_item(
     block_index: int,
     group_index: int,
+    block_color_hex: str | None = None,
 ) -> QtWidgets.QTreeWidgetItem:
-    """创建只读的“逻辑块分组”树项，用于包裹同一 BasicBlock 内的步骤。"""
+    """创建只读的“逻辑块分组”树项，用于包裹同一 BasicBlock 内的步骤。
+
+    Args:
+        block_index: 对应的 BasicBlock 索引（从 0 开始）。
+        group_index: 逻辑分组序号（同一块被多次打断时用于区分组）。
+        block_color_hex: 来自图模型 BasicBlock 的颜色（如 "#FF5E9C"），
+            若为空则退回为主题的次文本色。
+    """
     header_item = QtWidgets.QTreeWidgetItem()
     header_label = f"逻辑块 {block_index + 1}"
     header_item.setText(0, header_label)
     # 标记为分组头：不对应具体 TodoItem
     header_item.setData(0, Qt.ItemDataRole.UserRole, "")
     header_item.setData(0, Qt.ItemDataRole.UserRole + 2, "block_header")
+    # 记录块颜色，供高亮与后续样式使用
+    if isinstance(block_color_hex, str) and block_color_hex:
+        stored_color = block_color_hex
+    else:
+        stored_color = ThemeColors.TEXT_SECONDARY
+    header_item.setData(0, Qt.ItemDataRole.UserRole + 3, stored_color)
     # 分组头不可勾选，仅用于折叠与视觉分隔
     header_flags = header_item.flags()
     header_flags &= ~Qt.ItemFlag.ItemIsUserCheckable
@@ -163,8 +177,41 @@ def create_block_header_item(
     header_font = header_item.font(0)
     header_font.setBold(True)
     header_item.setFont(0, header_font)
-    header_color = ThemeColors.TEXT_SECONDARY
-    header_item.setForeground(0, QtGui.QBrush(QtGui.QColor(header_color)))
+    header_color = QtGui.QColor(stored_color)
+    header_item.setForeground(0, QtGui.QBrush(header_color))
+
+    # 为逻辑块分组头也提供一组富文本 tokens，与任务清单叶子步骤保持一致的“彩色标签”体验。
+    def _tint_background_color(hex_color: str) -> str:
+        if not isinstance(hex_color, str):
+            return ""
+        if not (len(hex_color) == 7 and hex_color.startswith("#")):
+            return ""
+        red_value = int(hex_color[1:3], 16)
+        green_value = int(hex_color[3:5], 16)
+        blue_value = int(hex_color[5:7], 16)
+        mix_ratio = 0.82
+        mixed_red = int(red_value + (255 - red_value) * mix_ratio)
+        mixed_green = int(green_value + (255 - green_value) * mix_ratio)
+        mixed_blue = int(blue_value + (255 - blue_value) * mix_ratio)
+        if mixed_red > 255:
+            mixed_red = 255
+        if mixed_green > 255:
+            mixed_green = 255
+        if mixed_blue > 255:
+            mixed_blue = 255
+        return f"#{mixed_red:02X}{mixed_green:02X}{mixed_blue:02X}"
+
+    rich_role = int(Qt.ItemDataRole.UserRole) + 1
+    bg_color = _tint_background_color(stored_color)
+    header_tokens: List[Dict[str, Any]] = [
+        {
+            "text": header_label,
+            "color": stored_color,
+            "bg": bg_color,
+            "bold": True,
+        }
+    ]
+    header_item.setData(0, rich_role, header_tokens)
     return header_item
 
 

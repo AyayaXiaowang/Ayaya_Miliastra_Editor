@@ -18,6 +18,9 @@ class NodeSpec:
     aliases: List[str] = field(default_factory=list)  # 名称同义词（可选）
     input_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
     output_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
+    # 输入/输出端口的枚举候选项配置：{端口名: [选项1, 选项2, ...]}
+    input_enum_options: Dict[str, List[str]] = field(default_factory=dict)
+    output_enum_options: Dict[str, List[str]] = field(default_factory=dict)
 
 
 def node_spec(
@@ -34,6 +37,8 @@ def node_spec(
     aliases: List[str] | None = None,
     input_generic_constraints: Dict[str, List[str]] | None = None,
     output_generic_constraints: Dict[str, List[str]] | None = None,
+    input_enum_options: Dict[str, List[str]] | None = None,
+    output_enum_options: Dict[str, List[str]] | None = None,
 ):
     """为真实实现函数声明节点定义元数据（唯一权威）。
 
@@ -53,6 +58,8 @@ def node_spec(
         aliases=list(aliases) if aliases else [],
         input_generic_constraints=dict(input_generic_constraints or {}),
         output_generic_constraints=dict(output_generic_constraints or {}),
+        input_enum_options=dict(input_enum_options or {}),
+        output_enum_options=dict(output_enum_options or {}),
     )
 
     def decorator(func):

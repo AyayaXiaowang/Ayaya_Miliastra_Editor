@@ -33,7 +33,9 @@ class CompositeNodePinPanel(QtWidgets.QWidget):
         
         # 标题
         title_label = QtWidgets.QLabel("虚拟引脚管理")
-        title_label.setStyleSheet(f"{ThemeManager.heading(level=2)} padding: 5px;")
+        title_label.setStyleSheet(
+            f"{ThemeManager.heading(level=2)} color: {Colors.TEXT_PRIMARY}; padding: 5px;"
+        )
         layout.addWidget(title_label)
         
         # 提示标签
@@ -74,6 +76,22 @@ class CompositeNodePinPanel(QtWidgets.QWidget):
             return
         
         self.current_composite = composite
+
+        # 调试输出：帮助定位“画布上只显示部分流程引脚”等问题
+        pins = composite.virtual_pins or []
+        print(
+            f"[CompositePinPanel] 加载复合节点: {composite.node_name} "
+            f"({composite.composite_id}), 虚拟引脚数量={len(pins)}"
+        )
+        for pin in pins:
+            direction = "输入" if pin.is_input else "输出"
+            kind = "流程" if pin.is_flow else "数据"
+            mapped_count = len(getattr(pin, "mapped_ports", []) or [])
+            print(
+                f"[CompositePinPanel]  - 索引={pin.pin_index}, 方向={direction}, "
+                f"类型={kind}, 名称={pin.pin_name}, 映射端口数={mapped_count}"
+            )
+
         self.preview_widget.load_composite(composite)
     
     def clear(self) -> None:

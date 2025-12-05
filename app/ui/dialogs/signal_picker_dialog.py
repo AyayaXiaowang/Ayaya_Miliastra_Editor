@@ -42,13 +42,16 @@ class SignalPickerDialog(BaseDialog):
         layout = self.content_layout
 
         info_label = QtWidgets.QLabel(
-            "请选择要绑定的信号。如果需要新增或修改参数，可在下方列表中直接编辑信号。"
+            "请选择要绑定的信号。当前版本中信号定义以代码资源为准，"
+            "下方列表仅用于浏览与选择，不再作为修改信号定义的主入口。"
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet(ThemeManager.subtle_info_style())
         layout.addWidget(info_label)
 
-        self.table_widget = SignalTableWidget(self)
+        # 在选择对话框中仅作为“浏览 + 选择”视图使用，禁用内置对话框编辑，
+        # 避免与代码级信号定义的实际维护入口产生语义冲突。
+        self.table_widget = SignalTableWidget(self, use_dialog_editor=False)
         self.table_widget.set_signal_dict(self._signals)
         layout.addWidget(self.table_widget, 1)
 

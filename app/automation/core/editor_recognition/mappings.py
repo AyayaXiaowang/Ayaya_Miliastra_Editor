@@ -24,7 +24,7 @@ from .models import MappingData, PairCollections
 def build_detection_mappings(executor, graph_model, detected) -> MappingData:
     name_to_model_nodes: Dict[str, list] = {}
     for node in graph_model.nodes.values():
-        title_cn = executor._extract_chinese(node.title)
+        title_cn = executor.extract_chinese(node.title)
         if not title_cn:
             continue
         name_to_model_nodes.setdefault(title_cn, []).append(node)
@@ -32,7 +32,7 @@ def build_detection_mappings(executor, graph_model, detected) -> MappingData:
     name_to_detections: Dict[str, list[tuple[int, int, int, int]]] = {}
     name_to_det_indices: Dict[str, list[int]] = {}
     for idx, detection in enumerate(detected):
-        title_cn = executor._extract_chinese(getattr(detection, 'name_cn', '') or '')
+        title_cn = executor.extract_chinese(getattr(detection, 'name_cn', '') or '')
         if not title_cn:
             continue
         bbox_x, bbox_y, bbox_w, bbox_h = detection.bbox
@@ -68,7 +68,7 @@ def build_fingerprint_filters(
     has_graph_id = hasattr(graph_model, "graph_id")
     graph_id_value = getattr(graph_model, "graph_id", None) if has_graph_id else None
     
-    executor._log(
+    executor.log(
         f"[指纹检查] FINGERPRINT_ENABLED={fingerprint_enabled_setting} graph_id存在={has_graph_id} graph_id值={graph_id_value}",
         log_callback,
     )
@@ -78,7 +78,7 @@ def build_fingerprint_filters(
         
         # [调试] 输出缓存加载情况
         cache_exists = bool(cached and isinstance(cached, dict) and cached.get("items"))
-        executor._log(
+        executor.log(
             f"[指纹检查] 缓存文件存在={cache_exists} 缓存项数={len(cached.get('items', {})) if cache_exists else 0}",
             log_callback,
         )
@@ -87,7 +87,7 @@ def build_fingerprint_filters(
             try_nodes_for_sig = []
             for node in graph_model.nodes.values():
                 node_id = getattr(node, "id", "")
-                title_cn = executor._extract_chinese(node.title)
+                title_cn = executor.extract_chinese(node.title)
                 pos_x, pos_y = float(node.pos[0]), float(node.pos[1])
                 try_nodes_for_sig.append((node_id, title_cn, pos_x, pos_y))
             current_sig = _compute_layout_sig(try_nodes_for_sig)
@@ -95,7 +95,7 @@ def build_fingerprint_filters(
             signature_match = bool(current_sig == cached_sig)
             
             # [调试] 输出签名比对结果
-            executor._log(
+            executor.log(
                 f"[指纹检查] layout_signature匹配={signature_match} 当前签名={current_sig[:16]}... 缓存签名={cached_sig[:16] if cached_sig else 'None'}...",
                 log_callback,
             )
@@ -147,23 +147,23 @@ def build_fingerprint_filters(
                     if allowed:
                         allowed_pairs_by_title[name] = allowed
                         if settings.FINGERPRINT_DEBUG_LOG:
-                            executor._log(
+                            executor.log(
                                 f"[重名过滤] '{name}': 模型={len(models)} 检测={len(detections)} → 允许配对={len(allowed)} "
                                 f"(K={int(settings.FINGERPRINT_K)}, 阈值={float(settings.FINGERPRINT_MAX_DIST):.2f})",
                                 log_callback,
                             )
             else:
-                executor._log("[指纹检查] 指纹签名不一致，跳过本次过滤（节点位置可能已变化，需重新生成指纹缓存）", log_callback)
+                executor.log("[指纹检查] 指纹签名不一致，跳过本次过滤（节点位置可能已变化，需重新生成指纹缓存）", log_callback)
         else:
-            executor._log("[指纹检查] 缓存文件不存在或无效，跳过指纹过滤（建议运行指纹缓存生成工具）", log_callback)
+            executor.log("[指纹检查] 缓存文件不存在或无效，跳过指纹过滤（建议运行指纹缓存生成工具）", log_callback)
     else:
         if not fingerprint_enabled_setting:
-            executor._log("[指纹检查] 指纹功能已禁用（FINGERPRINT_ENABLED=False）", log_callback)
+            executor.log("[指纹检查] 指纹功能已禁用（FINGERPRINT_ENABLED=False）", log_callback)
         elif not has_graph_id:
-            executor._log("[指纹检查] 图模型缺少graph_id，无法使用指纹过滤", log_callback)
-    
+            executor.log("[指纹检查] 图模型缺少graph_id，无法使用指纹过滤", log_callback)
+
     # [调试] 输出最终结果
-    executor._log(
+    executor.log(
         f"[指纹检查] 指纹过滤最终状态: {'已启用' if fingerprint_filter_enabled else '未启用'}",
         log_callback,
     )
@@ -285,7 +285,7 @@ def collect_pair_collections(
     # 使用相对比例匹配进行筛选（替代旧的scale+offset方法）
     use_ratio_filter = len(base_pairs_prog) >= 2
     if use_ratio_filter and executor and log_callback:
-        executor._log(
+        executor.log(
             f"[相对比例] 已启用（参考节点={len(base_pairs_prog)}个），X和Y独立检查，容错30%",
             log_callback,
         )
@@ -335,7 +335,7 @@ def collect_pair_collections(
                 
                 # [调试] 记录保留的配对（用于诊断）
                 if executor and log_callback and len(all_pairs_prog) <= 10:
-                    executor._log(
+                    executor.log(
                         f"  [配对{len(all_pairs_prog)}] '{name}': prog=({model.pos[0]:.1f},{model.pos[1]:.1f}) win=({detection[0]},{detection[1]})",
                         log_callback,
                     )
@@ -349,24 +349,24 @@ def collect_pair_collections(
         ]
         
         if multi_instance_names:
-            executor._log(
+            executor.log(
                 f"[配对统计] 多实例节点 {len(multi_instance_names)} 个: {sorted(multi_instance_names)[:5]}{'...' if len(multi_instance_names) > 5 else ''}",
                 log_callback,
             )
-        
-        executor._log(
+
+        executor.log(
             f"[配对统计] 唯一节点对={len(base_pairs_prog)} 候选配对总数={total_candidate_count} 保留配对={len(all_pairs_prog)}",
             log_callback,
         )
-        
+
         if use_ratio_filter:
             filter_mode = "二次筛选" if fingerprint_filter_enabled else "主要筛选"
-            executor._log(
+            executor.log(
                 f"[相对比例] 筛选完成({filter_mode}) 过滤={geometric_filtered_count}个配对",
                 log_callback,
             )
         elif len(multi_instance_names) > 0:
-            executor._log(
+            executor.log(
                 f"[相对比例] 未启用（唯一节点对不足，需≥2，实际={len(base_pairs_prog)}）",
                 log_callback,
             )

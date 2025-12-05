@@ -54,7 +54,7 @@ class CompositeNodePreviewItem(QtWidgets.QGraphicsItem):
         painter.fillPath(title_path, QtGui.QBrush(gradient))
 
         content_rect = QtCore.QRectF(rect.left(), rect.top() + header_h, rect.width(), rect.height() - header_h)
-        content_color = QtGui.QColor("#1F1F1F")
+        content_color = QtGui.QColor(Colors.BG_DARK)
         content_color.setAlpha(int(255 * 0.7))
         painter.setBrush(content_color)
         pen = QtGui.QPen(QtGui.QColor(Colors.NODE_HEADER_COMPOSITE_END))
@@ -66,7 +66,7 @@ class CompositeNodePreviewItem(QtWidgets.QGraphicsItem):
         painter.drawPath(path)
 
         painter.setFont(self.title_font)
-        painter.setPen(QtGui.QColor("#FFFFFF"))
+        painter.setPen(QtGui.QColor(Colors.TEXT_PRIMARY))
         title_rect = QtCore.QRectF(rect.left(), rect.top(), rect.width(), header_h)
         painter.drawText(
             title_rect.adjusted(12, 0, -12, 0),
@@ -109,11 +109,14 @@ class VirtualPinItem(QtWidgets.QGraphicsItem):
         tag_height = 20
         font_metrics = QtGui.QFontMetrics(QtGui.QFont("Microsoft YaHei", 9))
         text_width = font_metrics.horizontalAdvance(self.label_text)
+        gap = 6
         if self.pin_config.is_input:
             left = -tag_width - 8
-            right = port_radius * 2 + 6 + text_width
+            right = port_radius * 2 + gap + text_width
         else:
-            left = -text_width - port_radius * 2 - 6
+            max_port_width = 20 if self.pin_config.is_flow else port_radius * 2
+            # 文本整体放在端口左侧并预留间距，避免与端口形状重叠
+            left = -text_width - max_port_width - gap
             right = tag_width + 8
         return QtCore.QRectF(left, -tag_height / 2, right - left, tag_height)
 
@@ -126,65 +129,72 @@ class VirtualPinItem(QtWidgets.QGraphicsItem):
         if self.pin_config.is_input:
             tag_rect = QtCore.QRectF(-tag_width - 8, -tag_height / 2, tag_width, tag_height)
             gradient = QtGui.QLinearGradient(tag_rect.topLeft(), tag_rect.bottomLeft())
-            gradient.setColorAt(0, QtGui.QColor("#FFD700"))
-            gradient.setColorAt(1, QtGui.QColor("#FFA500"))
+            gradient.setColorAt(0, QtGui.QColor(Colors.ACCENT_LIGHT))
+            gradient.setColorAt(1, QtGui.QColor(Colors.ACCENT))
             painter.setBrush(gradient)
-            painter.setPen(QtGui.QPen(QtGui.QColor("#CC8800"), 2))
+            painter.setPen(QtGui.QPen(QtGui.QColor(Colors.ACCENT), 2))
             radius = 3 if self.pin_config.is_flow else tag_radius
             painter.drawRoundedRect(tag_rect, radius, radius)
 
             painter.setPen(QtGui.QPen(QtGui.QColor("#FFFFFF"), 1))
             painter.setFont(QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold))
+            painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 1))
             painter.drawText(tag_rect, QtCore.Qt.AlignmentFlag.AlignCenter, self.number_text)
 
             if self.pin_config.is_flow:
                 port_rect = QtCore.QRectF(0, -8, 20, 16)
-                painter.setPen(QtGui.QPen(QtGui.QColor("#FFFFFF"), 2))
+                painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 2))
                 painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
                 painter.drawRoundedRect(port_rect, 4, 4)
                 port_right = 20
             else:
                 port_rect = QtCore.QRectF(0, -port_radius, port_radius * 2, port_radius * 2)
-                painter.setPen(QtGui.QPen(QtGui.QColor("#D0D0D0"), 2))
+                painter.setPen(QtGui.QPen(QtGui.QColor(Colors.BORDER_LIGHT), 2))
                 painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
                 painter.drawEllipse(port_rect)
                 port_right = port_radius * 2
 
             painter.setFont(QtGui.QFont("Microsoft YaHei", 9))
-            painter.setPen(QtGui.QColor("#E0E0E0"))
+            # 在深色画布上使用高对比度文本颜色，避免名称与背景融为一体
+            painter.setPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY))
             painter.drawText(QtCore.QPointF(port_right + 6, 4), self.label_text)
         else:
             painter.setFont(QtGui.QFont("Microsoft YaHei", 9))
-            painter.setPen(QtGui.QColor("#E0E0E0"))
             font_metrics = QtGui.QFontMetrics(QtGui.QFont("Microsoft YaHei", 9))
             text_width = font_metrics.horizontalAdvance(self.label_text)
-            painter.drawText(QtCore.QPointF(-text_width - 6, 4), self.label_text)
 
+            # 先绘制端口与序号标签，再绘制文本，避免后画的图形覆盖文字
             if self.pin_config.is_flow:
                 port_rect = QtCore.QRectF(-20, -8, 20, 16)
-                painter.setPen(QtGui.QPen(QtGui.QColor("#FFFFFF"), 2))
+                painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 2))
                 painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
                 painter.drawRoundedRect(port_rect, 4, 4)
                 status_width = 20
             else:
                 port_rect = QtCore.QRectF(-port_radius * 2, -port_radius, port_radius * 2, port_radius * 2)
-                painter.setPen(QtGui.QPen(QtGui.QColor("#FFFFFF"), 2))
+                painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 2))
                 painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
                 painter.drawEllipse(port_rect)
                 status_width = port_radius * 2
 
             tag_rect = QtCore.QRectF(8, -tag_height / 2, tag_width, tag_height)
             gradient = QtGui.QLinearGradient(tag_rect.topLeft(), tag_rect.bottomLeft())
-            gradient.setColorAt(0, QtGui.QColor("#FFD700"))
-            gradient.setColorAt(1, QtGui.QColor("#FFA500"))
+            gradient.setColorAt(0, QtGui.QColor(Colors.ACCENT_LIGHT))
+            gradient.setColorAt(1, QtGui.QColor(Colors.ACCENT))
             painter.setBrush(gradient)
-            painter.setPen(QtGui.QPen(QtGui.QColor("#CC8800"), 2))
+            painter.setPen(QtGui.QPen(QtGui.QColor(Colors.ACCENT), 2))
             radius = 3 if self.pin_config.is_flow else tag_radius
             painter.drawRoundedRect(tag_rect, radius, radius)
 
-            painter.setPen(QtGui.QPen(QtGui.QColor("#FFFFFF"), 1))
+            painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 1))
             painter.setFont(QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold))
             painter.drawText(tag_rect, QtCore.Qt.AlignmentFlag.AlignCenter, self.number_text)
+
+            # 文本整体放在端口左侧并预留间距，避免与端口重叠
+            text_x = -text_width - status_width - 6
+            painter.setFont(QtGui.QFont("Microsoft YaHei", 9))
+            painter.setPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY))
+            painter.drawText(QtCore.QPointF(text_x, 4), self.label_text)
 
     def contextMenuEvent(self, event: QtGui.QContextMenuEvent) -> None:
         builder = ContextMenuBuilder()
@@ -286,7 +296,7 @@ class CompositeNodePreviewGraphics(QtWidgets.QGraphicsView, ConfirmDialogMixin):
         self.pin_items.clear()
         if not self.composite_config:
             text_item = self.scene.addText("暂无复合节点\n\n右键内部节点的端口\n可暴露为虚拟引脚")
-            text_item.setDefaultTextColor(QtGui.QColor("#888888"))
+            text_item.setDefaultTextColor(QtGui.QColor(Colors.TEXT_SECONDARY))
             text_item.setFont(QtGui.QFont("Microsoft YaHei UI", 12))
             text_item.setPos(-80, -40)
             return
@@ -319,6 +329,26 @@ class CompositeNodePreviewGraphics(QtWidgets.QGraphicsView, ConfirmDialogMixin):
         if not self.composite_config:
             return
         y_start = -node_height / 2 + HEADER_HEIGHT + NODE_PADDING
+
+        # 调试输出：观察预览图中每一侧的虚拟引脚分布
+        side = "输入" if is_input else "输出"
+        all_pins = self.composite_config.virtual_pins or []
+        flow_pins = [
+            p for p in all_pins if p.is_input == is_input and p.is_flow
+        ]
+        data_pins = [
+            p for p in all_pins if p.is_input == is_input and not p.is_flow
+        ]
+        print(
+            f"[CompositePreview] {self.composite_config.composite_id} {side} 侧："
+            f"流程引脚={len(flow_pins)}, 数据引脚={len(data_pins)}"
+        )
+        for pin in flow_pins + data_pins:
+            kind = "流程" if pin.is_flow else "数据"
+            print(
+                f"[CompositePreview]  - 索引={pin.pin_index}, 类型={kind}, 名称={pin.pin_name}"
+            )
+
         groups = [
             [
                 p

@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtCore import Qt
 
+from ui.foundation.theme_manager import Colors
+
 
 @dataclass
 class ExecutionEvent:
@@ -304,23 +306,23 @@ class ExecutionEventModel(QtCore.QAbstractTableModel):
             return event.message
 
         if role == Qt.ItemDataRole.ForegroundRole:
-            # 错误/警告高亮
+            # 错误/警告高亮，默认采用主题主文本色
             if event.severity == "error":
-                return QtGui.QBrush(QtGui.QColor("#C62828"))
+                return QtGui.QBrush(QtGui.QColor(Colors.ERROR))
             if event.severity == "warning":
-                return QtGui.QBrush(QtGui.QColor("#EF6C00"))
-            return QtGui.QBrush(QtGui.QColor("#111827"))
+                return QtGui.QBrush(QtGui.QColor(Colors.WARNING))
+            return QtGui.QBrush(QtGui.QColor(Colors.TEXT_PRIMARY))
 
         if role == Qt.ItemDataRole.BackgroundRole:
             # 运行级事件淡背景
             if event.kind == "run":
-                return QtGui.QBrush(QtGui.QColor("#F3F4F6"))
+                return QtGui.QBrush(QtGui.QColor(Colors.BG_MAIN))
             # 失败步骤浅红底
             if event.kind == "step" and event.phase == "fail":
-                return QtGui.QBrush(QtGui.QColor("#FCE4EC"))
+                return QtGui.QBrush(QtGui.QColor(Colors.ERROR_BG))
             # 跳过步骤浅黄底
             if event.kind == "step" and event.phase == "skip":
-                return QtGui.QBrush(QtGui.QColor("#FFF8E1"))
+                return QtGui.QBrush(QtGui.QColor(Colors.WARNING_BG))
             return None
 
         if role == Qt.ItemDataRole.TextAlignmentRole:

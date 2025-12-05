@@ -7,14 +7,14 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="拼装结构体",
     category="运算节点",
-    # 输入端口由图编辑器在绑定结构体后按字段列表动态补全。
-    inputs=[],
+    # 静态输入包含“结构体名”，字段输入端口由图编辑器在绑定结构体后按字段列表动态补全。
+    inputs=[("结构体名", "字符串")],
     outputs=[("结果", "结构体")],
     dynamic_port_type="泛型",
     description="根据绑定的结构体定义，将多个字段值拼合为一个结构体类型的值",
     doc_reference="服务器节点/运算节点/运算节点.md",
 )
-def 拼装结构体(game, **字段初始值):
+def 拼装结构体(game, 结构体名=None, **字段初始值):
     """
     占位实现：真实结构体构造逻辑由运行时代码或代码生成统一处理。
 

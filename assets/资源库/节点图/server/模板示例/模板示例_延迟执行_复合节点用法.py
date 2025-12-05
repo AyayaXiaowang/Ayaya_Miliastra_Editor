@@ -73,6 +73,13 @@ class 模板示例_延迟执行_复合节点用法:
             定时器标识="模板示例_延迟执行_复合节点用法",
         )
 
+        设置节点图变量(
+            self.game,
+            变量名="调试_是否已启动延迟",
+            变量值=True,
+            是否触发事件=False,
+        )
+
     def register_handlers(self):
         self.game.register_event_handler(
             "实体创建时",

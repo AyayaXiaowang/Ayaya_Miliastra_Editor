@@ -52,7 +52,7 @@ class ScanTagSection(BaseManagementSection):
             "scan_tag_name": "",
             "scannable": True,
             "scan_range": 10.0,
-            "scan_highlight_color": "#00FF00",
+            "scan_highlight_color": ThemeManager.Colors.SUCCESS,
             "scan_info_text": "",
             "description": "",
         }
@@ -85,7 +85,7 @@ class ScanTagSection(BaseManagementSection):
         )
         highlight_color_edit = builder.add_color_picker(
             "高亮颜色:",
-            str(initial_values.get("scan_highlight_color", "#00FF00")),
+            str(initial_values.get("scan_highlight_color", ThemeManager.Colors.SUCCESS)),
         )
         info_text_edit = builder.add_line_edit(
             "扫描信息文本:",
@@ -127,7 +127,8 @@ class ScanTagSection(BaseManagementSection):
             "scan_tag_name": scan_tag_name_edit.text().strip(),
             "scannable": bool(scannable_check.isChecked()),
             "scan_range": float(scan_range_spin.value()),
-            "scan_highlight_color": highlight_color_edit.text().strip() or "#00FF00",
+            "scan_highlight_color": highlight_color_edit.text().strip()
+            or ThemeManager.Colors.SUCCESS,
             "scan_info_text": info_text_edit.text().strip(),
             "description": description_edit.toPlainText().strip(),
         }
@@ -156,7 +157,7 @@ class ScanTagSection(BaseManagementSection):
             scan_tag_name=f"扫描标签{new_index}",
             scannable=True,
             scan_range=10.0,
-            scan_highlight_color="#00FF00",
+            scan_highlight_color=ThemeManager.Colors.SUCCESS,
             scan_info_text="",
             description="",
         )
@@ -242,7 +243,9 @@ class ScanTagSection(BaseManagementSection):
             else:
                 scan_range_value = 10.0
             scan_highlight_color_value = str(
-                scan_tag_payload.get("scan_highlight_color", "#00FF00"),
+                scan_tag_payload.get(
+                    "scan_highlight_color", ThemeManager.Colors.SUCCESS
+                ),
             )
             scan_info_text_value = str(scan_tag_payload.get("scan_info_text", ""))
             description_value = str(scan_tag_payload.get("description", ""))
@@ -276,7 +279,7 @@ class ScanTagSection(BaseManagementSection):
                 scan_tag_payload["scannable"] = bool(scannable_check.isChecked())
                 scan_tag_payload["scan_range"] = float(scan_range_spin.value())
                 scan_tag_payload["scan_highlight_color"] = (
-                    highlight_color_edit.text().strip() or "#00FF00"
+                    highlight_color_edit.text().strip() or ThemeManager.Colors.SUCCESS
                 )
                 scan_tag_payload["scan_info_text"] = info_text_edit.text().strip()
                 scan_tag_payload["description"] = description_edit.toPlainText().strip()

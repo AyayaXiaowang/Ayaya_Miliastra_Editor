@@ -67,13 +67,62 @@ class TodoTreeGraphSupport:
         # 先清空当前挂在该项下的虚拟子项
         self.clear_virtual_detail_children(item)
 
+        # 多分支“配置分支输出”步骤：基于 branches 列表生成只读子项，
+        # 文案采用“配置【端口N】为【值】”，其中 N 为分支在非默认输出端口中的顺序（1-based）。
+        if detail_type == "graph_config_branch_outputs":
+            branches = info.get("branches") or []
+            if not isinstance(branches, list) or not branches:
+                return
+
+            for index, branch in enumerate(branches):
+                if not isinstance(branch, dict):
+                    continue
+                raw_value = branch.get("value", "")
+                value_text = str(raw_value) if raw_value is not None else ""
+                display_value = value_text if value_text != "" else "(空)"
+                display_index = int(index) + 1
+
+                child = QtWidgets.QTreeWidgetItem()
+                child.setData(0, Qt.ItemDataRole.UserRole + 1, "virtual_detail_child")
+
+                flags = child.flags()
+                flags &= ~Qt.ItemFlag.ItemIsUserCheckable
+                child.setFlags(flags)
+
+                child.setText(
+                    0,
+                    f"配置【端口{display_index}】为【{display_value}】",
+                )
+
+                color = ThemeColors.TEXT_SECONDARY
+                child.setForeground(0, QtGui.QBrush(QtGui.QColor(color)))
+                child.setData(0, Qt.ItemDataRole.UserRole, "")
+                item.addChild(child)
+            return
+
         params = info.get("params") or []
         if not isinstance(params, list) or not params:
             # 无明细参数时不生成子项
             return
 
-        # 参数配置步骤保持原有“配置「参数名」为「值」”的简单列表展示。
+        # 参数配置步骤：为每个参数生成一条“配置「参数名」为「值」（类型）”的只读子项。
         if StepTypeRules.is_config_step(detail_type):
+            node_identifier = str(info.get("node_id", "") or "")
+            graph_model: Optional[GraphModel] = None
+            node_model = None
+            node_def = None
+            if node_identifier:
+                graph_model, _graph_id = self.get_graph_model_for_item(
+                    item, todo.todo_id, todo_map
+                )
+                if graph_model is not None and node_identifier in graph_model.nodes:
+                    node_model = graph_model.nodes[node_identifier]
+            if node_model is not None:
+                node_def = self._type_helper.get_node_def_for_model(node_model)
+            input_types_map: Dict[str, Any] = (
+                getattr(node_def, "input_types", {}) or {} if node_def is not None else {}
+            )
+
             for param in params:
                 if not isinstance(param, dict):
                     continue
@@ -83,6 +132,20 @@ class TodoTreeGraphSupport:
                 raw_value = param.get("param_value", "")
                 value_text = str(raw_value) if raw_value is not None else ""
 
+                # 从节点定义中获取端口声明类型，作为参数的数据类型标签；
+                # 若节点定义未声明具体类型，则回退到参数条目上的 expected_type（例如信号参数类型推断）。
+                param_type_label = ""
+                if isinstance(input_types_map, dict) and param_name in input_types_map:
+                    declared_type_raw = input_types_map.get(param_name)
+                    declared_type_text = str(declared_type_raw or "")
+                    if declared_type_text.strip():
+                        param_type_label = declared_type_text.strip()
+                if not param_type_label:
+                    expected_type_raw = param.get("expected_type")
+                    expected_type_text = str(expected_type_raw or "")
+                    if expected_type_text.strip():
+                        param_type_label = expected_type_text.strip()
+
                 child = QtWidgets.QTreeWidgetItem()
                 child.setData(0, Qt.ItemDataRole.UserRole + 1, "virtual_detail_child")
 
@@ -91,7 +154,10 @@ class TodoTreeGraphSupport:
                 child.setFlags(flags)
 
                 display_value = value_text if value_text != "" else "(空)"
-                child.setText(0, f"配置「{param_name}」为「{display_value}」")
+                if param_type_label:
+                    child.setText(0, f"配置「{param_name}」为「{display_value}」（{param_type_label}）")
+                else:
+                    child.setText(0, f"配置「{param_name}」为「{display_value}」")
 
                 color = ThemeColors.TEXT_SECONDARY
                 child.setForeground(0, QtGui.QBrush(QtGui.QColor(color)))

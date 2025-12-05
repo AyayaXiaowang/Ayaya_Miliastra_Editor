@@ -14,6 +14,8 @@ from PIL import Image
 from app.automation import capture as editor_capture
 from app.automation.core import editor_nodes
 from app.automation.core import editor_connect
+from app.automation.core import executor_hook_utils as _hook_utils
+from app.automation.core.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
 from app.automation.ports._ports import normalize_kind_text, is_non_connectable_kind
 from app.automation.input.common import (
     log_start,
@@ -140,6 +142,16 @@ class EditorExecutor:
         # 场景级截图与节点检测缓存：用于在无视口变更的前提下，跨步骤复用同一帧识别结果
         self.enable_scene_snapshot_optimization: bool = True
         self._scene_snapshot: Optional[GraphSceneSnapshot] = None
+        # 识别阶段最近一次视图拟合策略与截图/检测缓存（由 editor_recognition 维护）
+        self._last_view_mapping_strategy: str = ""
+        self._last_recognition_screenshot: Optional[Image.Image] = None
+        self._last_recognition_detected: Optional[list] = None
+        # 步骤执行上下文（由执行线程按需写入）
+        self._current_step_index: int = -1
+        self._node_first_create_step_index: Dict[str, int] = {}
+        self._single_step_target_todo_id: str = ""
+        # 标记是否已通过锚点显式校准比例（区分于 RANSAC 推断）
+        self._scale_calibrated_by_anchor: bool = False
 
     # ===== 快速链辅助 =====
     def set_fast_chain_step_type(self, step_type: str) -> None:
@@ -189,11 +201,8 @@ class EditorExecutor:
         if self._scene_snapshot is not None:
             self._scene_snapshot.invalidate_all(reason or "view_changed")
         # 同步清理“视口识别阶段”缓存的首帧截图与检测结果，避免在视口变化后误用旧画面。
-        if hasattr(self, "__dict__"):
-            if "_last_recognition_screenshot" in self.__dict__:
-                self._last_recognition_screenshot = None
-            if "_last_recognition_detected" in self.__dict__:
-                self._last_recognition_detected = None
+        self._last_recognition_screenshot = None
+        self._last_recognition_detected = None
 
     def mark_view_changed(self, reason: str = "") -> None:
         """标记视口发生变化，由执行步骤或上层在拖拽/缩放后调用。"""
@@ -211,11 +220,45 @@ class EditorExecutor:
             self._scene_snapshot.invalidate_all(reason or "manual")
 
     # ===== 公共小工具（去重：等待/点击/输入 与 暂停/终止钩子） =====
-    def _wait_with_hooks(self, total_seconds: float, pause_hook: Optional[Callable[[], None]], allow_continue: Optional[Callable[[], bool]], interval_seconds: float = 0.1, log_callback=None) -> bool:
+    def _wait_with_hooks(
+        self,
+        total_seconds: float,
+        pause_hook: Optional[Callable[[], None]],
+        allow_continue: Optional[Callable[[], bool]],
+        interval_seconds: float = 0.1,
+        log_callback=None,
+    ) -> bool:
         """委托通用工具，统一等待钩子逻辑。"""
-        return _exec_utils.wait_with_hooks(self, total_seconds, pause_hook, allow_continue, interval_seconds, log_callback)
+        return _hook_utils.wait_with_hooks(
+            self,
+            total_seconds,
+            pause_hook,
+            allow_continue,
+            interval_seconds,
+            log_callback,
+        )
 
-    
+    def wait_with_hooks(
+        self,
+        total_seconds: float,
+        pause_hook: Optional[Callable[[], None]],
+        allow_continue: Optional[Callable[[], bool]],
+        interval_seconds: float = 0.1,
+        log_callback=None,
+    ) -> bool:
+        """
+        公开的分段等待接口：语义与 `_wait_with_hooks` 一致。
+
+        跨模块调用推荐使用本方法，便于静态检查约束私有方法访问。
+        """
+        return self._wait_with_hooks(
+            total_seconds=total_seconds,
+            pause_hook=pause_hook,
+            allow_continue=allow_continue,
+            interval_seconds=interval_seconds,
+            log_callback=log_callback,
+        )
+
 
     def reset_mapping_state(self, log_callback=None) -> None:
         """清空上次执行残留的坐标映射与识别缓存，用于从根步骤开始全量执行前的干净环境。
@@ -351,8 +394,14 @@ class EditorExecutor:
             visual_callback(screenshot_to_emit, overlays)
 
     # 轻薄委托：文本输入（带暂停/终止钩子）
-    def _input_text_with_hooks(self, text: str, pause_hook: Optional[Callable[[], None]] = None, allow_continue: Optional[Callable[[], bool]] = None, log_callback=None) -> bool:
-        return _exec_utils.input_text_with_hooks(self, text, pause_hook, allow_continue, log_callback)
+    def _input_text_with_hooks(
+        self,
+        text: str,
+        pause_hook: Optional[Callable[[], None]] = None,
+        allow_continue: Optional[Callable[[], bool]] = None,
+        log_callback=None,
+    ) -> bool:
+        return _hook_utils.input_text_with_hooks(self, text, pause_hook, allow_continue, log_callback)
 
     def _right_click_with_hooks(
         self,
@@ -365,7 +414,7 @@ class EditorExecutor:
         *,
         linger_seconds: float = 0.0,
     ) -> bool:
-        return _exec_utils.right_click_with_hooks(
+        return _hook_utils.right_click_with_hooks(
             self,
             int(screen_x),
             int(screen_y),
@@ -414,8 +463,19 @@ class EditorExecutor:
         self._emit_visual(screenshot, overlays, visual_callback)
         return screenshot
 
-    
-    
+    def emit_visual(
+        self,
+        screenshot: Image.Image,
+        overlays: Optional[dict],
+        visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]],
+    ) -> None:
+        """
+        公开的可视化输出接口：语义与 `_emit_visual` 一致。
+
+        跨模块调用推荐使用本方法，而不是直接访问私有实现。
+        """
+        self._emit_visual(screenshot, overlays, visual_callback)
+
     def _ensure_program_point_visible(
         self,
         program_x: float,
@@ -581,8 +641,8 @@ class EditorExecutor:
                 scale_value = 1.0
                 if self.scale_ratio is not None:
                     scale_value = float(self.scale_ratio) if abs(float(self.scale_ratio)) > 1e-6 else 1.0
-                bbox_width = int(200.0 * scale_value)
-                bbox_height = int(100.0 * scale_value)
+                bbox_width = int(NODE_VIEW_WIDTH_PX * scale_value)
+                bbox_height = int(NODE_VIEW_HEIGHT_PX * scale_value)
                 bbox_left = int(anchor_editor_x)
                 bbox_top = int(anchor_editor_y)
             anchor_title_text = ""
@@ -617,6 +677,16 @@ class EditorExecutor:
         log_callback=None,
         visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
     ) -> None:
+        # 可见节点调试依赖稳定的程序↔编辑器坐标映射；若尚未建立映射则直接跳过，
+        # 避免在单步首创建等“未校准场景”中触发坐标相关异常。
+        if self.scale_ratio is None or self.origin_node_pos is None:
+            self._log(
+                "· 可见节点调试：当前尚未完成坐标映射（scale_ratio / origin_node_pos 为空），"
+                "跳过可见节点识别；请先执行快速映射或锚点坐标校准后再重试。",
+                log_callback,
+            )
+            return
+
         visible_map = self.recognize_visible_nodes(graph_model)
         if not isinstance(visible_map, dict) or not visible_map:
             self._log("· 可见节点调试：当前画面中未识别到任何节点", log_callback)
@@ -659,13 +729,23 @@ class EditorExecutor:
         safe_print(message)
         if log_callback:
             log_callback(message)
-    
-    
-    
-    
+
+    def log(self, message: str, log_callback=None) -> None:
+        """
+        公开日志输出接口：语义与 `_log` 一致。
+
+        跨模块调用推荐使用本方法，而非直接访问 `_log`。
+        """
+        self._log(message, log_callback)
 
     def _extract_chinese(self, text: str) -> str:
         return _extract_chinese_ext(text)
+
+    def extract_chinese(self, text: str) -> str:
+        """
+        公开中文提取接口：语义与 `_extract_chinese` 一致。
+        """
+        return self._extract_chinese(text)
 
     def _poll_node_candidates(
         self,
@@ -720,6 +800,29 @@ class EditorExecutor:
             if not self._wait_with_hooks(interval, pause_hook, allow_continue, 0.1, log_callback):
                 return None, []
         return None, []
+
+    def poll_node_candidates(
+        self,
+        node_title: str,
+        timeout_seconds: float,
+        log_callback=None,
+        pause_hook: Optional[Callable[[], None]] = None,
+        allow_continue: Optional[Callable[[], bool]] = None,
+        match_predicate: Optional[Callable[[str, str], bool]] = None,
+    ) -> Tuple[Optional[Image.Image], List[Tuple[int, int, int, int, int, int]]]:
+        """
+        公开节点候选轮询接口：语义与 `_poll_node_candidates` 一致。
+
+        跨模块调用应通过本方法，而不是直接访问 `_poll_node_candidates`。
+        """
+        return self._poll_node_candidates(
+            node_title,
+            timeout_seconds,
+            log_callback,
+            pause_hook,
+            allow_continue,
+            match_predicate,
+        )
 
     def _find_node_by_cn_window(self, name_cn: str, timeout_seconds: float, log_callback=None,
                                 pause_hook: Optional[Callable[[], None]] = None,
@@ -829,6 +932,25 @@ class EditorExecutor:
     ) -> Tuple[int, int, int, int]:
         return _rec._find_best_node_bbox(self, screenshot, title_cn, program_pos, debug, detected_nodes)
 
+    def find_best_node_bbox(
+        self,
+        screenshot: Image.Image,
+        title_cn: str,
+        program_pos: Tuple[float, float],
+        debug: Optional[Dict[str, Any]] = None,
+        detected_nodes: Optional[list] = None,
+    ) -> Tuple[int, int, int, int]:
+        """
+        公开节点 bbox 查找接口：语义与 `_find_best_node_bbox` 一致。
+        """
+        return self._find_best_node_bbox(
+            screenshot=screenshot,
+            title_cn=title_cn,
+            program_pos=program_pos,
+            debug=debug,
+            detected_nodes=detected_nodes,
+        )
+
     # ===== 画布缩放一致性（每步前强制检查/校正到 50%） =====
     def ensure_zoom_ratio_50(
         self,
@@ -869,4 +991,64 @@ class EditorExecutor:
             epsilon_px=epsilon_px,
             log_callback=log_callback,
         )
+
+    def get_node_def_for_model(self, node: NodeModel):
+        """
+        公开节点定义查询接口：语义与 `_get_node_def_for_model` 一致。
+        """
+        return self._get_node_def_for_model(node)
+
+    def right_click_with_hooks(
+        self,
+        screen_x: int,
+        screen_y: int,
+        pause_hook: Optional[Callable[[], None]] = None,
+        allow_continue: Optional[Callable[[], bool]] = None,
+        log_callback=None,
+        visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
+        *,
+        linger_seconds: float = 0.0,
+    ) -> bool:
+        """
+        公开的右键点击接口：语义与 `_right_click_with_hooks` 一致。
+        """
+        return self._right_click_with_hooks(
+            screen_x=screen_x,
+            screen_y=screen_y,
+            pause_hook=pause_hook,
+            allow_continue=allow_continue,
+            log_callback=log_callback,
+            visual_callback=visual_callback,
+            linger_seconds=linger_seconds,
+        )
+
+    def input_text_with_hooks(
+        self,
+        text: str,
+        pause_hook: Optional[Callable[[], None]] = None,
+        allow_continue: Optional[Callable[[], bool]] = None,
+        log_callback=None,
+    ) -> bool:
+        """
+        公开的文本输入接口：语义与 `_input_text_with_hooks` 一致。
+        """
+        return self._input_text_with_hooks(
+            text=text,
+            pause_hook=pause_hook,
+            allow_continue=allow_continue,
+            log_callback=log_callback,
+        )
+
+    def get_last_context_click_editor_pos(self) -> Optional[Tuple[int, int]]:
+        """
+        获取最近一次用于弹出上下文菜单的编辑器坐标。
+        """
+        return self._last_context_click_editor_pos
+
+    def set_last_context_click_editor_pos(self, editor_x: int, editor_y: int) -> None:
+        """
+        更新最近一次用于弹出上下文菜单的编辑器坐标。
+        """
+        self._last_context_click_editor_pos = (int(editor_x), int(editor_y))
+
 

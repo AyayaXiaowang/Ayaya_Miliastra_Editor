@@ -6,6 +6,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.nodes.node_definition_loader import group_by_category
 from engine.nodes.port_type_system import can_connect_ports
+from ui.foundation.theme_manager import Colors, Sizes, Gradients
 
 if TYPE_CHECKING:
     from engine.nodes.node_definition_loader import NodeDef
@@ -24,28 +25,42 @@ class AddNodePopup(QtWidgets.QWidget):
         
         self.setWindowTitle("添加节点" + (f" (过滤: {filter_port_type})" if filter_port_type else ""))
         self.resize(400, 500)
-        
-        # 设置样式
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #2B2B2B;
-                border: 1px solid #3A3A3A;
-                border-radius: 8px;
-            }
-            QLineEdit {
-                background-color: #1E1E1E;
-                color: #E0E0E0;
-                border: 1px solid #3A3A3A;
-                border-radius: 4px;
-                padding: 6px;
-            }
-            QTreeWidget {
-                background-color: #1E1E1E;
-                color: #E0E0E0;
-                border: 1px solid #3A3A3A;
-                border-radius: 4px;
-            }
-        """)
+
+        # 设置样式：统一接入主题配色，确保深浅主题下都具备足够对比度
+        self.setStyleSheet(
+            f"""
+            QWidget {{
+                background-color: {Colors.BG_DARK};
+                border: {Sizes.BORDER_THIN}px solid {Colors.BORDER_DARK};
+                border-radius: {Sizes.RADIUS_MEDIUM}px;
+                color: {Colors.TEXT_PRIMARY};
+            }}
+            QLineEdit {{
+                background-color: {Colors.BG_INPUT};
+                color: {Colors.TEXT_PRIMARY};
+                border: {Sizes.BORDER_THIN}px solid {Colors.BORDER_LIGHT};
+                border-radius: {Sizes.RADIUS_SMALL}px;
+                padding: {Sizes.PADDING_SMALL}px;
+            }}
+            QLineEdit:focus {{
+                border: {Sizes.BORDER_THIN}px solid {Colors.BORDER_FOCUS};
+            }}
+            QTreeWidget {{
+                background-color: {Colors.BG_CARD};
+                color: {Colors.TEXT_PRIMARY};
+                border: {Sizes.BORDER_THIN}px solid {Colors.BORDER_LIGHT};
+                border-radius: {Sizes.RADIUS_SMALL}px;
+            }}
+            QTreeWidget::item {{
+                padding: {Sizes.PADDING_TINY}px {Sizes.PADDING_SMALL}px;
+                color: {Colors.TEXT_PRIMARY};
+            }}
+            QTreeWidget::item:selected {{
+                background: {Gradients.primary_vertical()};
+                color: {Colors.TEXT_ON_PRIMARY};
+            }}
+        """
+        )
         
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)

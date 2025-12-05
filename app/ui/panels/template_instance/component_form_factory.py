@@ -751,7 +751,8 @@ class TabConfigForm(QtWidgets.QWidget):
             self,
         )
         hint_label.setWordWrap(True)
-        hint_label.setStyleSheet("color: #666666;")
+        from ui.foundation.theme_manager import Colors
+        hint_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
         layout.addWidget(hint_label)
 
         toolbar_layout = QtWidgets.QHBoxLayout()

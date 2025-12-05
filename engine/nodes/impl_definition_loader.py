@@ -65,6 +65,8 @@ def load_all_nodes_from_impl(workspace_path: Path, include_composite: bool = Tru
             composite_id="",
             input_generic_constraints=dict(item.get("input_generic_constraints") or {}),
             output_generic_constraints=dict(item.get("output_generic_constraints") or {}),
+            input_enum_options=dict(item.get("input_enum_options") or {}),
+            output_enum_options=dict(item.get("output_enum_options") or {}),
         )
         library[node_key] = node
 

@@ -191,17 +191,17 @@ class ExecutionThread(QtCore.QThread):
                     try:
                         delattr(self.executor, "_current_step_index")
                     except AttributeError:
-                        self.executor._current_step_index = -1
+                        setattr(self.executor, "_current_step_index", -1)
                 if getattr(self.executor, "_node_first_create_step_index", None) is not None:
                     try:
                         delattr(self.executor, "_node_first_create_step_index")
                     except AttributeError:
-                        self.executor._node_first_create_step_index = {}
+                        setattr(self.executor, "_node_first_create_step_index", {})
                 if getattr(self.executor, "_single_step_target_todo_id", None) is not None:
                     try:
                         delattr(self.executor, "_single_step_target_todo_id")
                     except AttributeError:
-                        self.executor._single_step_target_todo_id = ""
+                        setattr(self.executor, "_single_step_target_todo_id", "")
             # 延迟停止监控（避免UI线程冲突）
             QtCore.QTimer.singleShot(0, self.monitor.stop_monitoring)
     
@@ -223,6 +223,7 @@ class ExecutionThread(QtCore.QThread):
             if not self.monitor.is_execution_allowed():
                 break
             step_info = step_todo.detail_info or {}
+            step_type = step_info.get("type")
             if hasattr(self.executor, "__dict__"):
                 setattr(self.executor, "_current_step_index", step_index)
             log_callback = getattr(self.monitor, "log", None)
@@ -235,13 +236,12 @@ class ExecutionThread(QtCore.QThread):
                     or step_info.get("node2_id")
                 )
                 primary_node_id = str(primary_node_id_value or "")
-                step_type = step_info.get("type")
                 log_callback(
                     f"[STEP-CTX] current_step_index={step_index}, "
                     f"todo_id='{step_todo.todo_id}', title='{step_todo.title}', "
                     f"type='{step_type}', node_id='{primary_node_id}'"
                 )
-            self._update_fast_chain_scope(step_info.get("type"))
+            self._update_fast_chain_scope(step_type)
             
             # 发射"将开始"事件（允许UI在单步模式下先行暂停）
             self.step_will_start.emit(step_todo.todo_id)
@@ -317,7 +317,21 @@ class ExecutionThread(QtCore.QThread):
                         break
                 if retry_success:
                     continue
-                # 若在统一次数上限内仍未成功，则终止整个执行
+                # 若在统一次数上限内仍未成功：
+                # - 对创建类步骤视为致命失败，终止本轮执行；
+                # - 对非创建类步骤视为“已尽力但无法完成”，标记为跳过并继续后续步骤。
+                is_create_step = step_type in (
+                    "graph_create_node",
+                    "graph_create_and_connect",
+                    "graph_create_and_connect_data",
+                )
+                if not is_create_step:
+                    skip_reason = last_issue if last_issue else "该步骤多次尝试仍未成功，已跳过"
+                    self.monitor.log(
+                        f"⚠ 步骤多次尝试仍未成功，将跳过本步骤继续执行：{summary_text}｜原因：{skip_reason}"
+                    )
+                    self.step_skipped.emit(step_todo.todo_id, skip_reason)
+                    continue
                 self.monitor.update_status("执行失败")
                 break
         else:

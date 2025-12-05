@@ -53,18 +53,18 @@ class UIWidgetPreviewItem(QtWidgets.QGraphicsItem):
         # 设置抗锯齿
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
 
-        # 背景色
+        # 背景色（区分内置控件与通用控件，但均复用主题色族）
         if is_builtin:
-            bg_color = QtGui.QColor("#3A5A7A")  # 固有控件：蓝色系
+            bg_color = QtGui.QColor(Colors.BG_CARD_HOVER)
         else:
-            bg_color = QtGui.QColor("#4A4A4A")  # 通用控件：灰色系
+            bg_color = QtGui.QColor(Colors.BG_CARD)
 
         # 边框色（选中时使用主题主色系）
         if self.is_selected:
             border_color = QtGui.QColor(Colors.PRIMARY)
             border_width = 2
         else:
-            border_color = QtGui.QColor("#666666")
+            border_color = QtGui.QColor(Colors.BORDER_DARK)
             border_width = 1
 
         # 绘制背景
@@ -74,7 +74,7 @@ class UIWidgetPreviewItem(QtWidgets.QGraphicsItem):
         painter.drawRoundedRect(rect, 4, 4)
 
         # 绘制控件类型图标和文本
-        painter.setPen(QtGui.QColor("#FFFFFF"))
+        painter.setPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY))
         font = painter.font()
         font.setPixelSize(min(14, int(height * 0.3)))
         painter.setFont(font)
@@ -109,7 +109,7 @@ class UIWidgetPreviewItem(QtWidgets.QGraphicsItem):
             (width / 2, height),  # 下中
         ]
 
-        painter.setPen(QtGui.QPen(QtGui.QColor("#FFFFFF"), 1))
+        painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 1))
         painter.setBrush(QtGui.QBrush(handle_color))
 
         for x, y in handles:

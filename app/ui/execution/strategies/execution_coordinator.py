@@ -164,7 +164,7 @@ class ExecutionCoordinator:
             self.graph_model,
             log_callback=self.monitor.log,
             visual_callback=self.monitor.update_visual,
-            allow_degraded_fallback=False,
+            allow_degraded_fallback=True,
         )
         if not ok:
             if fail_hard:

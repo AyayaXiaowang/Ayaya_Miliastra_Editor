@@ -12,15 +12,18 @@ from app.automation import capture as editor_capture
 from app.automation.core.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
 from app.automation.core.node_snapshot import NodePortsSnapshotCache
 from app.automation.core.structured_logging import StructuredLogger
+from app.automation.core.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
 from app.automation.input.common import build_graph_region_overlay, compute_position_thresholds
 from app.automation.ports._ports import normalize_kind_text
 from app.automation.ports.port_picker import (
     filter_screen_port_candidates,
     pick_port_center_for_node,
 )
-from app.automation.vision import list_nodes, invalidate_cache
+from app.automation.ports.port_type_inference import safe_get_port_type_from_node_def
+from app.automation.vision import list_nodes, list_ports as list_ports_for_bbox, invalidate_cache
 from engine.graph.models.graph_model import NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
+from engine.graph.common import is_selection_input_port
 
 
 def _is_within_position_threshold(
@@ -65,10 +68,24 @@ def _ordinal_in_model(
     want_input: bool,
     kind_expect: Optional[str],
 ) -> Optional[int]:
-    """根据端口名和期望类型，在模型定义中计算该端口的序号（用于序号回退策略）。"""
-    if not isinstance(port_name, str) or not port_name:
+    """根据端口名和期望类型，在模型定义中计算该端口的序号（用于序号回退策略）。
+
+    约定：
+    - 流程端口仅统计流程口；
+    - 数据输入端口会显式排除“选择端口”（如发送/监听信号的“信号名”、结构体节点的“结构体名”），
+      这些端口在 UI 中通过选择控件或对话框设置，不参与常规连线；
+    - 其他场景按完整端口列表顺序参与序号计算。
+    """
+    if not isinstance(port_name, str) or port_name == "":
         return None
-    all_names = [port_def.name for port_def in (node_obj.inputs if want_input else node_obj.outputs)]
+
+    if want_input:
+        all_ports = list(node_obj.inputs or [])
+    else:
+        all_ports = list(node_obj.outputs or [])
+
+    all_names = [port_def.name for port_def in all_ports]
+
     if kind_expect == "flow":
         filtered_names = [
             name
@@ -76,9 +93,18 @@ def _ordinal_in_model(
             if is_flow_port_name(name) or ((not want_input) and node_obj.title == "多分支")
         ]
     elif kind_expect == "data":
-        filtered_names = [name for name in all_names if not is_flow_port_name(name)]
+        if want_input:
+            filtered_names = [
+                name
+                for name in all_names
+                if (not is_flow_port_name(name))
+                and (not is_selection_input_port(node_obj, name))
+            ]
+        else:
+            filtered_names = [name for name in all_names if not is_flow_port_name(name)]
     else:
         filtered_names = all_names
+
     if port_name in filtered_names:
         return int(filtered_names.index(port_name))
     return None
@@ -326,18 +352,18 @@ class PortMatchingService:
             roi_w = int(pos_threshold_px * 2)
             roi_h = int(pos_threshold_py * 2)
             rects.append({"bbox": (roi_left, roi_top, roi_w, roi_h), "color": color, "label": f"搜索范围-{label}"})
-            center_x = int(expected_x + (200.0 * scale) * 0.5)
-            center_y = int(expected_y + (100.0 * scale) * 0.5)
+            center_x = int(expected_x + (NODE_VIEW_WIDTH_PX * scale) * 0.5)
+            center_y = int(expected_y + (NODE_VIEW_HEIGHT_PX * scale) * 0.5)
             circles.append({"center": (center_x, center_y), "radius": 6, "color": color, "label": f"期望位置-{label}"})
 
         _roi_for(src_node.pos, "源", (255, 120, 120))
         _roi_for(dst_node.pos, "目标", (120, 200, 120))
 
         all_nodes = frame_state.ensure_detected_nodes()
-        src_cn = self.executor._extract_chinese(src_node.title)
-        dst_cn = self.executor._extract_chinese(dst_node.title)
+        src_cn = self.executor.extract_chinese(src_node.title)
+        dst_cn = self.executor.extract_chinese(dst_node.title)
         for detected in all_nodes:
-            name_cn = self.executor._extract_chinese(str(getattr(detected, "name_cn", "") or ""))
+            name_cn = self.executor.extract_chinese(str(getattr(detected, "name_cn", "") or ""))
             if name_cn and (
                 name_cn == src_cn
                 or src_cn in name_cn
@@ -513,7 +539,11 @@ class PortMatchingService:
             declared_type = ""
             if node_def is not None and mapped_name:
                 is_input_for_port = getattr(port_obj, "side", "") == "left"
-                declared_type = node_def.get_port_type(mapped_name, is_input=is_input_for_port)
+                declared_type = safe_get_port_type_from_node_def(
+                    node_def,
+                    mapped_name,
+                    is_input=is_input_for_port,
+                )
             self.logger.log(
                 "端口",
                 f"[{tag}] idx={str(getattr(port_obj,'index',None))} side={str(port_obj.side)} name='{mapped_name}'",
@@ -564,8 +594,8 @@ class PortMatchingService:
     ) -> Optional[PortSelectionResult]:
         src_ports_all = src_snapshot.ports
         dst_ports_all = dst_snapshot.ports
-        src_def = self.executor._get_node_def_for_model(src_node)
-        dst_def = self.executor._get_node_def_for_model(dst_node)
+        src_def = self.executor.get_node_def_for_model(src_node)
+        dst_def = self.executor.get_node_def_for_model(dst_node)
 
         src_selection_kind = _resolve_selection_kind(src_port_name, src_expected_kind)
         dst_selection_kind = _resolve_selection_kind(dst_port_name, dst_expected_kind)
@@ -621,6 +651,8 @@ class PortMatchingService:
             expected_kind=src_selection_kind,
             log_callback=self.log_callback,
             ordinal_fallback_index=src_ordinal_index,
+            ports_list=src_ports_all,
+            list_ports_for_bbox_func=list_ports_for_bbox,
         )
         dst_center = pick_port_center_for_node(
             self.executor,
@@ -631,6 +663,8 @@ class PortMatchingService:
             expected_kind=dst_selection_kind,
             log_callback=self.log_callback,
             ordinal_fallback_index=dst_ordinal_index,
+            ports_list=dst_ports_all,
+            list_ports_for_bbox_func=list_ports_for_bbox,
         )
 
         if src_center == (0, 0) or dst_center == (0, 0):
@@ -643,7 +677,7 @@ class PortMatchingService:
                 for p in dst_ports_all:
                     bx, by, bw, bh = int(p.bbox[0]), int(p.bbox[1]), int(p.bbox[2]), int(p.bbox[3])
                     rects_ports.append({"bbox": (bx, by, bw, bh), "color": (255, 160, 80), "label": f"目:{str(getattr(p,'name_cn','') or '')}"})
-                self.executor._emit_visual(screenshot, {"rects": rects_ports}, self.visual_callback)
+                self.executor.emit_visual(screenshot, {"rects": rects_ports}, self.visual_callback)
             return None
 
         chosen_src = _find_by_center(src_ports_all, src_center)
@@ -677,10 +711,20 @@ class PortMatchingService:
                 dst=dst_ord_actual if dst_ord_actual is not None else "None",
             )
             circles = [
-                {"center": (int(src_center[0]), int(src_center[1])), "radius": 6, "color": (0, 200, 255), "label": f"选源#{str(src_ord_actual) if src_ord_actual is not None else '?'}"},
-                {"center": (int(dst_center[0]), int(dst_center[1])), "radius": 6, "color": (0, 220, 120), "label": f"选目标#{str(dst_ord_actual) if dst_ord_actual is not None else '?'}"},
+                {
+                    "center": (int(src_center[0]), int(src_center[1])),
+                    "radius": 6,
+                    "color": (0, 200, 255),
+                    "label": f"选源#{str(src_ord_actual) if src_ord_actual is not None else '?'}",
+                },
+                {
+                    "center": (int(dst_center[0]), int(dst_center[1])),
+                    "radius": 6,
+                    "color": (0, 220, 120),
+                    "label": f"选目标#{str(dst_ord_actual) if dst_ord_actual is not None else '?'}",
+                },
             ]
-            self.executor._emit_visual(screenshot, {"circles": circles}, self.visual_callback)
+            self.executor.emit_visual(screenshot, {"circles": circles}, self.visual_callback)
 
         if chosen_src is not None and src_selection_kind in ("flow", "data"):
             if normalize_kind_text(getattr(chosen_src, "kind", "")) != src_selection_kind:

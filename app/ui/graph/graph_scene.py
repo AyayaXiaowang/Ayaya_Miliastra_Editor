@@ -16,6 +16,8 @@ from ui.graph.signal_node_service import (
 from ui.graph.struct_node_service import (
     get_effective_node_def_for_scene as get_effective_struct_node_def_for_scene,
     bind_struct_for_node as bind_struct_for_node_service,
+    get_current_package_structs as get_current_package_structs_for_scene,
+    sync_struct_ports_for_node as sync_struct_ports_for_node_service,
 )
 from ui.overlays.scene_overlay import SceneOverlayMixin
 from ui.scene.interaction_mixin import SceneInteractionMixin
@@ -328,12 +330,27 @@ class GraphScene(SceneOverlayMixin, SceneInteractionMixin, SceneModelOpsMixin, Y
         # 监听信号节点在模型层默认没有输入端口，但 UI 需要一个“信号名”选择行：
         # 若缺失则为当前场景中的节点副本补充一个只读选择输入端口。
         if getattr(node, "title", "") == SIGNAL_LISTEN_NODE_TITLE:
+            from engine.graph.common import SIGNAL_NAME_PORT_NAME
+
             has_signal_name_input = any(
-                getattr(port, "name", "") == "信号名"
+                getattr(port, "name", "") == SIGNAL_NAME_PORT_NAME
                 for port in getattr(node, "inputs", []) or []
             )
             if not has_signal_name_input:
-                node.add_input_port("信号名")
+                node.add_input_port(SIGNAL_NAME_PORT_NAME)
+
+        # 结构体相关节点：若模型层已存在结构体绑定，则在创建图形项前
+        # 基于当前包的结构体定义补全字段端口，保持与“配置结构体…”对话框行为一致。
+        from engine.graph.common import STRUCT_NODE_TITLES
+
+        node_title = getattr(node, "title", "") or ""
+        if node_title in STRUCT_NODE_TITLES:
+            struct_bindings = self.model.get_struct_bindings()
+            binding = struct_bindings.get(str(node.id))
+            if isinstance(binding, dict):
+                structs = get_current_package_structs_for_scene(self)
+                if structs:
+                    sync_struct_ports_for_node_service(self, node.id, structs)
 
         item = NodeGraphicsItem(node)
         item.setPos(node.pos[0], node.pos[1])

@@ -8,6 +8,7 @@ from engine.graph.models.graph_model import GraphModel
 from app.automation.core.editor_executor import EditorExecutor
 from app.ui.execution import ExecutionRunner
 from app.ui.execution.guides import ExecutionGuides
+from app.ui.execution.planner import ExecutionPlanner
 from app.ui.todo.todo_config import StepTypeRules
 from app.ui.execution.strategies.step_skip_checker import SINGLE_STEP_SKIP_REASON
 from app.ui.todo.current_todo_resolver import build_context_from_host, resolve_current_todo_for_leaf
@@ -74,6 +75,102 @@ class TodoExecutorBridge(QtCore.QObject):
     def execute_event_flow_root(self) -> None:
         """从当前上下文执行事件流根（仅执行其子步骤）。"""
         self._execute_flow_root()
+
+    def execute_remaining_event_flows(self) -> None:
+        """从当前事件流起，连续执行同一节点图下的剩余事件流序列。"""
+        if self.tree_manager is None:
+            self._notify("内部错误：任务树管理器未初始化，无法解析事件流", "error")
+            return
+
+        context = build_context_from_host(self.host)
+        todo_map = getattr(self.tree_manager, "todo_map", {})
+        find_flow_root = (
+            self.tree_manager.find_event_flow_root_for_todo
+            if hasattr(self.tree_manager, "find_event_flow_root_for_todo")
+            else None
+        )
+        root_plan = plan_event_flow_root_execution(
+            context,
+            todo_map,
+            find_template_root_for_item=self._find_template_graph_root_for_item,
+            find_event_flow_root_for_todo=find_flow_root,
+        )
+        if root_plan is None:
+            self._notify("内部错误：未找到当前任务项（current_todo）", "error")
+            return
+
+        current_flow_root = root_plan.root_todo
+
+        item = self._get_item_by_id(current_flow_root.todo_id)
+        template_root = self._find_template_graph_root_for_item(item) if item is not None else None
+        graph_data = self._resolve_graph_data(current_flow_root, template_root or current_flow_root)
+        if graph_data is None:
+            return
+
+        detail_info = current_flow_root.detail_info or {}
+        graph_root_id = ""
+        raw_root_id = detail_info.get("graph_root_todo_id")
+        if isinstance(raw_root_id, str) and raw_root_id:
+            graph_root_id = raw_root_id
+        if not graph_root_id:
+            parent_identifier = str(current_flow_root.parent_id or "")
+            if parent_identifier:
+                graph_root_id = parent_identifier
+        if not graph_root_id:
+            self._notify("内部错误：无法确定当前事件流所属的节点图根 Todo", "error")
+            return
+
+        graph_root = todo_map.get(graph_root_id)
+        if graph_root is None:
+            self._notify("内部错误：未找到所属节点图根 Todo", "error")
+            return
+
+        flow_roots_in_graph = []
+        for child_id in graph_root.children:
+            child = todo_map.get(child_id)
+            if child is None:
+                continue
+            child_info = child.detail_info or {}
+            if child_info.get("type") == "event_flow_root":
+                flow_roots_in_graph.append(child)
+
+        if not flow_roots_in_graph:
+            self._notify("当前节点图未发现任何事件流", "warning")
+            return
+
+        start_index = -1
+        for index, flow_root in enumerate(flow_roots_in_graph):
+            if flow_root.todo_id == current_flow_root.todo_id:
+                start_index = index
+                break
+        if start_index == -1:
+            self._notify("内部错误：当前事件流不在所属节点图的事件流列表中", "error")
+            return
+
+        remaining_flow_roots = flow_roots_in_graph[start_index:]
+        step_list = []
+        for flow_root in remaining_flow_roots:
+            planned_steps = ExecutionPlanner.plan_steps(flow_root, todo_map)
+            if planned_steps:
+                step_list.extend(planned_steps)
+
+        monitor = self._ensure_monitor_panel(switch_tab=True)
+        if monitor is None:
+            self._notify("未找到执行监控面板，无法启动执行", "error")
+            return
+
+        executor, graph_model = self._build_executor_and_model(graph_data, monitor)
+        self._inject_context_to_monitor(monitor, graph_model, executor)
+
+        if not step_list:
+            monitor.start_monitoring()
+            monitor.log("当前节点图的剩余事件流中无可执行步骤：已打开监控。可使用『检查』或『定位镜头』进行识别与聚焦。")
+            return
+
+        self._selection_to_restore = current_flow_root.todo_id
+        self._snapshot_tree_expanded_state()
+        self._start_runner(executor, graph_model, step_list, monitor, continuous=True)
+        self._notify("开始执行：当前及后续事件流", "info")
 
     def execute_composite_step(self, detail_type: str, detail_info: dict) -> None:
         """复合节点执行入口：仅在监控面板输出操作指引，不触发自动化。

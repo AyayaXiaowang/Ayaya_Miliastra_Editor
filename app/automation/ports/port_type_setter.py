@@ -7,19 +7,38 @@ port_type_setter: 端口类型设置功能（重构版本）
 from __future__ import annotations
 
 from typing import Optional, Dict, Any, Callable, Tuple
+from dataclasses import dataclass
 from PIL import Image
 
 from app.automation.core.executor_protocol import EditorExecutorWithViewport
 from app.automation.core.node_snapshot import NodePortsSnapshotCache
-from engine.graph.models.graph_model import GraphModel
+from engine.graph.models.graph_model import GraphModel, NodeModel
 from app.automation.input.common import compute_position_thresholds
 
 from app.automation.ports.port_type_inference import build_edge_lookup
+from app.automation.ports._add_ports_common import ensure_node_visible_for_automation
 from app.automation.ports.port_type_steps import (
     process_input_ports_type_setting,
     process_output_ports_type_setting,
 )
 from app.automation.core.visualization_helpers import emit_node_and_port_overlays
+
+
+@dataclass
+class PortTypeExecutionContext:
+    """端口类型设置所需的节点上下文。
+
+    将节点模型、节点定义、截图快照与图上下文打包，便于在输入/输出侧步骤之间复用，
+    同时为单元测试提供清晰的上下文边界。
+    """
+
+    node: NodeModel
+    node_def: Any
+    node_bbox: Tuple[int, int, int, int]
+    snapshot: NodePortsSnapshotCache
+    graph_model: GraphModel
+    edge_lookup: Any
+    is_operation_node: bool
 
 
 def _emit_expected_position_overlay(
@@ -70,89 +89,60 @@ def _emit_expected_position_overlay(
         overlays_builder=_builder,
         visual_callback=visual_callback,
     )
-    executor._log(
+    executor.log(
         f"  · 已在监控画面标注期望位置：center=({int(editor_x)},{int(editor_y)}) ROI=({roi_left},{roi_top},{roi_width},{roi_height})",
         log_callback,
     )
 
 
-def _compute_edges_signature(edges: Dict[str, Any]) -> Tuple[int, int]:
-    checksum = 0
-    count = 0
-    for edge_id, edge in edges.items():
-        count += 1
-        src_node = getattr(edge, "src_node", "")
-        src_port = getattr(edge, "src_port", "")
-        dst_node = getattr(edge, "dst_node", "")
-        dst_port = getattr(edge, "dst_port", "")
-        checksum ^= hash((str(edge_id), str(src_node), str(src_port), str(dst_node), str(dst_port)))
-    return count, checksum
+def _is_operation_node(node: NodeModel) -> bool:
+    """根据节点类别判定是否为“运算节点”。
+
+    运算节点的类型设置策略与普通节点略有不同：同侧端口只需设置一次，
+    因此需要在编排阶段提前打上标记。
+    """
+    category_text = getattr(node, "category", None)
+    if not isinstance(category_text, str):
+        return False
+    return "运算" in category_text
 
 
-def _get_cached_edge_lookup(graph_model: GraphModel):
-    edges = getattr(graph_model, "edges", {})
-    signature = _compute_edges_signature(edges)
-    cached_lookup = getattr(graph_model, "_automation_edge_lookup_cache", None)
-    cached_signature = getattr(graph_model, "_automation_edge_lookup_signature", None)
-    if cached_lookup is not None and cached_signature == signature:
-        return cached_lookup
-    lookup = build_edge_lookup(graph_model)
-    setattr(graph_model, "_automation_edge_lookup_cache", lookup)
-    setattr(graph_model, "_automation_edge_lookup_signature", signature)
-    return lookup
-
-
-def execute_set_port_types_merged(
+def prepare_node_context(
     executor: EditorExecutorWithViewport,
-    todo_item: Dict[str, Any],
     graph_model: GraphModel,
+    node_id: Any,
     log_callback=None,
     pause_hook: Optional[Callable[[], None]] = None,
     allow_continue: Optional[Callable[[], bool]] = None,
     visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
-) -> bool:
-    """为节点的输入/输出端口设置数据类型（重构版）。
-    
-    功能：
-    - 输入侧：根据params推断类型并设置（仅当params非空时）
-    - 输出侧：根据连线/本节点输入常量推断类型并设置
-    
-    Args:
-        executor: 执行器实例
-        todo_item: 待办项，包含 node_id 和 params 列表
-        graph_model: 图模型
-        log_callback: 日志回调
-        pause_hook: 暂停钩子
-        allow_continue: 继续判断钩子
-        visual_callback: 可视化回调
-    
-    Returns:
-        成功返回True，失败返回False
+) -> Optional[PortTypeExecutionContext]:
+    """准备端口类型设置所需的节点上下文。
+
+    负责：
+    - 校验 node_id 并获取节点模型；
+    - 构建入/出边索引；
+    - 确保节点在视口内可见；
+    - 通过 `NodePortsSnapshotCache` 构建节点截图与端口快照；
+    - 获取节点定义与“运算节点”标记。
+
+    失败时写入日志并返回 None，由调用方决定是否终止本次步骤。
     """
-    # ========== 1. 初始化与准备 ==========
-    node_id = todo_item.get("node_id")
-    params_list = todo_item.get("params") or []
-    
     if not node_id or node_id not in graph_model.nodes:
-        executor._log("✗ 端口类型设置缺少节点或节点不存在", log_callback)
-        return False
+        executor.log("✗ 端口类型设置缺少节点或节点不存在", log_callback)
+        return None
     
     node = graph_model.nodes[node_id]
-    edge_lookup = _get_cached_edge_lookup(graph_model)
+    edge_lookup = build_edge_lookup(graph_model)
     
     # 确保节点在可见区域
-    executor.ensure_program_point_visible(
-        node.pos[0],
-        node.pos[1],
-        margin_ratio=0.10,
-        max_steps=8,
-        pan_step_pixels=420,
+    ensure_node_visible_for_automation(
+        executor,
+        node,
+        graph_model,
         log_callback=log_callback,
         pause_hook=pause_hook,
         allow_continue=allow_continue,
         visual_callback=visual_callback,
-        graph_model=graph_model,
-        force_pan_if_inside_margin=False,
     )
     
     snapshot = NodePortsSnapshotCache(executor, node, log_callback)
@@ -164,42 +154,72 @@ def execute_set_port_types_merged(
             log_callback,
             label=f"定位失败：{node.title}",
         )
-        return False
+        return None
+
     node_bbox = snapshot.node_bbox
-    screenshot = snapshot.screenshot
-    ports_for_overlay = snapshot.ports
-    
-    # ========== 2. 可视化：节点图区域、所有节点、当前节点端口 ==========
+
+    # 获取节点定义与运算节点标记
+    node_def = executor.get_node_def_for_model(node)
+    is_operation_node = _is_operation_node(node)
+
+    return PortTypeExecutionContext(
+        node=node,
+        node_def=node_def,
+        node_bbox=node_bbox,
+        snapshot=snapshot,
+        graph_model=graph_model,
+        edge_lookup=edge_lookup,
+        is_operation_node=is_operation_node,
+    )
+
+
+def emit_overlays(
+    executor: EditorExecutorWithViewport,
+    context: PortTypeExecutionContext,
+    visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
+) -> None:
+    """在监控画面上标注当前节点与端口识别结果。
+
+    该步骤只负责可视化，不影响后续类型推断与 UI 操作。
+    """
+    if visual_callback is None:
+        return
+
+    screenshot = context.snapshot.screenshot
+    if screenshot is None:
+        return
+
     emit_node_and_port_overlays(
         executor,
         screenshot,
-        node_bbox,
+        context.node_bbox,
         visual_callback,
-        ports=ports_for_overlay,
+        ports=context.snapshot.ports,
         port_label_mode="raw",
     )
-    
-    # ========== 3. 获取节点定义 ==========
-    node_def = executor._get_node_def_for_model(node)
-    
-    # 判定是否为运算节点（同侧仅需设置一次）
-    is_operation_node = False
-    if isinstance(getattr(node, 'category', None), str):
-        is_operation_node = ('运算' in str(node.category))
-    
-    typed_side_once: Dict[str, bool] = {'left': False, 'right': False}
-    
-    # ========== 4. 处理输入侧端口类型设置 ==========
+
+
+def set_input_types(
+    executor: EditorExecutorWithViewport,
+    context: PortTypeExecutionContext,
+    params_list: list,
+    typed_side_once: Dict[str, bool],
+    log_callback=None,
+    pause_hook: Optional[Callable[[], None]] = None,
+    allow_continue: Optional[Callable[[], bool]] = None,
+    visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
+) -> bool:
+    """处理输入侧端口类型设置（左侧数据端口）。"""
     success_input = process_input_ports_type_setting(
         executor,
-        node,
-        node_def,
-        node_bbox,
-        snapshot,
+        context.node,
+        context.node_def,
+        context.node_bbox,
+        context.snapshot,
         params_list,
-        graph_model,
-        edge_lookup,
-        is_operation_node,
+        context.graph_model,
+        context.edge_lookup,
+        context.is_operation_node,
         typed_side_once,
         log_callback,
         visual_callback,
@@ -207,19 +227,28 @@ def execute_set_port_types_merged(
         allow_continue=allow_continue,
     )
     
-    if not success_input:
-        return False
-    
-    # ========== 5. 处理输出侧端口类型设置 ==========
+    return bool(success_input)
+
+
+def set_output_types(
+    executor: EditorExecutorWithViewport,
+    context: PortTypeExecutionContext,
+    typed_side_once: Dict[str, bool],
+    log_callback=None,
+    pause_hook: Optional[Callable[[], None]] = None,
+    allow_continue: Optional[Callable[[], bool]] = None,
+    visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
+) -> bool:
+    """处理输出侧端口类型设置（右侧数据端口）。"""
     success_output = process_output_ports_type_setting(
         executor,
-        node,
-        node_def,
-        node_bbox,
-        snapshot,
-        graph_model,
-        edge_lookup,
-        is_operation_node,
+        context.node,
+        context.node_def,
+        context.node_bbox,
+        context.snapshot,
+        context.graph_model,
+        context.edge_lookup,
+        context.is_operation_node,
         typed_side_once,
         log_callback,
         visual_callback,
@@ -227,8 +256,67 @@ def execute_set_port_types_merged(
         allow_continue=allow_continue,
     )
     
-    if not success_output:
+    return bool(success_output)
+
+
+def execute_set_port_types_merged(
+    executor: EditorExecutorWithViewport,
+    todo_item: Dict[str, Any],
+    graph_model: GraphModel,
+    log_callback=None,
+    pause_hook: Optional[Callable[[], None]] = None,
+    allow_continue: Optional[Callable[[], bool]] = None,
+    visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
+) -> bool:
+    """为节点的输入/输出端口设置数据类型（编排入口）。
+
+    执行流程拆分为几个清晰步骤：
+    1）`prepare_node_context`：节点可见性、快照构建与节点定义获取；
+    2）`emit_overlays`：在监控画面上标注当前节点与端口；
+    3）`set_input_types`：根据参数与连线推断输入端口类型并在 UI 中设置；
+    4）`set_output_types`：根据本节点输入与出边推断输出端口类型并在 UI 中设置。
+    """
+    node_id = todo_item.get("node_id")
+    params_list = todo_item.get("params") or []
+
+    context = prepare_node_context(
+        executor=executor,
+        graph_model=graph_model,
+        node_id=node_id,
+        log_callback=log_callback,
+        pause_hook=pause_hook,
+        allow_continue=allow_continue,
+        visual_callback=visual_callback,
+    )
+    if context is None:
         return False
-    
+
+    emit_overlays(executor, context, visual_callback=visual_callback)
+
+    typed_side_once: Dict[str, bool] = {"left": False, "right": False}
+
+    if not set_input_types(
+        executor=executor,
+        context=context,
+        params_list=params_list,
+        typed_side_once=typed_side_once,
+        log_callback=log_callback,
+        pause_hook=pause_hook,
+        allow_continue=allow_continue,
+        visual_callback=visual_callback,
+    ):
+        return False
+
+    if not set_output_types(
+        executor=executor,
+        context=context,
+        typed_side_once=typed_side_once,
+        log_callback=log_callback,
+        pause_hook=pause_hook,
+        allow_continue=allow_continue,
+        visual_callback=visual_callback,
+    ):
+        return False
+
     return True
 

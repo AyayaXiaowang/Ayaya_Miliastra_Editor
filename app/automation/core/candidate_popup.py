@@ -13,6 +13,10 @@ from app.automation.capture.overlay_helpers import build_overlay_for_text_region
 from app.automation.capture.reference_panels import build_reference_panel_payload
 from app.automation.core import executor_utils as _exec_utils
 from app.automation.core.structured_logging import StructuredLogger
+from app.automation.core.ui_constants import (
+    CONTEXT_MENU_APPEAR_WAIT_SECONDS,
+    POST_INPUT_STABILIZE_SECONDS_DEFAULT,
+)
 from app.automation.input.common import (
     DEFAULT_TYPE_SELECT_WAIT_SECONDS,
     DEFAULT_VERIFY_MAX_ATTEMPTS,
@@ -184,7 +188,7 @@ class CandidatePopupToolkit:
                 continue
             box = item[0]
             center_x, center_y = get_bbox_center(box)
-            item_cn_text = self.executor._extract_chinese(item_text)
+            item_cn_text = self.executor.extract_chinese(item_text)
             if not item_cn_text:
                 continue
             if item_cn_text != target_cn_text:
@@ -219,7 +223,7 @@ class CandidatePopupToolkit:
     ) -> None:
         if self.visual_callback is None:
             return
-        self.executor._emit_visual(screenshot, overlay, self.visual_callback)
+        self.executor.emit_visual(screenshot, overlay, self.visual_callback)
 
 
 class CandidatePopupFlow:
@@ -236,7 +240,7 @@ class CandidatePopupFlow:
     ) -> None:
         self.executor = executor
         self.target_text = target_text
-        self.target_cn_text = executor._extract_chinese(target_text)
+        self.target_cn_text = executor.extract_chinese(target_text)
         self.wait_seconds = wait_seconds
         self.log_callback = log_callback
         self.pause_hook = pause_hook
@@ -266,7 +270,7 @@ class CandidatePopupFlow:
 
     def _wait_with_executor_hooks(self, seconds: float) -> bool:
         """统一封装基于执行器的带钩子等待，便于在不同场景下复用。"""
-        return self.executor._wait_with_hooks(
+        return self.executor.wait_with_hooks(
             float(seconds),
             self.pause_hook,
             self.allow_continue,
@@ -531,11 +535,9 @@ class CandidatePopupFlow:
         return self._wait_with_executor_hooks(self.interval)
 
     def _retry_trigger_popup(self) -> bool:
-        if self.executor._last_context_click_editor_pos is not None:
-            ax, ay = (
-                int(self.executor._last_context_click_editor_pos[0]),
-                int(self.executor._last_context_click_editor_pos[1]),
-            )
+        last_click_pos = self.executor.get_last_context_click_editor_pos()
+        if last_click_pos is not None:
+            ax, ay = (int(last_click_pos[0]), int(last_click_pos[1]))
         else:
             snap = self.toolkit.capture_frame("重试右键前")
             rx, ry, rw, rh = editor_capture.get_region_rect(snap, "节点图布置区域")
@@ -548,7 +550,7 @@ class CandidatePopupFlow:
             editor=(ax, ay),
             screen=(sx, sy),
         )
-        if not self.executor._right_click_with_hooks(
+        if not self.executor.right_click_with_hooks(
             sx,
             sy,
             self.pause_hook,
@@ -613,11 +615,9 @@ class CandidatePopupFlow:
 
     def _run_micro_retry(self) -> bool:
         self.logger.log("候选", "微恢复：重开右键并重新输入搜索文本")
-        if self.executor._last_context_click_editor_pos is not None:
-            editor_x, editor_y = (
-                int(self.executor._last_context_click_editor_pos[0]),
-                int(self.executor._last_context_click_editor_pos[1]),
-            )
+        last_click_pos = self.executor.get_last_context_click_editor_pos()
+        if last_click_pos is not None:
+            editor_x, editor_y = int(last_click_pos[0]), int(last_click_pos[1])
         else:
             snap = editor_capture.capture_window(self.executor.window_title)
             if not snap:
@@ -626,7 +626,7 @@ class CandidatePopupFlow:
             editor_x = graph_region[0] + graph_region[2] // 2
             editor_y = graph_region[1] + graph_region[3] // 2
         screen_x, screen_y = self.executor.convert_editor_to_screen_coords(editor_x, editor_y)
-        self.executor._right_click_with_hooks(
+        self.executor.right_click_with_hooks(
             screen_x,
             screen_y,
             self.pause_hook,
@@ -635,7 +635,7 @@ class CandidatePopupFlow:
             self.visual_callback,
             linger_seconds=NODE_LIST_CONTEXT_LINGER_SECONDS,
         )
-        waited = self.executor._wait_with_hooks(
+        waited = self.executor.wait_with_hooks(
             0.25,
             self.pause_hook,
             self.allow_continue,
@@ -646,7 +646,7 @@ class CandidatePopupFlow:
             if self.allow_continue is not None and not self.allow_continue():
                 self.aborted = True
             return False
-        return self.executor._input_text_with_hooks(
+        return self.executor.input_text_with_hooks(
             self.target_text,
             self.pause_hook,
             self.allow_continue,
@@ -701,7 +701,7 @@ def _wait_for_type_search_bar(
         if attempt == 0:
             logger.log("输入", "类型搜索框尚未出现，继续轮询")
         attempt += 1
-        if not executor._wait_with_hooks(
+        if not executor.wait_with_hooks(
             float(poll_interval),
             pause_hook,
             allow_continue,
@@ -761,7 +761,7 @@ def click_type_search_and_choose(
             "label": "点击",
         }
     ]
-    executor._emit_visual(screenshot, {"rects": rects, "circles": circles}, visual_callback)
+    executor.emit_visual(screenshot, {"rects": rects, "circles": circles}, visual_callback)
     _exec_utils.click_and_verify(
         executor,
         search_center_screen_x,
@@ -769,14 +769,14 @@ def click_type_search_and_choose(
         "[类型选择] 点击搜索框",
         log_callback,
     )
-    logger.log("输入", "等待 0.05 秒")
-    if not executor._wait_with_hooks(0.05, pause_hook, allow_continue, 0.05, log_callback):
+    logger.log("输入", f"等待 {CONTEXT_MENU_APPEAR_WAIT_SECONDS:.2f} 秒")
+    if not executor.wait_with_hooks(CONTEXT_MENU_APPEAR_WAIT_SECONDS, pause_hook, allow_continue, 0.05, log_callback):
         logger.log("输入", "执行被用户终止/暂停，放弃类型选择")
         return False
     logger.log("输入", f"输入类型关键字: '{target_type_text}'")
     editor_capture.input_text(target_type_text)
-    logger.log("输入", "等待 0.50 秒")
-    if not executor._wait_with_hooks(0.5, pause_hook, allow_continue, 0.1, log_callback):
+    logger.log("输入", f"等待 {POST_INPUT_STABILIZE_SECONDS_DEFAULT:.2f} 秒")
+    if not executor.wait_with_hooks(POST_INPUT_STABILIZE_SECONDS_DEFAULT, pause_hook, allow_continue, 0.1, log_callback):
         logger.log("输入", "执行被用户终止/暂停，放弃类型选择")
         return False
     # 输入完成后重新识别一次类型搜索框位置，再基于最新位置推导下方候选坐标
@@ -830,7 +830,7 @@ def click_type_search_and_choose(
             "label": "类型搜索框",
         }
     ]
-    executor._emit_visual(
+    executor.emit_visual(
         refreshed_screenshot,
         {"rects": candidate_rects, "circles": circles2},
         visual_callback,

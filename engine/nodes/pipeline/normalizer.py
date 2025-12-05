@@ -64,6 +64,8 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
             dynamic_port_type_text = str(raw.dynamic_port_type or "")
             input_generic_constraints = dict(raw.input_generic_constraints or {})
             output_generic_constraints = dict(raw.output_generic_constraints or {})
+            input_enum_options = dict(raw.input_enum_options or {})
+            output_enum_options = dict(raw.output_enum_options or {})
         elif isinstance(raw, dict):
             name_text = str(raw.get("name", "") or "").strip()
             category_text = str(raw.get("category", "") or "").strip()
@@ -78,6 +80,8 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
             dynamic_port_type_text = str(raw.get("dynamic_port_type") or "")
             input_generic_constraints = dict(raw.get("input_generic_constraints") or {})
             output_generic_constraints = dict(raw.get("output_generic_constraints") or {})
+            input_enum_options = dict(raw.get("input_enum_options") or {})
+            output_enum_options = dict(raw.get("output_enum_options") or {})
         else:
             # 跳过未知项类型，保持稳健
             continue
@@ -100,6 +104,10 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
                 dynamic_port_type=dynamic_port_type_text,
                 inputs=[],
                 outputs=[],
+                input_generic_constraints={},
+                output_generic_constraints={},
+                input_enum_options=input_enum_options,
+                output_enum_options=output_enum_options,
             ))
             continue
 
@@ -126,6 +134,8 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
             outputs=outputs_pairs,
             input_generic_constraints=input_generic_constraints,
             output_generic_constraints=output_generic_constraints,
+            input_enum_options=input_enum_options,
+            output_enum_options=output_enum_options,
         ))
 
     return normalized_list

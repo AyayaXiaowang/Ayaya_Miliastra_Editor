@@ -10,6 +10,7 @@ from engine.graph.models.graph_model import GraphModel
 from engine.configs.settings import settings
 from engine.resources.resource_manager import ResourceManager
 from engine.resources.package_index_manager import PackageIndexManager
+from engine.utils.logging.logger import log_info
 from ui.graph.graph_scene import GraphScene
 from ui.graph.graph_view import GraphView
 from ui.devtools.view_inspector import WidgetHoverInspector
@@ -42,53 +43,95 @@ class MainWindowV2(
     """
 
     def __init__(self, workspace: Path):
+        log_info("[BOOT][MainWindow] __init__ 开始，workspace={}", workspace)
         super().__init__()
         self.setWindowTitle(APP_TITLE)
         self.resize(1800, 1000)
+        log_info("[BOOT][MainWindow] QMainWindow 基类初始化完成，窗口大小={}x{}", self.width(), self.height())
 
         # 保存工作空间路径
         self.workspace_path = workspace
+        log_info("[BOOT][MainWindow] workspace_path 已保存")
 
         # 初始化全局设置
+        log_info("[BOOT][MainWindow] 准备在主窗口内再次设置与加载 settings")
         settings.set_config_path(workspace)
         settings.load()  # 加载用户设置
+        log_info("[BOOT][MainWindow] settings 加载完成（UI_THEME_MODE={}）", getattr(settings, "UI_THEME_MODE", "unknown"))
 
         # 加载节点定义（集中式注册表）
+        log_info("[BOOT][MainWindow] 准备获取节点注册表（include_composite=True）")
         registry = get_node_registry(workspace, include_composite=True)
+        log_info("[BOOT][MainWindow] NodeRegistry 实例获取完成，开始加载节点库")
         self.library = registry.get_library()
+        log_info("[BOOT][MainWindow] 节点库加载完成，当前节点定义数量={}", len(self.library))
 
         # 资源管理器和存档索引管理器
+        log_info("[BOOT][MainWindow] 准备创建 ResourceManager")
         self.resource_manager = ResourceManager(workspace)
+        log_info("[BOOT][MainWindow] ResourceManager 初始化完成")
+
+        log_info("[BOOT][MainWindow] 准备创建 PackageIndexManager")
         self.package_index_manager = PackageIndexManager(workspace, self.resource_manager)
+        log_info("[BOOT][MainWindow] PackageIndexManager 初始化完成")
 
         # 节点图编辑相关
+        log_info("[BOOT][MainWindow] 准备创建空 GraphModel/GraphScene/GraphView")
         self.model = GraphModel()
+        log_info("[BOOT][MainWindow] GraphModel 创建完成")
         self.scene = GraphScene(self.model, node_library=self.library)
+        log_info("[BOOT][MainWindow] GraphScene 创建完成")
         self.view = GraphView(self.scene)
         self.view.node_library = self.library
+        log_info("[BOOT][MainWindow] GraphView 创建完成并绑定 node_library")
         # 任务清单 → 节点图编辑器联动上下文
         self._graph_editor_todo_context = None
         self.graph_editor_todo_button = None
         # UI 开发者工具：悬停检查器（通过 F12 快捷键开关）
         self._widget_hover_inspector = WidgetHoverInspector(self)
         self._dev_tools_enabled = False
+        log_info("[BOOT][MainWindow] 基础属性与开发者工具初始化完成")
 
         # 初始化控制器（必须在UI之前，因为UI中会引用控制器）
+        log_info("[BOOT][MainWindow] 准备初始化控制器 _setup_controllers()")
         self._setup_controllers()
+        log_info("[BOOT][MainWindow] 控制器初始化完成")
 
         # 设置UI
+        log_info("[BOOT][MainWindow] 准备装配 UI 结构 _setup_ui()")
         self._setup_ui()
+        log_info("[BOOT][MainWindow] UI 结构装配完成")
+
+        log_info("[BOOT][MainWindow] 准备创建菜单栏 _setup_menubar()")
         self._setup_menubar()
+        log_info("[BOOT][MainWindow] 菜单栏创建完成")
+
+        log_info("[BOOT][MainWindow] 准备创建工具栏 _setup_toolbar()")
         self._setup_toolbar()
+        log_info("[BOOT][MainWindow] 工具栏创建完成")
 
         # 应用全局主题样式
+        log_info("[BOOT][MainWindow] 准备用于主窗口的全局主题样式 _apply_global_theme()")
         self._apply_global_theme()
+        log_info("[BOOT][MainWindow] 主窗口全局主题样式应用完成")
 
         # 连接控制器信号
+        log_info("[BOOT][MainWindow] 准备连接控制器信号 _connect_controller_signals()")
         self._connect_controller_signals()
+        log_info("[BOOT][MainWindow] 控制器信号连接完成")
 
         # 加载最近的存档或创建默认存档
+        log_info("[BOOT][MainWindow] 准备加载最近的存档或创建默认存档 load_initial_package()")
         self.package_controller.load_initial_package()
+        log_info("[BOOT][MainWindow] 初始存档加载流程完成")
+
+        # 在初始存档与视图装配完成后，尝试恢复上一次会话的 UI 状态
+        if hasattr(self, "_restore_ui_session_state"):
+            log_info("[BOOT][MainWindow] 检测到 UI 会话状态恢复入口，准备尝试恢复")
+            self._restore_ui_session_state()
+            log_info("[BOOT][MainWindow] UI 会话状态恢复调用完成")
+
+        log_info("[BOOT][MainWindow] __init__ 完成")
 
     def _on_dev_tools_toggled(self, enabled: bool) -> None:
         """F12 开关：启用或关闭 UI 悬停检查器。"""

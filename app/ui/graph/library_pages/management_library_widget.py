@@ -291,6 +291,8 @@ class ManagementLibraryWidget(
 
         category_tree.itemClicked.connect(self._on_category_clicked)
         item_list.itemSelectionChanged.connect(self._on_item_selection_changed)
+        # 选中变化用于处理刷新与程序化更新；点击事件保证“当前已选中条目首次点击”同样能驱动右侧管理属性面板。
+        item_list.itemClicked.connect(self._on_item_clicked)
 
     def _init_category_tree(self) -> None:
         """根据 ManagementSectionSpec 构建左侧分类树（扁平结构）。
@@ -637,15 +639,21 @@ class ManagementLibraryWidget(
         当无有效选中或仅为占位条目时，通知主窗口清空并收起对应标签。
         """
         if self.item_list is None:
+            print("[MANAGEMENT-LIB] selection changed: <no-list-widget>")
             return
 
         current_item = self.item_list.currentItem()
         user_data = self._get_item_user_data(current_item)
         if user_data is None:
+            print("[MANAGEMENT-LIB] selection changed: <none>")
             self._emit_selection_to_main_window_from_row_data(None, None)
             return
 
         section_key, item_id = user_data
+        print(
+            "[MANAGEMENT-LIB] selection changed:",
+            f"section_key={section_key!r}, item_id={item_id!r}",
+        )
         # 占位条目仅承担“打开旧管理页面”的导航职责，不在右侧展示摘要。
         if item_id == "__OPEN__":
             self._emit_selection_to_main_window_from_row_data(None, section_key)
@@ -653,6 +661,10 @@ class ManagementLibraryWidget(
 
         row_data = self._get_row_data_from_item(current_item)
         self._emit_selection_to_main_window_from_row_data(row_data, section_key)
+
+    def _on_item_clicked(self, _item: QtWidgets.QListWidgetItem) -> None:
+        """列表项单击时，同步触发选中逻辑，保证默认选中条目在首次点击时也能驱动右侧面板。"""
+        self._on_item_selection_changed()
 
     def _on_add_item_clicked(self) -> None:
         section = self._resolve_active_section()

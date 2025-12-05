@@ -12,7 +12,7 @@ from engine.resources.management_view_helpers import (
 )
 from engine.resources.package_index import PackageIndex
 from engine.resources.global_resource_view import GlobalResourceView
-from engine.resources.definition_schema_view import DefinitionSchemaView
+from engine.signal import get_default_signal_repository
 from engine.graph.models.package_model import (
     TemplateConfig,
     InstanceConfig,
@@ -225,33 +225,34 @@ class PackageView:
         """获取信号配置。
 
         新约定：
-        - 信号定义的唯一真相源为 `SIGNAL_DEFINITION_PAYLOADS` 中的代码级定义；
+        - 信号定义的唯一真相源为 `assets/资源库/管理配置/信号` 目录下的代码级资源
+          （通过 `SignalDefinitionRepository` / `DefinitionSchemaView` 聚合为只读视图）；
         - `PackageIndex.signals` 仅保存当前包“引用了哪些 signal_id”的摘要信息；
         - 若当前包未声明任意信号，则回退为全局视图中的所有信号。
         """
         if self._signals_cache is None:
             self._signals_cache = {}
 
-            schema_view = DefinitionSchemaView()
-            all_signal_payloads = schema_view.get_all_signal_definitions()
+            repo = get_default_signal_repository()
+            all_signal_payloads = repo.get_all_payloads()
 
             if isinstance(self.package_index.signals, dict) and self.package_index.signals:
                 for signal_id in self.package_index.signals.keys():
                     if not isinstance(signal_id, str) or not signal_id:
                         continue
 
-                    payload = all_signal_payloads.get(signal_id)
+                    payload = all_signal_payloads.get(str(signal_id))
                     if isinstance(payload, dict):
                         config = SignalConfig.deserialize(payload)
                     else:
                         config = SignalConfig(
-                            signal_id=signal_id,
-                            signal_name=signal_id,
+                            signal_id=str(signal_id),
+                            signal_name=str(signal_id),
                             parameters=[],
                             description="",
                         )
 
-                    self._signals_cache[signal_id] = config
+                    self._signals_cache[config.signal_id] = config
             else:
                 global_view = GlobalResourceView(self.resource_manager)
                 self._signals_cache.update(global_view.signals)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PyQt6 import QtWidgets
 
+from ui.foundation.theme_manager import Colors
 from .base import BaseWidgetConfigPanel, WidgetConfigForm
 
 
@@ -29,7 +30,7 @@ class ProgressBarConfigPanel(BaseWidgetConfigPanel):
         color_widget = QtWidgets.QWidget()
         color_layout = QtWidgets.QHBoxLayout(color_widget)
         color_layout.setContentsMargins(0, 0, 0, 0)
-        self.color_edit = QtWidgets.QLineEdit("#00FF00")
+        self.color_edit = QtWidgets.QLineEdit(Colors.SUCCESS)
         self.color_edit.setFixedWidth(100)
         color_layout.addWidget(self.color_edit)
         color_btn = QtWidgets.QPushButton("选择颜色...")
@@ -37,7 +38,7 @@ class ProgressBarConfigPanel(BaseWidgetConfigPanel):
         color_layout.addWidget(color_btn)
         color_layout.addStretch()
         form.add_row_widget("颜色:", color_widget)
-        self._bind_line_edit("color", self.color_edit, default="#00FF00")
+        self._bind_line_edit("color", self.color_edit, default=Colors.SUCCESS)
 
         form.add_variable_selector("当前进度值:", "current_var", placeholder="选择变量")
         form.add_variable_selector("最小值:", "min_var", placeholder="选择变量或输入固定值")

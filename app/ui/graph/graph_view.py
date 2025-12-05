@@ -201,10 +201,14 @@ class GraphView(QtWidgets.QGraphicsView):
         RulerOverlayPainter.paint(self, painter)
         painter.end()
         
-        # 每次绘制后确保小地图位置与层级正确（固定右下角，置顶显示）
+        # 每次绘制后确保小地图与右上角浮动控件位置与层级正确
         if self.mini_map:
             ViewAssembly.update_mini_map_position(self)
             self.mini_map.raise_()
+        # 在绘制阶段同步右上角浮动按钮的位置，避免在布局切换或父级尺寸变化但未触发
+        # resizeEvent 时按钮停留在旧坐标而“看起来消失”的问题。
+        TopRightControlsManager.update_position(self)
+        TopRightControlsManager.raise_all(self)
 
     def showEvent(self, event: QtGui.QShowEvent) -> None:
         """显示事件：确保浮动控件与小地图正确定位与层级"""

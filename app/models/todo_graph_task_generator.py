@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from engine.graph.models import GraphModel
 from engine.nodes.advanced_node_features import build_signal_definitions_from_package
+from engine.signal import get_default_signal_binding_service
 
 from app.common.graph_data_cache import drop_graph_data_for_root, store_graph_data
 from app.models.todo_item import TodoItem
@@ -56,6 +57,7 @@ class TodoGraphTaskGenerator:
         self.todo_map = todo_map if todo_map is not None else {}
         self.package = package
         self._signal_param_types_by_id: Dict[str, Dict[str, str]] = {}
+        self._signal_binding_service = get_default_signal_binding_service()
         if package is not None:
             self._init_signal_param_types(package)
         self._composite_builder = CompositeTaskBuilder(
@@ -389,54 +391,7 @@ class TodoGraphTaskGenerator:
 
     def _collect_signal_usage_for_graph(self, model: GraphModel) -> List[Dict[str, Any]]:
         """收集当前图中已绑定信号的节点使用情况，供“信号概览”步骤使用。"""
-        if not model.nodes:
-            return []
-        bindings_raw = model.metadata.get("signal_bindings")
-        if not isinstance(bindings_raw, dict):
-            bindings_raw = {}
-        from engine.graph.common import SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE
-
-        usage_by_signal: Dict[str, Dict[str, Any]] = {}
-        for node_id, node in model.nodes.items():
-            title = getattr(node, "title", "") or ""
-            if title not in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE):
-                continue
-            binding = bindings_raw.get(node_id) or {}
-            signal_id_raw = binding.get("signal_id")
-            if not signal_id_raw:
-                continue
-            signal_id = str(signal_id_raw)
-            input_constants = getattr(node, "input_constants", {}) or {}
-            signal_name_const = ""
-            if "信号名" in input_constants:
-                signal_name_const = str(input_constants.get("信号名") or "")
-            entry = usage_by_signal.get(signal_id)
-            if entry is None:
-                entry = {
-                    "signal_id": signal_id,
-                    "signal_name": signal_name_const,
-                    "nodes": [],
-                }
-                if self._signal_param_types_by_id:
-                    entry["defined_in_package"] = signal_id in self._signal_param_types_by_id
-                usage_by_signal[signal_id] = entry
-            if signal_name_const and not entry.get("signal_name"):
-                entry["signal_name"] = signal_name_const
-            nodes_list = entry.setdefault("nodes", [])
-            nodes_list.append(
-                {
-                    "node_id": node_id,
-                    "node_title": title,
-                }
-            )
-        if not usage_by_signal:
-            return []
-        result: List[Dict[str, Any]] = []
-        for entry in usage_by_signal.values():
-            nodes_list = entry.get("nodes") or []
-            entry["node_count"] = len(nodes_list)
-            result.append(entry)
-        result.sort(
-            key=lambda item: (str(item.get("signal_name") or ""), str(item.get("signal_id") or ""))
+        return self._signal_binding_service.collect_graph_usage(
+            model,
+            signal_param_types_by_id=self._signal_param_types_by_id or None,
         )
-        return result

@@ -7,6 +7,8 @@
 from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtCore import Qt
 
+from ui.foundation.theme_manager import Colors
+
 
 def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     """
@@ -63,14 +65,16 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
 
     # 当前步骤上下文（父任务 > 步骤）
     step_context_label = QtWidgets.QLabel("")
-    step_context_label.setStyleSheet("color: #6B7280;")
+    step_context_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
     layout.addWidget(step_context_label)
 
     # 截图
     screenshot_label = QtWidgets.QLabel()
     screenshot_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     screenshot_label.setMinimumHeight(220)
-    screenshot_label.setStyleSheet("border: 1px solid #444; background-color: black;")
+    screenshot_label.setStyleSheet(
+        f"border: 1px solid {Colors.BORDER_DARK}; background-color: {Colors.BG_DARK};"
+    )
     screenshot_label.setText("等待截图...")
     screenshot_label.setCursor(QtGui.QCursor(Qt.CursorShape.PointingHandCursor))
     layout.addWidget(screenshot_label)
@@ -133,6 +137,12 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     test_ports_button = QtWidgets.QPushButton("测试端口识别")
     test_ports_button.setToolTip("为识别出的每个节点列出端口并叠加显示（含 kind/side/index）")
     test_row2.addWidget(test_ports_button)
+
+    test_ports_deep_button = QtWidgets.QPushButton("深度测试端口识别")
+    test_ports_deep_button.setToolTip(
+        "在端口识别基础上列出置信度≥70%的所有模板命中，包括被去重抑制的候选，并在标签中标注“因XXX被排除”原因"
+    )
+    test_row2.addWidget(test_ports_deep_button)
 
     layout.addLayout(test_row2)
 
@@ -228,7 +238,7 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     # 执行事件过滤行（结构化视图）
     event_filter_row = QtWidgets.QHBoxLayout()
     event_filter_label = QtWidgets.QLabel("执行事件:")
-    event_filter_label.setStyleSheet("color: #4B5563;")
+    event_filter_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
     event_filter_row.addWidget(event_filter_label)
     event_errors_only_checkbox = QtWidgets.QCheckBox("仅错误/警告")
     event_filter_row.addWidget(event_errors_only_checkbox)
@@ -288,6 +298,7 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         "test_ocr_zoom_button": test_ocr_zoom_button,
         "test_nodes_button": test_nodes_button,
         "test_ports_button": test_ports_button,
+        "test_ports_deep_button": test_ports_deep_button,
         "test_settings_tpl_button": test_settings_tpl_button,
         "test_add_button": test_add_button,
         "test_search_button": test_search_button,

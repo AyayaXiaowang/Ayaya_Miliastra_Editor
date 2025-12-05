@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets, QtGui
 
 from engine.nodes.advanced_node_features import VirtualPinConfig
 from ui.foundation.context_menu_builder import ContextMenuBuilder
@@ -23,6 +23,7 @@ class PinCardWidget(QtWidgets.QWidget):
         self.name_edit: QtWidgets.QLineEdit | None = None
         self.name_label: QtWidgets.QLabel | None = None
         self.is_editing = False
+        self._event_filter_target: QtWidgets.QWidget | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -40,7 +41,7 @@ class PinCardWidget(QtWidgets.QWidget):
 
         type_icon = "▭" if self.pin_config.is_flow else "●"
         type_label = QtWidgets.QLabel(type_icon)
-        type_label.setStyleSheet("font-size: 16px; color: #CCCCCC;")
+        type_label.setStyleSheet(f"font-size: 16px; color: {Colors.TEXT_SECONDARY};")
         layout.addWidget(type_label)
 
         self.name_label = QtWidgets.QLabel(self.pin_config.pin_name)
@@ -95,17 +96,21 @@ class PinCardWidget(QtWidgets.QWidget):
         return str(number)
 
     def _number_label_style(self) -> str:
-        base = """
+        radius = "3px" if self.pin_config.is_flow else "14px"
+        return f"""
             QLabel {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFD700, stop:1 #FFA500);
-                color: white;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {Colors.ACCENT_LIGHT},
+                    stop:1 {Colors.ACCENT}
+                );
+                color: {Colors.TEXT_ON_PRIMARY};
                 font-weight: bold;
                 font-size: 11px;
-                border: 2px solid #CC8800;
+                border: 2px solid {Colors.ACCENT};
+                border-radius: {radius};
             }}
         """
-        radius = "border-radius: 3px;" if self.pin_config.is_flow else "border-radius: 14px;"
-        return base.replace("border: 2px solid #CC8800;", f"{radius}\nborder: 2px solid #CC8800;")
 
     def _start_edit(self, event) -> None:  # type: ignore[override]
         if self.is_editing:
@@ -132,9 +137,20 @@ class PinCardWidget(QtWidgets.QWidget):
         self.name_edit.setFocus()
         self.name_edit.editingFinished.connect(self._finish_edit)
 
+        # 在卡片所在窗口级别安装事件过滤器，监听点击列表其它区域时自动结束编辑
+        top_level = self.window()
+        if isinstance(top_level, QtWidgets.QWidget):
+            self._event_filter_target = top_level
+            top_level.installEventFilter(self)
+
     def _finish_edit(self) -> None:
         if not self.is_editing or not self.name_edit or not self.name_label:
             return
+
+        if self._event_filter_target is not None:
+            self._event_filter_target.removeEventFilter(self)
+            self._event_filter_target = None
+
         new_name = self.name_edit.text().strip()
         if new_name and new_name != self.pin_config.pin_name:
             self.name_changed.emit(self.pin_config, new_name)
@@ -146,6 +162,20 @@ class PinCardWidget(QtWidgets.QWidget):
         self.name_edit.deleteLater()
         self.name_edit = None
         self.is_editing = False
+
+    def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:  # type: ignore[override]
+        # 若当前处于编辑状态，且用户在窗口内任意位置点击了鼠标（不包含编辑框本身），则结束编辑
+        if (
+            self.is_editing
+            and self.name_edit is not None
+            and event.type() == QtCore.QEvent.Type.MouseButtonPress
+        ):
+            if isinstance(event, QtGui.QMouseEvent):
+                global_pos = event.globalPosition().toPoint()
+                local_pos = self.name_edit.mapFromGlobal(global_pos)
+                if not self.name_edit.rect().contains(local_pos):
+                    self._finish_edit()
+        return super().eventFilter(watched, event)
 
     def _show_context_menu(self, pos: QtCore.QPoint) -> None:
         builder = ContextMenuBuilder(self)

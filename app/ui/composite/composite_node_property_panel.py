@@ -61,7 +61,7 @@ class CompositeNodePropertyPanel(QtWidgets.QWidget, StyleMixin):
         info_layout.addRow("描述:", self.description_edit)
         
         self.scope_label = QtWidgets.QLabel("server（仅服务器）")
-        self.scope_label.setStyleSheet("color: #666; font-style: italic;")
+        self.scope_label.setStyleSheet(f"{ThemeManager.hint_text_style()} font-style: italic;")
         info_layout.addRow("作用域:", self.scope_label)
         
         layout.addWidget(info_group)

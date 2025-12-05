@@ -3,13 +3,17 @@
   "name": "示例_信号全参数类型",
   "description": "演示 signal_all_supported_types_example 信号的发送与监听（覆盖全部参数类型）的示例存档包。",
   "resources": {
-    "templates": [],
+    "templates": [
+      "template_20251130_190000_000001_signal_all_types_example"
+    ],
     "instances": [
-      "level_pkg_20251129_190700_266546"
+      "level_pkg_20251129_190700_266546",
+      "instance_20251130_190000_000001_signal_all_types_example"
     ],
     "graphs": [
       "server_signal_all_types_example_01",
-      "server_delay_composite_example_01"
+      "server_delay_composite_example_01",
+      "server_template_local_variable_counter"
     ],
     "composites": [
       "composite_延迟执行_示例_类格式"
@@ -18,7 +22,9 @@
       "player_templates": [],
       "player_classes": [],
       "unit_statuses": [],
-      "skills": [],
+      "skills": [
+        "skill_signal_all_types_debug"
+      ],
       "projectiles": [],
       "items": []
     },
@@ -56,5 +62,5 @@
     "signal_all_supported_types_example": {}
   },
   "created_at": "2025-11-29T19:07:00.271544",
-  "updated_at": "2025-11-30T12:11:06.603031"
+  "updated_at": "2025-12-03T12:28:03.456376"
 }

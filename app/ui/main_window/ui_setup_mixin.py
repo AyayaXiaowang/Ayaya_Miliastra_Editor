@@ -1,6 +1,8 @@
 """UI设置 Mixin - 负责UI组件的创建和布局"""
 from __future__ import annotations
 
+import sys
+
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from app.models import UiNavigationRequest
@@ -21,6 +23,7 @@ from ui.panels.main_camera_panel import MainCameraManagementPanel
 from ui.panels.peripheral_system_panel import PeripheralSystemManagementPanel
 from ui.todo.todo_list_widget import TodoListWidget
 from ui.panels.validation_panel import ValidationPanel
+from ui.panels.validation_detail_panel import ValidationDetailPanel
 from ui.composite.composite_node_property_panel import CompositeNodePropertyPanel
 from ui.composite.composite_node_pin_panel import CompositeNodePinPanel
 from ui.graph.library_pages.graph_library_widget import GraphLibraryWidget
@@ -287,6 +290,11 @@ class UISetupMixin:
         # 在存档库右侧详情树中点击资源条目时，将对应资源上下文交给主窗口，由其决定右侧属性/图属性面板的展示。
         if hasattr(self, "_on_package_resource_activated"):
             self.package_library_widget.resource_activated.connect(self._on_package_resource_activated)
+        # 在存档库右侧详情树中点击管理配置类条目时，在当前视图右侧展示管理属性摘要与所属存档多选行。
+        if hasattr(self, "_on_package_management_resource_activated"):
+            self.package_library_widget.management_resource_activated.connect(
+                self._on_package_management_resource_activated
+            )
         # 在存档库右侧详情树中双击元件/实例/关卡实体时，请求主窗口通过导航协调器跳转到对应页面并选中目标条目。
         if hasattr(self, "nav_coordinator"):
             def _on_package_library_jump(entity_type: str, entity_id: str, package_id: str) -> None:
@@ -463,6 +471,11 @@ class UISetupMixin:
         # - 专用编辑面板（信号 / 结构体 / 主镜头等）承载复杂配置。
         self.management_edit_pages: dict[str, QtWidgets.QWidget] = {}
 
+        # 验证问题详情面板（验证模式下右侧“详细信息”标签使用）
+        self.validation_detail_panel = ValidationDetailPanel(self.right_panel_container)
+        if hasattr(self, "validation_panel"):
+            self.validation_panel.issue_selected.connect(self.validation_detail_panel.set_issue)
+
     def _create_execution_monitor_panel(self) -> None:
         """创建执行监控面板并注入上下文。"""
         self.execution_monitor_panel = ExecutionMonitorPanel(self.side_tab)
@@ -517,11 +530,16 @@ class UISetupMixin:
 
         toolbar.addSeparator()
 
-        # 设置按钮
+        # 设置与重启按钮组
         settings_action = QtGui.QAction("⚙️ 设置", self)
         settings_action.setToolTip("打开程序设置")
         settings_action.triggered.connect(self._open_settings_dialog)
         toolbar.addAction(settings_action)
+
+        restart_action = QtGui.QAction("重启", self)
+        restart_action.setToolTip("重启程序以应用需要启动阶段生效的设置")
+        restart_action.triggered.connect(self._restart_application_from_toolbar)
+        toolbar.addAction(restart_action)
 
         toolbar.addSeparator()
 
@@ -564,4 +582,12 @@ class UISetupMixin:
         toolbar.addWidget(self.save_status_label)
 
         # （已移除）真实执行入口按钮
+
+    def _restart_application_from_toolbar(self) -> None:
+        """从主窗口工具栏重启整个应用，行为与设置对话框中的重启一致。"""
+        application = QtWidgets.QApplication.instance()
+        if application is None:
+            return
+        QtCore.QProcess.startDetached(sys.executable, ["-m", "app.cli.run_app"])
+        application.quit()
 

@@ -307,22 +307,26 @@ class SavePointsSection(BaseManagementSection):
         item_id: str,
         on_changed: Callable[[], None],
     ) -> Optional[Tuple[str, str, Callable[[QtWidgets.QFormLayout], None]]]:
-        """在右侧属性面板中提供局内存档模板的只读预览与启用开关。
+        """在右侧属性面板中提供局内存档模板的详细只读预览与启用开关。
 
         设计目标：
         - 模板结构与条目列表由代码资源中的 `SAVE_POINT_PAYLOAD` 维护，此处仅做只读展示；
-        - 允许在 `<全部资源>` / `<未分类资源>` 视图中切换“当前启用模板”，
+        - 在 `<全部资源>` / `<未分类资源>` 视图中允许切换“当前启用模板”，
           即维护全局元配置中的 enabled/active_template_id；
-        - 在具体存档视图 (`PackageView`) 下不提供内联编辑表单，仅通过“所属存档”多选行
-          维护本存档对模板的引用关系。
+        - 在具体存档视图 (`PackageView`) 下，同样展示模板的完整概要与条目列表，
+          但不在本面板中修改启用状态，仅通过“所属存档”多选行维护本存档对模板的引用关系。
         """
-        if isinstance(package, PackageView):
-            return None
-
-        config_data = self._ensure_config(package)
+        # 对于具体存档视图，仍然基于全局聚合配置构造视图，只是禁用启用状态的编辑。
+        config_data = self._build_config_for_package_view(package)
         template_payload = self._find_template_by_id(config_data, item_id)
         if template_payload is None:
             return None
+
+        # 预先解析与当前模板条目关联的局内存档结构体名称映射，方便在表格中展示。
+        struct_choices = self._load_ingame_struct_choices(package)
+
+        # 仅在非 PackageView 视图下允许修改启用状态。
+        can_toggle_enabled = not isinstance(package, PackageView)
 
         def build_form(form_layout: QtWidgets.QFormLayout) -> None:
             enabled_flag_value = bool(config_data.get("enabled", False))
@@ -334,12 +338,18 @@ class SavePointsSection(BaseManagementSection):
             if not template_name_text:
                 template_name_text = item_id
             name_label = QtWidgets.QLabel(template_name_text)
-            name_label.setTextInteractionFlags(
+            name_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+
+            template_id_label = QtWidgets.QLabel(item_id)
+            template_id_label.setTextInteractionFlags(
                 QtCore.Qt.TextInteractionFlag.TextSelectableByMouse
             )
 
             enabled_checkbox = QtWidgets.QCheckBox("启用局内存档（使用当前模板）")
             enabled_checkbox.setChecked(is_active_template)
+            if not can_toggle_enabled:
+                enabled_checkbox.setEnabled(False)
+                enabled_checkbox.setToolTip("仅在“全部资源”或“未分类资源”视图下可切换当前启用模板。")
 
             summary_label = QtWidgets.QLabel("")
             summary_label.setWordWrap(True)
@@ -358,19 +368,113 @@ class SavePointsSection(BaseManagementSection):
 
                 status_text = "当前模板已启用" if is_template_active_local else "当前模板未启用"
                 return f"条目数：{entry_count_local}    {status_text}"
-
             summary_label.setText(build_summary_text())
 
             description_text = str(template_payload.get("description", "")).strip()
             description_label = QtWidgets.QLabel(description_text or "（无描述）")
             description_label.setWordWrap(True)
 
+            # --- 条目列表（只读表格，展示结构体与长度等详细信息） -------------------------
+            entries_value = template_payload.get("entries", [])
+
+            entry_columns = [
+                InlineTableColumnSpec("序号", QtWidgets.QHeaderView.ResizeMode.ResizeToContents, 60),
+                InlineTableColumnSpec("结构体ID", QtWidgets.QHeaderView.ResizeMode.Interactive, 140),
+                InlineTableColumnSpec("结构体名称", QtWidgets.QHeaderView.ResizeMode.Stretch, 160),
+                InlineTableColumnSpec("最大条目数", QtWidgets.QHeaderView.ResizeMode.ResizeToContents, 80),
+                InlineTableColumnSpec("数据量", QtWidgets.QHeaderView.ResizeMode.ResizeToContents, 80),
+            ]
+
+            entries_widget = InlineTableEditorWidget(
+                parent=parent,
+                columns=entry_columns,
+                add_button_text="+ 添加条目（代码维护，仅预览）",
+                delete_button_text=None,
+            )
+            # 本面板中条目完全只读，因此隐藏“添加”按钮，仅保留表格本体。
+            entries_widget.add_button.setVisible(False)
+
+            table = entries_widget.table
+            display_rows: list[tuple[str, str, str, str, str]] = []
+
+            if isinstance(entries_value, list):
+                for index_in_list, entry_payload in enumerate(entries_value, start=1):
+                    if not isinstance(entry_payload, Mapping):
+                        continue
+
+                    # 序号：优先使用显式 index 字段，其次回退到列表顺序。
+                    raw_index_value = entry_payload.get("index")
+                    index_text: str
+                    if isinstance(raw_index_value, str) and raw_index_value.strip():
+                        index_text = raw_index_value.strip()
+                    elif isinstance(raw_index_value, (int, float)):
+                        index_text = str(int(raw_index_value))
+                    else:
+                        index_text = str(index_in_list)
+
+                    # 结构体 ID 与名称。
+                    struct_id_value = entry_payload.get("struct_id")
+                    struct_id_text = (
+                        str(struct_id_value).strip() if isinstance(struct_id_value, str) else ""
+                    )
+                    if struct_id_text:
+                        struct_name_text = struct_choices.get(
+                            struct_id_text,
+                            "（未找到结构体定义）",
+                        )
+                    else:
+                        struct_name_text = "（未指定结构体）"
+
+                    # 最大条目数与当前数据量（如存在）。
+                    max_length_value = entry_payload.get("max_length")
+                    if isinstance(max_length_value, (int, float)):
+                        max_length_text = str(int(max_length_value))
+                    else:
+                        max_length_text = ""
+
+                    data_amount_value = entry_payload.get("data_amount")
+                    if isinstance(data_amount_value, (int, float)):
+                        data_amount_text = str(int(data_amount_value))
+                    else:
+                        data_amount_text = ""
+
+                    display_rows.append(
+                        (index_text, struct_id_text, struct_name_text, max_length_text, data_amount_text)
+                    )
+
+            table.setRowCount(len(display_rows))
+            for row_index, (index_text, struct_id_text, struct_name_text, max_length_text, data_amount_text) in enumerate(
+                display_rows
+            ):
+                cells = [
+                    index_text,
+                    struct_id_text,
+                    struct_name_text,
+                    max_length_text,
+                    data_amount_text,
+                ]
+                for column_index, cell_text in enumerate(cells):
+                    item = QtWidgets.QTableWidgetItem(cell_text)
+                    if column_index in (0, 3, 4):
+                        item.setTextAlignment(
+                            QtCore.Qt.AlignmentFlag.AlignRight
+                            | QtCore.Qt.AlignmentFlag.AlignVCenter
+                        )
+                    table.setItem(row_index, column_index, item)
+
+            # --- 表单布局装配 ---------------------------------------------------
             form_layout.addRow("模板名称", name_label)
+            form_layout.addRow("模板 ID", template_id_label)
             form_layout.addRow("描述", description_label)
             form_layout.addRow("是否启用局内存档", enabled_checkbox)
             form_layout.addRow("概要", summary_label)
+            form_layout.addRow("条目列表", entries_widget)
+
             def apply_changes() -> None:
                 """将启用状态合并回配置，并在确有变化时触发持久化。"""
+                if not can_toggle_enabled:
+                    return
+
                 enabled_flag_before = bool(config_data.get("enabled", False))
                 active_template_id_before = str(config_data.get("active_template_id", "")).strip()
                 is_currently_active_template = (
@@ -404,13 +508,22 @@ class SavePointsSection(BaseManagementSection):
                 # 减少在重建右侧表单时对当前表格控件的重入操作。
                 QtCore.QTimer.singleShot(0, on_changed)
 
-            summary_label.setText(build_summary_text())
+            # 仅在允许切换启用状态的视图下接入变更回调。
+            if can_toggle_enabled:
+                enabled_checkbox.stateChanged.connect(lambda _state: apply_changes())
 
         display_name_raw = str(template_payload.get("template_name", "")).strip()
         display_name = display_name_raw or item_id
 
         title = f"局内存档模板详情：{display_name}"
-        description = (
-            "局内存档模板的结构与条目配置由代码资源维护，本面板仅用于查看概要并切换当前启用模板。"
-        )
+        if isinstance(package, PackageView):
+            description = (
+                "局内存档模板的结构与条目配置由代码资源维护，本面板以只读方式展示模板概要与条目列表；"
+                "启用状态与模板结构仍需在“全部资源/未分类资源”视图或代码模块中调整。"
+            )
+        else:
+            description = (
+                "局内存档模板的结构与条目配置由代码资源维护，本面板用于查看模板详情与条目列表，"
+                "并在当前视图下切换全局启用模板。"
+            )
         return title, description, build_form

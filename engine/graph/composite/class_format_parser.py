@@ -186,6 +186,7 @@ class ClassFormatParser:
         tracker.collect_aliases(method_def.body)
         tracker.collect_constants(method_def.body)
         tracker.collect_usage_from_calls(method_def.body, title_to_queue_for_match)
+        tracker.collect_control_flow_usage(method_def.body)
         
         # 建立虚拟引脚映射（含数据入；类格式额外支持通过实例字段引用入口形参的场景）
         self._build_virtual_pin_mappings_for_method(
@@ -196,6 +197,7 @@ class ClassFormatParser:
             tracker.input_param_usage,
             dict(ir_env.var_map),
             tracker.state_pin_usage,
+            tracker.control_flow_usage,
         )
         
         return method_graph
@@ -206,9 +208,10 @@ class ClassFormatParser:
         method_spec: Dict[str, Any],
         virtual_pins: List[VirtualPinConfig],
         method_graph: GraphModel,
-        input_param_usage: Dict[str, List[tuple[str, str]]],
+        input_param_usage: Dict[str, List[Tuple[str, str]]],
         var_env_snapshot: Dict[str, Tuple[str, str]],
         state_pin_usage: Dict[str, List[Tuple[str, str]]],
+        control_flow_usage: Dict[str, bool],
     ) -> None:
         """为方法的虚拟引脚建立映射
         
@@ -247,16 +250,120 @@ class ClassFormatParser:
                             )
                             for (node_id, port_name) in usage
                         ]
-            
+
+            # 对于仅在控制流条件（if/match）中使用的数据输入引脚，尝试映射到分支节点的条件输入端口；
+            # 若无法找到明确的分支节点端口，再退回到 allow_unmapped 标记。
+            for pin_name, pin_type in method_spec['inputs']:
+                if pin_type == "流程":
+                    continue
+                virtual_pin = next(
+                    (
+                        pin
+                        for pin in virtual_pins
+                        if pin.pin_name == pin_name and pin.is_input and not pin.is_flow
+                    ),
+                    None,
+                )
+                if not virtual_pin:
+                    continue
+                # 已有显式映射则不再处理
+                if virtual_pin.mapped_ports:
+                    continue
+                if not control_flow_usage.get(pin_name):
+                    continue
+
+                # 优先：为控制流条件引脚寻找一个分支节点的“条件 / 控制表达式”输入端口作为映射锚点，
+                # 这样在画布上可以看到清晰的角标，而非仅作为“允许未映射”的纯逻辑参与者。
+                condition_target_ids: List[Tuple[str, str]] = []
+                for node in method_graph.nodes.values():
+                    title = getattr(node, "title", "")
+                    # 双分支节点：title == "双分支"，条件端口名固定为 "条件"
+                    if title == "双分支":
+                        cond_port = next(
+                            (p for p in node.inputs if getattr(p, "name", "") == "条件"),
+                            None,
+                        )
+                        if cond_port:
+                            condition_target_ids.append((node.id, cond_port.name))
+                    # 多分支节点：title == "多分支"，控制表达式端口名固定为 "控制表达式"
+                    elif title == "多分支":
+                        ctrl_port = next(
+                            (p for p in node.inputs if getattr(p, "name", "") == "控制表达式"),
+                            None,
+                        )
+                        if ctrl_port:
+                            condition_target_ids.append((node.id, ctrl_port.name))
+
+                if condition_target_ids:
+                    # 目前约定：一个入口形参通常只驱动单个条件分支节点；
+                    # 若出现多个候选，仅选择第一个，以保持映射稳定可预期。
+                    target_node_id, target_port_name = condition_target_ids[0]
+                    virtual_pin.mapped_ports.append(
+                        MappedPort(
+                            node_id=target_node_id,
+                            port_name=target_port_name,
+                            is_input=True,
+                            is_flow=False,
+                        )
+                    )
+                else:
+                    # 找不到合适的分支节点锚点时，退回到“允许未映射”的保守策略：
+                    # 保证验证不过度报错，同时在 UI 预览中仍然列出该虚拟引脚。
+                    virtual_pin.allow_unmapped = True
+
+            # 在输出映射前，尝试识别“纯分支出口”场景：
+            # 若方法体中存在双分支/多分支节点，且其所有流程出口均未连接到后续节点，
+            # 则可以按顺序将复合节点的流程输出虚拟引脚绑定到这些分支端口，
+            # 例如：条件为真/条件为假 → 是/否。
+            branch_exit_targets: List[Tuple[str, str]] = []
+            for node in method_graph.nodes.values():
+                title = getattr(node, "title", "")
+                if title in ("双分支", "多分支"):
+                    # 双分支节点：显式的“是/否”流程出口；
+                    # 多分支节点：所有输出端口均表示不同的流程出口（默认 + 各 case 分支）。
+                    if title == "双分支":
+                        flow_outputs = [
+                            p.name for p in node.outputs if is_flow_port_name(getattr(p, "name", ""))
+                        ]
+                    else:
+                        flow_outputs = [p.name for p in node.outputs]
+                    if not flow_outputs:
+                        continue
+                    has_branch_out_edges = False
+                    for edge in method_graph.edges.values():
+                        if edge.src_node != node.id:
+                            continue
+                        if any(edge.src_port == port_name for port_name in flow_outputs):
+                            has_branch_out_edges = True
+                            break
+                    if not has_branch_out_edges:
+                        # 所有分支出口都未接后续节点：视为“直接出口”，用于与虚拟流程出口一一对应
+                        for port_name in flow_outputs:
+                            branch_exit_targets.append((node.id, port_name))
+                    break
+
             # 输出引脚：流程出 + 数据出
+            branch_exit_index = 0
             for pin_name, pin_type in method_spec['outputs']:
                 vpin = next((p for p in virtual_pins if p.pin_name == pin_name and not p.is_input), None)
                 if not vpin:
                     continue
                 
                 if pin_type == "流程":
-                    # 流程出：映射到方法中最后的流程出口节点
-                    self._map_flow_exit_pin(vpin, method_graph)
+                    if branch_exit_targets and branch_exit_index < len(branch_exit_targets):
+                        target_node_id, target_port_name = branch_exit_targets[branch_exit_index]
+                        vpin.mapped_ports.append(
+                            MappedPort(
+                                node_id=target_node_id,
+                                port_name=target_port_name,
+                                is_input=False,
+                                is_flow=True,
+                            )
+                        )
+                        branch_exit_index += 1
+                    else:
+                        # 通用路径：流程出映射到方法中最后的流程出口节点
+                        self._map_flow_exit_pin(vpin, method_graph)
                 else:
                     self._map_data_output_pin(vpin, pin_name, data_output_var_map, var_env_snapshot)
         

@@ -78,6 +78,10 @@ class TodoTreeManager(QtCore.QObject):
         self._current_block_header_item: Optional[QtWidgets.QTreeWidgetItem] = None
         # UI 辅助状态：当前因“节点选中”而高亮的 Todo ID 集合
         self._current_node_highlight_ids: set[str] = set()
+        # UI 辅助状态：当前是否处于“按节点过滤步骤”的置灰模式
+        self._node_filter_active: bool = False
+        # 富文本委托使用的“置灰标记”角色：约定为富文本角色之后的一个自定义角色。
+        self.DIMMED_ROLE: int = self.RICH_SEGMENTS_ROLE + 1
         # 图源码缓存：graph_id -> 源码行列表
         self._graph_source_lines_cache: Dict[str, List[str]] = {}
         # 步骤源码提示缓存：todo_id -> tooltip 文本
@@ -95,15 +99,31 @@ class TodoTreeManager(QtCore.QObject):
 
         - todos / todo_states 直接引用调用方传入的容器，便于与外层状态保持一致；
         - todo_map 作为集中索引，保持字典实例稳定，仅在此处清空并重建内容，
-          外部若持有对该 dict 的引用（例如详情面板/右键菜单），可继续复用。
+          外部若持有对该 dict 的引用（例如详情面板/右键菜单），可继续复用；
+        - 若当前树中仍存在 todo_id 已不在最新 todo_map 中的树项（例如此前懒加载
+          生成的图内步骤），则视为结构已发生变化，强制整树重建以避免“残影”
+          或重复步骤。
         """
         self.todos = todos
         self.todo_states = todo_states
         self.todo_map.clear()
         for todo in todos:
             self.todo_map[todo.todo_id] = todo
+
+        # 检测当前树中是否存在“孤儿树项”（tree_item 有 todo_id，但 todo_map 中已不存在）
+        # 典型场景：此前在旧一轮任务结构下懒加载了图步骤，后续重新生成任务清单后，
+        # 这些旧步骤的 todo_id 不再出现在新的 todos 中，但对应的树节点仍然存在。
+        # 为保证“树结构与 todo_map 一一对应”的约定，此时需要视为结构已变更，
+        # 强制走整树重建逻辑而不是仅做样式刷新。
+        has_orphan_tree_items = False
+        if self._item_map:
+            for mapped_todo_id in self._item_map.keys():
+                if mapped_todo_id and mapped_todo_id not in self.todo_map:
+                    has_orphan_tree_items = True
+                    break
+
         new_signature = self._compute_structure_signature(todos)
-        structure_changed = new_signature != self._structure_signature
+        structure_changed = (new_signature != self._structure_signature) or has_orphan_tree_items
         self._structure_signature = new_signature
         if structure_changed or not self._item_map:
             self.refresh_tree()
@@ -143,7 +163,7 @@ class TodoTreeManager(QtCore.QObject):
             return
 
         normalized = str(node_id)
-        # 先清理旧高亮
+        # 先清理旧的高亮与置灰效果
         self.clear_node_highlight()
 
         new_highlight_ids: set[str] = set()
@@ -161,42 +181,37 @@ class TodoTreeManager(QtCore.QObject):
             is_anchor = bool(anchor_todo_id and todo_id == anchor_todo_id)
             self._apply_node_highlight_to_item(item, is_anchor=is_anchor)
             new_highlight_ids.add(todo_id)
-
         self._current_node_highlight_ids = new_highlight_ids
 
+        # 置灰所有与当前节点无关的步骤，突出相关步骤
+        if new_highlight_ids:
+            self._dim_unrelated_steps(new_highlight_ids)
+            self._node_filter_active = True
+        else:
+            self._node_filter_active = False
+
     def clear_node_highlight(self) -> None:
-        """清除因“节点选中”产生的所有步骤高亮。"""
-        if not self._current_node_highlight_ids:
+        """清除因“节点选中”产生的所有步骤高亮与置灰效果，恢复默认样式。"""
+        if not self._current_node_highlight_ids and not self._node_filter_active:
             return
 
-        for todo_id in list(self._current_node_highlight_ids):
-            item = self._item_map.get(todo_id)
-            todo = self.todo_map.get(todo_id)
-            if item is None or todo is None:
-                continue
-            # 清除背景与字体加粗
-            item.setBackground(0, QtGui.QBrush())
-            font = item.font(0)
-            font.setBold(False)
-            item.setFont(0, font)
-            # 重新应用基础样式，保持与完成度/运行态一致
-            if todo.children:
-                apply_parent_progress(item, todo, self.todo_states, self._get_task_icon)
-                self._apply_parent_style(item, todo)
-            else:
-                apply_leaf_state(
-                    item,
-                    todo,
-                    self.todo_states,
-                    self._get_task_icon,
-                    self._apply_item_style,
-                )
-
+        # 清空内部记录的高亮 ID 集合
         self._current_node_highlight_ids.clear()
+        self._node_filter_active = False
+
+        # 清除所有树项上的置灰标记
+        self._clear_dimmed_flags()
+
+        # 通过整树样式刷新，恢复所有步骤的基础样式与富文本 tokens
+        self.refresh_entire_tree_display()
 
     def refresh_tree(self) -> None:
         self._refresh_gate.set_refreshing(True)
         self.tree.setUpdatesEnabled(False)
+
+        # 清理依赖于现有树项的 UI 状态，避免在整树重建后访问已删除的 QTreeWidgetItem。
+        self._current_block_header_item = None
+        self._current_node_highlight_ids.clear()
 
         self.tree.clear()
         self._item_map.clear()
@@ -236,12 +251,19 @@ class TodoTreeManager(QtCore.QObject):
         todo = self.todo_map.get(todo_id)
         if item is None or todo is None:
             return None
-        self._graph_support.update_item_rich_tokens(
-            item=item,
-            todo=todo,
-            todo_map=self.todo_map,
-            get_task_icon=self._get_task_icon,
-        )
+
+        # 仅对“支持富文本 token 的叶子图步骤”刷新 tokens，避免清空父级步骤或逻辑块
+        # 自行设置的富文本（例如父级进度标签、逻辑块标题标签）。
+        detail_info = todo.detail_info or {}
+        detail_type = detail_info.get("type", "")
+        is_leaf = not bool(todo.children)
+        if is_leaf and StepTypeRules.supports_rich_tokens(detail_type):
+            self._graph_support.update_item_rich_tokens(
+                item=item,
+                todo=todo,
+                todo_map=self.todo_map,
+                get_task_icon=self._get_task_icon,
+            )
         tokens = item.data(0, self.RICH_SEGMENTS_ROLE)
         return tokens if isinstance(tokens, list) else None
 
@@ -378,13 +400,39 @@ class TodoTreeManager(QtCore.QObject):
                     self._build_single_todo_subtree(flow_root_item, child_todo)
             return
 
+        # 尝试从图模型中获取 BasicBlock 列表，以便逻辑块分组头使用与画布一致的块颜色。
+        basic_blocks: List[Any] = []
+        model, _graph_id = self._graph_support.get_graph_model_for_item(
+            item=flow_root_item,
+            todo_id=flow_root_todo.todo_id,
+            todo_map=self.todo_map,
+        )
+        if model is not None:
+            basic_blocks_raw = getattr(model, "basic_blocks", None)
+            if isinstance(basic_blocks_raw, list):
+                basic_blocks = list(basic_blocks_raw)
+
         for group_index, group in enumerate(groups):
             if group.block_index is None:
                 # 未归属任何块的步骤仍然直接挂在事件流根下，保持其在整个序列中的相对位置。
                 self._add_ungrouped_flow_children(flow_root_item, group.child_ids)
                 continue
 
-            header_item = create_block_header_item(group.block_index, group_index)
+            block_color_hex = ""
+            if (
+                isinstance(group.block_index, int)
+                and 0 <= group.block_index < len(basic_blocks)
+            ):
+                basic_block = basic_blocks[group.block_index]
+                color_value = getattr(basic_block, "color", "")
+                if isinstance(color_value, str) and color_value:
+                    block_color_hex = color_value
+
+            header_item = create_block_header_item(
+                group.block_index,
+                group_index,
+                block_color_hex,
+            )
             flow_root_item.addChild(header_item)
             # 逻辑块分组默认展开，方便用户一眼看到块内所有步骤
             header_item.setExpanded(True)
@@ -430,7 +478,11 @@ class TodoTreeManager(QtCore.QObject):
             todo_id = current_item.data(0, Qt.ItemDataRole.UserRole)
             todo = self.todo_map.get(todo_id)
             if todo and todo.children:
-                apply_parent_progress(current_item, todo, self.todo_states, self._get_task_icon)
+                apply_parent_progress(
+                    current_item, todo, self.todo_states, self._get_task_icon
+                )
+                # 重新应用父级样式与富文本 tokens，使进度与颜色保持同步
+                self._apply_parent_style(current_item, todo)
             current_item = current_item.parent()
     
     def _compute_structure_signature(self, todos: List[TodoItem]) -> tuple:
@@ -444,11 +496,68 @@ class TodoTreeManager(QtCore.QObject):
 
     # === 内部：样式与富文本 ===
 
+    @staticmethod
+    def _tint_background_color(hex_color: str) -> str:
+        """将前景色与白色混合，生成浅色背景，用于父级步骤/逻辑块的淡底色。"""
+        if not isinstance(hex_color, str):
+            return ""
+        if not (len(hex_color) == 7 and hex_color.startswith("#")):
+            return ""
+        red_value = int(hex_color[1:3], 16)
+        green_value = int(hex_color[3:5], 16)
+        blue_value = int(hex_color[5:7], 16)
+        mix_ratio = 0.82
+        mixed_red = int(red_value + (255 - red_value) * mix_ratio)
+        mixed_green = int(green_value + (255 - green_value) * mix_ratio)
+        mixed_blue = int(blue_value + (255 - blue_value) * mix_ratio)
+        if mixed_red > 255:
+            mixed_red = 255
+        if mixed_green > 255:
+            mixed_green = 255
+        if mixed_blue > 255:
+            mixed_blue = 255
+        return f"#{mixed_red:02X}{mixed_green:02X}{mixed_blue:02X}"
+
     def _apply_parent_style(self, item: QtWidgets.QTreeWidgetItem, todo: TodoItem) -> None:
+        """父级/容器节点样式：颜色 + 进度文本 + 富文本 tokens。"""
         detail_type = (todo.detail_info or {}).get("type", "")
         if StepTypeRules.is_graph_root(detail_type):
-            color = StepTypeColors.get_step_color(str(detail_type))
-            item.setForeground(0, QtGui.QBrush(QtGui.QColor(color)))
+            # 图根 / 事件流根：使用步骤类型专用颜色，便于与子步骤区分
+            base_color = StepTypeColors.get_step_color(str(detail_type))
+        else:
+            # 其它父级步骤：按任务类型使用分类色（模板/实例/战斗/管理等）
+            base_color = TaskTypeMetadata.get_color(todo.task_type)
+
+        item.setForeground(0, QtGui.QBrush(QtGui.QColor(base_color)))
+
+        # 父级节点同样走富文本委托，用“标题色 + 浅底 + 进度”增强可读性。
+        completed, total = todo.get_progress(self.todo_states)
+        icon_character = self._get_task_icon(todo)
+        tokens: List[Dict[str, Any]] = []
+        neutral_color = ThemeColors.TEXT_SECONDARY
+
+        if isinstance(icon_character, str) and icon_character:
+            tokens.append({"text": f"{icon_character} ", "color": neutral_color})
+
+        background_color = self._tint_background_color(base_color)
+        tokens.append(
+            {
+                "text": todo.title,
+                "color": base_color,
+                "bg": background_color,
+                "bold": True,
+            }
+        )
+
+        if total > 0:
+            tokens.append(
+                {
+                    "text": f" ({completed}/{total})",
+                    "color": neutral_color,
+                }
+            )
+
+        item.setData(0, self.RICH_SEGMENTS_ROLE, tokens)
 
     def _apply_item_style(self, item: QtWidgets.QTreeWidgetItem, todo: TodoItem, is_completed: bool = False) -> None:
         color = TaskTypeMetadata.get_color(todo.task_type)
@@ -714,7 +823,18 @@ class TodoTreeManager(QtCore.QObject):
         header_font = header_item.font(0)
         header_font.setBold(True)
         header_item.setFont(0, header_font)
-        color_hex = ThemeColors.PRIMARY if highlighted else ThemeColors.TEXT_SECONDARY
+        stored_color = header_item.data(0, Qt.ItemDataRole.UserRole + 3)
+        if isinstance(stored_color, str) and stored_color:
+            color_hex = stored_color
+        else:
+            color_hex = ThemeColors.TEXT_SECONDARY
+        # 选中时使用统一选中背景，但前景色仍保持块颜色，保证与画布中的逻辑块颜色一致
+        if highlighted:
+            header_item.setBackground(
+                0, QtGui.QBrush(QtGui.QColor(ThemeColors.BG_SELECTED))
+            )
+        else:
+            header_item.setBackground(0, QtGui.QBrush())
         header_item.setForeground(0, QtGui.QBrush(QtGui.QColor(color_hex)))
 
     def _apply_node_highlight_to_item(
@@ -758,6 +878,44 @@ class TodoTreeManager(QtCore.QObject):
                 )
             new_tokens.extend(tokens)
             item.setData(0, self.RICH_SEGMENTS_ROLE, new_tokens)
+
+    def _dim_unrelated_steps(self, related_ids: set[str]) -> None:
+        """将当前树中除 related_ids 以外的步骤统一置灰，强化节点相关步骤的对比度。"""
+        root = self.tree.invisibleRootItem()
+        dim_color_hex = ThemeColors.TEXT_DISABLED
+
+        stack: List[QtWidgets.QTreeWidgetItem] = [root]
+        while stack:
+            parent_item = stack.pop()
+            for index in range(parent_item.childCount()):
+                item = parent_item.child(index)
+                stack.append(item)
+
+                todo_id = item.data(0, Qt.ItemDataRole.UserRole)
+                if not todo_id or todo_id in related_ids:
+                    continue
+                if todo_id not in self.todo_map:
+                    continue
+
+                # 统一使用禁用文本色作为前景色（非富文本项直接生效，富文本项作为兜底）
+                item.setForeground(
+                    0,
+                    QtGui.QBrush(QtGui.QColor(dim_color_hex)),
+                )
+
+                # 为富文本委托设置“置灰标记”，在绘制时统一将 token 颜色替换为禁用文本色。
+                item.setData(0, self.DIMMED_ROLE, True)
+
+    def _clear_dimmed_flags(self) -> None:
+        """清除整棵树上的置灰标记。"""
+        root = self.tree.invisibleRootItem()
+        stack: List[QtWidgets.QTreeWidgetItem] = [root]
+        while stack:
+            parent_item = stack.pop()
+            for index in range(parent_item.childCount()):
+                item = parent_item.child(index)
+                stack.append(item)
+                item.setData(0, self.DIMMED_ROLE, None)
 
     def find_template_graph_root_for_todo(self, start_todo_id: str) -> Optional[TodoItem]:
         """公开定位接口：先尝试沿树项父链，再回退至 todo_id 链路。"""

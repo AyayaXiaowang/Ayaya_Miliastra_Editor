@@ -89,7 +89,7 @@ class DataChainEnumerator:
             consumer_node = self.context.model.nodes.get(consumer_id)
             if not consumer_node:
                 continue
-            incoming_data_edges_view = self.context.get_data_in_edges(consumer_id)
+            incoming_data_edges_view = self.context.get_in_data_edges(consumer_id)
             if not incoming_data_edges_view:
                 continue
             # 输入端口自上而下
@@ -124,7 +124,7 @@ class DataChainEnumerator:
             start_data_id=start_data_id,
             flow_id_set=self.context.flow_id_set,
             skip_data_ids=self.context.skip_data_ids,
-            get_data_in_edges_func=self.context.get_data_in_edges,
+            get_data_in_edges_func=self.context.get_in_data_edges,
             include_skip_node_as_terminus=True,  # 边界节点作为链的终点，触发复制
             layout_context=self.context.get_port_layout_context(),
             shared_cache=self._shared_paths_cache,
@@ -146,7 +146,7 @@ class DataChainEnumerator:
                     model=self.context.model,
                     start_data_id=start_data_id,
                     skip_data_ids=skip_data_ids,
-                    get_data_in_edges_func=self.context.get_data_in_edges,
+                    get_data_in_edges_func=self.context.get_in_data_edges,
                     respect_skip_ids=False,
                 )
             return upstream_closure
@@ -270,7 +270,7 @@ class DataChainEnumerator:
         entry_index: Optional[int] = None
 
         for index, data_id in enumerate(path_nodes):
-            incoming_edges = self.context.get_data_in_edges(data_id)
+            incoming_edges = self.context.get_in_data_edges(data_id)
             if not incoming_edges:
                 continue
             for edge in incoming_edges:

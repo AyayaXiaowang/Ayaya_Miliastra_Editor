@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from engine.nodes.advanced_node_features import SignalDefinition, build_signal_definitions_from_package
+from engine.signal import get_default_signal_repository
 from engine.nodes.node_definition_loader import NodeDef
 from engine.utils.graph.graph_utils import (
     build_node_map,
@@ -15,6 +16,7 @@ from engine.graph.common import (
     SIGNAL_LISTEN_NODE_TITLE,
     SIGNAL_SEND_STATIC_INPUTS,
     SIGNAL_LISTEN_STATIC_OUTPUTS,
+    SIGNAL_NAME_PORT_NAME,
 )
 
 from ..comprehensive_types import ValidationIssue
@@ -89,10 +91,19 @@ def _validate_signal_definition_bounds(
     """
     issues: List[ValidationIssue] = []
 
-    for signal_id, signal_def in signal_definitions.items():
-        parameters = list(signal_def.parameters or [])
+    if not signal_definitions:
+        return issues
+
+    repo = get_default_signal_repository()
+    allowed_params_by_id = repo.get_allowed_param_names_by_id()
+    all_payloads = repo.get_all_payloads()
+
+    for signal_id in signal_definitions.keys():
+        payload = all_payloads.get(signal_id) or {}
+        parameters = list(allowed_params_by_id.get(signal_id, set()))
         param_count = len(parameters)
-        signal_name = str(getattr(signal_def, "signal_name", "") or signal_id)
+        signal_name_text = payload.get("signal_name")
+        signal_name = str(signal_name_text or signal_id)
         location = f"信号定义 '{signal_name}' (ID: {signal_id})"
 
         if param_count > MAX_SIGNAL_PARAMS:
@@ -120,17 +131,17 @@ def _validate_signal_definition_bounds(
                 )
             )
 
-        for param in parameters:
-            param_name = str(getattr(param, "param_name", "") or "")
-            if not param_name:
+        for param_name in parameters:
+            name_text = str(param_name or "")
+            if not name_text:
                 continue
-            name_length = len(param_name)
+            name_length = len(name_text)
             if name_length > MAX_SIGNAL_PARAM_NAME_LENGTH:
                 detail = {
                     "type": "signal_definition",
                     "signal_id": signal_id,
                     "signal_name": signal_name,
-                    "param_name": param_name,
+                    "param_name": name_text,
                     "param_name_length": name_length,
                 }
                 issues.append(
@@ -195,7 +206,15 @@ def _validate_signals_in_single_graph(
         binding_info = signal_bindings.get(node_id) or {}
         bound_signal_id = str(binding_info.get("signal_id") or "")
 
-        # 3.1 信号存在性校验
+        # 3.1 信号存在性校验（带“信号名”常量的智能回退）。
+        if not bound_signal_id:
+            inferred_signal_id = _infer_signal_id_from_constants(
+                node=node,
+                signal_definitions=signal_definitions,
+            )
+            if inferred_signal_id:
+                bound_signal_id = inferred_signal_id
+
         if not bound_signal_id:
             message = (
                 "发送信号节点未选择信号"
@@ -220,8 +239,8 @@ def _validate_signals_in_single_graph(
         if signal_def is None:
             signal_name_constant = ""
             input_constants = node.get("input_constants", {}) or {}
-            if isinstance(input_constants, dict) and "信号名" in input_constants:
-                signal_name_constant = str(input_constants.get("信号名") or "")
+            if isinstance(input_constants, dict) and SIGNAL_NAME_PORT_NAME in input_constants:
+                signal_name_constant = str(input_constants.get(SIGNAL_NAME_PORT_NAME) or "")
             if signal_name_constant:
                 node_detail["signal_name"] = signal_name_constant
             issues.append(
@@ -244,6 +263,8 @@ def _validate_signals_in_single_graph(
                 node_location,
                 node_detail,
                 signal_def,
+                incoming_edges=incoming_edges,
+                outgoing_edges=outgoing_edges,
             )
         )
 
@@ -403,24 +424,64 @@ def _validate_signal_ports_for_node(
     location: str,
     detail: Dict[str, Any],
     signal_def: SignalDefinition,
+    *,
+    incoming_edges: Dict[Tuple[str, str], List[Tuple[str, str]]],
+    outgoing_edges: Dict[Tuple[str, str], List[Tuple[str, str]]],
 ) -> List[ValidationIssue]:
-    """3.2 参数列表一致性：信号参数与节点端口覆盖是否一致。"""
+    """3.2 参数列表一致性：信号参数与节点端口覆盖是否一致。
+    
+    端口覆盖的判定同时考虑三种来源：
+    - 节点自身的动态端口列表（inputs/outputs）；
+    - 参数常量键（input_constants）；
+    - 图中的连线端口名（入边/出边的端口）。
+    """
     node_id, node_title, _ = get_node_display_info(node)
     issues: List[ValidationIssue] = []
-
+    
     expected_param_names = {param.param_name for param in signal_def.parameters}
     static_inputs = set(SIGNAL_SEND_STATIC_INPUTS)
     static_outputs = set(SIGNAL_LISTEN_STATIC_OUTPUTS)
-
+    
+    present_param_names: set[str] = set()
+    
     if node_title == SIGNAL_SEND_NODE_TITLE:
         inputs_raw = node.get("inputs", []) or []
         input_names = extract_port_names(inputs_raw)
-        present_param_names = {name for name in input_names if name not in static_inputs}
+        constants_map = node.get("input_constants", {}) or {}
+        
+        for param_name in expected_param_names:
+            if param_name in static_inputs:
+                continue
+            # 1) 显式输入端口
+            if param_name in input_names:
+                present_param_names.add(param_name)
+                continue
+            # 2) 存在针对该参数名的入边
+            incoming_key = (node_id, param_name)
+            if incoming_edges.get(incoming_key):
+                present_param_names.add(param_name)
+                continue
+            # 3) input_constants 中存在对应键
+            if param_name in constants_map:
+                present_param_names.add(param_name)
+                continue
     else:
         outputs_raw = node.get("outputs", []) or []
         output_names = extract_port_names(outputs_raw)
-        present_param_names = {name for name in output_names if name not in static_outputs}
-
+        
+        for param_name in expected_param_names:
+            if param_name in static_outputs:
+                continue
+            # 1) 显式输出端口
+            if param_name in output_names:
+                present_param_names.add(param_name)
+                continue
+            # 2) 存在从该参数端口发出的出边
+            src_key = (node_id, param_name)
+            if outgoing_edges.get(src_key):
+                present_param_names.add(param_name)
+                continue
+    
     missing = expected_param_names - present_param_names
     extra = present_param_names - expected_param_names
 
@@ -513,7 +574,7 @@ def _validate_signal_wire_types_for_send_node(
     """3.4 连线类型兼容性（发送信号节点参数输入）。"""
     issues: List[ValidationIssue] = []
     node_id, _, _ = get_node_display_info(node)
-    static_inputs = {"流程入", "信号名", "目标实体"}
+    static_inputs = {"流程入", SIGNAL_NAME_PORT_NAME, "目标实体"}
     input_names = extract_port_names(node.get("inputs", []) or [])
 
     for param_name, expected_type in param_type_map.items():
@@ -526,7 +587,9 @@ def _validate_signal_wire_types_for_send_node(
             if src_def is None:
                 continue
             src_type = _get_port_type_safe(src_def, src_port_name, is_input=False)
-            if not src_type or src_type == "泛型":
+            # 端口类型为空或属于“泛型家族”（如 泛型 / 泛型列表 / 泛型字典 等）时，不做严格比对，
+            # 仅对具体类型（整数 / 字符串 / 整数列表 等）执行精确匹配。
+            if _is_generic_family_type(src_type):
                 continue
             if src_type != expected_type:
                 node_detail = dict(detail)
@@ -577,7 +640,8 @@ def _validate_signal_wire_types_for_listen_node(
             if dst_def is None:
                 continue
             dst_type = _get_port_type_safe(dst_def, dst_port_name, is_input=True)
-            if not dst_type or dst_type == "泛型":
+            # 同发送侧规则：当目标端口类型为空或属于“泛型家族”时，跳过严格类型检查。
+            if _is_generic_family_type(dst_type):
                 continue
             if dst_type != expected_type:
                 node_detail = dict(detail)
@@ -602,6 +666,56 @@ def _validate_signal_wire_types_for_listen_node(
                     )
                 )
     return issues
+
+
+def _infer_signal_id_from_constants(
+    node: Dict[str, Any],
+    signal_definitions: Dict[str, SignalDefinition],
+) -> str:
+    """根据节点上的“信号名”输入常量推断信号 ID。
+
+    约定：
+    - 常量文本被视为信号的“显示名称”（SignalDefinition.signal_name）；
+    - 不再接受直接填写信号 ID，ID 仅通过绑定或 register_handlers 传入；
+    - 只在节点本身尚未绑定 signal_id 时作为智能回退使用。
+    """
+    if not signal_definitions:
+        return ""
+
+    input_constants = node.get("input_constants", {}) or {}
+    if not isinstance(input_constants, dict):
+        return ""
+
+    raw_value = input_constants.get(SIGNAL_NAME_PORT_NAME)
+    if raw_value is None:
+        return ""
+
+    text = str(raw_value).strip()
+    if not text:
+        return ""
+
+    # 按 signal_name 匹配到对应的 ID
+    for signal_id, signal_def in signal_definitions.items():
+        signal_name_value = getattr(signal_def, "signal_name", None)
+        if str(signal_name_value or "").strip() == text:
+            return str(signal_id)
+
+    return ""
+
+
+def _is_generic_family_type(type_name: object) -> bool:
+    """判定是否属于“泛型家族”类型名（用于连线类型宽松检查）。
+
+    约定：
+    - 与端口类型推断模块保持一致：空字符串 / "泛型" / 以 "泛型" 开头的类型名均视为泛型家族；
+    - 包括但不限于："泛型"、"泛型列表"、"泛型字典" 等。
+    """
+    if not isinstance(type_name, str):
+        return False
+    text = type_name.strip()
+    if text == "" or text == "泛型" or text.startswith("泛型"):
+        return True
+    return False
 
 
 def _get_port_type_safe(node_def: NodeDef, port_name: str, is_input: bool) -> str:

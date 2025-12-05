@@ -520,6 +520,11 @@ def build_graph_model(
             category=node.get("category", ""),
             pos=node.get("position", node.get("pos", (0, 0))),
         )
+        # 恢复可选的源码行范围（若存在则用于错误定位）
+        node_model.source_lineno = int(node.get("source_lineno", 0) or 0)
+        node_model.source_end_lineno = int(
+            node.get("source_end_lineno", node_model.source_lineno or 0) or 0
+        )
         for node_input in node.get("inputs", []):
             port_name = node_input if isinstance(node_input, str) else node_input.get("name", "")
             if port_name:
@@ -635,7 +640,9 @@ def _normalize_graph_components(
     nodes: Optional[List[Dict[str, Any]]] = None,
     edges: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    normalized_nodes = nodes if nodes is not None else normalize_graph_nodes(graph_data.get("nodes", []))
+    normalized_nodes = nodes if nodes is not None else normalize_graph_nodes(
+        graph_data.get("nodes", [])
+    )
     if edges is not None:
         normalized_edges = list(edges)
     else:

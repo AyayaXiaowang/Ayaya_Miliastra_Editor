@@ -120,14 +120,14 @@ def try_unique_ratio_alignment(
     ratio_tolerance: float = UNIQUE_RATIO_TOLERANCE,
 ) -> bool:
     if len(unique_titles) < UNIQUE_RATIO_MIN_REFERENCES:
-        executor._log(
+        executor.log(
             f"[唯一比例] 候选不足：{len(unique_titles)} < {UNIQUE_RATIO_MIN_REFERENCES}",
             log_callback,
         )
         return False
     points = _collect_unique_alignment_points(unique_titles, mappings)
     if len(points) < UNIQUE_RATIO_MIN_REFERENCES:
-        executor._log(
+        executor.log(
             f"[唯一比例] 可用节点不足：{len(points)} < {UNIQUE_RATIO_MIN_REFERENCES}",
             log_callback,
         )
@@ -135,7 +135,7 @@ def try_unique_ratio_alignment(
     scale_x = _compute_axis_scale(points, axis=0, tolerance=float(ratio_tolerance))
     scale_y = _compute_axis_scale(points, axis=1, tolerance=float(ratio_tolerance))
     if scale_x is None and scale_y is None:
-        executor._log("[唯一比例] 计算失败：X/Y 均无有效比例", log_callback)
+        executor.log("[唯一比例] 计算失败：X/Y 均无有效比例", log_callback)
         return False
     if scale_x is None:
         scale_x = scale_y if scale_y is not None else 1.0
@@ -144,7 +144,7 @@ def try_unique_ratio_alignment(
     tx = _compute_axis_translation(points, axis=0, scale_val=float(scale_x))
     ty = _compute_axis_translation(points, axis=1, scale_val=float(scale_y))
     if tx is None or ty is None:
-        executor._log("[唯一比例] 平移估算失败：无可用参考", log_callback)
+        executor.log("[唯一比例] 平移估算失败：无可用参考", log_callback)
         return False
     if not _validate_unique_alignment(
         points,
@@ -154,12 +154,12 @@ def try_unique_ratio_alignment(
         float(ty),
         float(UNIQUE_RATIO_MAX_RESIDUAL_PX),
     ):
-        executor._log("[唯一比例] 验证失败：残差超限", log_callback)
+        executor.log("[唯一比例] 验证失败：残差超限", log_callback)
         return False
     measured_avg = float((float(scale_x) + float(scale_y)) * 0.5)
     executor.scale_ratio = FIXED_SCALE_RATIO
     executor.origin_node_pos = (int(round(tx)), int(round(ty)))
-    executor._log(
+    executor.log(
         f"[唯一比例] 对齐成功：参与 {len(points)} 个，ratio_x={float(scale_x):.4f} ratio_y={float(scale_y):.4f} "
         f"avg≈{measured_avg:.4f}→固定 {executor.scale_ratio:.2f}",
         log_callback,
@@ -178,7 +178,7 @@ def try_unique_ratio_alignment(
             }
             for point in points
         ]
-        executor._emit_visual(screenshot, {"rects": rects}, visual_callback)
+        executor.emit_visual(screenshot, {"rects": rects}, visual_callback)
     return True
 
 
@@ -253,12 +253,12 @@ def try_unique_anchor_pair_transform(
 ) -> bool:
     anchors = list(iter_unique_anchor_candidates(mappings))
     if len(anchors) < 2:
-        executor._log("[锚点] 未采用：唯一标题不足2个", log_callback)
+        executor.log("[锚点] 未采用：唯一标题不足2个", log_callback)
         return False
 
     detection_total = sum(len(mappings.name_to_detections.get(name, [])) for name in mappings.shared_names)
     min_required_matches = max(2, min(ANCHOR_PAIR_MIN_MATCHES, detection_total))
-    executor._log(
+    executor.log(
         f"[锚点] 尝试唯一锚点对齐：anchors={len(anchors)} 目标命中≥{min_required_matches} 比例≥{ANCHOR_PAIR_MIN_RATIO:.2f}",
         log_callback,
     )
@@ -315,7 +315,7 @@ def try_unique_anchor_pair_transform(
                         }
 
     if best_choice is None:
-        executor._log(
+        executor.log(
             f"[锚点] 未采用：anchors={len(anchors)} 支持={best_eval_matches}/{detection_total} ({best_eval_ratio:.2f}) "
             f"阈值: 匹配≥{min_required_matches}, 比例≥{ANCHOR_PAIR_MIN_RATIO:.2f}",
             log_callback,
@@ -332,7 +332,7 @@ def try_unique_anchor_pair_transform(
     total_cnt = best_choice["support"]["total_count"]
     ratio = best_choice["support"]["ratio"]
     anchor_names = ", ".join(name for name, _ in best_choice["anchors"])
-    executor._log(
+    executor.log(
         f"⚠ 唯一锚点降级：使用 {anchor_names} 对齐 scale_est≈{measured_scale:.4f}→固定 {executor.scale_ratio:.2f} "
         f"命中={matched_cnt}/{total_cnt} ({ratio:.2f})",
         log_callback,
@@ -347,7 +347,7 @@ def try_unique_anchor_pair_transform(
                     "label": f"锚点·{anchor_name}",
                 }
             )
-        executor._emit_visual(screenshot, {"rects": rects}, visual_callback)
+        executor.emit_visual(screenshot, {"rects": rects}, visual_callback)
     return True
 
 
@@ -361,12 +361,12 @@ def try_single_anchor_scale_transform(
 ) -> bool:
     anchors = list(iter_unique_anchor_candidates(mappings))
     if len(anchors) < 1:
-        executor._log("[单锚] 未采用：唯一标题不足1个", log_callback)
+        executor.log("[单锚] 未采用：唯一标题不足1个", log_callback)
         return False
 
     detection_total = sum(len(mappings.name_to_detections.get(name, [])) for name in mappings.shared_names)
     min_required_matches = max(2, min(SINGLE_ANCHOR_MIN_MATCHES, detection_total))
-    executor._log(
+    executor.log(
         f"[单锚] 尝试单一锚点估算：anchors={len(anchors)} 目标命中≥{min_required_matches} 比例≥{SINGLE_ANCHOR_MIN_RATIO:.2f}",
         log_callback,
     )
@@ -431,7 +431,7 @@ def try_single_anchor_scale_transform(
                 }
 
     if best_choice is None:
-        executor._log(
+        executor.log(
             f"[单锚] 未采用：支持={best_eval_matches}/{detection_total} ({best_eval_ratio:.2f}) "
             f"阈值: 匹配≥{min_required_matches}, 比例≥{float(SINGLE_ANCHOR_MIN_RATIO):.2f}",
             log_callback,
@@ -445,7 +445,7 @@ def try_single_anchor_scale_transform(
     total_cnt = best_choice["support"]["total_count"]
     ratio = best_choice["support"]["ratio"]
     anchor_name = best_choice["anchor"][0]
-    executor._log(
+    executor.log(
         f"⚠ 单锚估算：使用 {anchor_name} 对齐 scale_est≈{measured_scale:.4f}→固定 {executor.scale_ratio:.2f} "
         f"命中={matched_cnt}/{total_cnt} ({ratio:.2f})",
         log_callback,
@@ -459,6 +459,6 @@ def try_single_anchor_scale_transform(
                 "label": f"单锚·{anchor_name}",
             }
         ]
-        executor._emit_visual(screenshot, {"rects": rects}, visual_callback)
+        executor.emit_visual(screenshot, {"rects": rects}, visual_callback)
     return True
 

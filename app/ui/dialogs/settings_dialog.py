@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
+import sys
 
 from ui.foundation.base_widgets import BaseDialog
 from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
@@ -90,14 +91,20 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         
         # 底部按钮
         button_layout = QtWidgets.QHBoxLayout()
-        
+
         # 重置为默认值按钮
         reset_button = QtWidgets.QPushButton("重置为默认值")
         reset_button.clicked.connect(self._reset_to_defaults)
         button_layout.addWidget(reset_button)
-        
+
+        # 清除所有缓存按钮
+        clear_cache_button = QtWidgets.QPushButton("清除所有缓存")
+        clear_cache_button.setToolTip("清除内存缓存与磁盘上的节点图缓存（runtime/cache/graph_cache）")
+        clear_cache_button.clicked.connect(self._clear_all_caches)
+        button_layout.addWidget(clear_cache_button)
+
         button_layout.addStretch()
-        
+
         layout.addLayout(button_layout)
 
         # 安装滚轮保护占位（具体逻辑由 ThemeManager.apply_app_style 提供的全局过滤器统一处理）
@@ -242,7 +249,9 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
             "注意：修改此设置后，需要关闭并重新打开存档，\n"
             "或手动触发任务清单重新生成才能看到效果。"
         )
-        info_label.setStyleSheet("color: #666; font-size: 10px; padding-left: 20px;")
+        info_label.setStyleSheet(
+            f"color: {Colors.TEXT_SECONDARY}; font-size: 10px; padding-left: 20px;"
+        )
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
         
@@ -252,7 +261,25 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         """创建执行与系统设置组"""
         group = QtWidgets.QGroupBox("执行与系统")
         layout = QtWidgets.QVBoxLayout(group)
-        
+
+        # 界面主题模式
+        theme_layout = QtWidgets.QHBoxLayout()
+        theme_label = QtWidgets.QLabel("界面主题：")
+        self.ui_theme_combo = QtWidgets.QComboBox()
+        self.ui_theme_combo.addItem("跟随系统（推荐）", "auto")
+        self.ui_theme_combo.addItem("浅色主题", "light")
+        self.ui_theme_combo.addItem("深色主题", "dark")
+        self.ui_theme_combo.setToolTip(
+            "选择界面整体的浅色/深色主题。\n"
+            "跟随系统：根据操作系统的浅色/深色模式自动切换。\n"
+            "浅色/深色：固定使用对应主题，不随系统变化。\n"
+            "⚠️ 更改后需要重新启动程序才能完全生效。"
+        )
+        theme_layout.addWidget(theme_label)
+        theme_layout.addWidget(self.ui_theme_combo)
+        theme_layout.addStretch()
+        layout.addLayout(theme_layout)
+
         # 自动保存间隔
         auto_save_layout = QtWidgets.QHBoxLayout()
         auto_save_label = QtWidgets.QLabel("自动保存间隔（秒）：")
@@ -332,17 +359,6 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         drag_mode_layout.addWidget(self.drag_mode_combo)
         drag_mode_layout.addStretch()
         layout.addLayout(drag_mode_layout)
-        
-        # 缓存管理
-        cache_layout = QtWidgets.QHBoxLayout()
-        cache_label = QtWidgets.QLabel("缓存管理：")
-        clear_cache_button = QtWidgets.QPushButton("清除所有缓存")
-        clear_cache_button.setToolTip("清除内存缓存与磁盘上的节点图缓存（runtime/cache/graph_cache）")
-        clear_cache_button.clicked.connect(self._clear_all_caches)
-        cache_layout.addWidget(cache_label)
-        cache_layout.addWidget(clear_cache_button)
-        cache_layout.addStretch()
-        layout.addLayout(cache_layout)
 
         return group
     
@@ -360,6 +376,10 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         self.real_exec_verbose_checkbox.setChecked(settings.REAL_EXEC_VERBOSE)
         self.todo_merge_checkbox.setChecked(settings.TODO_MERGE_CONNECTION_STEPS)
         self.data_node_copy_checkbox.setChecked(settings.DATA_NODE_CROSS_BLOCK_COPY)
+        # 界面主题模式
+        current_theme_mode = getattr(settings, "UI_THEME_MODE", "auto")
+        idx_theme = self.ui_theme_combo.findData(current_theme_mode)
+        self.ui_theme_combo.setCurrentIndex(idx_theme if idx_theme != -1 else 0)
         # 加载步骤模式
         current_mode = getattr(settings, "TODO_GRAPH_STEP_MODE", "human")
         idx = self.todo_mode_combo.findData(current_mode)
@@ -396,6 +416,7 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         """保存设置并关闭对话框"""
         # 检查是否修改了需要重启的设置
         node_loading_changed = (self.node_loading_checkbox.isChecked() != settings.NODE_LOADING_VERBOSE)
+        old_theme_mode = getattr(settings, "UI_THEME_MODE", "auto")
         
         # 记录关键开关的旧值（用于触发一次性重载）
         old_cross_block_copy = bool(settings.DATA_NODE_CROSS_BLOCK_COPY)
@@ -411,6 +432,8 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         settings.REAL_EXEC_VERBOSE = self.real_exec_verbose_checkbox.isChecked()
         settings.TODO_MERGE_CONNECTION_STEPS = self.todo_merge_checkbox.isChecked()
         settings.DATA_NODE_CROSS_BLOCK_COPY = self.data_node_copy_checkbox.isChecked()
+        new_theme_mode = self.ui_theme_combo.currentData()
+        settings.UI_THEME_MODE = new_theme_mode
         # 若跨块复制开关发生变化（True↔False）：在下次自动排版前强制以 .py 重新解析当前图
         if bool(old_cross_block_copy) != bool(settings.DATA_NODE_CROSS_BLOCK_COPY):
             parent = self.parent()
@@ -428,16 +451,42 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         
         # 保存到文件
         if settings.save():
-            # 如果修改了需要重启的设置，提示用户
+            # 如果修改了需要重启的设置，提示用户/询问是否立即重启
+            theme_mode_changed = (new_theme_mode != old_theme_mode)
+            if theme_mode_changed:
+                # 优先处理主题更改：询问是否立即重启以应用新主题
+                should_restart = self.confirm(
+                    "设置已保存",
+                    "您的设置已成功保存并立即生效。\n\n"
+                    "界面主题的更改需要重启程序才能完全生效。\n\n"
+                    "是否立即重启程序以应用新的界面主题？",
+                )
+                self.accept()
+                if should_restart:
+                    self._restart_application()
+                return
             if node_loading_changed:
                 self.show_info(
                     "设置已保存",
-                    "您的设置已成功保存并立即生效。\n\n注意：\"节点加载详细日志\"选项需要重启程序才能生效。"
+                    "您的设置已成功保存并立即生效。\n\n注意：\"节点加载详细日志\"选项需要重启程序才能生效。",
                 )
             self.accept()
         else:
             self.show_warning("保存失败", "设置已应用但未能保存到配置文件。\n程序重启后将使用默认设置。")
             self.accept()
+
+    def _restart_application(self) -> None:
+        """重启整个应用以应用需要启动阶段生效的设置（如界面主题）。
+
+        实现方式：
+        - 使用当前 Python 解释器通过 `-m app.cli.run_app` 启动一个新进程；
+        - 退出当前 QApplication。
+        """
+        app = QtWidgets.QApplication.instance()
+        if app is None:
+            return
+        QtCore.QProcess.startDetached(sys.executable, ["-m", "app.cli.run_app"])
+        app.quit()
 
     def _update_hybrid_controls_enabled(self) -> None:
         """根据当前鼠标执行模式，启用/禁用混合参数控件"""

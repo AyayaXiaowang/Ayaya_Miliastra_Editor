@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Optional, Tuple, Dict, Any, Callable, List
 from PIL import Image
 
-from app.automation.core.executor_protocol import EditorExecutorProtocol
+from app.automation.core.executor_protocol import EditorExecutorProtocol, AutomationStepContext
 from app.automation import capture as editor_capture
 from app.automation.core import executor_utils as _exec_utils
 from app.automation.ports._ports import is_data_input_port, is_flow_output_port
@@ -17,6 +17,7 @@ from app.automation.ports.port_picker import pick_port_center_for_node
 from app.automation.input.common import build_graph_region_overlay, sleep_seconds
 from app.automation.ports._type_utils import infer_type_from_value
 from engine.graph.models.graph_model import NodeModel
+from app.automation.vision import list_ports as list_ports_for_bbox
 
 from app.automation.config.config_params_helpers import (
     compute_port_ordinal_in_model,
@@ -60,10 +61,11 @@ def log_port_candidates_debug(
     from engine.utils.graph.graph_utils import is_flow_port_name
     
     # 模型端口顺序
-    model_inputs_seq = [(p.name, ('flow' if is_flow_port_name(p.name) else 'data')) for p in (node.inputs or [])]
-    executor._log(
-        "[序号] 模型端口顺序(输入): " + ", ".join([f"{i}:{n}[{k}]" for i, (n, k) in enumerate(model_inputs_seq)]),
-        log_callback
+    model_inputs_seq = [(p.name, ("flow" if is_flow_port_name(p.name) else "data")) for p in (node.inputs or [])]
+    executor.log(
+        "[序号] 模型端口顺序(输入): "
+        + ", ".join([f"{i}:{n}[{k}]" for i, (n, k) in enumerate(model_inputs_seq)]),
+        log_callback,
     )
 
 
@@ -87,41 +89,55 @@ def locate_input_port(
     planned_ordinal = compute_port_ordinal_in_model(node, param_name, expected_kind)
     
     # 获取屏幕候选并输出调试日志
-    ports_all_debug = ports_snapshot if ports_snapshot is not None else list_ports_for_bbox(screenshot, node_bbox)
+    if ports_snapshot is not None:
+        ports_all_debug = ports_snapshot
+    else:
+        list_ports_func = globals().get("list_ports_for_bbox")
+        if list_ports_func is None:
+            executor.log("✗ 未提供端口识别函数 list_ports_for_bbox，无法定位输入端口", log_callback)
+            return None
+        ports_all_debug = list_ports_func(screenshot, node_bbox)
     screen_candidates = filter_screen_input_candidates(ports_all_debug, expected_kind)
-    
-    executor._log(f"[序号] 屏幕候选(输入-从上到下): {format_candidates_brief(screen_candidates)}", log_callback)
-    executor._log(
+
+    executor.log(f"[序号] 屏幕候选(输入-从上到下): {format_candidates_brief(screen_candidates)}", log_callback)
+    executor.log(
         f"[序号] 计划序号(输入): {str(planned_ordinal) if planned_ordinal is not None else 'None'} 对应端口='{param_name}'",
-        log_callback
+        log_callback,
     )
     
     # 定位端口中心
     port_center = pick_port_center_for_node(
-            executor,
-            screenshot,
-            node_bbox,
-            param_name,
-            want_output=False,
-            expected_kind=expected_kind,
-            log_callback=log_callback,
-            ordinal_fallback_index=planned_ordinal,
-            ports_list=ports_all_debug,
+        executor,
+        screenshot,
+        node_bbox,
+        param_name,
+        want_output=False,
+        expected_kind=expected_kind,
+        log_callback=log_callback,
+        ordinal_fallback_index=planned_ordinal,
+        ports_list=ports_all_debug,
+        list_ports_for_bbox_func=list_ports_for_bbox,
     )
     
     if port_center == (0, 0):
-        executor._log(f"✗ 未能定位端口: {param_name}", log_callback)
+        executor.log(f"✗ 未能定位端口: {param_name}", log_callback)
         return None
     
     # 若定位到的端口中心已被使用，则改用未使用的下一个候选
     if check_center_used(port_center, used_centers):
         alt = pick_unused_port_center(screen_candidates, planned_ordinal, used_centers)
         if isinstance(alt, tuple) and len(alt) == 2:
-            executor._log(f"[参数配置] 端口中心已使用，改用未使用候选 center(editor)=({int(alt[0])},{int(alt[1])})", log_callback)
+            executor.log(
+                f"[参数配置] 端口中心已使用，改用未使用候选 center(editor)=({int(alt[0])},{int(alt[1])})",
+                log_callback,
+            )
             port_center = (int(alt[0]), int(alt[1]))
-    
-    executor._log(f"[参数配置] 端口 '{param_name}' 定位 center(editor)=({int(port_center[0])},{int(port_center[1])})", log_callback)
-    
+
+    executor.log(
+        f"[参数配置] 端口 '{param_name}' 定位 center(editor)=({int(port_center[0])},{int(port_center[1])})",
+        log_callback,
+    )
+
     return port_center
 
 
@@ -140,11 +156,18 @@ def _find_warning_region_generic(
     missing_current_msg: str,
     ports_snapshot: Optional[List[Any]] = None,
 ) -> Optional[Tuple[Tuple[int, int, int, int], Any, Any]]:
-    ports_all = list(ports_snapshot) if ports_snapshot is not None else list_ports_for_bbox(screenshot, node_bbox)
+    if ports_snapshot is not None:
+        ports_all = list(ports_snapshot)
+    else:
+        list_ports_func = globals().get("list_ports_for_bbox")
+        if list_ports_func is None:
+            executor.log(f"{log_prefix} ✗ 未提供端口识别函数 list_ports_for_bbox，无法计算 Warning 区域", log_callback)
+            return None
+        ports_all = list_ports_func(screenshot, node_bbox)
     ports_filtered = [p for p in ports_all if port_selector(p)]
     if len(ports_filtered) == 0:
         if no_ports_msg:
-            executor._log(no_ports_msg, log_callback)
+            executor.log(no_ports_msg, log_callback)
         return None
 
     current_center_y = int(port_center[1])
@@ -157,7 +180,7 @@ def _find_warning_region_generic(
         current_port = sorted(ports_filtered, key=lambda p: abs(int(getattr(p, 'center', (0, 0))[1]) - current_center_y))[0]
 
     if current_port is None:
-        executor._log(missing_current_msg, log_callback)
+        executor.log(missing_current_msg, log_callback)
         return None
 
     current_top_y = int(current_port.bbox[1])
@@ -184,7 +207,7 @@ def _find_warning_region_generic(
     v_bottom = min(node_bottom, center_y + 18)
 
     if search_right <= search_left or v_bottom <= v_top:
-        executor._log(f"{log_prefix} ✗ Warning 搜索区域非法", log_callback)
+        executor.log(f"{log_prefix} ✗ Warning 搜索区域非法", log_callback)
         return None
 
     search_region = (
@@ -193,7 +216,7 @@ def _find_warning_region_generic(
         int(search_right - search_left),
         int(v_bottom - v_top),
     )
-    executor._log(
+    executor.log(
         f"{log_prefix} Warning 模板搜索区域 editor=({search_region[0]},{search_region[1]},{search_region[2]},{search_region[3]})",
         log_callback,
     )
@@ -205,12 +228,12 @@ def _find_warning_region_generic(
         next_name = str(getattr(next_port, 'name_cn', '') or '')
         next_index = str(getattr(next_port, 'index', ''))
         next_bbox = tuple(int(v) for v in getattr(next_port, 'bbox', (0, 0, 0, 0)))
-        executor._log(
+        executor.log(
             f"{log_prefix} 基准端口: 当前(name='{current_name}', index={current_index}, bbox={current_bbox}) → 下一(name='{next_name}', index={next_index}, bbox={next_bbox})",
             log_callback,
         )
     else:
-        executor._log(
+        executor.log(
             f"{log_prefix} 基准端口: 当前(name='{current_name}', index={current_index}, bbox={current_bbox}) → 下一(None, 使用节点底部={int(node_bottom)})",
             log_callback,
         )
@@ -224,29 +247,35 @@ def handle_boolean_param(
     param_value: str,
     log_callback: Optional[Callable[[str], None]]
 ) -> bool:
-    """处理布尔参数（值为"否"时点击两次）。
-    
+    """处理布尔参数（统一执行两次点击，根据目标值调整第二次点击位置）。
+
     Returns:
-        是否需要继续后续处理（值为"是"时返回False表示跳过）
+        是否需要继续后续处理（布尔处理完毕后返回 False 表示跳过后续 Warning / 普通参数流程）
     """
-    if param_value == "是":
-        executor._log(f"· 布尔『{param_name}』=是，无需额外操作", log_callback)
-        return False  # 跳过
-    
+    is_param_value_yes = param_value == "是"
+    if is_param_value_yes:
+        executor.log(f"· 布尔『{param_name}』=是，执行两次点击设置为“是”", log_callback)
+    else:
+        executor.log(f"· 布尔『{param_name}』≠是，执行两次点击设置为“否”", log_callback)
+
     port_x, port_y = int(port_center[0]), int(port_center[1])
     
     # 点击第一次
     click1_x, click1_y = executor.convert_editor_to_screen_coords(port_x + 50, port_y + 25)
-    executor._log(f"[参数配置/布尔] 点击#1 偏移(+50,+25) screen=({click1_x},{click1_y})", log_callback)
+    executor.log(f"[参数配置/布尔] 点击#1 偏移(+50,+25) screen=({click1_x},{click1_y})", log_callback)
     _exec_utils.click_and_verify(executor, click1_x, click1_y, "[参数配置/布尔] 点击#1", log_callback)
 
     # 无论是否处于快速链模式，布尔参数两次点击之间都固定等待 0.5 秒
-    executor._log("等待 0.50 秒（布尔参数固定节奏）", log_callback)
+    executor.log("等待 0.50 秒（布尔参数固定节奏）", log_callback)
     sleep_seconds(0.5)
 
     # 点击第二次
-    click2_x, click2_y = executor.convert_editor_to_screen_coords(port_x + 50, port_y + 45)
-    executor._log(f"[参数配置/布尔] 点击#2 偏移(+50,+45) screen=({click2_x},{click2_y})", log_callback)
+    second_click_offset_y = 65 if is_param_value_yes else 45
+    click2_x, click2_y = executor.convert_editor_to_screen_coords(port_x + 50, port_y + second_click_offset_y)
+    executor.log(
+        f"[参数配置/布尔] 点击#2 偏移(+50,+{second_click_offset_y}) screen=({click2_x},{click2_y})",
+        log_callback,
+    )
     _exec_utils.click_and_verify(executor, click2_x, click2_y, "[参数配置/布尔] 点击#2", log_callback)
     
     return False  # 布尔处理完毕，跳过后续
@@ -348,8 +377,8 @@ def handle_regular_param_with_warning(
     warning_y = int(match_y + match_h // 2)
     
     screen_x, screen_y = executor.convert_editor_to_screen_coords(warning_x, warning_y)
-    
-    executor._log(
+
+    executor.log(
         f"{log_prefix} 点击 Warning: editor=({warning_x},{warning_y}) screen=({screen_x},{screen_y}) 模板='Warning.png' 命中bbox=({match_x},{match_y},{match_w},{match_h}) conf={conf:.2f}",
         log_callback,
     )
@@ -371,12 +400,115 @@ def handle_regular_param_with_warning(
     
     _exec_utils.click_and_verify(executor, screen_x, screen_y, f"{log_prefix} 点击 Warning", log_callback)
     _exec_utils.log_wait_if_needed(executor, 0.2, "等待 0.20 秒", log_callback)
-    
-    executor._log(f"{log_prefix} 注入参数值: '{param_value}' (len={len(param_value)})", log_callback)
-    if not executor._input_text_with_hooks(param_value, pause_hook, allow_continue, log_callback):
+
+    executor.log(f"{log_prefix} 注入参数值: '{param_value}' (len={len(param_value)})", log_callback)
+    if not executor.input_text_with_hooks(param_value, pause_hook, allow_continue, log_callback):
         return False
     _exec_utils.log_wait_if_needed(executor, 0.1, "等待 0.10 秒", log_callback)
     
+    return True
+
+
+def handle_enum_param(
+    executor: EditorExecutorProtocol,
+    screenshot: Image.Image,
+    search_region: Tuple[int, int, int, int],
+    enum_index: int,
+    pause_hook: Optional[Callable[[], None]],
+    allow_continue: Optional[Callable[[], bool]],
+    log_callback: Optional[Callable[[str], None]],
+    visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]],
+    *,
+    log_prefix: str = "[参数配置/枚举]",
+) -> bool:
+    """
+    处理枚举参数：基于 Warning 模板定位下拉触发区域，再按“第几个”选项进行几何点击。
+
+    enum_index:
+        从 1 开始的枚举项序号（1 表示第一个选项）。
+    """
+    search_left, search_top, search_width, search_height = search_region
+
+    if visual_callback is not None:
+        rects = [{
+            'bbox': (search_left, search_top, search_width, search_height),
+            'color': (255, 180, 0),
+            'label': '枚举 Warning 搜索区域',
+        }]
+        visual_callback(screenshot, {'rects': rects})
+
+    warning_match = editor_capture.match_template(
+        screenshot,
+        str(executor.node_warning_template_path),
+        search_region=search_region,
+    )
+
+    if not warning_match:
+        return False
+
+    match_x, match_y, match_w, match_h, conf = warning_match
+    warning_center_x = int(match_x + match_w // 2)
+    warning_center_y = int(match_y + match_h // 2)
+
+    executor.log(
+        f"{log_prefix} 命中 Warning: editor=({warning_center_x},{warning_center_y}) "
+        f"bbox=({match_x},{match_y},{match_w},{match_h}) conf={conf:.2f}",
+        log_callback,
+    )
+
+    # 第一次点击：以 Warning 模板尺寸为单位，点击其左下角外侧一点
+    # - 向左偏移一个模板宽度
+    # - 向下偏移一个模板高度
+    first_click_editor_x = int(warning_center_x - match_w)
+    first_click_editor_y = int(warning_center_y + match_h)
+    first_screen_x, first_screen_y = executor.convert_editor_to_screen_coords(
+        first_click_editor_x,
+        first_click_editor_y,
+    )
+    executor.log(
+        f"{log_prefix} 点击#1 基于模板尺寸偏移 editor=({first_click_editor_x},{first_click_editor_y}) "
+        f"screen=({first_screen_x},{first_screen_y}) 宽度={match_w} 高度={match_h}",
+        log_callback,
+    )
+    _exec_utils.click_and_verify(
+        executor,
+        first_screen_x,
+        first_screen_y,
+        f"{log_prefix} 点击#1",
+        log_callback,
+    )
+
+    _exec_utils.log_wait_if_needed(executor, 0.2, f"{log_prefix} 等待 0.20 秒", log_callback)
+
+    # 第二次点击：按序号向下移动，每个选项垂直间距 20
+    # 约定：
+    #   - 第 1 个枚举项：在第一次点击位置基础上再向下 20 像素
+    #   - 第 2 个枚举项：在第一次点击位置基础上再向下 40 像素
+    #   - 依此类推 → 偏移量 = 20 * enum_index_safe
+    option_spacing_pixels = 20
+    enum_index_safe = enum_index if enum_index > 0 else 1
+    second_click_editor_x = first_click_editor_x
+    second_click_editor_y = first_click_editor_y + option_spacing_pixels * enum_index_safe
+    second_screen_x, second_screen_y = executor.convert_editor_to_screen_coords(
+        second_click_editor_x,
+        second_click_editor_y,
+    )
+    executor.log(
+        f"{log_prefix} 点击#2 目标序号={enum_index_safe} 偏移(0,+{option_spacing_pixels * enum_index_safe}) "
+        f"editor=({second_click_editor_x},{second_click_editor_y}) "
+        f"screen=({second_screen_x},{second_screen_y})",
+        log_callback,
+    )
+    _exec_utils.click_and_verify(
+        executor,
+        second_screen_x,
+        second_screen_y,
+        f"{log_prefix} 点击#2",
+        log_callback,
+    )
+
+    _exec_utils.log_wait_if_needed(executor, 0.1, f"{log_prefix} 等待 0.10 秒", log_callback)
+
     return True
 
 
@@ -403,12 +535,12 @@ def handle_regular_param_fallback(
         成功返回True
     """
     port_x, port_y = int(port_center[0]), int(port_center[1])
-    
-    executor._log(f"{log_prefix} Warning 未命中，改用端口偏移点击后输入", log_callback)
-    
+
+    executor.log(f"{log_prefix} Warning 未命中，改用端口偏移点击后输入", log_callback)
+
     offset_x, offset_y = fallback_click_offset
     fallback_x, fallback_y = executor.convert_editor_to_screen_coords(port_x + offset_x, port_y + offset_y)
-    executor._log(
+    executor.log(
         f"{log_prefix} Fallback 点击 偏移({offset_x:+d},{offset_y:+d}) screen=({fallback_x},{fallback_y})",
         log_callback,
     )
@@ -416,30 +548,48 @@ def handle_regular_param_fallback(
     
     _exec_utils.log_wait_if_needed(executor, 0.2, "等待 0.20 秒", log_callback)
     
-    # 三维向量：点击后重新截图，使用OCR方式输入
+    # 三维向量：点击后重新截图，使用 OCR 方式输入
     if isinstance(effective_type, str) and ("三维向量" in effective_type):
         screenshot_vec = editor_capture.capture_window(executor.window_title)
         if not screenshot_vec:
-            executor._log("✗ 截图失败（向量OCR）", log_callback)
+            executor.log("✗ 截图失败（向量OCR）", log_callback)
             return False
-        
+
         # 重新计算搜索区域（与前面逻辑一致）
-        result = find_warning_region_for_port(executor, screenshot_vec, node_bbox, port_center, "", log_callback)
+        result = find_warning_region_for_port(
+            executor,
+            screenshot_vec,
+            node_bbox,
+            port_center,
+            "",
+            log_callback,
+        )
         if result is None:
             return False
-        
+
         search_region, _cur, _nxt = result
-        
+
+        ctx_vec = AutomationStepContext(
+            log_callback=log_callback,
+            visual_callback=visual_callback,
+            pause_hook=pause_hook,
+            allow_continue=allow_continue,
+        )
+
         ok_vec = input_vector3_by_ocr(
-            executor, screenshot_vec, search_region, node_bbox, param_value,
-            pause_hook, allow_continue, log_callback, visual_callback
+            executor,
+            screenshot_vec,
+            search_region,
+            node_bbox,
+            param_value,
+            ctx_vec,
         )
         if not ok_vec:
-            executor._log("✗ 三维向量 OCR 未完成：终止该参数设置", log_callback)
+            executor.log("✗ 三维向量 OCR 未完成：终止该参数设置", log_callback)
             return False
     else:
-        executor._log(f"{log_prefix} 注入参数值: '{param_value}' (len={len(param_value)})", log_callback)
-        if not executor._input_text_with_hooks(param_value, pause_hook, allow_continue, log_callback):
+        executor.log(f"{log_prefix} 注入参数值: '{param_value}' (len={len(param_value)})", log_callback)
+        if not executor.input_text_with_hooks(param_value, pause_hook, allow_continue, log_callback):
             return False
     
     _exec_utils.log_wait_if_needed(executor, 0.1, "等待 0.10 秒", log_callback)

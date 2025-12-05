@@ -54,14 +54,27 @@ def find_event_roots(
         virtual_pin_nodes,
     )
 
-    # 当没有事件时：按"存在流程连线"的情况做回退
+    # 当没有事件时：根据流程节点与流程连线动态推断起点
     if not real_events:
-        if not has_flow_edges(model):
-            return []
-        # 搜索"流程入度为0"的流程节点（忽略虚拟引脚入边）
         flow_nodes = [
             node for node in all_nodes if any(is_flow_port_name(port.name) for port in node.inputs + node.outputs)
         ]
+        # 完全没有带流程端口的节点 → 纯数据图
+        if not flow_nodes:
+            return []
+
+        has_flow = has_flow_edges(model)
+        if not has_flow:
+            # 无任何流程边，但存在流程节点：
+            # - 优先选择具有流程入口端口的节点作为事件起点（例如“流程控制/执行节点”）；
+            # - 若没有带流程入口的节点，则退化为所有流程节点。
+            flow_entry_nodes = [
+                node for node in flow_nodes if any(is_flow_port_name(port.name) for port in node.inputs)
+            ]
+            candidates = flow_entry_nodes or flow_nodes
+            return sorted(candidates, key=get_node_order_key)
+
+        # 存在流程边但无显式事件节点：按"流程入度为0"的流程节点（忽略虚拟引脚入边）作为起点
         in_degree = _compute_flow_indegree(
             model,
             flow_nodes,

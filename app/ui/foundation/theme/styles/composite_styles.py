@@ -64,9 +64,18 @@ def card_list_style() -> str:
 
 
 def panel_style() -> str:
+    base_panel = f"""
+        QWidget {{
+            background-color: {Colors.BG_MAIN};
+            color: {Colors.TEXT_PRIMARY};
+        }}
+        QLabel {{
+            color: {Colors.TEXT_PRIMARY};
+        }}
+    """
     return _merge_segments(
         [
-            "QWidget { background-color: #FFFFFF; }",
+            base_panel,
             component_styles.input_style(),
             component_styles.button_style(),
             component_styles.list_style(),
@@ -77,8 +86,44 @@ def panel_style() -> str:
 
 
 def global_style() -> str:
+    base = f"""
+        QLabel {{
+            color: {Colors.TEXT_PRIMARY};
+        }}
+        QCheckBox, QRadioButton {{
+            color: {Colors.TEXT_PRIMARY};
+        }}
+        QToolBar {{
+            background-color: {Colors.BG_HEADER};
+            border: none;
+        }}
+        QToolButton {{
+            color: {Colors.TEXT_PRIMARY};
+            background: transparent;
+            padding: {Sizes.PADDING_SMALL}px {Sizes.PADDING_MEDIUM}px;
+            border-radius: {Sizes.RADIUS_SMALL}px;
+        }}
+        QToolButton:hover {{
+            background-color: {Colors.BG_CARD_HOVER};
+        }}
+        QToolButton:pressed {{
+            background-color: {Colors.BG_SELECTED};
+            color: {Colors.TEXT_ON_PRIMARY};
+        }}
+        QScrollArea {{
+            background-color: {Colors.BG_MAIN};
+            border: none;
+        }}
+        QScrollArea > QWidget {{
+            background-color: {Colors.BG_MAIN};
+        }}
+        QScrollArea > QWidget > QWidget {{
+            background-color: {Colors.BG_MAIN};
+        }}
+    """
     return _merge_segments(
         [
+            base,
             component_styles.button_style(),
             component_styles.input_style(),
             component_styles.tree_style(),

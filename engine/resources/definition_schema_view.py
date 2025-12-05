@@ -5,21 +5,14 @@ from typing import Dict
 
 from importlib.machinery import SourceFileLoader
 
-from engine.configs.specialized.struct_definitions_data import (
-    STRUCT_DEFINITION_PAYLOADS,
-)
-from engine.configs.specialized.signal_definitions_data import (
-    SIGNAL_DEFINITION_PAYLOADS,
-)
-
 
 class CodeSchemaResourceService:
-    """结构体 / 信号的代码级 Schema 载入服务（当前基于集中常量实现）。
+    """结构体 / 信号的代码级 Schema 载入服务（基于 assets 代码资源）。
 
     设计目标：
     - 为结构体与信号提供统一、只读的 {id: payload} 视图；
-    - 隔离具体数据来源（目前为 Python 常量，后续可以切换为 assets 代码资源）；
-    - 不在导入阶段访问磁盘或 ResourceManager，避免循环依赖。
+    - 隔离具体数据来源（当前从代码资源目录动态加载，必要时可在外部封装缓存）；
+    - 不在导入阶段访问 ResourceManager，避免循环依赖。
     """
 
     def _get_workspace_root(self) -> Path:
@@ -103,36 +96,16 @@ class CodeSchemaResourceService:
     def load_all_struct_definitions(self) -> Dict[str, Dict]:
         """加载所有结构体定义，返回 {struct_id: payload}。
 
-        优先从 assets 代码资源（ResourceType.STRUCT_DEFINITION_CODE）加载，
-        若未配置则回退到引擎配置中的集中常量。
+        仅从 assets 代码资源加载；若目录中没有任何结构体定义，则返回空字典。
         """
-        code_results = self._load_struct_definitions_from_code()
-        if code_results:
-            return code_results
-
-        results: Dict[str, Dict] = {}
-        for struct_id, payload in STRUCT_DEFINITION_PAYLOADS.items():
-            if not isinstance(payload, dict):
-                continue
-            results[str(struct_id)] = dict(payload)
-        return results
+        return self._load_struct_definitions_from_code()
 
     def load_all_signal_definitions(self) -> Dict[str, Dict]:
         """加载所有信号定义，返回 {signal_id: payload}。
 
-        优先从 assets 代码资源（ResourceType.SIGNAL_DEFINITION_CODE）加载，
-        若未配置则回退到引擎配置中的集中常量。
+        仅从 assets 代码资源加载；若目录中没有任何信号定义，则返回空字典。
         """
-        code_results = self._load_signal_definitions_from_code()
-        if code_results:
-            return code_results
-
-        results: Dict[str, Dict] = {}
-        for signal_id, payload in SIGNAL_DEFINITION_PAYLOADS.items():
-            if not isinstance(payload, dict):
-                continue
-            results[str(signal_id)] = dict(payload)
-        return results
+        return self._load_signal_definitions_from_code()
 
 
 class DefinitionSchemaView:

@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Optional, Set
 
 from PyQt6 import QtGui
 
+from ui.foundation.theme_manager import Colors
 from ui.scene.interaction_state import YDebugInteractionState
 
 
@@ -115,7 +116,12 @@ class YDebugHighlightManager:
             node_to_chain_ids.setdefault(flow_node_id, []).append(cid)
             chain_to_nodes.setdefault(cid, set()).add(flow_node_id)
 
-        palette_hex = ["#B388FF", "#00E5FF", "#FF9100", "#FF4081"]
+        palette_hex = [
+            Colors.YDEBUG_CHAIN_1,
+            Colors.YDEBUG_CHAIN_2,
+            Colors.YDEBUG_CHAIN_3,
+            Colors.YDEBUG_CHAIN_4,
+        ]
         palette = [QtGui.QColor(hex_color) for hex_color in palette_hex]
         chain_color_map: Dict[int, QtGui.QColor] = {}
         for idx, cid in enumerate(sorted(chain_to_nodes.keys())):

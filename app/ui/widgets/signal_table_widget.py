@@ -328,7 +328,7 @@ class SignalTableWidget(BaseCrudTableWidget):
         self.table.setItem(row_index, 1, param_item)
 
         desc_item = QtWidgets.QTableWidgetItem(signal_config.description or "无描述")
-        desc_item.setForeground(QtGui.QColor("#A0A0A0"))
+        desc_item.setForeground(QtGui.QColor(Colors.TEXT_SECONDARY))
         self.table.setItem(row_index, 2, desc_item)
 
         usage_entry = self._usage_stats.get(signal_id)
@@ -342,7 +342,7 @@ class SignalTableWidget(BaseCrudTableWidget):
         else:
             usage_text = "未使用"
         usage_item = QtWidgets.QTableWidgetItem(usage_text)
-        usage_item.setForeground(QtGui.QColor("#80A0FF"))
+        usage_item.setForeground(QtGui.QColor(Colors.PRIMARY_LIGHT))
         usage_item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.table.setItem(row_index, 3, usage_item)
 

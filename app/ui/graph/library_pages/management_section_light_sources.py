@@ -14,7 +14,9 @@ class LightSourcesSection(BaseManagementSection):
         for light_id, light_payload in package.management.light_sources.items():
             light_name_value = str(light_payload.get("light_name", ""))
             light_type_value = str(light_payload.get("light_type", "point"))
-            color_value = str(light_payload.get("color", "#FFFFFF"))
+            color_value = str(
+                light_payload.get("color", ThemeManager.Colors.TEXT_ON_PRIMARY)
+            )
             intensity_value = light_payload.get("intensity", 1.0)
             range_value = light_payload.get("range_distance", 10.0)
             description_value = str(light_payload.get("description", ""))
@@ -50,7 +52,7 @@ class LightSourcesSection(BaseManagementSection):
             "light_id": "",
             "light_name": "",
             "light_type": "point",
-            "color": "#FFFFFF",
+            "color": ThemeManager.Colors.TEXT_ON_PRIMARY,
             "intensity": 1.0,
             "range_distance": 10.0,
             "cast_shadows": True,
@@ -81,7 +83,7 @@ class LightSourcesSection(BaseManagementSection):
         )
         color_widget = builder.add_color_picker(
             "颜色:",
-            str(initial_values.get("color", "#FFFFFF")),
+            str(initial_values.get("color", ThemeManager.Colors.TEXT_ON_PRIMARY)),
         )
         intensity_widget = builder.add_double_spin_box(
             "强度:",
@@ -204,7 +206,7 @@ class LightSourcesSection(BaseManagementSection):
             "light_id": item_id,
             "light_name": light_payload.get("light_name", ""),
             "light_type": light_payload.get("light_type", "point"),
-            "color": light_payload.get("color", "#FFFFFF"),
+            "color": light_payload.get("color", ThemeManager.Colors.TEXT_ON_PRIMARY),
             "intensity": light_payload.get("intensity", 1.0),
             "range_distance": light_payload.get("range_distance", 10.0),
             "cast_shadows": light_payload.get("cast_shadows", True),
@@ -265,7 +267,9 @@ class LightSourcesSection(BaseManagementSection):
         def build_form(form_layout: QtWidgets.QFormLayout) -> None:
             light_name_value = str(light_payload.get("light_name", ""))
             light_type_value = str(light_payload.get("light_type", "point"))
-            color_value = str(light_payload.get("color", "#FFFFFF"))
+            color_value = str(
+                light_payload.get("color", ThemeManager.Colors.TEXT_ON_PRIMARY)
+            )
             intensity_any = light_payload.get("intensity", 1.0)
             if isinstance(intensity_any, (int, float)):
                 intensity_value = float(intensity_any)
@@ -329,7 +333,9 @@ class LightSourcesSection(BaseManagementSection):
                 else:
                     light_payload["light_name"] = item_id
                 light_payload["light_type"] = str(type_widget.currentText())
-                light_payload["color"] = color_edit.text().strip() or "#FFFFFF"
+                light_payload["color"] = (
+                    color_edit.text().strip() or ThemeManager.Colors.TEXT_ON_PRIMARY
+                )
                 light_payload["intensity"] = float(intensity_spin.value())
                 light_payload["range_distance"] = float(range_spin.value())
                 light_payload["cast_shadows"] = bool(cast_shadows_widget.isChecked())

@@ -164,12 +164,17 @@ def check_protocol_usage_in_modules():
     safe_print("=" * 80)
     safe_print("")
     
-    # 需要检查的关键模块
+    # 需要检查的关键模块（按功能分层，而非物理目录名命名）。
+    # 说明：
+    # - 早期实现位于 `core/automation/*`，现已迁移至应用层 `app/automation/*`；
+    # - 这里列出的路径全部相对于仓库根目录。
     modules_to_check = [
-        "core/automation/port_type_steps.py",
-        "core/automation/config_node_steps.py",
-        "core/automation/executor_utils.py",
-        "core/automation/editor_nodes.py",
+        "app/automation/ports/port_type_steps.py",
+        "app/automation/ports/port_type_steps_input.py",
+        "app/automation/ports/port_type_steps_output.py",
+        "app/automation/config/config_node_steps.py",
+        "app/automation/core/executor_utils.py",
+        "app/automation/core/editor_nodes.py",
     ]
     
     results = []

@@ -454,7 +454,7 @@ class DataNodePlacer:
             model=self.context.model,
             start_data_id=source_node_id,
             skip_data_ids=self.context.skip_data_ids,
-            get_data_in_edges_func=self.context.get_data_in_edges,
+            get_data_in_edges_func=self.context.get_in_data_edges,
             respect_skip_ids=not allow_skip_penetration,
         )
         return list(upstream_closure)

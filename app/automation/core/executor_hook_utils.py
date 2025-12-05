@@ -41,7 +41,7 @@ def _run_with_pause_and_cancel(
     if pause_hook is not None:
         pause_hook()
     if allow_continue is not None and not allow_continue():
-        executor._log(cancel_log_message, log_callback)
+        executor.log(cancel_log_message, log_callback)
         return False
     return True
 
@@ -55,7 +55,7 @@ def wait_with_hooks(
     log_callback: Optional[Callable[[str], None]] = None,
 ) -> bool:
     """在给定时长内以固定间隔轮询暂停/终止标志。False 表示应中止。"""
-    executor._log(f"等待 {float(total_seconds):.2f} 秒...", log_callback)
+    executor.log(f"等待 {float(total_seconds):.2f} 秒...", log_callback)
     ticks = int(max(1, round(float(total_seconds) / float(interval_seconds))))
     for _ in range(int(ticks)):
         should_continue = _run_with_pause_and_cancel(
@@ -89,7 +89,7 @@ def input_text_with_hooks(
         return False
     ok = editor_capture.input_text(text)
     if not ok:
-        executor._log("✗ 文本输入失败", log_callback)
+        executor.log("✗ 文本输入失败", log_callback)
         return False
     return True
 
@@ -131,7 +131,7 @@ def right_click_with_hooks(
         post_release_sleep=post_release_override,
     )
     if not ok:
-        executor._log("✗ 右键点击失败", log_callback)
+        executor.log("✗ 右键点击失败", log_callback)
         return False
     return True
 
@@ -157,7 +157,7 @@ def click_and_verify(
     delta_target_y = int(after_y - int(screen_y))
     delta_move_x = int(after_x - int(before_x))
     delta_move_y = int(after_y - int(before_y))
-    executor._log(
+    executor.log(
         f"[鼠标] {action_label}: before=({int(before_x)},{int(before_y)}) -> after=({int(after_x)},{int(after_y)}) "
         f"target=({int(screen_x)},{int(screen_y)}) Δtarget=({delta_target_x},{delta_target_y}) Δmove=({delta_move_x},{delta_move_y})",
         log_callback,
@@ -177,7 +177,7 @@ def log_wait_if_needed(
         return
     if is_fast_chain_runtime_enabled(executor):
         return
-    executor._log(message, log_callback)
+    executor.log(message, log_callback)
     if pause_hook is None and allow_continue is None:
         sleep_seconds(float(seconds))
         return
@@ -208,27 +208,27 @@ def find_template_on_row(
     log_callback: Optional[Callable[[str], None]] = None,
 ) -> Optional[Tuple[int, int, Tuple[int, int, int, int]]]:
     """在水平行带中匹配模板，返回 (center_x, center_y, bbox) 或 None。"""
-    executor._log(
+    executor.log(
         f"[模板匹配] 水平带模板: '{Path(template_path).name}' 行中心y={int(row_center_y)} 容差±{int(y_tolerance)} 区间x=[{int(left_x)},{int(right_x)})",
         log_callback,
     )
     band_top = int(max(0, row_center_y - y_tolerance))
     band_bottom = int(row_center_y + y_tolerance)
     if band_bottom <= band_top:
-        executor._log("  · 行带高度非法，放弃匹配", log_callback)
+        executor.log("  · 行带高度非法，放弃匹配", log_callback)
         return None
     if right_x <= left_x:
-        executor._log("  · 水平范围非法，放弃匹配", log_callback)
+        executor.log("  · 水平范围非法，放弃匹配", log_callback)
         return None
     region = (int(left_x), int(band_top), int(right_x - left_x), int(band_bottom - band_top))
     match = editor_capture.match_template(screenshot, str(template_path), search_region=region)
     if not match:
-        executor._log("  · 未命中模板", log_callback)
+        executor.log("  · 未命中模板", log_callback)
         return None
     mx, my, mw, mh, _ = match
     center_x = int(mx + mw // 2)
     center_y = int(my + mh // 2)
-    executor._log(
+    executor.log(
         f"  ✓ 模板命中: bbox=({int(mx)},{int(my)},{int(mw)},{int(mh)}) center=({center_x},{center_y})",
         log_callback,
     )

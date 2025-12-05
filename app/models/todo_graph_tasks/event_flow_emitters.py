@@ -524,8 +524,11 @@ class EventFlowEmitters:
         signal_id = model.get_node_signal_id(node_id) or ""
         input_constants = getattr(node_obj, "input_constants", {}) or {}
         signal_name = ""
-        if isinstance(input_constants, dict) and "信号名" in input_constants:
-            signal_name = str(input_constants.get("信号名") or "")
+        if isinstance(input_constants, dict):
+            from engine.graph.common import SIGNAL_NAME_PORT_NAME
+
+            if SIGNAL_NAME_PORT_NAME in input_constants:
+                signal_name = str(input_constants.get(SIGNAL_NAME_PORT_NAME) or "")
 
         node_title = getattr(node_obj, "title", "") or ""
         if node_title == "监听信号":
@@ -561,4 +564,30 @@ class EventFlowEmitters:
         )
         self._add_todo(todo)
         ensure_child_reference(flow_root, todo_id)
+
+    def ensure_signal_binding_for_event_start(
+        self,
+        *,
+        flow_root: TodoItem,
+        flow_root_id: str,
+        graph_id: str,
+        start_node,
+        template_ctx_id: str,
+        instance_ctx_id: str,
+        suppress_auto_jump: bool,
+        task_type: str,
+        model: GraphModel,
+    ) -> None:
+        """为事件起点节点补充信号绑定步骤（主要用于“监听信号”事件节点）。"""
+        self._ensure_signal_binding_todo(
+            flow_root=flow_root,
+            flow_root_id=flow_root_id,
+            graph_id=graph_id,
+            node_obj=start_node,
+            template_ctx_id=template_ctx_id,
+            instance_ctx_id=instance_ctx_id,
+            suppress_auto_jump=suppress_auto_jump,
+            task_type=task_type,
+            model=model,
+        )
 

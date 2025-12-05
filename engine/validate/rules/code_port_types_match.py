@@ -13,6 +13,7 @@ from .node_index import (
     input_types_by_func,
     output_types_by_func,
     input_generic_constraints_by_func,
+    input_enum_options_by_func,
 )
 from engine.nodes.port_type_system import can_connect_ports, FLOW_PORT_TYPE, ANY_PORT_TYPE, GENERIC_PORT_TYPE
 
@@ -49,6 +50,7 @@ class PortTypesMatchRule(ValidationRule):
         in_types = input_types_by_func(ctx.workspace_path)
         out_types = output_types_by_func(ctx.workspace_path)
         in_constraints = input_generic_constraints_by_func(ctx.workspace_path)
+        enum_options = input_enum_options_by_func(ctx.workspace_path)
 
         issues: List[EngineIssue] = []
 
@@ -112,8 +114,27 @@ class PortTypesMatchRule(ValidationRule):
                                 f"仅允许类型『{allowed_display}』，实际传入类型『{actual}』"
                             ))
                             continue
-                    # 宽松兼容：当期望为『枚举』且传入是字符串常量，视为可接受
+                    # 宽松兼容 + 枚举字面量校验：
+                    # 当期望为『枚举』且传入是字符串常量：
+                    # - 若节点定义为该端口声明了枚举候选项，则要求字面量必须落在候选集合内；
+                    # - 若未声明候选项，则保持旧行为：仅按类型层面放行该字符串常量。
                     if (n_expected == "枚举") and isinstance(kw.value, ast.Constant) and isinstance(getattr(kw.value, "value", None), str):
+                        enum_for_func = enum_options.get(func_name) or {}
+                        enum_candidates = enum_for_func.get(port_name)
+                        literal_value = str(getattr(kw.value, "value", ""))
+                        if isinstance(enum_candidates, list) and len(enum_candidates) > 0:
+                            if literal_value not in enum_candidates:
+                                allowed_display = "、".join(enum_candidates)
+                                issues.append(self._issue(
+                                    file_path,
+                                    kw.value,
+                                    "ENUM_LITERAL_NOT_IN_OPTIONS",
+                                    f"{line_span_text(kw.value)}: 函数 '{func_name}' 输入端口 '{port_name}' "
+                                    f"期望枚举值之一『{allowed_display}』，实际传入『{literal_value}』"
+                                ))
+                            # 无论枚举值是否匹配，均不再进入后续类型连线校验
+                            continue
+                        # 未配置候选项时，保持旧的“字符串常量视为可接受”的行为
                         continue
                     if not can_connect_ports(n_actual, n_expected):
                         issues.append(self._issue(

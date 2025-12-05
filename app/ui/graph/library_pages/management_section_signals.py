@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .management_sections_base import *
+from engine.signal import get_default_signal_binding_service
 
 
 class SignalSection(BaseManagementSection):
@@ -86,64 +87,8 @@ class SignalSection(BaseManagementSection):
         package: ManagementPackage,
     ) -> Dict[str, Dict[str, int]]:
         """基于当前视图构建 {signal_id: {'graph_count': N, 'node_count': M}} 统计信息。"""
-        resource_manager = getattr(package, "resource_manager", None)
-        templates = getattr(package, "templates", None)
-        instances = getattr(package, "instances", None)
-        level_entity = getattr(package, "level_entity", None)
-        if resource_manager is None or templates is None or instances is None:
-            return {}
-
-        raw_usage: Dict[str, Dict[str, Any]] = {}
-        for attachment in iter_all_package_graphs(
-            resource_manager,
-            templates,
-            instances,
-            level_entity,
-        ):
-            graph_config = attachment.graph_config
-            if getattr(graph_config, "graph_type", "") != "server":
-                continue
-            graph_data = graph_config.data or {}
-            metadata = graph_data.get("metadata") or {}
-            bindings = metadata.get("signal_bindings") or {}
-            if not isinstance(bindings, dict):
-                continue
-            graph_id = attachment.graph_id
-            for node_id, binding in bindings.items():
-                _ = node_id
-                if not isinstance(binding, dict):
-                    continue
-                signal_id_raw = binding.get("signal_id")
-                if not signal_id_raw:
-                    continue
-                signal_id = str(signal_id_raw)
-                entry = raw_usage.setdefault(
-                    signal_id,
-                    {"node_count": 0, "graph_ids": set()},
-                )
-                entry["node_count"] = int(entry.get("node_count", 0)) + 1
-                graph_ids = entry.get("graph_ids")
-                if isinstance(graph_ids, set):
-                    graph_ids.add(graph_id)
-                else:
-                    entry["graph_ids"] = {graph_id}
-
-        if not raw_usage:
-            return {}
-
-        result: Dict[str, Dict[str, int]] = {}
-        for signal_id, data in raw_usage.items():
-            graph_ids = data.get("graph_ids")
-            if isinstance(graph_ids, set):
-                graph_count = len(graph_ids)
-            else:
-                graph_count = 0
-            node_count = int(data.get("node_count", 0))
-            result[signal_id] = {
-                "graph_count": graph_count,
-                "node_count": node_count,
-            }
-        return result
+        service = get_default_signal_binding_service()
+        return service.build_package_usage_stats(package)
 
     @staticmethod
     def _show_warning(

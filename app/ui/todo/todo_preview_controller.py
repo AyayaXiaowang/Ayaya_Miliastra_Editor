@@ -675,12 +675,14 @@ class TodoPreviewController:
             current = todo_map.get(current_id)
             if not current:
                 break
-            detail_type = current.detail_info.get("type")
-            if StepTypeRules.is_graph_root(detail_type):
+            detail_type = (current.detail_info or {}).get("type")
+            # 仅在“模板图根”处尝试读取/复用图数据；
+            # 事件流根自身不持有 graph_data_key，应继续向上查找到对应的模板图根。
+            if StepTypeRules.is_template_graph_root(detail_type):
                 data = resolve_graph_data(current.detail_info or {})
                 if isinstance(data, dict) and ("nodes" in data or "edges" in data):
                     if settings.PREVIEW_VERBOSE:
-                        print(f"[PREVIEW] graph_data 来自父任务: {detail_type}")
+                        print(f"[PREVIEW] graph_data 来自父任务(模板图根): {detail_type}")
                     return data
                 return None
             current_id = current.parent_id

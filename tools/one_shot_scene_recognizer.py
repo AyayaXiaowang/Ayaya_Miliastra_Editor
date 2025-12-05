@@ -45,6 +45,31 @@ class RecognizedNode:
     ports: List[RecognizedPort]
 
 
+@dataclass
+class TemplateMatchDebugInfo:
+    """模板匹配调试信息（含被去重抑制的候选）。
+
+    status:
+        - "kept"：最终保留并参与端口构建的模板命中
+        - "suppressed_nms"：在 NMS 阶段被抑制的候选（空间重叠）
+        - "suppressed_same_row"：在同行去重阶段被抑制的候选（同一行仅保留一个）
+    suppression_kind:
+        - "nms"：NMS 抑制
+        - "same_row"：同行去重
+        - None：未被抑制
+    """
+
+    template_name: str
+    bbox: Tuple[int, int, int, int]
+    side: str
+    index: Optional[int]
+    confidence: float
+    status: str
+    suppression_kind: Optional[str]
+    overlap_target_bbox: Optional[Tuple[int, int, int, int]]
+    iou: Optional[float]
+
+
 # ============================
 # 基础工具
 # ============================
@@ -52,17 +77,30 @@ class RecognizedNode:
  
 
 
+_TEMPLATE_CACHE: Dict[str, Dict[str, np.ndarray]] = {}
+
+
 def _load_template_images(template_dir: str) -> Dict[str, np.ndarray]:
     templates: Dict[str, np.ndarray] = {}
     if not os.path.exists(template_dir):
         return templates
     for filename in os.listdir(template_dir):
-        if filename.lower().endswith('.png'):
+        if filename.lower().endswith(".png"):
             template_path = os.path.join(template_dir, filename)
             template_image = cv2.imread(template_path, cv2.IMREAD_COLOR)
             if template_image is not None:
                 template_name = os.path.splitext(filename)[0]
                 templates[template_name] = template_image
+    return templates
+
+
+def _get_or_load_templates(template_dir: str) -> Dict[str, np.ndarray]:
+    """按目录缓存端口模板图像，避免在调试场景中重复从磁盘加载。"""
+    cached = _TEMPLATE_CACHE.get(template_dir)
+    if cached is not None:
+        return cached
+    templates = _load_template_images(template_dir)
+    _TEMPLATE_CACHE[template_dir] = templates
     return templates
 
 
@@ -560,11 +598,38 @@ def _ocr_titles_for_rectangles(screenshot: Image.Image, rectangles: List[Dict], 
 # 模板匹配（端口）
 # ============================
 
-def _match_templates_in_rectangle(screenshot: Image.Image,
-                                  rect: Dict,
-                                  templates: Dict[str, np.ndarray],
-                                  header_height: int = 28,
-                                  threshold: float = 0.7) -> List[Dict]:
+def _get_effective_template_threshold(
+    template_name: str,
+    base_threshold: float,
+) -> float:
+    """
+    根据模板名称返回实际使用的匹配阈值。
+
+    规则：
+    - 绝大多数端口模板使用统一的 base_threshold；
+    - 名称以 "process" 开头的流程端口模板（如 "Process", "Process2"）使用最小阈值 0.70；
+    - 名称以 "generic" 开头的泛型端口模板（如 "Generic", "Generic2"）使用最小阈值 0.75；
+    - 实际使用的阈值为 min(base_threshold, 模板最小阈值)，避免在调试场景中比调用方要求更严格。
+    """
+    normalized_name = template_name.strip().lower()
+    minimum_threshold: Optional[float] = None
+    if normalized_name.startswith("process"):
+        minimum_threshold = 0.70
+    elif normalized_name.startswith("generic"):
+        minimum_threshold = 0.75
+    if minimum_threshold is None:
+        return base_threshold
+    return float(min(base_threshold, minimum_threshold))
+
+
+def _match_templates_in_rectangle(
+    screenshot: Image.Image,
+    rect: Dict,
+    templates: Dict[str, np.ndarray],
+    header_height: int = 28,
+    threshold: float = 0.7,
+    debug_entries: Optional[List[TemplateMatchDebugInfo]] = None,
+) -> List[Dict]:
     rect_x = rect['x']
     rect_y = rect['y']
     rect_width = rect['width']
@@ -584,75 +649,204 @@ def _match_templates_in_rectangle(screenshot: Image.Image,
     matches: List[Dict] = []
     for template_name, template_image in templates.items():
         template_height, template_width = template_image.shape[:2]
+        per_template_threshold = _get_effective_template_threshold(template_name, float(threshold))
         if search_array.shape[0] < template_height or search_array.shape[1] < template_width:
             continue
         result = cv2.matchTemplate(search_array, template_image, cv2.TM_CCOEFF_NORMED)
-        locations = np.where(result >= threshold)
-        for pt in zip(*locations[::-1]):
-            match_x = search_left + pt[0]
-            match_y = search_top + pt[1]
-            confidence_val = float(result[pt[1], pt[0]])
-            matches.append({
-                'template_name': template_name,
-                'x': int(match_x),
-                'y': int(match_y),
-                'width': int(template_width),
-                'height': int(template_height),
-                'confidence': confidence_val
-            })
-    matches, _ = _non_maximum_suppression(matches, overlap_threshold=0.5)
+        locations = np.where(result >= per_template_threshold)
+        for location in zip(*locations[::-1]):
+            match_x = search_left + location[0]
+            match_y = search_top + location[1]
+            confidence_value = float(result[location[1], location[0]])
+            matches.append(
+                {
+                    "template_name": template_name,
+                    "x": int(match_x),
+                    "y": int(match_y),
+                    "width": int(template_width),
+                    "height": int(template_height),
+                    "confidence": confidence_value,
+                }
+            )
+
+    matches_after_nms, suppressed_by_nms = _non_maximum_suppression(matches, overlap_threshold=0.1)
     rect_center_x = rect_x + rect_width / 2.0
-    for match in matches:
-        match_center_x = match['x'] + match['width'] / 2.0
-        match['side'] = 'left' if match_center_x < rect_center_x else 'right'
+    for match in matches_after_nms:
+        match_center_x = match["x"] + match["width"] / 2.0
+        match["side"] = "left" if match_center_x < rect_center_x else "right"
+    for suppressed_match in suppressed_by_nms:
+        match_center_x = suppressed_match["x"] + suppressed_match["width"] / 2.0
+        suppressed_match["side"] = "left" if match_center_x < rect_center_x else "right"
     # 非索引类模板（装饰项）：不参与同行去重
-    # - settings / warning：本来就不需要索引
-    # - dictionary：与 settings 归为同一类装饰控件，不做同行去重
-    no_index_templates = ['settings', 'warning', 'dictionary']
+    # - Settings* / Warning*：本来就不需要索引
+    # - Dictionary*：与 Settings 归为同一类装饰控件，不做同行去重
+    def is_no_index_template_name(template_name: str) -> bool:
+        normalized_name = str(template_name).lower()
+        return (
+            normalized_name.startswith("settings")
+            or normalized_name.startswith("warning")
+            or normalized_name.startswith("dictionary")
+        )
     # 同行容差（像素）
     y_tolerance = 10
 
-    left_matches = sorted([m for m in matches if m['side'] == 'left'], key=lambda m: m['y'])
-    right_matches = sorted([m for m in matches if m['side'] == 'right'], key=lambda m: m['y'])
+    left_matches_initial = sorted(
+        [match for match in matches_after_nms if match["side"] == "left"],
+        key=lambda match: match["y"],
+    )
+    right_matches_initial = sorted(
+        [match for match in matches_after_nms if match["side"] == "right"],
+        key=lambda match: match["y"],
+    )
 
     def filter_same_row_ports(side_matches: List[Dict], keep_leftmost: bool) -> List[Dict]:
         if len(side_matches) == 0:
             return []
-        filtered: List[Dict] = []
-        index_val = 0
-        i = 0
-        while i < len(side_matches):
-            current = side_matches[i]
-            same_row_list = [current]
-            j = i + 1
-            while j < len(side_matches):
-                if abs(side_matches[j]['y'] - current['y']) <= y_tolerance:
-                    same_row_list.append(side_matches[j])
-                    j += 1
+        filtered_matches: List[Dict] = []
+        current_index_value = 0
+        current_index = 0
+        while current_index < len(side_matches):
+            current_match = side_matches[current_index]
+            same_row_matches = [current_match]
+            next_index = current_index + 1
+            while next_index < len(side_matches):
+                if abs(side_matches[next_index]["y"] - current_match["y"]) <= y_tolerance:
+                    same_row_matches.append(side_matches[next_index])
+                    next_index += 1
                 else:
                     break
-            indexed_items = [m for m in same_row_list if m['template_name'].lower() not in no_index_templates]
-            no_index_items = [m for m in same_row_list if m['template_name'].lower() in no_index_templates]
+            indexed_items = [
+                match
+                for match in same_row_matches
+                if not is_no_index_template_name(match["template_name"])
+            ]
+            no_index_items = [
+                match
+                for match in same_row_matches
+                if is_no_index_template_name(match["template_name"])
+            ]
             if len(indexed_items) > 1:
-                keeper = min(indexed_items, key=lambda m: m['x']) if keep_leftmost else max(indexed_items, key=lambda m: m['x'])
-                keeper['index'] = index_val
-                index_val += 1
-                filtered.append(keeper)
+                keeper = (
+                    min(indexed_items, key=lambda match: match["x"])
+                    if keep_leftmost
+                    else max(indexed_items, key=lambda match: match["x"])
+                )
+                keeper["index"] = current_index_value
+                current_index_value += 1
+                filtered_matches.append(keeper)
             elif len(indexed_items) == 1:
-                indexed_items[0]['index'] = index_val
-                index_val += 1
-                filtered.append(indexed_items[0])
+                single_kept = indexed_items[0]
+                single_kept["index"] = current_index_value
+                current_index_value += 1
+                filtered_matches.append(single_kept)
             for item in no_index_items:
-                item['index'] = None
-                filtered.append(item)
-            i = j
-        return filtered
+                item["index"] = None
+                filtered_matches.append(item)
+            current_index = next_index
+        return filtered_matches
 
-    left_matches = filter_same_row_ports(left_matches, keep_leftmost=True)
-    right_matches = filter_same_row_ports(right_matches, keep_leftmost=False)
-    left_matches.sort(key=lambda m: m['y'])
-    right_matches.sort(key=lambda m: m['y'])
-    return left_matches + right_matches
+    left_matches = filter_same_row_ports(list(left_matches_initial), keep_leftmost=True)
+    right_matches = filter_same_row_ports(list(right_matches_initial), keep_leftmost=False)
+    left_matches.sort(key=lambda match: match["y"])
+    right_matches.sort(key=lambda match: match["y"])
+    final_matches = left_matches + right_matches
+
+    if debug_entries is not None:
+        final_match_set = set(id(match) for match in final_matches)
+        suppressed_same_row: List[Dict] = []
+        for original_match in left_matches_initial + right_matches_initial:
+            if id(original_match) not in final_match_set:
+                suppressed_same_row.append(original_match)
+
+        for match in final_matches:
+            debug_entries.append(
+                TemplateMatchDebugInfo(
+                    template_name=str(match["template_name"]),
+                    bbox=(int(match["x"]), int(match["y"]), int(match["width"]), int(match["height"])),
+                    side=str(match.get("side", "")),
+                    index=match.get("index"),
+                    confidence=float(match.get("confidence", 0.0)),
+                    status="kept",
+                    suppression_kind=None,
+                    overlap_target_bbox=None,
+                    iou=None,
+                )
+            )
+
+        for suppressed_match in suppressed_same_row:
+            debug_entries.append(
+                TemplateMatchDebugInfo(
+                    template_name=str(suppressed_match["template_name"]),
+                    bbox=(
+                        int(suppressed_match["x"]),
+                        int(suppressed_match["y"]),
+                        int(suppressed_match["width"]),
+                        int(suppressed_match["height"]),
+                    ),
+                    side=str(suppressed_match.get("side", "")),
+                    index=suppressed_match.get("index"),
+                    confidence=float(suppressed_match.get("confidence", 0.0)),
+                    status="suppressed_same_row",
+                    suppression_kind="same_row",
+                    overlap_target_bbox=None,
+                    iou=None,
+                )
+            )
+
+        for suppressed_match in suppressed_by_nms:
+            overlap_bbox = suppressed_match.get("overlap_target_bbox")
+            debug_entries.append(
+                TemplateMatchDebugInfo(
+                    template_name=str(suppressed_match["template_name"]),
+                    bbox=(
+                        int(suppressed_match["x"]),
+                        int(suppressed_match["y"]),
+                        int(suppressed_match["width"]),
+                        int(suppressed_match["height"]),
+                    ),
+                    side=str(suppressed_match.get("side", "")),
+                    index=suppressed_match.get("index"),
+                    confidence=float(suppressed_match.get("confidence", 0.0)),
+                    status="suppressed_nms",
+                    suppression_kind="nms",
+                    overlap_target_bbox=None
+                    if overlap_bbox is None
+                    else (
+                        int(overlap_bbox[0]),
+                        int(overlap_bbox[1]),
+                        int(overlap_bbox[2]),
+                        int(overlap_bbox[3]),
+                    ),
+                    iou=float(suppressed_match.get("iou", 0.0)),
+                )
+            )
+
+    return final_matches
+
+
+def debug_match_templates_for_rectangle(
+    canvas_image: Image.Image,
+    rect: Dict,
+    template_dir: str,
+    header_height: int = 28,
+    threshold: float = 0.7,
+) -> List[TemplateMatchDebugInfo]:
+    """
+    在单个节点矩形内执行模板匹配，返回包含去重抑制信息的调试结果。
+
+    仅用于调试/可视化场景，不参与正式识别管线。
+    """
+    templates = _get_or_load_templates(template_dir)
+    debug_entries: List[TemplateMatchDebugInfo] = []
+    _match_templates_in_rectangle(
+        canvas_image,
+        rect,
+        templates,
+        header_height,
+        threshold,
+        debug_entries,
+    )
+    return debug_entries
 
 
 # ============================
@@ -946,6 +1140,25 @@ def recognize_scene(canvas_image: Image.Image,
             for warning_port in recognized_ports:
                 if warning_port.kind.lower() == "warning":
                     warning_port.side = "left"
+
+        # Warning 行内装饰模板去重（仅影响普通端口识别结果）：
+        # 若同一行、同一侧已存在非装饰类端口（如流程/数据端口），则在输出端口列表中隐藏该行上的 warning，
+        # 避免一个物理端口在基础识别结果中同时被标记为 process 和 warning。
+        # 深度端口识别依赖 TemplateMatchDebugInfo，不受本处过滤影响。
+        filtered_ports: List[RecognizedPort] = []
+        for port_obj in recognized_ports:
+            if port_obj.kind.lower() == "warning":
+                has_non_decorative_same_row = any(
+                    (neighbor is not port_obj)
+                    and (neighbor.side == port_obj.side)
+                    and is_non_decorative_port(neighbor)
+                    and (abs(int(neighbor.center[1]) - int(port_obj.center[1])) <= y_tolerance)
+                    for neighbor in recognized_ports
+                )
+                if has_non_decorative_same_row:
+                    continue
+            filtered_ports.append(port_obj)
+        recognized_ports = filtered_ports
 
         recognized_nodes.append(
             RecognizedNode(

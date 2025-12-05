@@ -10,15 +10,31 @@ from __future__ import annotations
 from typing import Optional, Tuple, Dict, Any, Callable
 
 from app.automation import capture as editor_capture
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
+from app.automation.core.executor_protocol import (
+    EditorExecutorProtocol,
+    EditorExecutorWithViewport,
+)
 from app.automation.core.candidate_popup import (
     NODE_LIST_CONTEXT_LINGER_SECONDS,
     click_type_search_and_choose,
     select_from_search_popup,
 )
+from app.automation.core.ui_constants import (
+    NODE_VIEW_WIDTH_PX,
+    NODE_VIEW_HEIGHT_PX,
+    VIEW_SAFE_MARGIN_RATIO_DEFAULT,
+    VIEW_MAX_PAN_STEPS_DEFAULT,
+    VIEW_PAN_STEP_PX_CREATION_ANCHOR,
+    CONTEXT_MENU_APPEAR_WAIT_SECONDS,
+    CANDIDATE_LIST_POST_CLICK_WAIT_SECONDS,
+    POST_INPUT_STABILIZE_SECONDS_DEFAULT,
+    NODE_VISIBILITY_ACCEPT_DISTANCE_PX,
+)
 from app.automation.input.common import sleep_seconds, compute_position_thresholds
 from engine.graph.models.graph_model import GraphModel, NodeModel
-POST_INPUT_STABILIZE_SECONDS = 0.8
+
+# 向外暴露保持原名的稳定常量，供其他模块通过 editor_nodes.POST_INPUT_STABILIZE_SECONDS 访问
+POST_INPUT_STABILIZE_SECONDS = POST_INPUT_STABILIZE_SECONDS_DEFAULT
 
 
 def _collect_neighbor_node_ids(graph_model: GraphModel, node_id: str) -> set[str]:
@@ -63,16 +79,30 @@ def _infer_program_position_with_neighbor_offsets(
 ) -> Optional[Tuple[float, float]]:
     deltas = getattr(executor, "_recent_node_position_deltas", None)
     if not isinstance(deltas, dict) or len(deltas) == 0:
-        executor._log("· 创建：无可用前置节点偏移缓存，使用程序坐标", log_callback)
+        executor.log("· 创建：无可用前置节点偏移缓存，使用程序坐标", log_callback)
         return None
     delta_token = getattr(executor, "_position_delta_token", -1)
     view_token = getattr(executor, "_view_state_token", 0)
     if delta_token != view_token:
-        executor._log("· 创建：偏移缓存与当前视口不同步，使用程序坐标", log_callback)
+        executor.log("· 创建：偏移缓存与当前视口不同步，使用程序坐标", log_callback)
         return None
+    # 若当前为本次执行步骤列表中的“首个创建类步骤”，不使用邻居/最近偏移，
+    # 直接退回到图模型中的原始程序坐标，避免事件流首个节点受到上一轮
+    # 全局“识别同步”结果的影响，保证后续节点可以稳定以该节点作为锚点。
+    node_first_index_map = getattr(executor, "_node_first_create_step_index", None)
+    current_step_index = getattr(executor, "_current_step_index", None)
+    if isinstance(node_first_index_map, dict) and isinstance(current_step_index, int):
+        global_first_index: Optional[int] = None
+        for value in node_first_index_map.values():
+            if isinstance(value, int):
+                if global_first_index is None or int(value) < int(global_first_index):
+                    global_first_index = int(value)
+        if isinstance(global_first_index, int) and int(current_step_index) == int(global_first_index):
+            executor.log("· 创建：首个创建步骤不使用邻居/最近偏移，采用程序坐标", log_callback)
+            return None
     neighbor_ids = _collect_neighbor_node_ids(graph_model, node.id)
     if not neighbor_ids:
-        executor._log("· 邻居偏移：当前节点在图中无邻居，尝试使用最近偏移节点作为前置", log_callback)
+        executor.log("· 邻居偏移：当前节点在图中无邻居，尝试使用最近偏移节点作为前置", log_callback)
     else:
         cached_neighbor_ids: list[str] = [
             nid for nid in neighbor_ids if nid in deltas and _is_reference_node_allowed(executor, nid)
@@ -82,7 +112,7 @@ def _infer_program_position_with_neighbor_offsets(
             ref_node = graph_model.nodes.get(nid)
             if ref_node is not None:
                 named_neighbors.append(ref_node.title)
-        executor._log(
+        executor.log(
             f"· 邻居偏移：邻居共 {len(neighbor_ids)} 个，其中有偏移缓存 {len(cached_neighbor_ids)} 个"
             + (f"，含缓存邻居标题={named_neighbors}" if named_neighbors else ""),
             log_callback,
@@ -94,19 +124,23 @@ def _infer_program_position_with_neighbor_offsets(
         if abs(avg_dx) >= 1e-2 or abs(avg_dy) >= 1e-2:
             new_pos = (float(node.pos[0]) + avg_dx, float(node.pos[1]) + avg_dy)
             node.pos = new_pos
-            executor._log(
+            executor.log(
                 f"· 单步：参考 {len(offsets)} 个邻居位移 Δ≈({avg_dx:.1f},{avg_dy:.1f}) → 调整程序坐标=({new_pos[0]:.1f},{new_pos[1]:.1f})",
                 log_callback,
             )
             if hasattr(executor, "__dict__") and cached_neighbor_ids:
                 primary_neighbor_id = cached_neighbor_ids[0]
-                executor._last_create_position_debug = {
-                    "source": "neighbor_offsets",
-                    "anchor_node_id": str(primary_neighbor_id),
-                    "neighbor_node_ids": [str(neighbor_id) for neighbor_id in cached_neighbor_ids],
-                }
+                setattr(
+                    executor,
+                    "_last_create_position_debug",
+                    {
+                        "source": "neighbor_offsets",
+                        "anchor_node_id": str(primary_neighbor_id),
+                        "neighbor_node_ids": [str(neighbor_id) for neighbor_id in cached_neighbor_ids],
+                    },
+                )
             return new_pos
-        executor._log(
+        executor.log(
             f"· 邻居偏移：邻居平均偏移 Δ≈({avg_dx:.1f},{avg_dy:.1f}) 过小，改用最近偏移节点作为前置",
             log_callback,
         )
@@ -118,7 +152,7 @@ def _infer_program_position_with_neighbor_offsets(
         log_callback,
     )
     if fallback_pos is None:
-        executor._log("· 创建：未找到可用邻居或参考节点偏移，使用程序坐标", log_callback)
+        executor.log("· 创建：未找到可用邻居或参考节点偏移，使用程序坐标", log_callback)
     return fallback_pos
 
 
@@ -137,7 +171,7 @@ def _infer_program_position_with_nearest_delta(
     # 调试：打印步骤索引上下文
     node_first_index_map = getattr(executor, "_node_first_create_step_index", None)
     current_step_index = getattr(executor, "_current_step_index", None)
-    executor._log(
+    executor.log(
         f"· 前置候选上下文：current_step_index={current_step_index}, "
         f"node_first_create_step_index 条目数={len(node_first_index_map) if isinstance(node_first_index_map, dict) else 'None'}",
         log_callback,
@@ -147,10 +181,10 @@ def _infer_program_position_with_nearest_delta(
         for nid, idx in node_first_index_map.items():
             ref_node = graph_model.nodes.get(nid)
             title = ref_node.title if ref_node else "<未知>"
-            executor._log(f"    - 步骤映射: '{title}' (id={nid}) -> step_index={idx}", log_callback)
-        executor._log(f"    - 共 {len(node_first_index_map)} 条映射", log_callback)
+            executor.log(f"    - 步骤映射: '{title}' (id={nid}) -> step_index={idx}", log_callback)
+        executor.log(f"    - 共 {len(node_first_index_map)} 条映射", log_callback)
     
-    executor._log(
+    executor.log(
         f"· 前置候选：_recent_node_position_deltas 中共有 {len(deltas)} 个节点参与距离计算（目标程序坐标=({target_x:.1f},{target_y:.1f})）",
         log_callback,
     )
@@ -185,14 +219,14 @@ def _infer_program_position_with_nearest_delta(
     
     # 打印被过滤的节点
     if debug_filtered:
-        executor._log("· 前置候选过滤详情：", log_callback)
+        executor.log("· 前置候选过滤详情：", log_callback)
         for line in debug_filtered:
-            executor._log(line, log_callback)
+            executor.log(line, log_callback)
     if best_ref is None:
         if debug_candidates:
-            executor._log("· 前置候选详情：", log_callback)
+            executor.log("· 前置候选详情：", log_callback)
             for line in debug_candidates:
-                executor._log(line, log_callback)
+                executor.log(line, log_callback)
         return None
     # 当最近候选在程序坐标上的距离远超当前视口尺寸时，视为位置完全不相干，放弃使用前置偏移
     max_allowed_dist2: Optional[float] = None
@@ -210,10 +244,10 @@ def _infer_program_position_with_nearest_delta(
                 max_allowed_dist2 = threshold * threshold
     if max_allowed_dist2 is not None and best_dist2 > max_allowed_dist2:
         if debug_candidates:
-            executor._log("· 前置候选详情：", log_callback)
+            executor.log("· 前置候选详情：", log_callback)
             for line in debug_candidates:
-                executor._log(line, log_callback)
-        executor._log(
+                executor.log(line, log_callback)
+        executor.log(
             f"· 前置候选：最近候选与目标距离过大 dist²≈{best_dist2:.1f}，超过阈值≈{max_allowed_dist2:.1f}，放弃使用前置偏移",
             log_callback,
         )
@@ -221,10 +255,10 @@ def _infer_program_position_with_nearest_delta(
     delta_x, delta_y, ref_node = best_ref
     if abs(delta_x) < 1e-2 and abs(delta_y) < 1e-2:
         if debug_candidates:
-            executor._log("· 前置候选详情：", log_callback)
+            executor.log("· 前置候选详情：", log_callback)
             for line in debug_candidates:
-                executor._log(line, log_callback)
-        executor._log(
+                executor.log(line, log_callback)
+        executor.log(
             f"· 前置候选：选中的前置节点 '{ref_node.title}' 偏移过小 Δ≈({delta_x:.3f},{delta_y:.3f})，放弃使用",
             log_callback,
         )
@@ -232,18 +266,22 @@ def _infer_program_position_with_nearest_delta(
     new_pos = (target_x + delta_x, target_y + delta_y)
     node.pos = new_pos
     if debug_candidates:
-        executor._log("· 前置候选详情：", log_callback)
+        executor.log("· 前置候选详情：", log_callback)
         for line in debug_candidates:
-            executor._log(line, log_callback)
-    executor._log(
+            executor.log(line, log_callback)
+    executor.log(
         f"· 单步：参考前置节点 '{ref_node.title}' 偏移 Δ≈({delta_x:.1f},{delta_y:.1f}) → 调整程序坐标=({new_pos[0]:.1f},{new_pos[1]:.1f})",
         log_callback,
     )
     if hasattr(executor, "__dict__"):
-        executor._last_create_position_debug = {
-            "source": "nearest_delta",
-            "anchor_node_id": str(ref_node.id),
-        }
+        setattr(
+            executor,
+            "_last_create_position_debug",
+            {
+                "source": "nearest_delta",
+                "anchor_node_id": str(ref_node.id),
+            },
+        )
     return new_pos
 
 
@@ -277,7 +315,7 @@ def _select_creation_anchor_node(
 ) -> Optional[Tuple[NodeModel, float, int]]:
     history, _ = _ensure_creation_trackers(executor)
     if len(history) == 0:
-        executor._log("· 创建锚点：暂无已创建节点，使用程序坐标", log_callback)
+        executor.log("· 创建锚点：暂无已创建节点，使用程序坐标", log_callback)
         return None
 
     target_x = float(node.pos[0])
@@ -307,7 +345,7 @@ def _select_creation_anchor_node(
     search_ids: list[str] = same_block_ids if len(same_block_ids) > 0 else [cid for cid in other_ids]
 
     if target_block_index is not None and len(same_block_ids) > 0:
-        executor._log(
+        executor.log(
             f"· 创建锚点：当前节点所在基本块包含 {len(same_block_ids)} 个已创建节点，将优先在该基本块内选择锚点",
             log_callback,
         )
@@ -330,7 +368,7 @@ def _select_creation_anchor_node(
             best_node = candidate
 
     if best_node is None:
-        executor._log("· 创建锚点：未找到可作为参考的节点，使用程序坐标", log_callback)
+        executor.log("· 创建锚点：未找到可作为参考的节点，使用程序坐标", log_callback)
         return None
 
     return (best_node, best_dist2, considered)
@@ -352,19 +390,19 @@ def _adjust_program_position_with_creation_anchor(
     if anchor_payload is None:
         return (None, visible_map)
     anchor_node, best_dist2, considered = anchor_payload
-    executor._log(
+    executor.log(
         f"· 创建锚点：从 {considered} 个候选中选择 '{anchor_node.title}' (id={anchor_node.id})，dist²≈{best_dist2:.1f}",
         log_callback,
     )
     anchor_info = visible_map.get(anchor_node.id) if visible_map else None
-    if not anchor_info or not anchor_info.get('visible'):
-        executor._log(f"· 创建锚点：'{anchor_node.title}' 当前不可见，开始对齐视口", log_callback)
+    if not anchor_info or not anchor_info.get("visible"):
+        executor.log(f"· 创建锚点：'{anchor_node.title}' 当前不可见，开始对齐视口", log_callback)
         executor.ensure_program_point_visible(
             float(anchor_node.pos[0]),
             float(anchor_node.pos[1]),
-            margin_ratio=0.10,
-            max_steps=8,
-            pan_step_pixels=420,
+            margin_ratio=VIEW_SAFE_MARGIN_RATIO_DEFAULT,
+            max_steps=VIEW_MAX_PAN_STEPS_DEFAULT,
+            pan_step_pixels=VIEW_PAN_STEP_PX_CREATION_ANCHOR,
             log_callback=log_callback,
             pause_hook=pause_hook,
             allow_continue=allow_continue,
@@ -373,12 +411,38 @@ def _adjust_program_position_with_creation_anchor(
         )
         visible_map = executor.recognize_visible_nodes(graph_model)
         anchor_info = visible_map.get(anchor_node.id)
-        if not anchor_info or not anchor_info.get('visible'):
-            executor._log(f"· 创建锚点：未能识别到 '{anchor_node.title}'，回退程序坐标", log_callback)
-            return (None, visible_map)
-    bbox = anchor_info.get('bbox')
+        if not anchor_info or not anchor_info.get("visible"):
+            # 当视口对齐后依然无法在可见节点映射中找到锚点时，说明当前坐标映射可能已经与真实画面严重偏离。
+            # 此时退回到“基于既有锚点重新校准坐标”的兜底方案：仅依赖这一节点的中文标题与程序坐标，
+            # 在当前画面中通过视觉识别定位它，并据此重建 scale_ratio 与 origin_node_pos。
+            calibrate_method = getattr(executor, "calibrate_coordinates", None)
+            if callable(calibrate_method):
+                executor.log(
+                    f"· 创建锚点：未能识别到 '{anchor_node.title}'，尝试基于该节点重新校准坐标映射",
+                    log_callback,
+                )
+                calibrated_ok = calibrate_method(
+                    anchor_node.title,
+                    tuple(anchor_node.pos),
+                    log_callback=log_callback,
+                    create_anchor_node=False,
+                    pause_hook=pause_hook,
+                    allow_continue=allow_continue,
+                    visual_callback=visual_callback,
+                    graph_model=graph_model,
+                )
+                if calibrated_ok:
+                    visible_map = executor.recognize_visible_nodes(graph_model)
+                    anchor_info = visible_map.get(anchor_node.id)
+            if not anchor_info or not anchor_info.get("visible"):
+                executor.log(
+                    f"· 创建锚点：未能识别到 '{anchor_node.title}'，回退程序坐标",
+                    log_callback,
+                )
+                return (None, visible_map)
+    bbox = anchor_info.get("bbox")
     if not bbox:
-        executor._log(f"· 创建锚点：'{anchor_node.title}' 缺少识别bbox，回退程序坐标", log_callback)
+        executor.log(f"· 创建锚点：'{anchor_node.title}' 缺少识别bbox，回退程序坐标", log_callback)
         return (None, visible_map)
     expected_editor_x, expected_editor_y = executor.convert_program_to_editor_coords(
         float(anchor_node.pos[0]),
@@ -388,12 +452,12 @@ def _adjust_program_position_with_creation_anchor(
     actual_editor_y = float(bbox[1])
     scale = float(executor.scale_ratio)
     threshold_editor_x, threshold_editor_y = compute_position_thresholds(scale)
-    tolerance_editor_x = float(max(30.0, threshold_editor_x * 0.6))
-    tolerance_editor_y = float(max(30.0, threshold_editor_y * 0.6))
+    tolerance_editor_x = float(max(NODE_VISIBILITY_ACCEPT_DISTANCE_PX, threshold_editor_x * 0.6))
+    tolerance_editor_y = float(max(NODE_VISIBILITY_ACCEPT_DISTANCE_PX, threshold_editor_y * 0.6))
     offset_editor_x = abs(actual_editor_x - float(expected_editor_x))
     offset_editor_y = abs(actual_editor_y - float(expected_editor_y))
     if offset_editor_x > tolerance_editor_x or offset_editor_y > tolerance_editor_y:
-        executor._log(
+        executor.log(
             f"· 创建锚点：'{anchor_node.title}' 识别坐标 Δeditor≈({offset_editor_x:.1f},{offset_editor_y:.1f}) 超出阈值({tolerance_editor_x:.1f},{tolerance_editor_y:.1f})，回退程序坐标",
             log_callback,
         )
@@ -403,15 +467,19 @@ def _adjust_program_position_with_creation_anchor(
     new_prog_x = float(node.pos[0]) + delta_prog_x
     new_prog_y = float(node.pos[1]) + delta_prog_y
     node.pos = (new_prog_x, new_prog_y)
-    executor._log(
+    executor.log(
         f"· 创建锚点：参考 '{anchor_node.title}' 偏移 Δ≈({delta_prog_x:.1f},{delta_prog_y:.1f}) → 目标程序坐标=({new_prog_x:.1f},{new_prog_y:.1f})",
         log_callback,
     )
     if hasattr(executor, "__dict__"):
-        executor._last_create_position_debug = {
-            "source": "anchor",
-            "anchor_node_id": str(anchor_node.id),
-        }
+        setattr(
+            executor,
+            "_last_create_position_debug",
+            {
+                "source": "anchor",
+                "anchor_node_id": str(anchor_node.id),
+            },
+        )
     return ((new_prog_x, new_prog_y), visible_map)
 
 
@@ -426,7 +494,7 @@ def _decide_program_position_for_creation(
     visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]],
 ) -> Tuple[float, float]:
     """综合锚点、邻居偏移与原始坐标，决策本次创建使用的程序坐标。"""
-    executor._log(f"执行创建节点: {node.title}", log_callback)
+    executor.log(f"执行创建节点: {node.title}", log_callback)
     anchor_adjusted_position, _visible_after_anchor = _adjust_program_position_with_creation_anchor(
         executor,
         graph_model,
@@ -451,10 +519,73 @@ def _decide_program_position_for_creation(
         else:
             program_x, program_y = node.pos
             if hasattr(executor, "__dict__"):
-                executor._last_create_position_debug = {
-                    "source": "original",
-                }
+                setattr(
+                    executor,
+                    "_last_create_position_debug",
+                    {
+                        "source": "original",
+                    },
+                )
     return float(program_x), float(program_y)
+
+
+def _run_node_creation_popup_flow(
+    executor: EditorExecutorWithViewport,
+    node_title: str,
+    node_id: str,
+    screen_x: int,
+    screen_y: int,
+    log_callback,
+    pause_hook: Optional[Callable[[], None]],
+    allow_continue: Optional[Callable[[], bool]],
+    visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]],
+) -> bool:
+    """
+    统一的“右键 → 输入标题 → 等待稳定 → OCR 候选列表点击 → 再等待 → 记录创建”交互流程。
+
+    调用方仅负责提供点击起点(screen_x, screen_y)与节点标题/ID，本函数完成后续所有 UI 交互。
+    """
+    if not executor.right_click_with_hooks(
+        screen_x,
+        screen_y,
+        pause_hook,
+        allow_continue,
+        log_callback,
+        visual_callback,
+        linger_seconds=NODE_LIST_CONTEXT_LINGER_SECONDS,
+    ):
+        return False
+    executor.log(f"等待 {CONTEXT_MENU_APPEAR_WAIT_SECONDS:.2f} 秒", log_callback)
+    sleep_seconds(CONTEXT_MENU_APPEAR_WAIT_SECONDS)
+    if not executor.input_text_with_hooks(node_title, pause_hook, allow_continue, log_callback):
+        return False
+    # 输入后稳定等待更久再进行候选列表识别（提升弹窗稳定性）
+    if not executor.wait_with_hooks(
+        POST_INPUT_STABILIZE_SECONDS,
+        pause_hook,
+        allow_continue,
+        0.1,
+        log_callback,
+    ):
+        return False
+    # —— 统一走候选列表 OCR 点击 ——
+    executor.log(f"等待候选列表并点击 '{node_title}'...", log_callback)
+    if not select_from_search_popup(
+        executor,
+        node_title,
+        wait_seconds=3.0,
+        log_callback=log_callback,
+        pause_hook=pause_hook,
+        allow_continue=allow_continue,
+        visual_callback=visual_callback,
+    ):
+        executor.log(f"✗ 未能选择 '{node_title}'，步骤中止", log_callback)
+        return False
+    executor.log(f"等待 {CANDIDATE_LIST_POST_CLICK_WAIT_SECONDS:.2f} 秒", log_callback)
+    sleep_seconds(CANDIDATE_LIST_POST_CLICK_WAIT_SECONDS)
+    executor.log(f"✓ 节点创建完成：{node_title} (id={node_id})", log_callback)
+    _record_node_creation(executor, node_id)
+    return True
 
 
 def _perform_node_creation_interaction(
@@ -468,14 +599,14 @@ def _perform_node_creation_interaction(
     pause_hook: Optional[Callable[[], None]],
     allow_continue: Optional[Callable[[], bool]],
     visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]],
-) -> bool:
+    ) -> bool:
     """基于已决策的程序坐标，在编辑器中完成右键、输入与候选选择的整个创建流程。"""
     executor.ensure_program_point_visible(
         program_x,
         program_y,
-        margin_ratio=0.10,
-        max_steps=8,
-        pan_step_pixels=420,
+        margin_ratio=VIEW_SAFE_MARGIN_RATIO_DEFAULT,
+        max_steps=VIEW_MAX_PAN_STEPS_DEFAULT,
+        pan_step_pixels=VIEW_PAN_STEP_PX_CREATION_ANCHOR,
         log_callback=log_callback,
         pause_hook=pause_hook,
         allow_continue=allow_continue,
@@ -494,46 +625,21 @@ def _perform_node_creation_interaction(
         )
     editor_x, editor_y = executor.convert_program_to_editor_coords(program_x, program_y)
     screen_x, screen_y = executor.convert_editor_to_screen_coords(editor_x, editor_y)
-    executor._log(f"  程序坐标: ({program_x:.1f}, {program_y:.1f})", log_callback)
-    executor._log(f"  编辑器坐标: ({editor_x}, {editor_y})", log_callback)
-    executor._log(f"  屏幕坐标: ({screen_x}, {screen_y})", log_callback)
-    executor._last_context_click_editor_pos = (editor_x, editor_y)
-    if not executor._right_click_with_hooks(
-        screen_x,
-        screen_y,
-        pause_hook,
-        allow_continue,
-        log_callback,
-        visual_callback,
-        linger_seconds=NODE_LIST_CONTEXT_LINGER_SECONDS,
-    ):
-        return False
-    executor._log("等待 0.30 秒", log_callback)
-    sleep_seconds(0.3)
-    if not executor._input_text_with_hooks(node.title, pause_hook, allow_continue, log_callback):
-        return False
-    # 输入后稳定等待更久再进行候选列表识别（提升弹窗稳定性）
-    if not executor._wait_with_hooks(POST_INPUT_STABILIZE_SECONDS, pause_hook, allow_continue, 0.1, log_callback):
-        return False
-    # —— 快速创建：不再使用“回车确认”，统一走候选列表 OCR 点击 ——
-    # —— 回退：OCR 候选列表选择 ——
-    executor._log(f"等待候选列表并点击 '{node.title}'...", log_callback)
-    if not select_from_search_popup(
-        executor,
-        node.title,
-        wait_seconds=3.0,
+    executor.log(f"  程序坐标: ({program_x:.1f}, {program_y:.1f})", log_callback)
+    executor.log(f"  编辑器坐标: ({editor_x}, {editor_y})", log_callback)
+    executor.log(f"  屏幕坐标: ({screen_x}, {screen_y})", log_callback)
+    executor.set_last_context_click_editor_pos(int(editor_x), int(editor_y))
+    return _run_node_creation_popup_flow(
+        executor=executor,
+        node_title=node.title,
+        node_id=node_id,
+        screen_x=screen_x,
+        screen_y=screen_y,
         log_callback=log_callback,
         pause_hook=pause_hook,
         allow_continue=allow_continue,
         visual_callback=visual_callback,
-    ):
-        executor._log(f"✗ 未能选择 '{node.title}'，步骤中止", log_callback)
-        return False
-    executor._log("等待 0.30 秒", log_callback)
-    sleep_seconds(0.3)
-    executor._log(f"✓ 节点创建完成：{node.title} (id={node_id})", log_callback)
-    _record_node_creation(executor, node_id)
-    return True
+    )
 
 
 def execute_create_node(
@@ -546,14 +652,14 @@ def execute_create_node(
     visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
 ) -> bool:
     if hasattr(executor, "__dict__"):
-        executor._last_create_position_debug = {}
+        setattr(executor, "_last_create_position_debug", {})
     node_id = todo_item.get("node_id")
     if not node_id:
-        executor._log("✗ 缺少节点ID", log_callback)
+        executor.log("✗ 缺少节点ID", log_callback)
         return False
     node = graph_model.nodes.get(node_id)
     if not node:
-        executor._log(f"✗ 未找到节点: {node_id}", log_callback)
+        executor.log(f"✗ 未找到节点: {node_id}", log_callback)
         return False
 
     # 可见性判定仅作为“可跳过创建”的保守条件：
@@ -561,19 +667,23 @@ def execute_create_node(
     # - 否则继续创建，避免因为场上存在同名/相似节点而错误跳过
     visible_map = executor.recognize_visible_nodes(graph_model)
     vis_info = visible_map.get(node_id, {})
-    already_visible = bool(vis_info.get('visible'))
+    already_visible = bool(vis_info.get("visible"))
     if already_visible:
-        bbox = vis_info.get('bbox')
+        bbox = vis_info.get("bbox")
         expected_editor_x, expected_editor_y = executor.convert_program_to_editor_coords(node.pos[0], node.pos[1])
         close_enough = False
         if bbox is not None:
             left_v, top_v, _, _ = bbox
             dx = float(left_v - expected_editor_x)
             dy = float(top_v - expected_editor_y)
-            # 30px 距离阈值（左上角为锚点，与系统其他几何逻辑一致）
-            close_enough = (dx * dx + dy * dy) <= (30.0 * 30.0)
+            # 距离阈值（左上角为锚点，与系统其他几何逻辑一致）
+            limit = NODE_VISIBILITY_ACCEPT_DISTANCE_PX
+            close_enough = (dx * dx + dy * dy) <= (limit * limit)
         if close_enough:
-            executor._log(f"· 节点已存在（坐标匹配≤30px），此创建步视为已完成：{node.title}", log_callback)
+            executor.log(
+                f"· 节点已存在（坐标匹配≤{NODE_VISIBILITY_ACCEPT_DISTANCE_PX:.0f}px），此创建步视为已完成：{node.title}",
+                log_callback,
+            )
             _record_node_creation(executor, node_id)
             return True
 
@@ -618,20 +728,20 @@ def execute_create_node_unmapped(
     - 创建成功后，调用方应基于该节点执行一次坐标校准，以便后续步骤使用统一的映射。
     """
     if hasattr(executor, "__dict__"):
-        executor._last_create_position_debug = {}
+        setattr(executor, "_last_create_position_debug", {})
     node_id_value = todo_item.get("node_id")
     if not node_id_value:
-        executor._log("✗ 缺少节点ID", log_callback)
+        executor.log("✗ 缺少节点ID", log_callback)
         return False
     node_id = str(node_id_value)
     node_model = graph_model.nodes.get(node_id)
     if not node_model:
-        executor._log(f"✗ 未找到节点: {node_id}", log_callback)
+        executor.log(f"✗ 未找到节点: {node_id}", log_callback)
         return False
 
     screenshot = editor_capture.capture_window(executor.window_title)
     if not screenshot:
-        executor._log("✗ 截图失败（未校准创建节点）", log_callback)
+        executor.log("✗ 截图失败（未校准创建节点）", log_callback)
         return False
 
     region_x, region_y, region_width, region_height = editor_capture.get_region_rect(
@@ -645,76 +755,30 @@ def execute_create_node_unmapped(
         center_editor_x,
         center_editor_y,
     )
-    executor._log(
+    executor.log(
         f"执行创建节点(未校准): {node_model.title}",
         log_callback,
     )
-    executor._log(
+    executor.log(
         f"  初始点击编辑器坐标: ({center_editor_x}, {center_editor_y})",
         log_callback,
     )
-    executor._log(
+    executor.log(
         f"  初始点击屏幕坐标: ({screen_x}, {screen_y})",
         log_callback,
     )
-    executor._last_context_click_editor_pos = (center_editor_x, center_editor_y)
+    executor.set_last_context_click_editor_pos(int(center_editor_x), int(center_editor_y))
 
-    if not executor._right_click_with_hooks(
-        screen_x,
-        screen_y,
-        pause_hook,
-        allow_continue,
-        log_callback,
-        visual_callback,
-        linger_seconds=NODE_LIST_CONTEXT_LINGER_SECONDS,
-    ):
-        return False
-
-    executor._log("等待 0.30 秒", log_callback)
-    sleep_seconds(0.3)
-    if not executor._input_text_with_hooks(
-        node_model.title,
-        pause_hook,
-        allow_continue,
-        log_callback,
-    ):
-        return False
-
-    if not executor._wait_with_hooks(
-        POST_INPUT_STABILIZE_SECONDS,
-        pause_hook,
-        allow_continue,
-        0.1,
-        log_callback,
-    ):
-        return False
-
-    executor._log(
-        f"等待候选列表并点击 '{node_model.title}'...",
-        log_callback,
-    )
-    if not select_from_search_popup(
-        executor,
-        node_model.title,
-        wait_seconds=3.0,
+    return _run_node_creation_popup_flow(
+        executor=executor,
+        node_title=node_model.title,
+        node_id=str(node_id),
+        screen_x=screen_x,
+        screen_y=screen_y,
         log_callback=log_callback,
         pause_hook=pause_hook,
         allow_continue=allow_continue,
         visual_callback=visual_callback,
-    ):
-        executor._log(
-            f"✗ 未能选择 '{node_model.title}'，步骤中止",
-            log_callback,
-        )
-        return False
-
-    executor._log("等待 0.30 秒", log_callback)
-    sleep_seconds(0.3)
-    executor._log(
-        f"✓ 节点创建完成：{node_model.title} (id={node_id})",
-        log_callback,
     )
-    _record_node_creation(executor, str(node_id))
-    return True
 
 

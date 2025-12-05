@@ -10,7 +10,7 @@ from .helpers import iter_level_entity_graphs
 class LevelEntityRule(BaseComprehensiveRule):
     rule_id = "package.level_entity"
     category = "关卡实体"
-    default_level = "error"
+    default_level = "warning"
 
     def run(self, ctx) -> List[ValidationIssue]:
         return validate_level_entity(self.validator)
@@ -20,16 +20,8 @@ def validate_level_entity(validator) -> List[ValidationIssue]:
     issues: List[ValidationIssue] = []
     package = validator.package
     if not package.level_entity:
-        issues.append(
-            ValidationIssue(
-                level="error",
-                category="关卡实体",
-                location="存档根节点",
-                message="存档缺少关卡实体",
-                suggestion="每个存档必须配置一个关卡实体，用于承载关卡逻辑。",
-                detail={"type": "level_entity", "action": "create"},
-            )
-        )
+        # 当前不对“缺少关卡实体”给出校验结果，避免在仅做资源演示或临时测试包时产生噪声。
+        # 当实际配置了关卡实体后，仍会对其类型与组件做一致性检查。
         return issues
 
     level_entity = package.level_entity

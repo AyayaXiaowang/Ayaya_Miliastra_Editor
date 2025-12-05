@@ -20,7 +20,7 @@ def emit_node_and_port_overlays(
     """统一输出节点图区域、所有节点与端口叠加层。
 
     Args:
-        executor: 执行器实例（需提供 `_emit_visual` 与 `_extract_chinese`）。
+        executor: 执行器实例（需提供 `emit_visual` 与 `extract_chinese`）。
         screenshot: 当前截图。
         node_bbox: 目标节点的窗口坐标矩形。
         visual_callback: 可视化回调；为 None 时直接返回。
@@ -31,13 +31,13 @@ def emit_node_and_port_overlays(
     if visual_callback is None:
         return
 
-    executor._emit_visual(screenshot, build_graph_region_overlay(screenshot), visual_callback)
+    executor.emit_visual(screenshot, build_graph_region_overlay(screenshot), visual_callback)
 
     if annotate_nodes:
         rects_detected = []
         for detected_node in list_nodes(screenshot):
             bbox_x, bbox_y, bbox_w, bbox_h = detected_node.bbox
-            label_cn = executor._extract_chinese(getattr(detected_node, "name_cn", "") or "")
+            label_cn = executor.extract_chinese(getattr(detected_node, "name_cn", "") or "")
             rects_detected.append(
                 {
                     "bbox": (int(bbox_x), int(bbox_y), int(bbox_w), int(bbox_h)),
@@ -46,7 +46,7 @@ def emit_node_and_port_overlays(
                 }
             )
         if rects_detected:
-            executor._emit_visual(screenshot, {"rects": rects_detected}, visual_callback)
+            executor.emit_visual(screenshot, {"rects": rects_detected}, visual_callback)
 
     ports_list = list(ports) if ports is not None else list_ports_for_bbox(screenshot, node_bbox)
     if not ports_list:
@@ -71,7 +71,7 @@ def emit_node_and_port_overlays(
             }
         )
 
-    executor._emit_visual(screenshot, {"rects": rects_ports}, visual_callback)
+    executor.emit_visual(screenshot, {"rects": rects_ports}, visual_callback)
 
 
 __all__ = ["emit_node_and_port_overlays"]

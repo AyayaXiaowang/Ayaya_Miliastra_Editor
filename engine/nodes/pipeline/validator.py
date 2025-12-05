@@ -42,6 +42,8 @@ def validate_specs(normalized_items: List[Union[NormalizedSpec, Dict[str, Any]]]
             dynamic_port_type_text = str(getattr(item, "dynamic_port_type", "") or "")
             input_generic_constraints = dict(getattr(item, "input_generic_constraints", {}) or {})
             output_generic_constraints = dict(getattr(item, "output_generic_constraints", {}) or {})
+            input_enum_options = dict(getattr(item, "input_enum_options", {}) or {})
+            output_enum_options = dict(getattr(item, "output_enum_options", {}) or {})
         elif isinstance(item, dict):
             category_standard = str(item.get("category_standard", "") or "").strip()
             name_text = str(item.get("name", "") or "").strip()
@@ -54,6 +56,8 @@ def validate_specs(normalized_items: List[Union[NormalizedSpec, Dict[str, Any]]]
             dynamic_port_type_text = str(item.get("dynamic_port_type", "") or "")
             input_generic_constraints = dict(item.get("input_generic_constraints") or {})
             output_generic_constraints = dict(item.get("output_generic_constraints") or {})
+            input_enum_options = dict(item.get("input_enum_options") or {})
+            output_enum_options = dict(item.get("output_enum_options") or {})
         else:
             raise ValueError("[VALIDATOR] 项目类型非法: 期望 NormalizedSpec 或 dict")
 

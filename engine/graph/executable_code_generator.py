@@ -17,6 +17,7 @@ from engine.graph.common import (
     render_call_expression,
 )
 from engine.graph.ir.event_utils import get_event_param_names_from_node
+from engine.signal import SignalCodegenAdapter
 from engine.utils.name_utils import sanitize_class_name
 
 
@@ -33,6 +34,8 @@ class ExecutableCodeGenerator:
             self.node_library = node_library
         # 统一变量命名计数器（使用公共实现，避免策略分叉）
         self.var_name_counter = VarNameCounter(0)
+        # 信号节点代码生成适配器
+        self._signal_codegen = SignalCodegenAdapter()
     
     def generate_code(self, graph_model: GraphModel, metadata: Optional[Dict[str, Any]] = None) -> str:
         """生成可执行的Python代码（节点图类结构）
@@ -180,9 +183,7 @@ class ExecutableCodeGenerator:
         event_name = event_node.title
 
         # 监听信号节点：使用事件上下文 kwargs，以便承载动态参数
-        from engine.graph.common import SIGNAL_LISTEN_NODE_TITLE
-
-        if event_node.title == SIGNAL_LISTEN_NODE_TITLE:
+        if self._signal_codegen.is_signal_listen_node(event_node):
             lines.append(f"    def on_{event_name}(self, **event_kwargs):")
         else:
             params = get_event_param_names_from_node(event_node)
@@ -195,7 +196,7 @@ class ExecutableCodeGenerator:
         lines.append(f'        """事件处理器：{event_name}"""')
 
         # 生成方法体
-        use_event_kwargs = event_node.title == SIGNAL_LISTEN_NODE_TITLE
+        use_event_kwargs = self._signal_codegen.is_signal_listen_node(event_node)
         body_lines = self._generate_event_flow_body(
             event_node,
             flow_nodes,
@@ -254,22 +255,13 @@ class ExecutableCodeGenerator:
         var_mapping: Dict[Tuple[str, str], str] = {}
 
         # 将事件节点的输出映射到参数
-        if use_event_kwargs and event_node.title == "监听信号":
-            # 监听信号节点：从事件上下文中按名称提取参数
-            for output_port in event_node.outputs:
-                if is_flow_port(event_node, output_port.name, True):
-                    continue
-                param_name = output_port.name.replace(":", "").strip()
-                if not param_name:
-                    continue
-                var_mapping[(event_node.id, output_port.name)] = f'event_kwargs.get("{param_name}")'
-        else:
-            event_params = self._get_event_output_params(event_node)
-            for i, output_port in enumerate(event_node.outputs):
-                if i < len(event_params):
-                    param_name = event_params[i]
-                    if param_name:
-                        var_mapping[(event_node.id, output_port.name)] = param_name
+        event_params = self._get_event_output_params(event_node)
+        event_mapping = self._signal_codegen.build_listen_signal_output_mapping(
+            event_node,
+            use_event_kwargs=use_event_kwargs,
+            event_param_names=event_params,
+        )
+        var_mapping.update(event_mapping)
         
         # 生成节点执行代码
         processed_nodes = set()
@@ -297,16 +289,18 @@ class ExecutableCodeGenerator:
         var_mapping: Dict[Tuple[str, str], str],
     ) -> List[str]:
         """生成节点调用代码（使用 self.game 和 self.owner_entity）。"""
-        # 发送信号节点使用统一的 emit_signal 代码路径
-        from engine.graph.common import SIGNAL_SEND_NODE_TITLE
-
-        if node.title == SIGNAL_SEND_NODE_TITLE:
-            return self._generate_send_signal_call(node, graph_model, var_mapping)
-
         lines: List[str] = []
 
         # 收集输入参数
         input_params = self._collect_input_params(node, graph_model, var_mapping)
+
+        # 发送信号节点使用统一的 emit_signal 代码路径
+        if self._signal_codegen.is_signal_send_node(node):
+            return self._signal_codegen.generate_send_signal_call(
+                node,
+                graph_model,
+                input_params,
+            )
 
         # 对于自定义变量相关的节点，自动注入 owner_entity
         if node.title in ["设置自定义变量", "获取自定义变量"]:
@@ -375,46 +369,6 @@ class ExecutableCodeGenerator:
             lines.append(f"{call_expr}")
 
         return lines
-
-    def _generate_send_signal_call(
-        self,
-        node: NodeModel,
-        graph_model: GraphModel,
-        var_mapping: Dict[Tuple[str, str], str],
-    ) -> List[str]:
-        """为【发送信号】节点生成统一的 emit_signal 调用代码。"""
-        lines: List[str] = []
-
-        # 基于通用逻辑收集所有数据输入
-        input_params = self._collect_input_params(node, graph_model, var_mapping)
-
-        # 解析信号绑定（优先使用 GraphModel.metadata["signal_bindings"]）
-        bindings = (graph_model.metadata or {}).get("signal_bindings") or {}
-        binding_info = bindings.get(node.id) or {}
-        bound_signal_id = binding_info.get("signal_id") or ""
-
-        if bound_signal_id:
-            signal_id_expr = f'"{bound_signal_id}"'
-        else:
-            # 回退：使用“信号名”输入端口常量/表达式
-            signal_id_expr = input_params.get("信号名", '""')
-
-        # 目标实体：若未显式提供则回退为 owner_entity
-        target_entity_expr = input_params.get("目标实体", "self.owner_entity")
-
-        # 构造参数字典：排除静态输入（目标实体/信号名）
-        entries: List[str] = []
-        for param_name, param_value in input_params.items():
-            if param_name in ("目标实体", "信号名"):
-                continue
-            entries.append(f'"{param_name}": {param_value}')
-
-        params_expr = "{ " + ", ".join(entries) + " }" if entries else "{}"
-
-        lines.append(
-            f"self.game.emit_signal({signal_id_expr}, params={params_expr}, target_entity={target_entity_expr})"
-        )
-        return lines
     
     # 常量格式化逻辑统一在 engine.graph.common.format_constant
     
@@ -452,20 +406,12 @@ class ExecutableCodeGenerator:
             lines.append("        pass")
             return lines
 
-        signal_bindings = (graph_model.metadata or {}).get("signal_bindings") or {}
-
-        from engine.graph.common import SIGNAL_LISTEN_NODE_TITLE
-
         for event_node_id in event_flows:
             event_node = graph_model.nodes[event_node_id]
-            event_name = event_node.title
-
-            # 监听信号节点：按绑定的 signal_id 注册事件名
-            if event_node.title == SIGNAL_LISTEN_NODE_TITLE:
-                binding_info = signal_bindings.get(event_node_id) or {}
-                bound_signal_id = binding_info.get("signal_id") or ""
-                if bound_signal_id:
-                    event_name = bound_signal_id
+            event_name = self._signal_codegen.get_event_name_for_node(
+                graph_model,
+                event_node_id,
+            )
 
             lines.append("        self.game.register_event_handler(")
             lines.append(f'            "{event_name}",')

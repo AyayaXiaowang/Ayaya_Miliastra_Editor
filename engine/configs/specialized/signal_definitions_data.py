@@ -2,23 +2,36 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-# 本文件由 tools/generate_struct_and_signal_definitions.py 自动生成。
-# 信号定义以 Python 字典常量形式固化为 SIGNAL_DEFINITION_PAYLOADS。
-# 运行时不再依赖 assets/资源库/管理配置/信号 下的聚合 JSON 文件。
+from engine.resources.definition_schema_view import get_default_definition_schema_view
 
-SIGNAL_DEFINITION_PAYLOADS: Dict[str, Dict[str, Any]] = {
-    'signal_20251119_103753_007435_f98e': {'signal_id': 'signal_20251119_103753_007435_f98e', 'signal_name': '信号1', 'parameters': [{'name': '测试参数1', 'parameter_type': '整数', 'description': ''}], 'description': '1'},
-    'signal_forge_hero_teleport_01': {'signal_id': 'signal_forge_hero_teleport_01', 'signal_name': '传送', 'parameters': [{'name': '地点', 'parameter_type': '字符串', 'description': '目标界面名称（强化界面/挑战界面/打造界面/冒险界面）'}], 'description': '锻刀英雄主城内用于在不同界面锚点之间传送玩家的信号。'},
-}
+
+def _get_all_signal_definitions() -> Dict[str, Dict[str, Any]]:
+    """从代码级 Schema 视图获取所有信号定义副本。"""
+    schema_view = get_default_definition_schema_view()
+    raw_definitions = schema_view.get_all_signal_definitions()
+
+    results: Dict[str, Dict[str, Any]] = {}
+    for raw_signal_id, raw_payload in raw_definitions.items():
+        if not isinstance(raw_payload, dict):
+            continue
+        signal_id_text = str(raw_signal_id)
+        results[signal_id_text] = dict(raw_payload)
+    return results
+
 
 def list_signal_ids() -> list[str]:
     """返回所有可用的信号 ID 列表（排序后）。"""
-    return sorted(SIGNAL_DEFINITION_PAYLOADS.keys())
+    all_definitions = _get_all_signal_definitions()
+    return sorted(all_definitions.keys())
+
 
 def get_signal_payload(signal_id: str) -> Dict[str, Any] | None:
     """按 ID 获取单个信号定义载荷的浅拷贝，未找到时返回 None。"""
     key = str(signal_id)
-    payload = SIGNAL_DEFINITION_PAYLOADS.get(key)
+    all_definitions = _get_all_signal_definitions()
+    payload = all_definitions.get(key)
     if payload is None:
         return None
     return dict(payload)
+
+

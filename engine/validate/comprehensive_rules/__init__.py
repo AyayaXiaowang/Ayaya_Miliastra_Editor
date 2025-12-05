@@ -13,6 +13,7 @@ from .management_rule import ManagementConfigRule
 from .package_graph_mount_rule import PackageGraphMountRule
 from .resource_graph_rule import ResourceLibraryGraphsRule
 from .signal_rule import SignalUsageRule
+from .struct_rule import StructUsageRule
 from .template_rule import TemplateRule
 from .ui_controls_rule import UiControlsRule
 
@@ -28,6 +29,7 @@ def build_rules(validator) -> List[BaseComprehensiveRule]:
         FrontendVariableRule(validator),
         GraphPerformanceRule(validator),
         SignalUsageRule(validator),
+        StructUsageRule(validator),
         ResourceLibraryGraphsRule(validator),
         CompositeNodesRule(validator),
     ]

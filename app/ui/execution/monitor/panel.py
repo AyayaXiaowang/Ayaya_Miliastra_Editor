@@ -193,6 +193,7 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         self._ui_refs["test_ocr_zoom_button"].clicked.connect(lambda: self._actions.test_ocr_zoom())
         self._ui_refs["test_nodes_button"].clicked.connect(lambda: self._actions.test_nodes())
         self._ui_refs["test_ports_button"].clicked.connect(lambda: self._actions.test_ports())
+        self._ui_refs["test_ports_deep_button"].clicked.connect(lambda: self._actions.test_ports_deep())
         self._ui_refs["test_settings_tpl_button"].clicked.connect(lambda: self._actions.test_settings_tpl())
         self._ui_refs["test_add_button"].clicked.connect(lambda: self._actions.test_add_templates())
         self._ui_refs["test_search_button"].clicked.connect(lambda: self._actions.test_searchbar_templates())

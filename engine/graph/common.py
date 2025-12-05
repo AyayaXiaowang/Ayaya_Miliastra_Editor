@@ -263,9 +263,10 @@ def validate_pin_type_annotation(type_name: str, allow_python_builtin: bool = Fa
     """验证端口类型标注是否合法
     
     规则：
-    - 优先接受中文端口类型（整数、浮点数、字符串、布尔值、实体、三维向量等）
-    - 可选接受Python内置类型（int、float、str等），会自动转换为中文类型
-    - 未识别的类型回退为"泛型"
+    - 优先接受中文端口类型（整数、浮点数、字符串、布尔值、实体、三维向量等）；
+    - 在允许的场景下，可接受 Python 内置类型名（int、float、str、bool、list、dict），并自动转换为中文端口类型；
+    - 在不允许 Python 内置类型名的场景下，遇到这些标注会记录告警并回退为“泛型”，避免阻断整体加载；
+    - 其他未识别的类型一律回退为“泛型”。
     
     Args:
         type_name: 类型名称
@@ -275,7 +276,7 @@ def validate_pin_type_annotation(type_name: str, allow_python_builtin: bool = Fa
         规范化的端口类型名称
         
     Raises:
-        ValueError: 当不允许Python内置类型但使用了时
+        ValueError: 对于被明确禁止的类型标注（如“通用”/Any 等）
     """
     from engine.configs.rules.datatype_rules import BASE_TYPES, LIST_TYPES
     
@@ -294,12 +295,22 @@ def validate_pin_type_annotation(type_name: str, allow_python_builtin: bool = Fa
     
     # Python内置类型处理
     if type_name in PYTHON_TYPE_TO_PIN_TYPE:
+        mapped = PYTHON_TYPE_TO_PIN_TYPE[type_name]
         if allow_python_builtin:
-            return PYTHON_TYPE_TO_PIN_TYPE[type_name]
-        raise ValueError(
-            f"不支持的类型标注 '{type_name}'：复合节点应使用中文端口类型"
-            f"（如：整数/浮点数/字符串/布尔值/字典/列表/泛型/…）"
+            # 允许 Python 内置类型时，做显式的“英文 → 中文”类型映射。
+            return mapped
+
+        # 默认场景：不允许在资源/复合节点中直接使用 Python 内置类型名。
+        # 为避免单个复合节点写错导致整个程序无法启动，这里采用“记录告警 + 回退为泛型”的策略，
+        # 具体类型问题交由后续图验证工具或资源校验脚本暴露。
+        from engine.utils.logging.logger import log_warn
+
+        log_warn(
+            "类型标注 '{}' 在当前上下文不允许直接使用 Python 内置类型名，"
+            "已按 '泛型' 处理；推荐改为显式的中文端口类型（如：整数/浮点数/字符串/布尔值/字典/列表/泛型 等）。",
+            type_name,
         )
+        return "泛型"
     
     # 未识别的类型，回退为"泛型"
     return "泛型"
@@ -354,7 +365,10 @@ def is_loop_node_name(node_name: str) -> bool:
 SIGNAL_SEND_NODE_TITLE: str = "发送信号"
 SIGNAL_LISTEN_NODE_TITLE: str = "监听信号"
 
-SIGNAL_SEND_STATIC_INPUTS: Tuple[str, ...] = ("流程入", "目标实体", "信号名")
+# 统一的“信号名”端口名称常量，供各层复用，避免直接使用硬编码字符串。
+SIGNAL_NAME_PORT_NAME: str = "信号名"
+
+SIGNAL_SEND_STATIC_INPUTS: Tuple[str, ...] = ("流程入", "目标实体", SIGNAL_NAME_PORT_NAME)
 SIGNAL_LISTEN_STATIC_OUTPUTS: Tuple[str, ...] = ("流程出", "事件源实体", "事件源GUID", "信号来源实体")
 
 
@@ -369,14 +383,17 @@ STRUCT_NODE_TITLES: Tuple[str, ...] = (
     STRUCT_MODIFY_NODE_TITLE,
 )
 
+# 统一的“结构体名”端口名称常量：用于在节点上选择/展示已绑定的结构体。
+STRUCT_NAME_PORT_NAME: str = "结构体名"
+
 # 静态端口合集：便于 UI 在追加动态端口时跳过这些固定入口/出口
-STRUCT_SPLIT_STATIC_INPUTS: Tuple[str, ...] = ("结构体实例",)
+STRUCT_SPLIT_STATIC_INPUTS: Tuple[str, ...] = (STRUCT_NAME_PORT_NAME, "结构体实例")
 STRUCT_SPLIT_STATIC_OUTPUTS: Tuple[str, ...] = ()
 
-STRUCT_BUILD_STATIC_INPUTS: Tuple[str, ...] = ()
+STRUCT_BUILD_STATIC_INPUTS: Tuple[str, ...] = (STRUCT_NAME_PORT_NAME,)
 STRUCT_BUILD_STATIC_OUTPUTS: Tuple[str, ...] = ("结果",)
 
-STRUCT_MODIFY_STATIC_INPUTS: Tuple[str, ...] = ("流程入", "结构体实例")
+STRUCT_MODIFY_STATIC_INPUTS: Tuple[str, ...] = ("流程入", STRUCT_NAME_PORT_NAME, "结构体实例")
 STRUCT_MODIFY_STATIC_OUTPUTS: Tuple[str, ...] = ("流程出",)
 
 
@@ -389,6 +406,9 @@ def is_selection_input_port(node: Optional[Any], port_name: str) -> bool:
     - 【发送信号/监听信号】节点的“信号名”输入端口视为选择端口，只能通过信号选择对话框或行内编辑设置；
       · 该端口不会出现在连线起点/终点的候选集合中；
       · 仍作为普通数据输入参与代码生成，值来源于 `node.input_constants["信号名"]`。
+    - 结构体相关节点（拆分/拼装/修改）的“结构体名”输入端口视为选择端口，只能通过结构体绑定对话框或行内编辑设置；
+      · 该端口同样不参与连线，仅作为选择结果在节点上展示；
+      · 真实的结构体绑定以 `GraphModel.metadata["struct_bindings"]` 为准。
     """
     if node is None:
         return False
@@ -397,7 +417,11 @@ def is_selection_input_port(node: Optional[Any], port_name: str) -> bool:
     name = str(port_name or "")
 
     # 信号相关节点：发送信号/监听信号 的“信号名”输入端口
-    if title in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE) and name == "信号名":
+    if title in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE) and name == SIGNAL_NAME_PORT_NAME:
+        return True
+
+    # 结构体相关节点：拆分/拼装/修改结构体 的“结构体名”输入端口
+    if title in STRUCT_NODE_TITLES and name == STRUCT_NAME_PORT_NAME:
         return True
 
     return False

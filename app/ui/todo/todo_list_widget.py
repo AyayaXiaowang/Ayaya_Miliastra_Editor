@@ -133,7 +133,11 @@ class TodoListWidget(QtWidgets.QWidget):
         self.tree.setAnimated(False)
         left_card_layout.addWidget(self.tree)
         # 安装分段文本绘制委托（仅第0列）
-        self._rich_delegate = RichTextItemDelegate(self.RICH_SEGMENTS_ROLE, self.tree)
+        # 置灰标记角色约定为 RICH_SEGMENTS_ROLE + 1，由 TodoTreeManager 负责写入。
+        self._rich_delegate = RichTextItemDelegate(
+            self.RICH_SEGMENTS_ROLE,
+            self.tree,
+        )
         self.tree.setItemDelegateForColumn(0, self._rich_delegate)
         
         # 右侧：使用堆叠布局（QStackedWidget）切换详情和预览

@@ -65,7 +65,11 @@ def validate_composite_nodes(validator) -> List[ValidationIssue]:
             pin_detail = detail.copy()
             pin_detail["pin_index"] = pin.pin_index
             pin_detail["pin_name"] = pin.pin_name
-            if not pin.mapped_ports:
+            # 对于标记为 allow_unmapped 的虚拟引脚，允许其在子图中没有具体端口映射：
+            # 典型场景是数据输入仅在复合节点代码的控制流条件（如 if 条件:）中使用，
+            # 此时不会绑定到任何内部节点端口，但从语义上已经参与了逻辑。
+            allow_unmapped = getattr(pin, "allow_unmapped", False)
+            if not pin.mapped_ports and not allow_unmapped:
                 issues.append(
                     ValidationIssue(
                         level="warning",

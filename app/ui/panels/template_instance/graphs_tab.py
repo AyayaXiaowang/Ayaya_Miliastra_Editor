@@ -490,7 +490,7 @@ class GraphsTab(TemplateInstanceTabBase):
         item.setData(QtCore.Qt.ItemDataRole.UserRole, entry.graph_id)
         item.setData(QtCore.Qt.ItemDataRole.UserRole + 1, entry.origin)
         if entry.gray_out:
-            item.setForeground(QtGui.QColor("#888"))
+            item.setForeground(QtGui.QColor(Colors.TEXT_DISABLED))
         elif self._graph_details.get(entry.graph_id) is None and entry.graph_id in self._graph_details:
             item.setForeground(QtCore.Qt.GlobalColor.red)
         self._graph_items[entry.graph_id] = item
@@ -552,7 +552,7 @@ class GraphsTab(TemplateInstanceTabBase):
             return
         item.setText(self._format_graph_label(entry))
         if entry.gray_out:
-            item.setForeground(QtGui.QColor("#888"))
+            item.setForeground(QtGui.QColor(Colors.TEXT_DISABLED))
         elif graph_id in self._graph_details and self._graph_details[graph_id] is None:
             item.setForeground(QtCore.Qt.GlobalColor.red)
         else:

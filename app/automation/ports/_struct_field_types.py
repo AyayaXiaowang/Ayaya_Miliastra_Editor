@@ -5,15 +5,18 @@ from __future__ import annotations
 结构体字段 → 规范类型名 映射缓存。
 
 职责：
-- 扫描“结构体定义”目录中的 JSON 配置，建立字段名到规范中文类型名的映射；
+- 基于引擎提供的 `definition_schema_view` 扫描结构体定义，建立字段名到规范中文类型名的映射；
 - 当同名字段在不同结构体中类型不一致时，映射为空字符串，表示类型不确定；
-- 作为端口类型推断阶段的公共数据源，供以键查询字典值等节点复用。
+- 作为端口类型推断阶段的公共数据源，供自动化执行与 Todo UI 中的类型推断复用。
 
 说明：
 - 规范类型名统一复用 `app.ui.dialogs.struct_definition_types.param_type_to_canonical`，
-  避免在自动化模块中维护平行的 param_type → 类型名 映射表。
+  避免在自动化模块或 UI 模块中维护平行的 param_type → 类型名 映射表；
+- 对外公共入口为 `lookup_struct_field_type_by_name`，并通过 `port_type_inference` 重新导出，
+  调用方应优先从 `app.automation.ports.port_type_inference` 导入该函数。
 """
 
+from functools import lru_cache
 from typing import Dict
 
 from app.ui.dialogs.struct_definition_types import param_type_to_canonical
@@ -22,15 +25,14 @@ from engine.resources.definition_schema_view import (
 )
 
 
-_STRUCT_FIELD_TYPE_CACHE: Dict[str, str] = {}
-_STRUCT_FIELD_CACHE_BUILT: bool = False
+@lru_cache(maxsize=1)
+def _get_struct_field_type_mapping() -> Dict[str, str]:
+    """基于代码级结构体定义 Schema，为字段名建立到规范类型名的映射。
 
-
-def _build_struct_field_type_cache() -> None:
-    """基于代码级结构体定义 Schema，为字段名建立到规范类型名的映射。"""
-    global _STRUCT_FIELD_TYPE_CACHE
-    global _STRUCT_FIELD_CACHE_BUILT
-
+    说明：
+        - 使用 lru_cache 将完整映射以只读字典形式缓存，首次调用时构建，后续直接复用；
+        - 当同名字段在不同结构体中类型不一致时，映射值为空字符串，表示类型不确定。
+    """
     mapping: Dict[str, str] = {}
 
     schema_view = get_default_definition_schema_view()
@@ -62,8 +64,7 @@ def _build_struct_field_type_cache() -> None:
                 # 同名字段类型冲突：标记为空字符串，后续调用方视为“不确定类型”
                 mapping[field_name] = ""
 
-    _STRUCT_FIELD_TYPE_CACHE = mapping
-    _STRUCT_FIELD_CACHE_BUILT = True
+    return mapping
 
 
 def lookup_struct_field_type_by_name(field_name: str) -> str:
@@ -73,15 +74,11 @@ def lookup_struct_field_type_by_name(field_name: str) -> str:
         - 规范中文类型名字符串；
         - 空字符串表示未找到或存在类型冲突。
     """
-    global _STRUCT_FIELD_CACHE_BUILT
-
     if not isinstance(field_name, str) or field_name == "":
         return ""
 
-    if not _STRUCT_FIELD_CACHE_BUILT:
-        _build_struct_field_type_cache()
-
-    type_name = _STRUCT_FIELD_TYPE_CACHE.get(field_name, "")
+    type_mapping = _get_struct_field_type_mapping()
+    type_name = type_mapping.get(field_name, "")
     if not isinstance(type_name, str):
         return ""
     if type_name.strip() == "":

@@ -4,6 +4,9 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
+_TOAST_POPUP_ENABLED: bool = False
+
+
 class ToastNotification(QtWidgets.QWidget):
     """Toast通知组件 - 在窗口右上角显示提示信息（自上而下堆叠）"""
     
@@ -126,13 +129,16 @@ class ToastNotification(QtWidgets.QWidget):
     
     def show_toast(self) -> None:
         """显示Toast（相对于父窗口右上角，自上而下堆叠）"""
+        if not _TOAST_POPUP_ENABLED:
+            return
+        
         parent_widget = self.parent()
         # 计算Y偏移（按已有 Toast 自上而下堆叠）
         y_offset = 20
         for toast in ToastNotification._active_toasts:
             if toast.isVisible():
                 y_offset += toast.height() + 10
-
+        
         margin_right = 20
         if parent_widget is None:
             # 无父窗口：退化为相对于主屏右上角
@@ -188,20 +194,20 @@ class ToastNotification(QtWidgets.QWidget):
             base_x = global_top_left.x()
             base_y = global_top_left.y()
             base_width = parent_widget.width()
-
+        
         y_offset = 20
         margin_right = 20
         for toast in ToastNotification._active_toasts:
             if toast.isVisible() and toast != self:
                 x = base_x + base_width - toast.width() - margin_right
                 y = base_y + y_offset
-
+                
                 animation = QtCore.QPropertyAnimation(toast, b"pos")
                 animation.setDuration(200)
                 animation.setEndValue(QtCore.QPoint(x, y))
                 animation.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic)
                 animation.start(QtCore.QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
-
+                
                 y_offset += toast.height() + 10
     
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
@@ -219,6 +225,9 @@ class ToastNotification(QtWidgets.QWidget):
             message: 提示消息
             toast_type: 类型 ("info" | "warning" | "error")
         """
+        if not _TOAST_POPUP_ENABLED:
+            print(message, flush=True)
+            return
         toast = ToastNotification(parent, message, toast_type)
         toast.show_toast()
 

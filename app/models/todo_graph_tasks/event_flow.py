@@ -14,6 +14,7 @@ from app.models.todo_pipeline.step_mode import GraphStepMode
 from engine.graph.models import GraphModel
 from engine.layout import layout_by_event_regions
 from engine.utils.graph.graph_utils import is_flow_port_name
+from engine.utils.name_utils import dedupe_preserve_order
 
 
 class EventFlowTaskBuilder:
@@ -73,6 +74,7 @@ class EventFlowTaskBuilder:
                 start_node = model.nodes.get(start_id)
                 if not start_node:
                     continue
+                from engine.graph.common import SIGNAL_LISTEN_NODE_TITLE
                 flow_root = self.emitters.create_flow_root(
                     graph_root=graph_root,
                     graph_root_id=graph_root_id,
@@ -95,6 +97,19 @@ class EventFlowTaskBuilder:
                     suppress_auto_jump=suppress_auto_jump,
                     task_type=task_type,
                 )
+
+                if getattr(start_node, "title", "") == SIGNAL_LISTEN_NODE_TITLE:
+                    self.emitters.ensure_signal_binding_for_event_start(
+                        flow_root=flow_root,
+                        flow_root_id=flow_root.todo_id,
+                        graph_id=graph_id,
+                        start_node=start_node,
+                        template_ctx_id=template_ctx_id,
+                        instance_ctx_id=instance_ctx_id,
+                        suppress_auto_jump=suppress_auto_jump,
+                        task_type=task_type,
+                        model=model,
+                    )
 
                 if mode.is_human:
                     self.traversal.generate_human_mode_tasks(
@@ -161,7 +176,7 @@ class EventFlowTaskBuilder:
                 return (float(y_val), float(x_val), node_id)
             return (0.0, 0.0, node_id)
 
-        unique_ids = list(dict.fromkeys(candidates))
+        unique_ids = dedupe_preserve_order(candidates)
         unique_ids.sort(key=event_pos_key)
         return unique_ids
 

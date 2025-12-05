@@ -7,6 +7,7 @@ from html import escape
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+from ui.foundation.theme_manager import Colors
 from ui.scene.interaction_state import YDebugInteractionState
 
 
@@ -176,11 +177,11 @@ class YDebugTooltipOverlay:
         frame = QtWidgets.QFrame(view.viewport())
         frame.setObjectName("yDebugTooltip")
         frame.setStyleSheet(
-            "QFrame#yDebugTooltip { background-color: rgba(30,30,30,230);"
-            " border: 1px solid #5AAFFF; border-radius: 6px; }"
-            " QLabel { color: white; background: transparent; }"
-            " QPushButton { border: none; color: #DDEEFF; padding: 2px 6px; }"
-            " QPushButton:hover { color: white; }"
+            f"QFrame#yDebugTooltip {{ background-color: rgba(30,30,30,230);"
+            f" border: 1px solid {Colors.PRIMARY_LIGHT}; border-radius: 6px; }}"
+            f" QLabel {{ color: {Colors.TEXT_ON_PRIMARY}; background: transparent; }}"
+            f" QPushButton {{ border: none; color: {Colors.TEXT_ON_PRIMARY}; padding: 2px 6px; }}"
+            f" QPushButton:hover {{ color: {Colors.TEXT_ON_PRIMARY}; }}"
         )
         layout = QtWidgets.QVBoxLayout(frame)
         layout.setContentsMargins(10, 8, 10, 8)
@@ -371,7 +372,11 @@ class YDebugTooltipOverlay:
             parts.append(f"<div>— 所属事件流：{event_id.strip()}</div>")
         else:
             parts.append("<div>— 所属事件流：-</div>")
-        controls_html = "<span style='margin-left:10px;'><a href='highlight_all' style='color:#A0E0FF;'>高亮全部</a> · <a href='clear_all' style='color:#A0E0FF;'>清除</a></span>"
+        controls_html = (
+            f"<span style='margin-left:10px;'>"
+            f"<a href='highlight_all' style='color:{Colors.PRIMARY_LIGHT};'>高亮全部</a> · "
+            f"<a href='clear_all' style='color:{Colors.PRIMARY_LIGHT};'>清除</a></span>"
+        )
         node_type = info.get("type")
         if node_type != "flow":
             chains = info.get("chains")
@@ -433,9 +438,9 @@ class YDebugTooltipOverlay:
                 if cid is None:
                     continue
                 chain_anchor = (
-                    f"<a href='chain:{int(cid)}' style='color:#8BC8FF; text-decoration:none;'>链 {int(cid)}（链内序号 {int(pos_in_chain)}）</a>"
+                    f"<a href='chain:{int(cid)}' style='color:{Colors.INFO_LIGHT}; text-decoration:none;'>链 {int(cid)}（链内序号 {int(pos_in_chain)}）</a>"
                     if pos_in_chain is not None
-                    else f"<a href='chain:{int(cid)}' style='color:#8BC8FF; text-decoration:none;'>链 {int(cid)}</a>"
+                    else f"<a href='chain:{int(cid)}' style='color:{Colors.INFO_LIGHT}; text-decoration:none;'>链 {int(cid)}</a>"
                 )
                 if consumer_port_idx is not None and consumer_port_name:
                     parts.append(
@@ -444,11 +449,17 @@ class YDebugTooltipOverlay:
                 else:
                     parts.append(f"<div style='margin-left:1.5em;'>· {chain_anchor}</div>")
             if total_pages > 1:
-                nav_bits = [f"<span style='color:#BBBBBB;'>第 {page_index + 1}/{total_pages} 页</span>"]
+                nav_bits = [
+                    f"<span style='color:{Colors.TEXT_SECONDARY};'>第 {page_index + 1}/{total_pages} 页</span>"
+                ]
                 if page_index > 0:
-                    nav_bits.append("<a href='page_prev' style='margin-left:10px; color:#A0E0FF;'>上一页</a>")
+                    nav_bits.append(
+                        f"<a href='page_prev' style='margin-left:10px; color:{Colors.PRIMARY_LIGHT};'>上一页</a>"
+                    )
                 if page_index < total_pages - 1:
-                    nav_bits.append("<a href='page_next' style='margin-left:10px; color:#A0E0FF;'>下一页</a>")
+                    nav_bits.append(
+                        f"<a href='page_next' style='margin-left:10px; color:{Colors.PRIMARY_LIGHT};'>下一页</a>"
+                    )
                 parts.append(f"<div style='margin-left:1.5em; margin-top:4px;'>{' '.join(nav_bits)}</div>")
         elif isinstance(chains, list):
             parts.append("<div style='margin-left:1.5em;'>· 未找到关联链路：该节点未被任何数据链引用。</div>")
@@ -491,7 +502,9 @@ class YDebugTooltipOverlay:
             end_index = min(start_index + page_size, total_items)
             for cid in chain_ids[start_index:end_index]:
                 chain = inbound_chains[cid]
-                chain_anchor = f"<a href='chain:{int(cid)}' style='color:#8BC8FF; text-decoration:none;'>链 {int(cid)}</a>"
+                chain_anchor = (
+                    f"<a href='chain:{int(cid)}' style='color:{Colors.INFO_LIGHT}; text-decoration:none;'>链 {int(cid)}</a>"
+                )
                 if chain.get("consumer_port_index") is not None and chain.get("consumer_port_name"):
                     parts.append(
                         f"<div style='margin-left:1.5em;'>· {chain_anchor}：连接到端口 {int(chain['consumer_port_index'])}（{chain['consumer_port_name']}）</div>"
@@ -499,11 +512,17 @@ class YDebugTooltipOverlay:
                 else:
                     parts.append(f"<div style='margin-left:1.5em;'>· {chain_anchor}</div>")
             if total_pages > 1:
-                nav_bits = [f"<span style='color:#BBBBBB;'>第 {page_index + 1}/{total_pages} 页</span>"]
+                nav_bits = [
+                    f"<span style='color:{Colors.TEXT_SECONDARY};'>第 {page_index + 1}/{total_pages} 页</span>"
+                ]
                 if page_index > 0:
-                    nav_bits.append("<a href='page_prev' style='margin-left:10px; color:#A0E0FF;'>上一页</a>")
+                    nav_bits.append(
+                        f"<a href='page_prev' style='margin-left:10px; color:{Colors.PRIMARY_LIGHT};'>上一页</a>"
+                    )
                 if page_index < total_pages - 1:
-                    nav_bits.append("<a href='page_next' style='margin-left:10px; color:#A0E0FF;'>下一页</a>")
+                    nav_bits.append(
+                        f"<a href='page_next' style='margin-left:10px; color:{Colors.PRIMARY_LIGHT};'>下一页</a>"
+                    )
                 parts.append(f"<div style='margin-left:1.5em; margin-top:4px;'>{' '.join(nav_bits)}</div>")
         else:
             parts.append("<div style='margin-left:1.5em;'>· 未找到关联链路：该流程节点当前没有数据输入链路。</div>")
