@@ -8,12 +8,10 @@ from engine.configs.specialized.node_graph_configs import (
     STRUCT_TYPE_BASIC,
 )
 from ui.dialogs.struct_definition_types import (
-    canonical_to_param_type,
     is_dict_type,
     is_list_type,
     is_struct_type,
     normalize_canonical_type_name,
-    param_type_to_canonical,
 )
 from ui.dialogs.struct_definition_value_editors import ClickToEditLineEdit
 from ui.foundation.base_widgets import BaseDialog
@@ -129,6 +127,21 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
             # 清除只读样式，回退为主题默认输入框样式
             self.struct_name_edit.setStyleSheet("")
 
+        # 根据结构体类型切换值列展示模式与含义：
+        # - 基础结构体：值列仍展示/编辑默认数据值；
+        # - 局内存档结构体：值列改为展示列表长度等元信息（lenth），不再展示默认数据值。
+        from engine.configs.specialized.node_graph_configs import STRUCT_TYPE_INGAME_SAVE
+
+        is_ingame_save_struct = self._struct_type == STRUCT_TYPE_INGAME_SAVE
+        if is_ingame_save_struct:
+            # 局内存档结构体：第四列展示“列表长度”，不再展示“数据值”
+            self.fields_table_widget.set_column_headers(["序号", "字段名", "数据类型", "列表长度"])
+            self.fields_table_widget.set_value_mode("metadata")
+        else:
+            # 基础结构体：保持原有的“数据值”列语义
+            self.fields_table_widget.set_column_headers(["序号", "名字", "数据类型", "数据值"])
+            self.fields_table_widget.set_value_mode("value")
+
         # 转换为通用组件所需的字段格式
         converted_fields: List[Dict[str, object]] = []
         for field in fields:
@@ -137,9 +150,17 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
             value_node = field.get("value_node")
             name_text = str(field_name_value) if isinstance(field_name_value, str) else ""
             type_name = str(type_name_value) if isinstance(type_name_value, str) else ""
-            
-            # 从value_node提取值
-            value = self._extract_value_from_value_node(type_name, value_node)
+
+            if is_ingame_save_struct:
+                # 局内存档结构体：值列展示 lenth 元数据（如存在）
+                length_value = field.get("lenth")
+                if isinstance(length_value, (int, float)):
+                    value = int(length_value)
+                else:
+                    value = ""
+            else:
+                # 基础结构体：从 value_node 提取默认数据值
+                value = self._extract_value_from_value_node(type_name, value_node)
 
             converted_fields.append(
                 {
@@ -247,22 +268,37 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
             if not canonical_type_name:
                 continue
 
-            param_type_name = canonical_to_param_type(canonical_type_name)
+            # 直接使用中文类型名作为 param_type，不再转换成英文
             value = field.get("value")
-            value_node = self._build_value_node(
-                canonical_type_name, param_type_name, value
-            )
 
-            value_entries.append(
-                {
+            # 对于局内存档结构体，仅输出结构信息与元数据，不再写入字段默认值
+            from engine.configs.specialized.node_graph_configs import STRUCT_TYPE_INGAME_SAVE
+
+            if self._struct_type == STRUCT_TYPE_INGAME_SAVE:
+                entry: Dict[str, object] = {
                     "key": field_name,
-                    "param_type": param_type_name,
-                    "value": value_node,
+                    "param_type": canonical_type_name,
                 }
-            )
+                # 若值列被用于编辑 lenth（列表长度），则将其写回字段元数据
+                if canonical_type_name.endswith("列表") and canonical_type_name != "结构体列表":
+                    if isinstance(value, (int, float)):
+                        entry["lenth"] = int(value)
+                value_entries.append(entry)
+            else:
+                # 基础结构体仍按原有方式写入默认数据值
+                value_node = self._build_value_node(
+                    canonical_type_name, canonical_type_name, value
+                )
+                value_entries.append(
+                    {
+                        "key": field_name,
+                        "param_type": canonical_type_name,
+                        "value": value_node,
+                    }
+                )
 
         struct_data: Dict[str, object] = {
-            "type": "Struct",
+            "type": "结构体",
             "struct_ype": self._struct_type,
             "name": struct_name,
             "value": value_entries,
@@ -342,7 +378,7 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
                     "value": [],
                 }
                 return {
-                    "param_type": "Struct",
+                    "param_type": "结构体",
                     "value": inner_value,
                 }
 
@@ -352,7 +388,7 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
                 "value": [],
             }
             return {
-                "param_type": "StructList",
+                "param_type": "结构体列表",
                 "value": inner_list_value,
             }
 
@@ -363,8 +399,9 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
             else:
                 entries = []
 
-            key_type_name = canonical_to_param_type("字符串")
-            value_type_name = canonical_to_param_type("字符串")
+            # 使用中文类型名
+            key_type_name = "字符串"
+            value_type_name = "字符串"
 
             dict_entries: List[Dict[str, object]] = []
             for key_text, value_text in entries:
@@ -388,7 +425,7 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
                 "value": dict_entries,
             }
             return {
-                "param_type": "Dict",
+                "param_type": "字典",
                 "value": inner_value,
             }
 

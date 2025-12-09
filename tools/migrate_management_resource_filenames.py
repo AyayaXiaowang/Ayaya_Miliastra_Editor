@@ -17,6 +17,7 @@ import io
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
+from importlib.machinery import SourceFileLoader
 
 
 # 统一工作空间根目录与 sys.path（参考其它 tools 脚本）
@@ -196,6 +197,15 @@ def migrate_management_resources(
             stats[resource_type.name] = count
         print()
 
+    # 额外处理：局内存档管理目录下的代码级模板（.py 文件），按模板名重命名物理文件。
+    save_point_template_count = _migrate_ingame_save_templates_by_name(
+        workspace_path,
+        dry_run=dry_run,
+    )
+    if save_point_template_count > 0:
+        stats["INGAME_SAVE_TEMPLATES"] = save_point_template_count
+        print()
+
     if not dry_run:
         # 迁移完成后重建资源索引，确保缓存与物理文件名保持一致。
         removed = manager.clear_persistent_resource_index_cache()
@@ -213,6 +223,95 @@ def migrate_management_resources(
     print("=" * 60)
 
     return stats
+
+
+def _migrate_ingame_save_templates_by_name(
+    workspace_path: Path,
+    *,
+    dry_run: bool,
+) -> int:
+    """将局内存档模板代码资源从“ID 命名”迁移为“按模板名命名”。
+
+    约定：
+    - 根目录：assets/资源库/管理配置/局内存档管理
+    - 每个 Python 模块导出：
+      - SAVE_POINT_ID: str
+      - SAVE_POINT_PAYLOAD: dict，至少包含 template_id/template_name/save_point_name 等字段
+    - 物理文件名优先采用 template_name，其次 save_point_name，最后回退到 SAVE_POINT_ID。
+    """
+    base_directory = (
+        workspace_path
+        / "assets"
+        / "资源库"
+        / "管理配置"
+        / "局内存档管理"
+    )
+
+    if not base_directory.is_dir():
+        return 0
+
+    print("=" * 60)
+    print("局内存档模板文件名迁移（代码资源 .py）")
+    print(f"目录: {base_directory}")
+
+    migrated_count = 0
+
+    for python_file_path in sorted(base_directory.glob("*.py")):
+        if python_file_path.name == "__init__.py":
+            continue
+
+        module_name = f"code_save_point_template_{abs(hash(python_file_path.as_posix()))}"
+        loader = SourceFileLoader(module_name, str(python_file_path))
+        module = loader.load_module()
+
+        save_point_id_value = getattr(module, "SAVE_POINT_ID", None)
+        payload_value = getattr(module, "SAVE_POINT_PAYLOAD", None)
+
+        if not isinstance(save_point_id_value, str) or not save_point_id_value:
+            raise ValueError(f"无效的 SAVE_POINT_ID（{python_file_path}）")
+        if not isinstance(payload_value, dict):
+            raise ValueError(f"无效的 SAVE_POINT_PAYLOAD（{python_file_path}）")
+
+        template_payload = dict(payload_value)
+
+        raw_template_name = template_payload.get("template_name")
+        if isinstance(raw_template_name, str) and raw_template_name.strip():
+            template_name_text = raw_template_name.strip()
+        else:
+            raw_save_point_name = template_payload.get("save_point_name")
+            if isinstance(raw_save_point_name, str) and raw_save_point_name.strip():
+                template_name_text = raw_save_point_name.strip()
+            else:
+                template_name_text = save_point_id_value
+
+        sanitized_name = ResourceManager.sanitize_filename(template_name_text)
+        if not sanitized_name:
+            sanitized_name = save_point_id_value
+
+        current_stem = python_file_path.stem
+        if current_stem == sanitized_name:
+            continue
+
+        print(f"  - {python_file_path.name}  =>  {sanitized_name}.py")
+        migrated_count += 1
+
+        if dry_run:
+            continue
+
+        target_path = python_file_path.with_name(f"{sanitized_name}{python_file_path.suffix}")
+        if target_path.exists() and target_path != python_file_path:
+            raise ValueError(
+                f"目标文件已存在，无法重命名：{target_path}"
+            )
+
+        python_file_path.rename(target_path)
+
+    if migrated_count == 0:
+        print("无需迁移，局内存档模板文件名已按模板名命名。")
+    else:
+        print(f"预计将重命名 {migrated_count} 个局内存档模板代码文件。")
+
+    return migrated_count
 
 
 def main() -> None:

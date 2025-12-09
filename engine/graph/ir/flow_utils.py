@@ -17,27 +17,9 @@ from .edge_router import (
     is_event_node,
     connect_sources_to_target,
     create_data_edges_for_node_enhanced,
+    pick_default_flow_output_port,
 )
 from .composite_builder import create_composite_node_from_instance_call
-
-
-def pick_default_flow_output_port(node: NodeModel) -> Optional[str]:
-    """选择节点的默认流程输出端口
-    
-    优先级：流程出 > 流程 > 执行 > 第一个输出端口
-    
-    Args:
-        node: 节点模型
-        
-    Returns:
-        端口名称，若无可用端口则返回None
-    """
-    for priority_name in ["流程出", "流程", "执行"]:
-        for port in node.outputs:
-            if port.name == priority_name:
-                return priority_name
-    
-    return node.outputs[0].name if node.outputs else None
 
 
 def register_output_variables(

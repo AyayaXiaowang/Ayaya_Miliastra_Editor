@@ -6,25 +6,35 @@
 
 from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtCore import Qt
-from ui.foundation.theme_manager import ThemeManager
+
+from ui.foundation.base_widgets import BaseDialog
 
 
-class _ImageHistoryPreviewDialog(QtWidgets.QDialog):
+class _ImageHistoryPreviewDialog(BaseDialog):
     """图片预览对话框：左侧缩略图列表 + 右侧大图，支持滚轮缩放、拖拽平移、键盘左右切换。"""
 
     def __init__(self, images: list[QtGui.QPixmap], start_index: int, parent: QtWidgets.QWidget | None = None, titles: list[str] | None = None):
-        super().__init__(parent)
-        # 统一对话框样式，确保与主应用风格一致（字体/控件/滚动条）
-        self.setStyleSheet(ThemeManager.dialog_form_style())
-        self.setWindowTitle("截图预览（当前运行序列）")
+        super().__init__(
+            title="截图预览（当前运行序列）",
+            width=1200,
+            height=800,
+            buttons=QtWidgets.QDialogButtonBox.StandardButton.Close,
+            parent=parent,
+        )
         self._images = images
         self._current_index = max(0, min(start_index, len(images) - 1))
         self._current_scale = 1.0
         self._titles = list(titles) if isinstance(titles, list) else [""] * len(images)
 
-        root = QtWidgets.QHBoxLayout(self)
+        # 底部关闭按钮不需要显示，隐藏 BaseDialog 自带按钮栏
+        self.button_box.hide()
+        self.button_box.setEnabled(False)
+
+        container = QtWidgets.QWidget()
+        root = QtWidgets.QHBoxLayout(container)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
+        self.content_layout.addWidget(container)
 
         # 左侧缩略图列表
         self.thumb_list = QtWidgets.QListWidget()

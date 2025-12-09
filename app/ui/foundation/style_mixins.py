@@ -24,6 +24,8 @@ class StyleMixin:
                 }}
                 {ThemeManager.button_style()}
                 {ThemeManager.input_style()}
+                {ThemeManager.combo_box_style()}
+                {ThemeManager.spin_box_style()}
                 {ThemeManager.tree_style()}
                 {ThemeManager.list_style()}
                 {ThemeManager.table_style()}
@@ -96,6 +98,8 @@ class StyleMixin:
                 }}
                 {ThemeManager.button_style()}
                 {ThemeManager.input_style()}
+                {ThemeManager.combo_box_style()}
+                {ThemeManager.spin_box_style()}
                 {ThemeManager.tree_style()}
                 {ThemeManager.table_style()}
                 {ThemeManager.scrollbar_style()}

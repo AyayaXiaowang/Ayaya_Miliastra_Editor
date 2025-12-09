@@ -4,6 +4,8 @@ from typing import Callable, Optional
 
 from PyQt6 import QtCore, QtWidgets
 
+from ui.foundation.theme_manager import ThemeManager
+
 
 class SidebarSearchController(QtCore.QObject):
     """统一的侧边搜索输入控制器，负责去抖与空白裁剪。"""
@@ -20,6 +22,7 @@ class SidebarSearchController(QtCore.QObject):
         self._line_edit = QtWidgets.QLineEdit(parent)
         self._line_edit.setPlaceholderText(placeholder)
         self._line_edit.setClearButtonEnabled(True)
+        self._line_edit.setStyleSheet(ThemeManager.input_style())
         self._line_edit.textChanged.connect(self._handle_text_changed)
 
     @property

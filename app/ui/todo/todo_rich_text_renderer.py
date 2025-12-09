@@ -245,6 +245,16 @@ def build_rich_tokens_for_todo(
             node_title = resolved_title
         append_icon_and_action("设置信号")
         tokens.append({"text": node_title, "color": action_color})
+    elif detail_type == "graph_bind_struct":
+        node_identifier = str(detail_info.get("node_id", ""))
+        node_title = str(detail_info.get("node_title", ""))
+        if not node_title:
+            resolved_title, _category = _lookup_node_title_and_category(
+                graph_model, node_identifier
+            )
+            node_title = resolved_title
+        append_icon_and_action("配置结构体")
+        tokens.append({"text": node_title, "color": action_color})
     elif detail_type == "graph_create_node":
         node_identifier = str(detail_info.get("node_id", ""))
         node_title = str(detail_info.get("node_title", ""))

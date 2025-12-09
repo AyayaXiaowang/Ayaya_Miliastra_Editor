@@ -163,6 +163,16 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         )
         layout.addWidget(self.layout_debug_checkbox)
 
+        # 图编辑器详细日志（包含自动排版的错误提示打印）
+        self.graph_ui_verbose_checkbox = QtWidgets.QCheckBox("图编辑器详细日志（含自动排版错误打印）")
+        self.graph_ui_verbose_checkbox.setToolTip(
+            "启用后，图编辑器会在控制台输出更详细的调试信息，\n"
+            "包括自动排版的错误原因、节点/连线构建细节等。\n"
+            "用于排查自动排版按钮无响应或图形项异常问题。\n"
+            "✅ 立即生效，无需重启"
+        )
+        layout.addWidget(self.graph_ui_verbose_checkbox)
+
         # 节点加载详细日志
         self.node_loading_checkbox = QtWidgets.QCheckBox("节点加载详细日志（需要重启）")
         self.node_loading_checkbox.setToolTip(
@@ -369,6 +379,7 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         )
         self.layout_debug_checkbox.setChecked(settings.LAYOUT_DEBUG_PRINT)
         self.layout_y_debug_overlay_checkbox.setChecked(getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False))
+        self.graph_ui_verbose_checkbox.setChecked(getattr(settings, "GRAPH_UI_VERBOSE", False))
         self.node_loading_checkbox.setChecked(settings.NODE_LOADING_VERBOSE)
         self.validator_verbose_checkbox.setChecked(settings.VALIDATOR_VERBOSE)
         self.dsl_parser_checkbox.setChecked(settings.GRAPH_PARSER_VERBOSE)
@@ -425,6 +436,7 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         settings.LAYOUT_TIGHT_BLOCK_PACKING = self.tight_block_spacing_checkbox.isChecked()
         settings.LAYOUT_DEBUG_PRINT = self.layout_debug_checkbox.isChecked()
         settings.SHOW_LAYOUT_Y_DEBUG = self.layout_y_debug_overlay_checkbox.isChecked()
+        settings.GRAPH_UI_VERBOSE = self.graph_ui_verbose_checkbox.isChecked()
         settings.NODE_LOADING_VERBOSE = self.node_loading_checkbox.isChecked()
         settings.VALIDATOR_VERBOSE = self.validator_verbose_checkbox.isChecked()
         settings.GRAPH_PARSER_VERBOSE = self.dsl_parser_checkbox.isChecked()

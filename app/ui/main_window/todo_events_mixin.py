@@ -8,6 +8,7 @@ from PyQt6 import QtCore, QtWidgets
 from ui.graph.graph_view.top_right.controls_manager import TopRightControlsManager
 from app.models.todo_generator import TodoGenerator
 from app.models import TodoItem
+from app.models.view_modes import ViewMode
 from app.ui.todo.current_todo_resolver import build_context_from_host
 
 
@@ -83,12 +84,22 @@ class TodoEventsMixin:
 
     def _ensure_todo_data_loaded(self) -> None:
         """若任务清单尚未加载，自动生成一次数据供上下文匹配使用。"""
-        if not hasattr(self, "todo_widget") or not self.todo_widget:
+        todo_widget = getattr(self, "todo_widget", None)
+        if todo_widget is None:
             return
-        if self.todo_widget.has_loaded_todos():
+        if todo_widget.has_loaded_todos():
             return
-        if not hasattr(self, "package_controller") or not self.package_controller.current_package:
+
+        current_mode = None
+        if hasattr(self, "central_stack"):
+            current_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        if current_mode is not ViewMode.TODO:
             return
+
+        package_controller = getattr(self, "package_controller", None)
+        if package_controller is None or package_controller.current_package is None:
+            return
+
         self._refresh_todo_list()
 
     def _ensure_todo_context_for_graph(self, graph_id: str) -> None:

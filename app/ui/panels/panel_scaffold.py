@@ -274,3 +274,34 @@ class StatusBadge(QtWidgets.QLabel):
         """
         )
 
+
+def build_scrollable_column(
+    parent: QtWidgets.QWidget,
+    *,
+    spacing: int = Sizes.SPACING_SMALL,
+    margins: tuple[int, int, int, int] = (0, 0, 0, 0),
+    alignment: QtCore.Qt.AlignmentFlag = QtCore.Qt.AlignmentFlag.AlignTop,
+    add_trailing_stretch: bool = True,
+) -> tuple[QtWidgets.QScrollArea, QtWidgets.QWidget, QtWidgets.QVBoxLayout]:
+    """构建顶对齐的滚动列容器，避免内容在可用高度内居中分散。
+
+    返回值：scroll_area, content_widget, content_layout。
+    - scroll_area：无边框且关闭水平滚动；
+    - content_layout：VBox，统一 spacing/margins，可选末尾添加 stretch 保持顶对齐。
+    """
+    scroll_area = QtWidgets.QScrollArea(parent)
+    scroll_area.setWidgetResizable(True)
+    scroll_area.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+    scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    scroll_area.setAlignment(alignment)
+
+    content_widget = QtWidgets.QWidget(scroll_area)
+    content_layout = QtWidgets.QVBoxLayout(content_widget)
+    content_layout.setContentsMargins(*margins)
+    content_layout.setSpacing(spacing)
+
+    if add_trailing_stretch:
+        content_layout.addStretch(1)
+
+    scroll_area.setWidget(content_widget)
+    return scroll_area, content_widget, content_layout

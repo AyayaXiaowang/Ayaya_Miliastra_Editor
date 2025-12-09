@@ -48,12 +48,14 @@ class SavePointsSection(BaseManagementSection):
       `assets/资源库/管理配置/局内存档管理/` 目录下的 Python 模块中，
       模块导出 `SAVE_POINT_ID` 与 `SAVE_POINT_PAYLOAD`，由引擎层
       `IngameSaveTemplateSchemaView` 聚合为 `{template_id: payload}` 视图；
+      当模板 payload 中的 `is_default_template` 字段为 True 时，视图层会将其视为
+      “当前工程默认/主模板”；
     - 功能包/存档只通过 `PackageIndex.resources.management["save_points"]` 里的 ID 列表
       引用这些模板 ID，充当“索引/标签”，不会改变模板本身的生命周期；
     - 在 `<全部资源>` (`GlobalResourceView`) 与 `<未分类资源>` (`UnclassifiedResourceView`) 中，
       `management.save_points` 提供的是“全局聚合视图”：组合所有代码级模板与
-      全局元配置 `global_view_save_points`（enabled/active_template_id/updated_at），
-      在这些视图下仅允许切换“当前启用模板”和启用状态，不再直接编辑模板结构；
+      模板内的 `is_default_template` 状态；旧版仍可通过 `global_view_save_points`
+      资源中的 enabled/active_template_id/updated_at 字段作为兼容回退；
     - 在具体存档视图 (`PackageView`) 下，本 Section 仅使用上述全局聚合配置按
       `PackageIndex.resources.management["save_points"]` 过滤后的结果进行展示，
       不直接写回模板定义本体；包级“所属存档”关系仍通过管理属性面板顶部的多选行
@@ -462,13 +464,51 @@ class SavePointsSection(BaseManagementSection):
                         )
                     table.setItem(row_index, column_index, item)
 
+            def adjust_entries_table_height() -> None:
+                """让表格以内容高度展开，避免内部滚动条。"""
+                table.resizeRowsToContents()
+                table.resizeColumnsToContents()
+
+                horizontal_header = table.horizontalHeader()
+                header_height = horizontal_header.height() if horizontal_header is not None else 0
+                frame_height = table.frameWidth() * 2
+
+                row_heights_total = 0
+                for row_index in range(table.rowCount()):
+                    row_heights_total += table.rowHeight(row_index)
+
+                table_height = header_height + row_heights_total + frame_height
+
+                table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                table.setSizeAdjustPolicy(
+                    QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents
+                )
+                table.setSizePolicy(
+                    QtWidgets.QSizePolicy.Policy.Expanding,
+                    QtWidgets.QSizePolicy.Policy.Fixed,
+                )
+                table.setFixedHeight(table_height)
+
+            adjust_entries_table_height()
+
+            entries_label = QtWidgets.QLabel("条目列表")
+            entries_label.setContentsMargins(0, 0, 0, 0)
+
+            entries_block = QtWidgets.QWidget()
+            entries_block_layout = QtWidgets.QVBoxLayout(entries_block)
+            entries_block_layout.setContentsMargins(0, 0, 0, 0)
+            entries_block_layout.setSpacing(Sizes.SPACING_SMALL)
+            entries_block_layout.addWidget(entries_label)
+            entries_block_layout.addWidget(entries_widget)
+
             # --- 表单布局装配 ---------------------------------------------------
             form_layout.addRow("模板名称", name_label)
             form_layout.addRow("模板 ID", template_id_label)
             form_layout.addRow("描述", description_label)
             form_layout.addRow("是否启用局内存档", enabled_checkbox)
             form_layout.addRow("概要", summary_label)
-            form_layout.addRow("条目列表", entries_widget)
+            form_layout.addRow(entries_block)
 
             def apply_changes() -> None:
                 """将启用状态合并回配置，并在确有变化时触发持久化。"""

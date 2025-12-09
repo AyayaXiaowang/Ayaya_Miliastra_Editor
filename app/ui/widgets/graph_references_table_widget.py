@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import List, Tuple, Optional, Mapping
 
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.theme_manager import ThemeManager
+from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 
 
 class GraphReferencesTableWidget(QtWidgets.QWidget):
@@ -110,12 +110,40 @@ class GraphReferencesTableWidget(QtWidgets.QWidget):
         header.setSectionResizeMode(
             3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents
         )
+        table.setAlternatingRowColors(True)
         table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
         )
         table.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
         )
+        vertical_header = table.verticalHeader()
+        if vertical_header is not None:
+            vertical_header.setVisible(False)
+            vertical_header.setDefaultSectionSize(
+                Sizes.INPUT_HEIGHT + Sizes.PADDING_SMALL
+            )
+
+        palette = table.palette()
+        palette.setColor(QtGui.QPalette.ColorRole.Base, QtGui.QColor(Colors.BG_CARD))
+        palette.setColor(
+            QtGui.QPalette.ColorRole.AlternateBase,
+            QtGui.QColor(Colors.BG_MAIN),
+        )
+        palette.setColor(
+            QtGui.QPalette.ColorRole.Text,
+            QtGui.QColor(Colors.TEXT_PRIMARY),
+        )
+        palette.setColor(
+            QtGui.QPalette.ColorRole.Highlight,
+            QtGui.QColor(Colors.BG_SELECTED),
+        )
+        palette.setColor(
+            QtGui.QPalette.ColorRole.HighlightedText,
+            QtGui.QColor(Colors.TEXT_PRIMARY),
+        )
+        table.setPalette(palette)
+        table.setStyleSheet(ThemeManager.table_style())
         table.cellDoubleClicked.connect(self._on_cell_double_clicked)
         table.cellClicked.connect(self._on_cell_clicked)
 

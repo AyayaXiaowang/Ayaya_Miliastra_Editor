@@ -7,6 +7,7 @@ import inspect
 
 from engine.utils.cache.cache_paths import get_validation_cache_file
 from engine.utils.graph.graph_utils import compute_stable_md5_from_data
+from engine.utils.graph.node_defs_fingerprint import compute_node_defs_fingerprint
 
 from .issue import EngineIssue
 
@@ -27,12 +28,15 @@ def build_rules_hash(
     config: Dict[str, Any],
     standard_rules: Sequence[Any],
     composite_rules: Sequence[Any],
+    *,
+    workspace: Optional[Path] = None,
 ) -> str:
     """基于配置与规则实现构建稳定的规则签名哈希。
 
     规则变化判断逻辑：
         - 配置内容变化：直接纳入签名数据。
         - 规则实现变化：通过规则所在模块文件的修改时间参与签名。
+        - 节点定义变化：通过工作区的节点库指纹参与签名。
     """
     module_mtimes: Dict[str, float] = {}
     all_rules: List[Any] = []
@@ -51,9 +55,13 @@ def build_rules_hash(
         key = module_name or file_path or rule_type.__name__
         if key not in module_mtimes:
             module_mtimes[key] = mtime_value
+    node_defs_fp = ""
+    if workspace is not None:
+        node_defs_fp = compute_node_defs_fingerprint(workspace)
     signature_data = {
         "config": config,
         "rule_modules": sorted(module_mtimes.items()),
+        "node_defs_fp": node_defs_fp,
     }
     return compute_stable_md5_from_data(signature_data)
 

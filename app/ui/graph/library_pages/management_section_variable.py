@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from collections import OrderedDict
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
 from .management_sections_base import *
 
 
@@ -8,23 +12,29 @@ class VariableSection(BaseManagementSection):
 
     section_key = "variable"
     tree_label = "📊 关卡变量"
-    type_name = "关卡变量"
+    type_name = "关卡变量模板"
+    _usage_text: str = ""
 
     def iter_rows(self, package: ManagementPackage) -> Iterable[ManagementRowData]:
-        for variable_id, variable_data in package.management.level_variables.items():
-            name_value = str(variable_data.get("variable_name", ""))
-            data_type_value = str(variable_data.get("data_type", ""))
-            default_value = variable_data.get("default_value", "")
-            is_global_value = bool(variable_data.get("is_global", True))
+        grouped_variables = self._group_variables_by_source(package)
+
+        for source_key, entries in grouped_variables.items():
+            display_name = self._build_source_display(source_key)
+            preview_names = [self._get_variable_display_name(var_id, payload) for var_id, payload in entries]
+            preview_text = ", ".join(preview_names[:3])
+            attr1_text = f"变量数量: {len(entries)}"
+            attr2_text = f"示例: {preview_text}" if preview_text else ""
+            attr3_text = f"来源: {display_name}"
+            last_modified_value = self._get_latest_last_modified(entries)
             yield ManagementRowData(
-                name=name_value or variable_id,
+                name=display_name,
                 type_name=self.type_name,
-                attr1=f"类型: {data_type_value}",
-                attr2=f"默认值: {default_value}",
-                attr3=f"全局: {'是' if is_global_value else '否'}",
-                description="",
-                last_modified=self._get_last_modified_text(variable_data),
-                user_data=(self.section_key, variable_id),
+                attr1=attr1_text,
+                attr2=attr2_text,
+                attr3=attr3_text,
+                description="按文件聚合的关卡变量模板（只读）",
+                last_modified=last_modified_value,
+                user_data=(self.section_key, source_key),
             )
 
     def _build_form(
@@ -34,99 +44,16 @@ class VariableSection(BaseManagementSection):
         title: str,
         initial: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
-        from engine.graph.models.entity_templates import get_all_variable_types
-
-        all_types = list(get_all_variable_types())
-        if not all_types:
-            all_types = ["整数", "浮点数", "字符串", "布尔值"]
-
-        initial_values: Dict[str, Any] = {
-            "variable_name": "",
-            "data_type": all_types[0],
-            "default_value": "",
-            "is_global": True,
-        }
-        if initial:
-            initial_values.update(initial)
-
-        builder = FormDialogBuilder(parent_widget, title, fixed_size=(420, 260))
-
-        name_edit = builder.add_line_edit(
-            "变量名:",
-            str(initial_values.get("variable_name", "")),
-            "请输入变量名称",
-        )
-        type_combo = builder.add_combo_box("数据类型:", all_types, str(initial_values.get("data_type", "")))
-        default_edit = builder.add_line_edit(
-            "默认值:",
-            str(initial_values.get("default_value", "")),
-            "请输入默认值",
-        )
-        global_check = builder.add_check_box(
-            "全局可访问",
-            bool(initial_values.get("is_global", True)),
-        )
-
-        def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            if not name_edit.text().strip():
-                from ui.foundation import dialog_utils
-
-                dialog_utils.show_warning_dialog(
-                    dialog_self,
-                    "提示",
-                    "请输入变量名",
-                )
-                return False
-            return True
-
-        builder.dialog.validate = types.MethodType(_validate, builder.dialog)
-
-        if not builder.exec():
-            return None
-
-        return {
-            "variable_name": name_edit.text().strip(),
-            "data_type": str(type_combo.currentText()),
-            "default_value": default_edit.text(),
-            "is_global": bool(global_check.isChecked()),
-        }
+        _ = (parent_widget, title, initial)
+        return None
 
     def create_item(
         self,
         parent_widget: QtWidgets.QWidget,
         package: ManagementPackage,
     ) -> bool:
-        _ = parent_widget
-
-        variables_mapping = package.management.level_variables
-        if not isinstance(variables_mapping, dict):
-            variables_mapping = {}
-            package.management.level_variables = variables_mapping
-
-        variable_id = generate_prefixed_id("var")
-        while variable_id in variables_mapping:
-            variable_id = generate_prefixed_id("var")
-
-        from engine.graph.models.entity_templates import get_all_variable_types
-
-        all_types = list(get_all_variable_types())
-        if not all_types:
-            all_types = ["整数", "浮点数", "字符串", "布尔值"]
-        default_type = all_types[0]
-
-        default_index = len(variables_mapping) + 1
-        variable_name = f"变量{default_index}"
-
-        variable_config = LevelVariableConfig(
-            variable_id=variable_id,
-            variable_name=variable_name,
-            data_type=default_type,
-        )
-        serialized = variable_config.serialize()
-        serialized["default_value"] = ""
-        serialized["is_global"] = True
-        variables_mapping[variable_id] = serialized
-        return True
+        _ = (parent_widget, package)
+        return False
 
     def edit_item(
         self,
@@ -134,35 +61,12 @@ class VariableSection(BaseManagementSection):
         package: ManagementPackage,
         item_id: str,
     ) -> bool:
-        variable_data = package.management.level_variables.get(item_id)
-        if variable_data is None:
-            return False
-
-        initial_values = {
-            "variable_name": variable_data.get("variable_name", ""),
-            "data_type": variable_data.get("data_type", ""),
-            "default_value": variable_data.get("default_value", ""),
-            "is_global": bool(variable_data.get("is_global", True)),
-        }
-        dialog_data = self._build_form(
-            parent_widget,
-            title="编辑变量",
-            initial=initial_values,
-        )
-        if dialog_data is None:
-            return False
-
-        variable_data["variable_name"] = dialog_data["variable_name"]
-        variable_data["data_type"] = dialog_data["data_type"]
-        variable_data["default_value"] = dialog_data["default_value"]
-        variable_data["is_global"] = dialog_data["is_global"]
-        return True
+        _ = (parent_widget, package, item_id)
+        return False
 
     def delete_item(self, package: ManagementPackage, item_id: str) -> bool:
-        if item_id not in package.management.level_variables:
-            return False
-        del package.management.level_variables[item_id]
-        return True
+        _ = (package, item_id)
+        return False
 
     def build_inline_edit_form(
         self,
@@ -172,68 +76,145 @@ class VariableSection(BaseManagementSection):
         item_id: str,
         on_changed: Callable[[], None],
     ) -> Optional[Tuple[str, str, Callable[[QtWidgets.QFormLayout], None]]]:
-        """在右侧属性面板中编辑关卡变量的全部主要字段。"""
-        variables_mapping = getattr(package.management, "level_variables", None)
-        if not isinstance(variables_mapping, dict):
-            return None
-        variable_payload_any = variables_mapping.get(item_id)
-        if not isinstance(variable_payload_any, dict):
+        grouped_variables = self._group_variables_by_source(package)
+        entries = grouped_variables.get(item_id)
+        if entries is None:
             return None
 
-        variable_payload = variable_payload_any
+        source_display_name = self._build_source_display(item_id)
 
         def build_form(form_layout: QtWidgets.QFormLayout) -> None:
-            from engine.graph.models.entity_templates import get_all_variable_types
+            if self._usage_text:
+                usage_label = QtWidgets.QLabel(self._usage_text, parent)
+                usage_label.setWordWrap(True)
+                form_layout.addRow("使用情况", usage_label)
 
-            all_types = list(get_all_variable_types())
-            if not all_types:
-                all_types = ["整数", "浮点数", "字符串", "布尔值"]
+            source_label = QtWidgets.QLabel(source_display_name, parent)
+            form_layout.addRow("源文件", source_label)
 
-            variable_name_value = str(variable_payload.get("variable_name", ""))
-            data_type_value = str(variable_payload.get("data_type", ""))
-            default_value_text = str(variable_payload.get("default_value", ""))
-            is_global_value = bool(variable_payload.get("is_global", True))
+            table = QtWidgets.QTableWidget(len(entries), 6, parent)
+            table.setHorizontalHeaderLabels(
+                ["变量ID", "变量名称", "类型", "默认值", "全局", "描述"]
+            )
+            table.setWordWrap(True)
+            table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+            table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+            table.setAlternatingRowColors(True)
+            table.horizontalHeader().setStretchLastSection(True)
+            table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            table.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Expanding,
+                QtWidgets.QSizePolicy.Policy.Maximum,
+            )
 
-            name_edit = QtWidgets.QLineEdit(variable_name_value)
-            data_type_combo = QtWidgets.QComboBox()
-            data_type_combo.addItems(all_types)
-            if data_type_value and data_type_value in all_types:
-                data_type_combo.setCurrentText(data_type_value)
-            else:
-                data_type_combo.setCurrentText(all_types[0])
-            default_edit = QtWidgets.QLineEdit(default_value_text)
-            is_global_checkbox = QtWidgets.QCheckBox("全局可访问")
-            is_global_checkbox.setChecked(is_global_value)
+            for row_index, (variable_id, payload) in enumerate(entries):
+                name_text = self._get_variable_display_name(variable_id, payload)
+                type_text = str(payload.get("variable_type", ""))
+                default_value_text = self._format_default_value(payload.get("default_value"))
+                is_global_value = "是" if bool(payload.get("is_global", True)) else "否"
+                description_text = str(payload.get("description", ""))
 
-            def apply_changes() -> None:
-                normalized_name = name_edit.text().strip()
-                if normalized_name:
-                    variable_payload["variable_name"] = normalized_name
-                else:
-                    variable_payload["variable_name"] = item_id
+                table.setItem(row_index, 0, QtWidgets.QTableWidgetItem(variable_id))
+                table.setItem(row_index, 1, QtWidgets.QTableWidgetItem(name_text))
+                table.setItem(row_index, 2, QtWidgets.QTableWidgetItem(type_text))
+                table.setItem(row_index, 3, QtWidgets.QTableWidgetItem(default_value_text))
+                table.setItem(row_index, 4, QtWidgets.QTableWidgetItem(is_global_value))
+                table.setItem(row_index, 5, QtWidgets.QTableWidgetItem(description_text))
 
-                variable_payload["data_type"] = str(data_type_combo.currentText())
-                variable_payload["default_value"] = default_edit.text()
-                variable_payload["is_global"] = bool(is_global_checkbox.isChecked())
-                on_changed()
+            header = table.horizontalHeader()
+            header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(5, QtWidgets.QHeaderView.ResizeMode.Stretch)
 
-            name_edit.editingFinished.connect(apply_changes)
-            data_type_combo.currentIndexChanged.connect(lambda _index: apply_changes())
-            default_edit.editingFinished.connect(apply_changes)
-            is_global_checkbox.stateChanged.connect(lambda _state: apply_changes())
+            table.resizeColumnsToContents()
+            table.resizeRowsToContents()
 
-            form_layout.addRow("变量ID", QtWidgets.QLabel(item_id))
-            form_layout.addRow("变量名", name_edit)
-            form_layout.addRow("数据类型", data_type_combo)
-            form_layout.addRow("默认值", default_edit)
-            form_layout.addRow("", is_global_checkbox)
+            section_label = QtWidgets.QLabel("变量列表", parent)
+            section_label.setStyleSheet("font-weight: 600;")
+            form_layout.addRow(section_label)
+            form_layout.addRow(table)
 
-        display_name_value = str(variable_payload.get("variable_name", "")).strip()
-        display_name = display_name_value or item_id
-
-        title = f"关卡变量详情：{display_name}"
-        description = "在右侧直接修改变量名称、默认值与是否全局可访问，修改会立即保存到当前视图。"
+        title = f"变量模板：{source_display_name}"
+        description = "按源文件聚合的关卡变量列表（代码级只读视图）。"
+        _ = on_changed
         return title, description, build_form
+
+    def set_usage_text(self, usage_text: str) -> None:
+        self._usage_text = usage_text
+
+    @staticmethod
+    def _get_source_key(payload: Dict[str, Any]) -> str:
+        source_candidates: List[str] = []
+        source_path_value = payload.get("source_path")
+        if isinstance(source_path_value, str):
+            source_candidates.append(source_path_value.strip())
+
+        metadata_value = payload.get("metadata", {})
+        if isinstance(metadata_value, dict):
+            metadata_source = metadata_value.get("source_path")
+            if isinstance(metadata_source, str):
+                source_candidates.append(metadata_source.strip())
+
+        source_file_value = payload.get("source_file")
+        if isinstance(source_file_value, str):
+            source_candidates.append(source_file_value.strip())
+
+        for candidate in source_candidates:
+            if candidate:
+                return candidate
+        return "未标注来源"
+
+    def _group_variables_by_source(
+        self,
+        package: ManagementPackage,
+    ) -> OrderedDict[str, List[Tuple[str, Dict[str, Any]]]]:
+        variables_mapping = getattr(package.management, "level_variables", {}) or {}
+        grouped: OrderedDict[str, List[Tuple[str, Dict[str, Any]]]] = OrderedDict()
+
+        for variable_id, payload_any in variables_mapping.items():
+            if not isinstance(payload_any, dict):
+                continue
+            source_key = self._get_source_key(payload_any)
+            if source_key not in grouped:
+                grouped[source_key] = []
+            grouped[source_key].append((variable_id, payload_any))
+
+        return grouped
+
+    @staticmethod
+    def _get_variable_display_name(variable_id: str, payload: Dict[str, Any]) -> str:
+        name_value = payload.get("variable_name") or payload.get("name") or variable_id
+        return str(name_value)
+
+    @staticmethod
+    def _build_source_display(source_key: str) -> str:
+        path_obj = Path(source_key)
+        if path_obj.suffix:
+            return path_obj.with_suffix("").as_posix()
+        return source_key
+
+    def _get_latest_last_modified(
+        self, entries: List[Tuple[str, Dict[str, Any]]]
+    ) -> str:
+        latest_value = ""
+        for _, payload in entries:
+            candidate = self._get_last_modified_text(payload)
+            if candidate and candidate > latest_value:
+                latest_value = candidate
+        return latest_value
+
+    @staticmethod
+    def _format_default_value(value: Any) -> str:
+        if value is None:
+            return ""
+        text = repr(value)
+        if len(text) > 120:
+            return f"{text[:117]}..."
+        return text
 
 
 

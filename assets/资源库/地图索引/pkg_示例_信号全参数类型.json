@@ -57,10 +57,65 @@
       ]
     }
   },
+  "resource_names": {
+    "templates": {
+      "template_20251130_190000_000001_signal_all_types_example": "信号全类型_测试台"
+    },
+    "instances": {
+      "level_pkg_20251129_190700_266546": "level_pkg_20251129_190700_266546",
+      "instance_20251130_190000_000001_signal_all_types_example": "信号全类型_测试台实例"
+    },
+    "graphs": {
+      "server_signal_all_types_example_01": "模板示例_信号全类型_发送与监听",
+      "server_delay_composite_example_01": "模板示例_延迟执行_复合节点用法",
+      "server_template_local_variable_counter": "模板示例_局部变量计数"
+    },
+    "composites": {
+      "composite_延迟执行_示例_类格式": "composite_延迟执行_示例_类格式"
+    },
+    "combat_presets": {
+      "player_templates": {},
+      "player_classes": {},
+      "unit_statuses": {},
+      "skills": {
+        "skill_signal_all_types_debug": "信号全类型_调试技能"
+      },
+      "projectiles": {},
+      "items": {}
+    },
+    "management": {
+      "timers": {},
+      "level_variables": {},
+      "preset_points": {},
+      "skill_resources": {},
+      "currency_backpack": {},
+      "equipment_data": {},
+      "shop_templates": {},
+      "ui_layouts": {},
+      "ui_widget_templates": {},
+      "multi_language": {},
+      "main_cameras": {},
+      "light_sources": {},
+      "background_music": {},
+      "paths": {},
+      "entity_deployment_groups": {},
+      "unit_tags": {},
+      "scan_tags": {},
+      "shields": {},
+      "peripheral_systems": {},
+      "save_points": {},
+      "chat_channels": {},
+      "level_settings": {},
+      "signals": {},
+      "struct_definitions": {
+        "struct_all_supported_types_example": "struct_all_supported_types_example"
+      }
+    }
+  },
   "level_entity_id": "level_pkg_20251129_190700_266546",
   "signals": {
     "signal_all_supported_types_example": {}
   },
   "created_at": "2025-11-29T19:07:00.271544",
-  "updated_at": "2025-12-03T12:28:03.456376"
+  "updated_at": "2025-12-06T22:03:13.030029"
 }

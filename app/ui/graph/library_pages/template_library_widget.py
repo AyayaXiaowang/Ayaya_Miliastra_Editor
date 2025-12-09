@@ -270,6 +270,7 @@ class TemplateLibraryWidget(
         def emit_empty_selection() -> None:
             if not self.current_package:
                 return
+            self.notify_selection_state(False, context={"source": "template"})
             self.template_selected.emit("")
 
         rebuild_list_with_preserved_selection(

@@ -5,6 +5,7 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, TYPE_CHECKING
 
+from ui.graph.graph_palette import GraphPalette
 if TYPE_CHECKING:
     from ui.graph.items.port_item import PortGraphicsItem
 
@@ -35,29 +36,29 @@ class EdgeGraphicsItem(QtWidgets.QGraphicsPathItem):
             # 选中时根据边类型显示不同的高亮颜色
             if self.is_flow_edge:
                 # 流程边:明亮的橙红色
-                color = QtGui.QColor('#FF6B35')  # 明亮的橙红色
+                color = QtGui.QColor(GraphPalette.EDGE_FLOW_SELECTED)  # 明亮的橙红色
                 width = 6
             else:
                 # 数据边:明亮的青色
-                color = QtGui.QColor('#00BCD4')  # 明亮的青色
+                color = QtGui.QColor(GraphPalette.EDGE_DATA_SELECTED)  # 明亮的青色
                 width = 5
         elif self.is_flow_edge:
             # 检查是否是分支连线("是"或"否")
             if self.src.name == '是':
                 # "是"分支:绿色
-                color = QtGui.QColor('#4CAF50')  # 绿色
+                color = QtGui.QColor(GraphPalette.EDGE_BRANCH_YES)  # 绿色
                 width = 4
             elif self.src.name == '否':
                 # "否"分支:红色
-                color = QtGui.QColor('#F44336')  # 红色
+                color = QtGui.QColor(GraphPalette.EDGE_BRANCH_NO)  # 红色
                 width = 4
             else:
                 # 主流程线:明亮的黄色,更粗
-                color = QtGui.QColor('#FFD700')  # 金黄色
+                color = QtGui.QColor(GraphPalette.EDGE_FLOW_MAIN)  # 金黄色
                 width = 4
         else:
             # 数据线:蓝色调,更细
-            color = QtGui.QColor('#5A9FD4')  # 蓝色调
+            color = QtGui.QColor(GraphPalette.EDGE_DATA)  # 蓝色调
             width = 2
         self.setPen(QtGui.QPen(color, width))
         self.update()  # 触发重绘

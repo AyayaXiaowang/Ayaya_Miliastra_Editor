@@ -8,8 +8,10 @@ UI 构建与字段读写逻辑，使主面板文件保持精简，仅负责上�
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from PyQt6 import QtCore, QtWidgets
@@ -20,7 +22,11 @@ from engine.resources.definition_schema_view import (
     get_default_definition_schema_view,
 )
 from engine.resources.global_resource_view import GlobalResourceView
+from engine.resources.level_variable_schema_view import (
+    get_default_level_variable_schema_view,
+)
 from engine.utils.name_utils import generate_unique_name
+from ui.dialogs.struct_viewer_dialog import StructViewerDialog
 from ui.foundation.theme_manager import Sizes
 from ui.foundation.toggle_switch import ToggleSwitch
 from ui.panels.combat_ability_components import CombatSettingsSection
@@ -406,6 +412,9 @@ class CombatPlayerPanelSectionsMixin:
         self.player_custom_variable_table.field_deleted.connect(
             self._on_player_custom_variables_changed
         )
+        self.player_custom_variable_table.struct_view_requested.connect(
+            self._on_struct_view_requested
+        )
         self.player_ingame_save_template_combo.currentIndexChanged.connect(
             self._on_player_ingame_save_template_changed
         )
@@ -417,6 +426,9 @@ class CombatPlayerPanelSectionsMixin:
         )
         self.player_ingame_save_table.field_deleted.connect(
             self._on_player_ingame_save_variables_changed
+        )
+        self.player_ingame_save_table.struct_view_requested.connect(
+            self._on_struct_view_requested
         )
 
     def _build_role_edit_ui(self) -> None:
@@ -843,7 +855,13 @@ class CombatPlayerPanelSectionsMixin:
         )
 
     def _load_player_custom_variables(self) -> None:
-        """根据 metadata.player_editor.player 加载玩家层级自定义变量（不含 chip_* 局内存档变量）。"""
+        """根据 metadata 与 metadata.player_editor.player 加载玩家层级自定义变量视图。
+
+        - 优先从关卡变量代码定义中按 `metadata["custom_variable_file"]` 引用的文件
+          解析出一组代码级变量（只读视图，不写回 JSON）；
+        - 其次加载 metadata.player_editor.player.custom_variables 中的非 chip_* 变量，
+          作为模板级的额外自定义变量。
+        """
         self.player_custom_variable_table.clear_fields()
 
         if not self.current_template_data:
@@ -854,9 +872,32 @@ class CombatPlayerPanelSectionsMixin:
         struct_ids = sorted(all_structs.keys())
         self.player_custom_variable_table.set_struct_id_options(struct_ids)
 
+        fields: List[Dict[str, Any]] = []
+
+        # 1) 代码级关卡变量定义（只读视图，按 custom_variable_file 归属过滤）。
+        external_payloads = self._get_external_player_level_variable_payloads()
+        for payload in external_payloads:
+            name_value = payload.get("variable_name") or payload.get("name")
+            type_value = payload.get("variable_type")
+            if not isinstance(name_value, str) or not isinstance(type_value, str):
+                continue
+            name_text = name_value.strip()
+            type_text = type_value.strip()
+            if not name_text or not type_text:
+                continue
+            value = payload.get("default_value")
+            fields.append(
+                {
+                    "name": name_text,
+                    "type_name": type_text,
+                    "value": value,
+                    "readonly": True,
+                }
+            )
+
+        # 2) 玩家模板 JSON 中的额外自定义变量（非 chip_*，可编辑）。
         player_section = self.player_editor.player
         raw_variables = player_section.get("custom_variables")
-        fields: List[Dict[str, Any]] = []
 
         if isinstance(raw_variables, list):
             for entry in raw_variables:
@@ -881,7 +922,161 @@ class CombatPlayerPanelSectionsMixin:
 
         self.player_custom_variable_table.load_fields(fields)
 
+    def _get_external_player_level_variable_payloads(self) -> List[Dict[str, Any]]:
+        """按玩家模板 metadata.custom_variable_file 解析外部关卡变量定义列表。
+
+        - 仅匹配“普通自定义变量”目录（`自定义变量/`），忽略 `自定义变量-局内存档变量/`；
+        - 返回的列表元素为 LevelVariableSchemaView 聚合结果中的 payload 字典副本，
+          仅用于 UI 层展示，不写回到玩家模板 JSON。
+        """
+        if not self.current_template_data:
+            return []
+
+        metadata_value = self.current_template_data.get("metadata") or {}
+        if not isinstance(metadata_value, dict):
+            return []
+
+        raw_ref = metadata_value.get("custom_variable_file", "")
+        if not isinstance(raw_ref, str):
+            return []
+        ref_text = raw_ref.strip()
+        if not ref_text:
+            return []
+
+        normalized_ref = ref_text.replace("\\", "/")
+        ref_stem = Path(normalized_ref).stem
+
+        schema_view = get_default_level_variable_schema_view()
+        all_variables = schema_view.get_all_variables()
+
+        payloads: List[Dict[str, Any]] = []
+
+        for payload in all_variables.values():
+            if not isinstance(payload, dict):
+                continue
+
+            source_path_value = payload.get("source_path")
+            source_stem_value = payload.get("source_stem")
+            source_directory_value = payload.get("source_directory")
+
+            # 仅关注普通自定义变量目录，过滤掉 `自定义变量-局内存档变量/` 等其他目录。
+            if isinstance(source_directory_value, str):
+                directory_text = source_directory_value.strip()
+                if directory_text and directory_text != "自定义变量":
+                    continue
+
+            matched = False
+
+            # 兼容旧写法：custom_variable_file 为完整相对路径
+            if isinstance(source_path_value, str):
+                candidate_path = source_path_value.replace("\\", "/").strip()
+                if candidate_path and candidate_path == normalized_ref:
+                    matched = True
+
+            # 按 VARIABLE_FILE_ID 匹配（推荐写法）
+            if not matched:
+                variable_file_id = payload.get("variable_file_id")
+                if isinstance(variable_file_id, str):
+                    if variable_file_id.strip() == ref_text:
+                        matched = True
+
+            # 兼容写法：custom_variable_file 为文件名（不含扩展名），按 source_stem 匹配。
+            if not matched and isinstance(source_stem_value, str):
+                candidate_stem = source_stem_value.strip()
+                if candidate_stem and candidate_stem == ref_stem:
+                    matched = True
+
+            if not matched:
+                continue
+
+            # 代码级 chip_* 存档镜像变量不在本标签页展示，交由“自定义变量_局内存档变量”管理。
+            raw_var_name = payload.get("variable_name") or payload.get("name")
+            if isinstance(raw_var_name, str):
+                name_text = raw_var_name.strip()
+                if name_text and self._is_chip_variable_name(name_text):
+                    continue
+
+            payloads.append(dict(payload))
+
+        return payloads
+
     # ------------------------------------------------------------------ 局内存档绑定与 chip 变量
+
+    def _get_ingame_save_selection_store_path(self) -> Optional[Path]:
+        """返回记忆局内存档模板选择的本地状态文件路径。"""
+        if self.resource_manager is None:
+            return None
+        workspace_path = getattr(self.resource_manager, "workspace_path", None)
+        if not isinstance(workspace_path, Path):
+            return None
+        cache_directory = workspace_path / "app" / "runtime" / "cache"
+        return cache_directory / "player_ingame_save_selection.json"
+
+    def _load_last_selected_ingame_save_template(self) -> str:
+        """读取当前玩家模板对应的上次选择的局内存档模板 ID。"""
+        store_path = self._get_ingame_save_selection_store_path()
+        if store_path is None or not store_path.exists():
+            return ""
+
+        serialized_text = store_path.read_text(encoding="utf-8")
+        if not serialized_text.strip():
+            return ""
+
+        payload = json.loads(serialized_text)
+        if not isinstance(payload, dict):
+            return ""
+
+        mapping_value = payload.get("player_template_last_selection")
+        if not isinstance(mapping_value, dict):
+            return ""
+
+        current_template_id = getattr(self, "current_template_id", None)
+        if not isinstance(current_template_id, str) or not current_template_id:
+            return ""
+
+        stored_value = mapping_value.get(current_template_id)
+        if isinstance(stored_value, str):
+            return stored_value.strip()
+        return ""
+
+    def _persist_ingame_save_selection(self, selected_template_id: str) -> None:
+        """将当前玩家模板的局内存档模板选择写入本地状态文件。"""
+        store_path = self._get_ingame_save_selection_store_path()
+        current_template_id = getattr(self, "current_template_id", None)
+        if store_path is None:
+            return
+        if not isinstance(current_template_id, str) or not current_template_id:
+            return
+
+        existing_payload: Dict[str, Any] = {}
+        if store_path.exists():
+            existing_text = store_path.read_text(encoding="utf-8")
+            if existing_text.strip():
+                loaded_payload = json.loads(existing_text)
+                if isinstance(loaded_payload, dict):
+                    existing_payload = loaded_payload
+
+        selection_mapping = existing_payload.get("player_template_last_selection")
+        if not isinstance(selection_mapping, dict):
+            selection_mapping = {}
+
+        if selected_template_id:
+            selection_mapping[current_template_id] = selected_template_id
+        else:
+            if current_template_id in selection_mapping:
+                selection_mapping.pop(current_template_id)
+
+        existing_payload["player_template_last_selection"] = selection_mapping
+        existing_payload["schema_version"] = 1
+
+        store_path.parent.mkdir(parents=True, exist_ok=True)
+        serialized_payload = json.dumps(
+            existing_payload,
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        store_path.write_text(serialized_payload, encoding="utf-8")
 
     def _load_player_ingame_save_binding(self, forced_template_id: Optional[str] = None) -> None:
         """加载局内存档模板绑定与 chip_* 变量视图。
@@ -924,11 +1119,16 @@ class CombatPlayerPanelSectionsMixin:
         enabled_flag = bool(save_points_config.get("enabled", False))
         active_template_id = str(save_points_config.get("active_template_id", "")).strip()
         previous_template_id = str(ingame_save_meta.get("template_id", "")).strip()
+        last_selected_template_id = self._load_last_selected_ingame_save_template()
 
         if forced_template_id is not None:
             selected_template_id = forced_template_id.strip()
         else:
-            selected_template_id = previous_template_id or (active_template_id if enabled_flag else "")
+            selected_template_id = (
+                previous_template_id
+                or last_selected_template_id
+                or (active_template_id if enabled_flag else "")
+            )
 
         # 重建模板下拉列表
         self.player_ingame_save_template_combo.blockSignals(True)
@@ -973,6 +1173,7 @@ class CombatPlayerPanelSectionsMixin:
             return
 
         selected_template = template_map[selected_template_id]
+        self._persist_ingame_save_selection(selected_template_id)
 
         # 确保 metadata.player_editor.player.ingame_save.template_id 与当前选择一致
         if selected_template_id != previous_template_id:
@@ -984,54 +1185,73 @@ class CombatPlayerPanelSectionsMixin:
                 self._mark_template_modified()
                 self.data_changed.emit()
 
-        variables_after_sync = self._ensure_ingame_save_variables(player_section, selected_template)
-
-        # 根据模板 entries 与 custom_variables 中的 chip_* 变量构建表格字段
+        # 根据局内存档模板 entries 构建 chip_* 变量表格字段（仅作为只读视图，不写回玩家模板 JSON）。
+        # 同时整理每条映射的最大条目数，便于在概要标签中展示。
         chip_fields: List[Dict[str, Any]] = []
-        chip_variables_by_name: Dict[str, Dict[str, Any]] = {}
-        for entry in variables_after_sync:
-            if not isinstance(entry, dict):
-                continue
-            raw_name = entry.get("name")
-            variable_name = str(raw_name).strip() if isinstance(raw_name, str) else ""
-            if not self._is_chip_variable_name(variable_name):
-                continue
-            chip_variables_by_name[variable_name] = entry
-
+        chip_entry_summaries: List[Dict[str, Any]] = []
         entries_value = selected_template.get("entries", [])
+
+        # 预先构造 struct_id -> 结构体名称 的映射，便于在概要中展示更友好的名称。
+        struct_name_map: Dict[str, str] = {}
+        schema_view = get_default_definition_schema_view()
+        all_structs = schema_view.get_all_struct_definitions()
+        for struct_id, payload in all_structs.items():
+            if not isinstance(payload, dict):
+                continue
+            struct_type_value = payload.get("struct_ype")
+            if not isinstance(struct_type_value, str):
+                continue
+            if struct_type_value.strip() != "ingame_save":
+                continue
+            raw_name = payload.get("name") or payload.get("struct_name") or struct_id
+            display_name = str(raw_name)
+            struct_name_map[str(struct_id)] = display_name
+
         if isinstance(entries_value, list):
             for index_in_list, entry_payload in enumerate(entries_value, start=1):
                 if not isinstance(entry_payload, dict):
                     continue
+
                 raw_index = entry_payload.get("index")
                 if isinstance(raw_index, str) and raw_index.strip().isdigit():
                     struct_index = int(raw_index.strip())
                 else:
                     struct_index = index_in_list
-                variable_name = f"1_chip_{struct_index}"
-                variable_entry = chip_variables_by_name.get(variable_name)
 
                 struct_id_value = entry_payload.get("struct_id")
                 struct_id_text = (
                     str(struct_id_value).strip() if isinstance(struct_id_value, str) else ""
                 )
 
-                if variable_entry is not None:
-                    type_name_text = str(variable_entry.get("variable_type", "")).strip() or "结构体"
-                    value_object = variable_entry.get("default_value", struct_id_text)
-                    effective_name = (
-                        str(variable_entry.get("name", "")).strip() or variable_name
-                    )
-                else:
-                    type_name_text = "结构体"
-                    value_object = struct_id_text
-                    effective_name = variable_name
+                max_length_value = entry_payload.get("max_length")
+                max_length: int | None = None
+                if isinstance(max_length_value, (int, float)):
+                    max_length = int(max_length_value)
+                elif isinstance(max_length_value, str) and max_length_value.strip().isdigit():
+                    max_length = int(max_length_value.strip())
+
+                variable_name = f"1_chip_{struct_index}"
+                type_name_text = "结构体"
+                value_object = struct_id_text
+                effective_name = variable_name
 
                 chip_fields.append(
                     {
                         "name": effective_name,
                         "type_name": type_name_text,
                         "value": value_object,
+                        "readonly": True,
+                    }
+                )
+
+                struct_display_name = struct_name_map.get(
+                    struct_id_text, struct_id_text or "（未指定结构体）"
+                )
+                chip_entry_summaries.append(
+                    {
+                        "variable_name": variable_name,
+                        "struct_name": struct_display_name,
+                        "max_length": max_length,
                     }
                 )
 
@@ -1044,9 +1264,27 @@ class CombatPlayerPanelSectionsMixin:
         self._update_player_ingame_save_table_height()
 
         template_name_text = str(selected_template.get("template_name", "")).strip() or selected_template_id
-        self.player_ingame_save_summary_label.setText(
+
+        summary_lines: List[str] = []
+        summary_lines.append(
             f"当前模板：{template_name_text}（共 {len(chip_fields)} 条 chip 映射，变量名约定为 1_chip_序号）。"
         )
+
+        if chip_entry_summaries:
+            detail_parts: List[str] = []
+            for entry_summary in chip_entry_summaries:
+                variable_name = str(entry_summary.get("variable_name", ""))
+                struct_name = str(entry_summary.get("struct_name", ""))
+                max_length = entry_summary.get("max_length")
+                if isinstance(max_length, int) and max_length > 0:
+                    part_text = f"{variable_name} → {struct_name}: 最大 {max_length} 条"
+                else:
+                    part_text = f"{variable_name} → {struct_name}: 最大条目数不限"
+                detail_parts.append(part_text)
+
+            summary_lines.append("； ".join(detail_parts))
+
+        self.player_ingame_save_summary_label.setText("\n".join(summary_lines))
 
     def _get_save_points_config(self) -> Dict[str, Any]:
         """从 GlobalResourceView 读取聚合后的局内存档管理配置。"""
@@ -1073,77 +1311,6 @@ class CombatPlayerPanelSectionsMixin:
                 continue
             struct_ids.append(str(struct_id))
         return struct_ids
-
-    def _ensure_ingame_save_variables(
-        self,
-        player_section: Dict[str, Any],
-        template_payload: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
-        """确保 custom_variables 中包含与局内存档模板 entries 对应的 chip_* 变量。
-
-        仅在缺失变量或缺失类型/默认值时补齐，不覆盖已有有效配置。
-        """
-        raw_variables = player_section.get("custom_variables")
-        variables_list: List[Dict[str, Any]] = []
-        if isinstance(raw_variables, list):
-            for entry in raw_variables:
-                if isinstance(entry, dict):
-                    variables_list.append(entry)
-        else:
-            variables_list = []
-
-        existing_by_name: Dict[str, Dict[str, Any]] = {}
-        for entry in variables_list:
-            raw_name = entry.get("name")
-            name_text = str(raw_name).strip() if isinstance(raw_name, str) else ""
-            if not name_text:
-                continue
-            if name_text not in existing_by_name:
-                existing_by_name[name_text] = entry
-
-        changed = False
-        entries_value = template_payload.get("entries", [])
-        if isinstance(entries_value, list):
-            for index_in_list, entry_payload in enumerate(entries_value, start=1):
-                if not isinstance(entry_payload, dict):
-                    continue
-                raw_index = entry_payload.get("index")
-                if isinstance(raw_index, str) and raw_index.strip().isdigit():
-                    struct_index = int(raw_index.strip())
-                else:
-                    struct_index = index_in_list
-
-                struct_id_value = entry_payload.get("struct_id")
-                struct_id_text = (
-                    str(struct_id_value).strip() if isinstance(struct_id_value, str) else ""
-                )
-
-                variable_name = f"1_chip_{struct_index}"
-                entry_existing = existing_by_name.get(variable_name)
-
-                if entry_existing is None:
-                    new_entry: Dict[str, Any] = {
-                        "name": variable_name,
-                        "variable_type": "结构体",
-                        "default_value": struct_id_text,
-                        "description": "",
-                    }
-                    variables_list.append(new_entry)
-                    existing_by_name[variable_name] = new_entry
-                    changed = True
-                else:
-                    type_name_text = str(entry_existing.get("variable_type", "")).strip()
-                    if not type_name_text:
-                        entry_existing["variable_type"] = "结构体"
-                        changed = True
-                    if "default_value" not in entry_existing and struct_id_text:
-                        entry_existing["default_value"] = struct_id_text
-                        changed = True
-
-        if changed:
-            player_section["custom_variables"] = variables_list
-
-        return variables_list
 
     @staticmethod
     def _is_chip_variable_name(variable_name: str) -> bool:
@@ -1539,6 +1706,16 @@ class CombatPlayerPanelSectionsMixin:
 
         player_section = self.player_editor.player
 
+        # 外部关卡变量定义仅作为只读视图存在，不写回到玩家模板 JSON。
+        external_names: List[str] = []
+        for payload in self._get_external_player_level_variable_payloads():
+            name_value = payload.get("variable_name") or payload.get("name")
+            if isinstance(name_value, str):
+                name_text = name_value.strip()
+                if name_text:
+                    external_names.append(name_text)
+        external_name_set = set(external_names)
+
         # 普通自定义变量标签页仅负责非 chip_* 变量
         fields = self.player_custom_variable_table.get_all_fields()
         normal_variables: List[Dict[str, Any]] = []
@@ -1546,6 +1723,9 @@ class CombatPlayerPanelSectionsMixin:
             name = str(field.get("name", "")).strip()
             type_name = str(field.get("type_name", "")).strip()
             if not name or not type_name:
+                continue
+            # 外部关卡变量定义仅用于只读展示，不写入 custom_variables。
+            if name in external_name_set:
                 continue
             if self._is_chip_variable_name(name):
                 # chip_* 变量交由局内存档标签页管理
@@ -1593,6 +1773,7 @@ class CombatPlayerPanelSectionsMixin:
         else:
             selected_template_id = combo.itemText(index).strip()
 
+        self._persist_ingame_save_selection(selected_template_id)
         # 直接复用加载逻辑，根据当前下拉选择重新构建绑定与表格
         self._load_player_ingame_save_binding(selected_template_id or None)
 
@@ -1667,5 +1848,23 @@ class CombatPlayerPanelSectionsMixin:
         self.player_editor.role["last_modified"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._mark_template_modified()
         self.data_changed.emit()
+
+    def _on_struct_view_requested(self, struct_id: str) -> None:
+        """处理查看结构体请求，弹出只读结构体查看对话框。"""
+        if not struct_id:
+            return
+
+        # 从定义视图获取结构体详情
+        schema_view = get_default_definition_schema_view()
+        all_structs = schema_view.get_all_struct_definitions()
+        struct_payload = all_structs.get(struct_id)
+
+        # 弹出只读结构体查看对话框
+        dialog = StructViewerDialog(
+            struct_id=struct_id,
+            struct_payload=struct_payload,
+            parent=self,  # type: ignore[arg-type]
+        )
+        dialog.exec()
 
 

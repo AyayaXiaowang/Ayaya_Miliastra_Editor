@@ -97,6 +97,9 @@ class ResourceManager:
             self._graph_cache_manager,
             self._state,
         )
+        self._resource_library_fingerprint: str = ""
+        # 指纹脏标记：当资源被保存时设为 True，延迟到下次需要时再重新计算
+        self._fingerprint_invalidated: bool = False
         
         # 确保目录结构存在
         self._ensure_directories()
@@ -104,6 +107,7 @@ class ResourceManager:
         # 加载“文件名同步提示”的去重状态并构建索引（委托索引服务）
         self._index_service.load_name_sync_state()
         self._index_service.build_index()
+        self.refresh_resource_library_fingerprint()
 
     # ===== 资源索引持久化缓存（启动加速） =====
 
@@ -121,6 +125,83 @@ class ResourceManager:
         for resource_type in ResourceType:
             resource_dir = self._file_ops.get_resource_directory(resource_type)
             resource_dir.mkdir(parents=True, exist_ok=True)
+
+    def _compute_directory_fingerprint(self, target_dir: Path, pattern: str, *, recursive: bool) -> str:
+        """统计指定目录的文件数量与最新修改时间。"""
+        if not target_dir.exists():
+            return f"{target_dir.name}:0:0"
+
+        file_count = 0
+        latest_mtime = 0.0
+        iterator = target_dir.rglob(pattern) if recursive else target_dir.glob(pattern)
+        for file_path in iterator:
+            stat_result = file_path.stat()
+            file_count += 1
+            if stat_result.st_mtime > latest_mtime:
+                latest_mtime = stat_result.st_mtime
+
+        return f"{target_dir.name}:{file_count}:{round(latest_mtime, 3)}"
+
+    def compute_resource_library_fingerprint(self) -> str:
+        """计算当前资源库的指纹（覆盖全部资源目录与附加索引目录）。"""
+        base_fingerprint = self._resource_index_builder.compute_resources_fingerprint()
+
+        composite_dir = self.resource_library_dir / "复合节点库"
+        composite_fingerprint = self._compute_directory_fingerprint(
+            composite_dir,
+            "*.py",
+            recursive=True,
+        )
+
+        package_index_dir = self.resource_library_dir / "地图索引"
+        package_index_fingerprint = self._compute_directory_fingerprint(
+            package_index_dir,
+            "*.json",
+            recursive=False,
+        )
+
+        return "|".join(
+            [
+                base_fingerprint,
+                composite_fingerprint,
+                package_index_fingerprint,
+            ]
+        )
+
+    def get_resource_library_fingerprint(self) -> str:
+        """获取最近一次记录的资源库指纹。"""
+        return self._resource_library_fingerprint
+
+    def set_resource_library_fingerprint(self, fingerprint: str) -> None:
+        """直接设置当前资源库指纹记录（用于外部已计算的结果）。"""
+        self._resource_library_fingerprint = fingerprint
+        self._fingerprint_invalidated = False
+
+    def invalidate_fingerprint(self) -> None:
+        """标记指纹为脏，延迟到下次需要时再重新计算。
+
+        用于 save_resource 等高频操作，避免每次保存都触发完整的指纹计算。
+        """
+        self._fingerprint_invalidated = True
+
+    def refresh_resource_library_fingerprint(self) -> str:
+        """重新计算并更新资源库指纹记录。"""
+        latest_fingerprint = self.compute_resource_library_fingerprint()
+        self._resource_library_fingerprint = latest_fingerprint
+        self._fingerprint_invalidated = False
+        return latest_fingerprint
+
+    def has_resource_library_changed(self) -> bool:
+        """检测资源库是否相较于记录指纹发生变更。
+
+        如果指纹已被标记为脏（由 save_resource 等操作触发），
+        则先刷新指纹基线再比较，避免因自身保存操作导致误判。
+        """
+        if self._fingerprint_invalidated:
+            self.refresh_resource_library_fingerprint()
+            return False  # 脏标记意味着是自身保存导致的变化，不是外部修改
+        latest_fingerprint = self.compute_resource_library_fingerprint()
+        return latest_fingerprint != self._resource_library_fingerprint
     
     @staticmethod
     def sanitize_filename(name: str) -> str:
@@ -350,6 +431,8 @@ class ResourceManager:
         self.clear_cache(resource_type, resource_id)
         # 更新索引持久化缓存
         self._save_persistent_resource_index()
+        # 标记指纹为脏，延迟到下次需要时再计算，避免频繁 I/O
+        self.invalidate_fingerprint()
         
         return True
     
@@ -441,6 +524,9 @@ class ResourceManager:
         self.clear_cache(resource_type, resource_id)
         # 更新索引持久化缓存
         self._save_persistent_resource_index()
+        
+        # 标记指纹为脏，延迟到下次需要时再计算，避免频繁 I/O
+        self.invalidate_fingerprint()
         
         return True
     
@@ -797,6 +883,7 @@ class ResourceManager:
     def rebuild_index(self) -> None:
         """重建资源索引（用于手动修改文件后的同步）"""
         self._index_service.rebuild_index()
+        self.refresh_resource_library_fingerprint()
     
     def list_graphs_by_type(self, graph_type: str) -> List[dict]:
         """列出指定类型的所有节点图

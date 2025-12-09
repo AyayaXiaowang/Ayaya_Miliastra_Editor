@@ -2,33 +2,13 @@ from __future__ import annotations
 
 import ast
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
-from engine.graph.models import GraphModel, NodeModel, PortModel, EdgeModel
-from engine.nodes.port_type_system import FLOW_PORT_TYPE
+from engine.graph.models import GraphModel, NodeModel, EdgeModel
+
 from .var_env import VarEnv
 from .validators import Validators
-from .node_factory import FactoryContext, extract_nested_nodes
-from .edge_router import (
-    is_flow_node,
-    is_event_node,
-    connect_sources_to_target,
-    create_data_edges_for_node_enhanced,
-    is_flow_port_ctx,
-)
-from .branch_builder import (
-    create_dual_branch_node,
-    create_multi_branch_node,
-    extract_case_value,
-    find_first_flow_node,
-    find_last_flow_node,
-    block_has_return,
-)
-from .loop_builder import (
-    create_finite_loop_node,
-    create_list_iteration_loop_node,
-    analyze_for_loop,
-)
+from .node_factory import FactoryContext
 from .flow_utils import (
     pick_default_flow_output_port,
     register_output_variables,
@@ -36,56 +16,16 @@ from .flow_utils import (
     handle_alias_assignment,
     warn_literal_assignment,
 )
-from .composite_builder import create_composite_node_from_instance_call
-
-
-# 辅助函数已移至 branch_builder.py 和 loop_builder.py
-
-
-def _connect_prev_to_new(
-    prev_flow_node: Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]],
-    new_node: NodeModel,
-    edges: List[EdgeModel],
-    suppress: bool,
-) -> None:
-    if prev_flow_node is None or suppress:
-        return
-    connect_sources_to_target(prev_flow_node, new_node, edges)
-
-
-def _collect_composite_flow_outputs(composite_node: NodeModel, ctx: FactoryContext) -> List[str]:
-    """
-    收集复合节点的所有流程输出端口名称。
-
-    说明：
-    - 优先使用节点库中的端口类型定义（NodeDef.output_types），确保像“分支为0/分支为1”这类
-      不含“流程”关键字的端口也能被正确识别为流程出口；
-    - 当无法在节点库中找到对应 NodeDef 时，回退到基于端口名的启发式判断。
-
-    Args:
-        composite_node: 由 create_composite_node_from_instance_call 创建的复合节点实例
-        ctx: IR 工厂上下文，提供节点库
-    """
-    flow_output_names: List[str] = []
-
-    # 复合节点在节点库中的键统一为 "复合节点/<节点名>"
-    node_title = getattr(composite_node, "title", "")
-    node_def = ctx.node_library.get(f"复合节点/{node_title}")
-
-    if node_def is not None:
-        for port in composite_node.outputs:
-            port_type = node_def.output_types.get(port.name)
-            if port_type == FLOW_PORT_TYPE:
-                flow_output_names.append(port.name)
-    else:
-        # 兜底：退回到名称规则（旧行为）
-        flow_output_names = [
-            port.name
-            for port in composite_node.outputs
-            if is_flow_port_ctx(composite_node, port.name, True)
-        ]
-
-    return flow_output_names
+from .local_var_builder import (
+    should_model_as_local_var,
+    build_local_var_nodes,
+)
+from .statement_flow_builder import (
+    handle_if_statement,
+    handle_match_statement,
+    handle_match_over_composite_call,
+    handle_for_loop,
+)
 
 
 def _extract_annotation_type_text(annotation_expr: ast.expr) -> str:
@@ -158,274 +98,134 @@ def _register_port_type_override_from_annotation(
     graph_model.metadata["port_type_overrides"] = overrides
 
 
-def handle_if_statement(
-    stmt: ast.If,
-    prev_flow_node: Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]],
-    graph_model: GraphModel,
-    env: VarEnv,
-    ctx: FactoryContext,
-    validators: Validators,
-    suppress_prev_connection: bool = False,
-) -> Tuple[List[NodeModel], List[EdgeModel], Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]]]:
-    nodes: List[NodeModel] = []
-    edges: List[EdgeModel] = []
-
-    has_elif = len(stmt.orelse) > 0 and isinstance(stmt.orelse[0], ast.If)
-    if has_elif:
-        line_no = getattr(stmt, 'lineno', '?')
-        validators.warn(f"行{line_no}: 发现if-elif-else结构，建议使用match-case语句表示真正的多分支节点")
-
-    branch_node, branch_nodes, branch_edges, branch_last_nodes = create_dual_branch_node(
-        stmt, prev_flow_node, graph_model, env, ctx, validators, parse_method_body
-    )
-    if branch_node:
-        nodes.append(branch_node)
-        nodes.extend(branch_nodes)
-        edges.extend(branch_edges)
-
-        if prev_flow_node is None and (not suppress_prev_connection):
-            # 从 env.node_sequence 回溯最近流程节点，否则回退事件节点
-            fallback: Optional[NodeModel] = None
-            for cand in reversed(env.node_sequence):
-                if is_flow_node(cand) and (not is_event_node(cand)):
-                    fallback = cand
-                    break
-            if fallback is None:
-                fallback = env.current_event_node
-            prev_flow_node = fallback
-
-        _connect_prev_to_new(prev_flow_node, branch_node, edges, suppress_prev_connection)
-
-        return nodes, edges, branch_last_nodes if branch_last_nodes else None
-
-    return nodes, edges, prev_flow_node
+from dataclasses import dataclass
+from typing import Set
 
 
-def handle_match_statement(
-    stmt: ast.Match,
-    prev_flow_node: Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]],
-    graph_model: GraphModel,
-    env: VarEnv,
-    ctx: FactoryContext,
-    validators: Validators,
-    suppress_prev_connection: bool = False,
-) -> Tuple[List[NodeModel], List[EdgeModel], Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]]]:
-    nodes: List[NodeModel] = []
-    edges: List[EdgeModel] = []
-
-    branch_node, branch_nodes, branch_edges, branch_last_nodes = create_multi_branch_node(
-        stmt, prev_flow_node, graph_model, env, ctx, validators, parse_method_body
-    )
-    if branch_node:
-        nodes.append(branch_node)
-        nodes.extend(branch_nodes)
-        edges.extend(branch_edges)
-        _connect_prev_to_new(prev_flow_node, branch_node, edges, suppress_prev_connection)
-        return nodes, edges, branch_last_nodes if branch_last_nodes else None
-
-    return nodes, edges, prev_flow_node
+@dataclass
+class VariableAnalysisResult:
+    """变量分析结果"""
+    assignment_counts: Dict[str, int]  # 赋值次数
+    assigned_in_branch: Set[str]  # 在分支结构内被赋值的变量
+    used_after_branch: Set[str]  # 在分支结构后被使用的变量
 
 
-def handle_match_over_composite_call(
-    stmt: ast.Match,
-    prev_flow_node: Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]],
-    graph_model: GraphModel,
-    env: VarEnv,
-    ctx: FactoryContext,
-    validators: Validators,
-    suppress_prev_connection: bool = False,
-) -> Tuple[
-    bool,
-    List[NodeModel],
-    List[EdgeModel],
-    Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]],
-]:
-    """处理形如 `match self.<复合实例>.<入口方法>(...)` 的语句。
+def _collect_names(target: ast.expr) -> List[str]:
+    """收集赋值目标中的所有变量名"""
+    if isinstance(target, ast.Name):
+        return [target.id]
+    elif isinstance(target, ast.Tuple):
+        names = []
+        for elt in target.elts:
+            names.extend(_collect_names(elt))
+        return names
+    return []
 
-    语义约定：
-    - subject 必须是复合节点实例方法调用（create_composite_node_from_instance_call 可识别的形式）；
-    - case 分支使用字符串字面量表示要连接的流程出口名称：
-        match self.复合.入口(...):
-            case "出口A":
-                ...  # 从复合节点的流程出口“出口A”流出后要执行的逻辑
-            case "出口B":
-                ...
-            case _:
-                ...  # 可选：当复合节点有名为“默认”的流程出口时，`_` 映射到“默认”出口
-    - 本函数仅在成功识别为复合节点调用时返回 handled=True；否则保持兼容旧逻辑，交由 handle_match_statement 处理。
+
+def _collect_used_names(node: ast.AST) -> Set[str]:
+    """收集表达式中被读取的所有变量名（Load 上下文）"""
+    used: Set[str] = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
+            used.add(sub.id)
+    return used
+
+
+def _analyze_variable_assignments(body: List[ast.stmt]) -> VariableAnalysisResult:
+    """预先扫描方法体，分析变量的赋值和使用情况。
+    
+    收集信息：
+    1. assignment_counts: 每个变量的赋值次数
+    2. assigned_in_branch: 在分支结构（if/match）内被赋值的变量
+    3. used_after_branch: 在分支结构后被使用的变量
+    
+    判断逻辑的关键：只有当变量在分支内被赋值，且在分支后被使用时，
+    才真正需要局部变量来合并不同分支的数据流。
     """
-    # 仅处理 subject 为函数调用的情况
-    subject_expr = stmt.subject
-    if not isinstance(subject_expr, ast.Call):
-        return False, [], [], prev_flow_node
+    counts: Dict[str, int] = {}
+    assigned_in_branch: Set[str] = set()
+    used_after_branch: Set[str] = set()
 
-    nodes: List[NodeModel] = []
-    edges: List[EdgeModel] = []
+    def _scan_assignments(stmts: List[ast.stmt], in_branch: bool = False) -> None:
+        """扫描赋值语句，统计赋值次数并标记分支内赋值"""
+        for stmt in stmts:
+            if isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    for name in _collect_names(target):
+                        counts[name] = counts.get(name, 0) + 1
+                        if in_branch:
+                            assigned_in_branch.add(name)
+            elif isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
+                for name in _collect_names(stmt.target):
+                    counts[name] = counts.get(name, 0) + 1
+                    if in_branch:
+                        assigned_in_branch.add(name)
+            elif isinstance(stmt, ast.If):
+                # if/else 内部是分支结构
+                _scan_assignments(stmt.body, in_branch=True)
+                _scan_assignments(stmt.orelse, in_branch=True)
+            elif isinstance(stmt, ast.For):
+                # for 循环体内也视为分支（因为可能执行 0 次或多次）
+                _scan_assignments(stmt.body, in_branch=True)
+                _scan_assignments(stmt.orelse, in_branch=True)
+            elif isinstance(stmt, ast.While):
+                _scan_assignments(stmt.body, in_branch=True)
+                _scan_assignments(stmt.orelse, in_branch=True)
+            elif isinstance(stmt, ast.Match):
+                # match/case 各分支
+                for case in stmt.cases:
+                    _scan_assignments(case.body, in_branch=True)
 
-    # 先展开参数中的嵌套节点（与普通调用保持一致）
-    nested_nodes, nested_edges, param_node_map = extract_nested_nodes(subject_expr, ctx, validators, env)
-    nodes.extend(nested_nodes)
-    edges.extend(nested_edges)
+    def _scan_usage_after_branch(stmts: List[ast.stmt]) -> None:
+        """扫描分支结构后的变量使用"""
+        pending_branch_vars: Set[str] = set()  # 当前分支结构内赋值的变量
+        
+        for idx, stmt in enumerate(stmts):
+            if isinstance(stmt, (ast.If, ast.Match, ast.For, ast.While)):
+                # 收集该分支结构内赋值的变量
+                branch_assigned: Set[str] = set()
+                if isinstance(stmt, ast.If):
+                    for sub in ast.walk(stmt):
+                        if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+                            branch_assigned.add(sub.id)
+                elif isinstance(stmt, ast.Match):
+                    for case in stmt.cases:
+                        for sub in ast.walk(case):
+                            if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+                                branch_assigned.add(sub.id)
+                elif isinstance(stmt, (ast.For, ast.While)):
+                    for sub in ast.walk(stmt):
+                        if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+                            branch_assigned.add(sub.id)
+                
+                pending_branch_vars.update(branch_assigned)
+                
+                # 检查后续语句中是否使用了这些变量
+                for later_stmt in stmts[idx + 1:]:
+                    used_names = _collect_used_names(later_stmt)
+                    for name in pending_branch_vars:
+                        if name in used_names:
+                            used_after_branch.add(name)
+                
+                # 递归处理嵌套结构
+                if isinstance(stmt, ast.If):
+                    _scan_usage_after_branch(stmt.body)
+                    _scan_usage_after_branch(stmt.orelse)
+                elif isinstance(stmt, ast.Match):
+                    for case in stmt.cases:
+                        _scan_usage_after_branch(case.body)
+                elif isinstance(stmt, (ast.For, ast.While)):
+                    _scan_usage_after_branch(stmt.body)
+                    _scan_usage_after_branch(stmt.orelse)
 
-    # 再尝试将 subject 识别为复合节点实例方法调用
-    composite_node = create_composite_node_from_instance_call(
-        subject_expr,
-        ctx.node_library,
-        env,
+    _scan_assignments(body, in_branch=False)
+    _scan_usage_after_branch(body)
+
+    return VariableAnalysisResult(
+        assignment_counts=counts,
+        assigned_in_branch=assigned_in_branch,
+        used_after_branch=used_after_branch,
     )
-    if not composite_node or not is_flow_node(composite_node):
-        # 非复合节点调用：回退到默认 match → 多分支 逻辑（由调用方决定是否兜底）。
-        # 注意：本分支不对 graph_model 与 env 产生副作用。
-        return False, [], [], prev_flow_node
-
-    # 收集复合节点的所有流程输出端口名称（在决定“接管 match”之前只做只读查询）
-    flow_output_names: List[str] = _collect_composite_flow_outputs(composite_node, ctx)
-    if not flow_output_names:
-        # 复合节点没有任何流程出口，无法作为“多分支控制点”使用，由上层决定是否降级处理。
-        return False, [], [], prev_flow_node
-
-    # 经过上面的检查后，确认当前 match 可以安全地由复合节点接管，
-    # 这时才对 graph_model/env/nodes/edges 产生实际修改。
-    nodes.append(composite_node)
-    env.node_sequence.append(composite_node)
-
-    # 将上一条流程连接到复合节点（除非显式要求抑制）
-    _connect_prev_to_new(prev_flow_node, composite_node, edges, suppress_prev_connection)
-
-    # 为复合节点补充数据入边（位置/关键字参数与嵌套节点调用保持一致）
-    data_edges = create_data_edges_for_node_enhanced(
-        composite_node,
-        subject_expr,
-        param_node_map,
-        ctx.node_library,
-        ctx.node_name_index,
-        env,
-    )
-    edges.extend(data_edges)
-
-    # 建立 case 索引 → 流程出口名 映射
-    case_index_to_port: Dict[int, str] = {}
-    has_any_valid_case = False
-
-    for index, case in enumerate(stmt.cases):
-        raw_value = extract_case_value(case.pattern)
-
-        # 字符串字面量：视为显式流程出口名
-        if isinstance(raw_value, str) and raw_value != "_":
-            label_text = raw_value.strip()
-            if not label_text:
-                continue
-            if label_text not in flow_output_names:
-                line_no = getattr(case, "lineno", getattr(stmt, "lineno", "?"))
-                validators.warn(
-                    f"行{line_no}: match 复合节点调用的 case \"{label_text}\" 未找到同名流程出口，"
-                    f"可用的流程出口包括：{', '.join(flow_output_names)}"
-                )
-                continue
-            case_index_to_port[index] = label_text
-            has_any_valid_case = True
-
-        # `_`：仅当存在名为“默认”的流程出口时视为默认分支
-        elif raw_value == "_" or raw_value is None:
-            if "默认" not in flow_output_names:
-                line_no = getattr(case, "lineno", getattr(stmt, "lineno", "?"))
-                validators.warn(
-                    f"行{line_no}: case _ 用于 match 复合节点调用时，仅当复合节点存在名为“默认”的流程出口时才生效；"
-                    f"当前可用的流程出口包括：{', '.join(flow_output_names)}"
-                )
-                continue
-            case_index_to_port[index] = "默认"
-            has_any_valid_case = True
-
-        else:
-            line_no = getattr(case, "lineno", getattr(stmt, "lineno", "?"))
-            validators.warn(
-                f"行{line_no}: match 复合节点调用仅支持字符串字面量或 '_' 作为分支标签；"
-                f"当前分支将被忽略。"
-            )
-
-    if not has_any_valid_case:
-        # 所有 case 要么未能解析，要么标签与任何流程出口都不匹配，回退默认逻辑
-        return False, [], [], prev_flow_node
-
-    branch_last_nodes: List[NodeModel] = []
-
-    # 逐个 case 构建分支体，并从对应流程出口连接到分支体的第一个流程节点
-    for index, case in enumerate(stmt.cases):
-        port_name = case_index_to_port.get(index)
-        if not port_name:
-            # 未能映射到流程出口的分支：其内部节点仍会被解析，但没有来自复合节点的流程边
-            snapshot_unmapped = env.snapshot()
-            case_nodes, case_edges = parse_method_body(
-                case.body,
-                None,
-                graph_model,
-                False,
-                env,
-                ctx,
-                validators,
-            )
-            nodes.extend(case_nodes)
-            edges.extend(case_edges)
-            env.restore(snapshot_unmapped)
-            continue
-
-        snapshot = env.snapshot()
-        case_nodes, case_edges = parse_method_body(
-            case.body,
-            None,
-            graph_model,
-            False,
-            env,
-            ctx,
-            validators,
-        )
-        nodes.extend(case_nodes)
-        edges.extend(case_edges)
-
-        if case_nodes:
-            first_flow = find_first_flow_node(case_nodes)
-            if first_flow and (not is_event_node(first_flow)):
-                # 从指定的流程出口连接到分支体的第一个流程节点
-                connect_sources_to_target((composite_node, port_name), first_flow, edges)
-
-            last_flow = find_last_flow_node(case_nodes)
-            has_ret = block_has_return(case.body)
-            if last_flow and (not has_ret):
-                branch_last_nodes.append(last_flow)
-
-        env.restore(snapshot)
-
-    # 若存在至少一个有效 case，则视为已处理该 match 语句
-    return True, nodes, edges, branch_last_nodes if branch_last_nodes else None
-
-
-def handle_for_loop(
-    stmt: ast.For,
-    prev_flow_node: Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]],
-    graph_model: GraphModel,
-    env: VarEnv,
-    ctx: FactoryContext,
-    validators: Validators,
-    suppress_prev_connection: bool = False,
-) -> Tuple[List[NodeModel], List[EdgeModel], Optional[NodeModel]]:
-    nodes: List[NodeModel] = []
-    edges: List[EdgeModel] = []
-
-    is_range, loop_var, iter_var = analyze_for_loop(stmt)
-    if is_range:
-        loop_node, loop_nodes, loop_edges = create_finite_loop_node(stmt, prev_flow_node, loop_var, graph_model, env, ctx, validators, parse_method_body)
-    else:
-        loop_node, loop_nodes, loop_edges = create_list_iteration_loop_node(stmt, prev_flow_node, loop_var, iter_var, graph_model, env, ctx, validators, parse_method_body)
-
-    if loop_node:
-        nodes.append(loop_node)
-        nodes.extend(loop_nodes)
-        edges.extend(loop_edges)
-        _connect_prev_to_new(prev_flow_node, loop_node, edges, suppress_prev_connection)
-        return nodes, edges, loop_node
-
-    return nodes, edges, prev_flow_node
 
 
 def parse_method_body(
@@ -451,10 +251,23 @@ def parse_method_body(
     Returns:
         (节点列表, 边列表)
     """
+    # 预先扫描方法体，分析变量的赋值和使用情况
+    # 更精确的判断：只有在分支内赋值且分支后使用的变量才需要局部变量
+    if not env.assignment_counts:
+        analysis_result = _analyze_variable_assignments(body)
+        env.set_assignment_counts(analysis_result.assignment_counts)
+        env.set_branch_assignment_info(
+            analysis_result.assigned_in_branch,
+            analysis_result.used_after_branch,
+        )
+
     nodes: List[NodeModel] = []
     edges: List[EdgeModel] = []
     prev_flow_node: Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]] = event_node
     need_suppress_once = bool(suppress_initial_flow_edge)
+    branch_context = isinstance(prev_flow_node, tuple) or (
+        isinstance(prev_flow_node, list) and any(isinstance(x, tuple) for x in prev_flow_node)
+    )
 
     for stmt_index, stmt in enumerate(body):
         # 表达式语句：节点调用
@@ -494,10 +307,33 @@ def parse_method_body(
             
             # 发出字面量赋值警告
             warn_literal_assignment(stmt.value, stmt.targets, stmt, validators)
+
+            # 若是单变量赋值（含调用/常量），优先用“获取/设置局部变量”建模
+            primary_target = stmt.targets[0] if stmt.targets else None
+            if isinstance(primary_target, ast.Name) and should_model_as_local_var(
+                primary_target.id,
+                stmt.value,
+                body[stmt_index + 1:],
+                env,
+            ):
+                handled, lv_nodes, lv_edges, prev_flow_node, need_suppress_once = build_local_var_nodes(
+                    var_name=primary_target.id,
+                    value_expr=stmt.value,
+                    stmt=stmt,
+                    prev_flow_node=prev_flow_node,
+                    need_suppress_once=need_suppress_once,
+                    env=env,
+                    ctx=ctx,
+                    validators=validators,
+                )
+                if handled:
+                    nodes.extend(lv_nodes)
+                    edges.extend(lv_edges)
+                    continue
             
             # 处理调用节点赋值
             if isinstance(stmt.value, ast.Call):
-                # 提取赋值变量名（用于未使用检查）
+                # 提取赋值变量名（用于后续变量环境注册）
                 assigned_names: List[str] = []
                 for target in stmt.targets:
                     if isinstance(target, ast.Name):
@@ -507,6 +343,19 @@ def parse_method_body(
                             if isinstance(elt, ast.Name):
                                 assigned_names.append(elt.id)
                 
+                # 说明：
+                # - 这里显式关闭“未使用纯数据节点的自动剔除”（check_unused=False），
+                #   原有逻辑仅在当前语句块内检查 assigned_names 是否在后续语句中被读取，
+                #   在分支体/循环体等嵌套结构中，像
+                #       if 条件:
+                #           值1 = 获取列表对应值(...)
+                #       ...
+                #       结果列表 = 拼装列表(..., 值1, ...)
+                #   这类“在块外部使用局部变量”的场景会被误判为未使用，
+                #   从而错误地跳过生成对应的纯数据节点。
+                # - 禁用该优化后，赋值右值为调用的语句始终会生成节点，
+                #   再由 register_output_variables 把变量名绑定到节点输出端口，
+                #   保证后续无论在当前块内还是块外引用变量，图结构都完整可追踪。
                 result = materialize_call_node(
                     call_expr=stmt.value,
                     stmt=stmt,
@@ -515,8 +364,8 @@ def parse_method_body(
                     ctx=ctx,
                     env=env,
                     validators=validators,
-                    check_unused=True,
-                    later_stmts=body[stmt_index + 1:],
+                    check_unused=False,
+                    later_stmts=None,
                     assigned_names=assigned_names,
                 )
                 
@@ -536,20 +385,45 @@ def parse_method_body(
                 if result.new_prev_flow_node is not None:
                     prev_flow_node = result.new_prev_flow_node
                     need_suppress_once = result.new_suppress_flag
-
+            
         # 带类型注解的赋值语句（AnnAssign）
         elif isinstance(stmt, ast.AnnAssign):
             # 处理纯别名赋值
             if handle_alias_assignment(stmt.value, stmt.target, env):
                 continue
+
+            # 单变量注解赋值优先尝试局部变量建模
+            if isinstance(stmt.target, ast.Name) and should_model_as_local_var(
+                stmt.target.id,
+                stmt.value,
+                body[stmt_index + 1:],
+                env,
+            ):
+                handled, lv_nodes, lv_edges, prev_flow_node, need_suppress_once = build_local_var_nodes(
+                    var_name=stmt.target.id,
+                    value_expr=stmt.value,
+                    stmt=stmt,
+                    prev_flow_node=prev_flow_node,
+                    need_suppress_once=need_suppress_once,
+                    env=env,
+                    ctx=ctx,
+                    validators=validators,
+                )
+                if handled:
+                    nodes.extend(lv_nodes)
+                    edges.extend(lv_edges)
+                    continue
             
             # 处理调用节点赋值
             if isinstance(stmt.value, ast.Call):
-                # 提取赋值变量名（用于未使用检查）
+                # 提取赋值变量名（用于后续变量环境注册）
                 assigned_names_ann: List[str] = []
                 if isinstance(stmt.target, ast.Name):
                     assigned_names_ann.append(stmt.target.id)
                 
+                # 同上，关闭对带类型注解赋值的“未使用纯数据节点剔除”：
+                # 这类变量同样可能在当前语句块之外被引用（例如在 if 分支后使用），
+                # 若仅在局部块内做使用检查，会导致必要的纯数据节点被错误跳过。
                 result = materialize_call_node(
                     call_expr=stmt.value,
                     stmt=stmt,
@@ -558,8 +432,8 @@ def parse_method_body(
                     ctx=ctx,
                     env=env,
                     validators=validators,
-                    check_unused=True,
-                    later_stmts=body[stmt_index + 1:],
+                    check_unused=False,
+                    later_stmts=None,
                     assigned_names=assigned_names_ann,
                 )
                 
@@ -590,11 +464,20 @@ def parse_method_body(
                 if result.new_prev_flow_node is not None:
                     prev_flow_node = result.new_prev_flow_node
                     need_suppress_once = result.new_suppress_flag
+            
+            # 非调用的注解赋值若未在上方命中局部变量建模规则，则目前保持空操作
 
         # If
         elif isinstance(stmt, ast.If):
             if_nodes, if_edges, prev_flow_node = handle_if_statement(
-                stmt, prev_flow_node, graph_model, env, ctx, validators, suppress_prev_connection=need_suppress_once
+                stmt,
+                prev_flow_node,
+                graph_model,
+                env,
+                ctx,
+                validators,
+                parse_method_body,
+                suppress_prev_connection=need_suppress_once,
             )
             if need_suppress_once:
                 need_suppress_once = False
@@ -615,13 +498,19 @@ def parse_method_body(
             )
 
             if is_self_composite_call:
-                handled, match_nodes, match_edges, prev_flow_node = handle_match_over_composite_call(
+                (
+                    handled,
+                    match_nodes,
+                    match_edges,
+                    prev_flow_node,
+                ) = handle_match_over_composite_call(
                     stmt,
                     prev_flow_node,
                     graph_model,
                     env,
                     ctx,
                     validators,
+                    parse_method_body,
                     suppress_prev_connection=need_suppress_once,
                 )
                 # 若未能成功处理（例如 case 标签与复合节点流程出口均不匹配），
@@ -631,13 +520,18 @@ def parse_method_body(
                     match_nodes = []
                     match_edges = []
             else:
-                match_nodes, match_edges, prev_flow_node = handle_match_statement(
+                (
+                    match_nodes,
+                    match_edges,
+                    prev_flow_node,
+                ) = handle_match_statement(
                     stmt,
                     prev_flow_node,
                     graph_model,
                     env,
                     ctx,
                     validators,
+                    parse_method_body,
                     suppress_prev_connection=need_suppress_once,
                 )
 
@@ -649,7 +543,14 @@ def parse_method_body(
         # For
         elif isinstance(stmt, ast.For):
             for_nodes, for_edges, prev_flow_node = handle_for_loop(
-                stmt, prev_flow_node, graph_model, env, ctx, validators, suppress_prev_connection=need_suppress_once
+                stmt,
+                prev_flow_node,
+                graph_model,
+                env,
+                ctx,
+                validators,
+                parse_method_body,
+                suppress_prev_connection=need_suppress_once,
             )
             if need_suppress_once:
                 need_suppress_once = False
@@ -665,7 +566,11 @@ def parse_method_body(
             target_loop = env.loop_stack[-1]
 
             def _connect_break_from_source(source_obj: Union[NodeModel, Tuple[NodeModel, str]], loop_node: NodeModel) -> None:
-                """连接break语句到循环节点的跳出循环端口"""
+                """连接 break 语句到循环节点的【跳出循环】端口。
+
+                默认出口选择策略统一委托给 edge_router.pick_default_flow_output_port，
+                保证与通用流程连线逻辑保持一致。
+                """
                 if isinstance(source_obj, tuple) and len(source_obj) == 2:
                     src_node, forced_src_port = source_obj
                     edges.append(EdgeModel(
@@ -676,22 +581,10 @@ def parse_method_body(
                         dst_port="跳出循环",
                     ))
                     return
-                
+
                 src_node = source_obj
                 src_port = pick_default_flow_output_port(src_node)
-                
-                # 特殊处理：分支和循环节点的默认出口
-                if src_node.title in ["双分支", "多分支"]:
-                    for p in src_node.outputs:
-                        if p.name == "默认":
-                            src_port = "默认"
-                            break
-                elif src_node.title in ["有限循环", "列表迭代循环"]:
-                    for p in src_node.outputs:
-                        if p.name == "循环完成":
-                            src_port = "循环完成"
-                            break
-                
+
                 edges.append(EdgeModel(
                     id=str(uuid.uuid4()),
                     src_node=src_node.id,

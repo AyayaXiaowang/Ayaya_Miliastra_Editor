@@ -7,7 +7,7 @@ from __future__ import annotations
 - 将 JSON 反序列化为字典供 UI 层自行解释与恢复。
 
 设计约定：
-- 状态文件位于 `<workspace>/app/runtime/ui_last_session.json`；
+- 状态文件位于 `<workspace>/app/runtime/cache/ui_last_session.json`；
 - 仅存放轻量级 UI 状态（视图模式、选中 ID 与少量上下文），
   不包含任何大体量资源或节点图数据；
 - 解析失败时允许直接抛出异常，由调用方决定是否中止启动，
@@ -28,8 +28,8 @@ def get_ui_session_state_path(workspace_path: Path) -> Path:
     参数：
         workspace_path: 工程根路径（Graph_Generater 目录）。
     """
-    runtime_directory = workspace_path / "app" / "runtime"
-    return runtime_directory / _SESSION_FILENAME
+    cache_directory = workspace_path / "app" / "runtime" / "cache"
+    return cache_directory / _SESSION_FILENAME
 
 
 def load_last_session_state(workspace_path: Path) -> Optional[Dict[str, Any]]:
@@ -56,7 +56,7 @@ def load_last_session_state(workspace_path: Path) -> Optional[Dict[str, Any]]:
 def save_last_session_state(workspace_path: Path, state_data: Dict[str, Any]) -> None:
     """将当前 UI 会话状态写入磁盘。
 
-    - 会自动创建 `app/runtime` 目录；
+    - 会自动创建 `app/runtime/cache` 目录；
     - 使用 UTF-8 与缩进格式保存，便于人工检查与调试。
     """
     state_path = get_ui_session_state_path(workspace_path)

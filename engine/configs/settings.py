@@ -120,6 +120,10 @@ class Settings:
     # False：保持现有逻辑（跨块跳过，数据节点只属于第一个块）
     # 默认 True（开启）
     DATA_NODE_CROSS_BLOCK_COPY: bool = True
+
+    # 布局算法版本号：当跨块复制或块归属等布局语义发生不兼容变更时递增，
+    # 用于让旧的 graph_cache 在加载节点图时失效并触发重新解析与自动布局。
+    LAYOUT_ALGO_VERSION: int = 1
     
     # ========== 布局性能优化（方案C + D）==========
     

@@ -174,8 +174,20 @@ MANAGEMENT_SECTIONS: Tuple[ManagementSectionSpec, ...] = (
         resources=(ManagementResourceBinding("background_music", ResourceType.BACKGROUND_MUSIC),),
     ),
     ManagementSectionSpec(
-        key="equipment_data",
-        title="⚔️ 装备数据管理",
+        key="equipment_entries",
+        title="⚔️ 装备数据管理-词条",
+        group="resources",
+        resources=(ManagementResourceBinding("equipment_data", ResourceType.EQUIPMENT_DATA),),
+    ),
+    ManagementSectionSpec(
+        key="equipment_tags",
+        title="⚔️ 装备数据管理-标签",
+        group="resources",
+        resources=(ManagementResourceBinding("equipment_data", ResourceType.EQUIPMENT_DATA),),
+    ),
+    ManagementSectionSpec(
+        key="equipment_types",
+        title="⚔️ 装备数据管理-类型",
         group="resources",
         resources=(ManagementResourceBinding("equipment_data", ResourceType.EQUIPMENT_DATA),),
     ),

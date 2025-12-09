@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from ui.foundation.theme_manager import Colors
+from ui.graph.graph_palette import GraphPalette
 from ui.graph.items.port_item import PortGraphicsItem, BranchPortValueEdit
 from ui.widgets.constant_editors import (
     ConstantTextEdit,
@@ -534,14 +535,11 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
         
         # 绘制内容区域背景（70%不透明度，半透明有底色）
         content_rect = QtCore.QRectF(r.left(), r.top() + header_h, r.width(), r.height() - header_h)
-        content_color = QtGui.QColor('#1F1F1F')
+        content_color = QtGui.QColor(GraphPalette.NODE_CONTENT_BG)
         content_color.setAlpha(int(255 * 0.7))  # 70%不透明度，半透明有底色
         painter.setBrush(content_color)
-        pen = QtGui.QPen(
-            QtGui.QColor('#3A3A3A')
-            if not self.isSelected()
-            else QtGui.QColor(Colors.PRIMARY)
-        )
+        pen_color = QtGui.QColor(Colors.PRIMARY) if self.isSelected() else QtGui.QColor(GraphPalette.NODE_CONTENT_BORDER)
+        pen = QtGui.QPen(pen_color)
         pen.setWidth(2 if self.isSelected() else 1)
         painter.setPen(pen)
         
@@ -552,7 +550,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
 
         # title text
         painter.setFont(self.title_font)
-        painter.setPen(QtGui.QColor('#FFFFFF'))
+        painter.setPen(QtGui.QColor(GraphPalette.TEXT_BRIGHT))
         
         # 如果是虚拟引脚节点，在标题前添加序号标记
         if self.node.is_virtual_pin:
@@ -567,7 +565,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
 
         # port labels (including flow ports) - 所有标签都使用亮色
         painter.setFont(QtGui.QFont('Microsoft YaHei', 9))
-        painter.setPen(QtGui.QColor('#E0E0E0'))  # 统一使用亮色
+        painter.setPen(QtGui.QColor(GraphPalette.TEXT_LABEL))  # 统一使用亮色
         header_h = ROW_HEIGHT + 10
         
         # 检查哪些输入端口有连线
@@ -589,7 +587,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
             has_connection = p.name in connected_input_ports
             
             # 输入标签：端口右侧开始，左对齐
-            painter.setPen(QtGui.QColor('#E0E0E0'))  # 确保标签是亮色
+            painter.setPen(QtGui.QColor(GraphPalette.TEXT_LABEL))  # 确保标签是亮色
             
             # 检查端口是否有控件，并获取控件信息
             has_control = p.name in self._control_positions
@@ -611,12 +609,12 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
                 if control_type == 'text':
                     # 文本输入框需要背景（控件在下一行，使用其自身位置）
                     const_rect = QtCore.QRectF(control_x, control_y + 2, control_width, ROW_HEIGHT - 8)
-                    painter.fillRect(const_rect, QtGui.QColor('#2A2A2A'))
-                    painter.setPen(QtGui.QColor('#444444'))
+                    painter.fillRect(const_rect, QtGui.QColor(GraphPalette.INPUT_BG))
+                    painter.setPen(QtGui.QColor(GraphPalette.BORDER_SUBTLE))
                     painter.drawRoundedRect(const_rect, 2, 2)
         
         # draw output port labels
-        painter.setPen(QtGui.QColor('#E0E0E0'))  # 确保标签是亮色
+        painter.setPen(QtGui.QColor(GraphPalette.TEXT_LABEL))  # 确保标签是亮色
         output_start_y = header_h + NODE_PADDING
         for out_index, p in enumerate(self.node.outputs):
             label_y = output_start_y + out_index * ROW_HEIGHT
@@ -645,13 +643,13 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
                             # 根据issue级别选择颜色
                             if hasattr(issue, 'level'):
                                 if issue.level == "error":
-                                    warning_color = QtGui.QColor('#FFD700')  # 金黄色
+                                    warning_color = QtGui.QColor(GraphPalette.WARN_GOLD)  # 金黄色
                                 elif issue.level == "warning":
-                                    warning_color = QtGui.QColor('#FFA500')  # 橙色
+                                    warning_color = QtGui.QColor(GraphPalette.WARN_ORANGE)  # 橙色
                                 else:
-                                    warning_color = QtGui.QColor('#87CEEB')  # 浅蓝色
+                                    warning_color = QtGui.QColor(GraphPalette.INFO_SKY)  # 浅蓝色
                             else:
-                                warning_color = QtGui.QColor('#FFD700')
+                                warning_color = QtGui.QColor(GraphPalette.WARN_GOLD)
                             
                             # 绘制警告感叹号（在输入框位置）
                             painter.setPen(warning_color)
@@ -666,7 +664,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
         
         # 虚拟引脚节点使用特殊颜色
         if self.node.is_virtual_pin:
-            return QtGui.QColor('#AA55FF') if self.node.is_virtual_pin_input else QtGui.QColor('#55AAFF')
+            return QtGui.QColor(GraphPalette.CATEGORY_VIRTUAL_IN) if self.node.is_virtual_pin_input else QtGui.QColor(GraphPalette.CATEGORY_VIRTUAL_OUT)
         
         # 复合节点使用集中管理的银白渐变色（优先于category判断）
         if hasattr(self.node, 'composite_id') and self.node.composite_id:
@@ -674,27 +672,27 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
         
         # 支持简化版（"事件"）和完整版（"事件节点"）
         color_map = {
-            '查询': QtGui.QColor('#2D5FE3'),
-            '查询节点': QtGui.QColor('#2D5FE3'),
-            '事件': QtGui.QColor('#FF5E9C'),
-            '事件节点': QtGui.QColor('#FF5E9C'),
-            '运算': QtGui.QColor('#2FAACB'),
-            '运算节点': QtGui.QColor('#2FAACB'),
-            '执行': QtGui.QColor('#9CD64B'),
-            '执行节点': QtGui.QColor('#9CD64B'),
-            '流程控制': QtGui.QColor('#FF9955'),
-            '流程控制节点': QtGui.QColor('#FF9955'),
+            '查询': QtGui.QColor(GraphPalette.CATEGORY_QUERY),
+            '查询节点': QtGui.QColor(GraphPalette.CATEGORY_QUERY),
+            '事件': QtGui.QColor(GraphPalette.CATEGORY_EVENT),
+            '事件节点': QtGui.QColor(GraphPalette.CATEGORY_EVENT),
+            '运算': QtGui.QColor(GraphPalette.CATEGORY_COMPUTE),
+            '运算节点': QtGui.QColor(GraphPalette.CATEGORY_COMPUTE),
+            '执行': QtGui.QColor(GraphPalette.CATEGORY_EXECUTION),
+            '执行节点': QtGui.QColor(GraphPalette.CATEGORY_EXECUTION),
+            '流程控制': QtGui.QColor(GraphPalette.CATEGORY_FLOW),
+            '流程控制节点': QtGui.QColor(GraphPalette.CATEGORY_FLOW),
             '复合': QtGui.QColor(Colors.NODE_HEADER_COMPOSITE_START),
             '复合节点': QtGui.QColor(Colors.NODE_HEADER_COMPOSITE_START),
         }
-        return color_map.get(cat, QtGui.QColor('#555555'))
+        return color_map.get(cat, QtGui.QColor(GraphPalette.CATEGORY_DEFAULT))
 
     def _category_color_end(self) -> QtGui.QColor:
         cat = self.node.category
         
         # 虚拟引脚节点使用特殊颜色
         if self.node.is_virtual_pin:
-            return QtGui.QColor('#8833DD') if self.node.is_virtual_pin_input else QtGui.QColor('#3388DD')
+            return QtGui.QColor(GraphPalette.CATEGORY_VIRTUAL_IN_DARK) if self.node.is_virtual_pin_input else QtGui.QColor(GraphPalette.CATEGORY_VIRTUAL_OUT_DARK)
         
         # 复合节点使用集中管理的银白渐变色（优先于category判断）
         if hasattr(self.node, 'composite_id') and self.node.composite_id:
@@ -702,18 +700,18 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
         
         # 支持简化版（"事件"）和完整版（"事件节点"）
         color_map = {
-            '查询': QtGui.QColor('#1B3FA8'),
-            '查询节点': QtGui.QColor('#1B3FA8'),
-            '事件': QtGui.QColor('#C23A74'),
-            '事件节点': QtGui.QColor('#C23A74'),
-            '运算': QtGui.QColor('#1D6F8A'),
-            '运算节点': QtGui.QColor('#1D6F8A'),
-            '执行': QtGui.QColor('#6BA633'),
-            '执行节点': QtGui.QColor('#6BA633'),
-            '流程控制': QtGui.QColor('#E87722'),
-            '流程控制节点': QtGui.QColor('#E87722'),
+            '查询': QtGui.QColor(GraphPalette.CATEGORY_QUERY_DARK),
+            '查询节点': QtGui.QColor(GraphPalette.CATEGORY_QUERY_DARK),
+            '事件': QtGui.QColor(GraphPalette.CATEGORY_EVENT_DARK),
+            '事件节点': QtGui.QColor(GraphPalette.CATEGORY_EVENT_DARK),
+            '运算': QtGui.QColor(GraphPalette.CATEGORY_COMPUTE_DARK),
+            '运算节点': QtGui.QColor(GraphPalette.CATEGORY_COMPUTE_DARK),
+            '执行': QtGui.QColor(GraphPalette.CATEGORY_EXECUTION_DARK),
+            '执行节点': QtGui.QColor(GraphPalette.CATEGORY_EXECUTION_DARK),
+            '流程控制': QtGui.QColor(GraphPalette.CATEGORY_FLOW_DARK),
+            '流程控制节点': QtGui.QColor(GraphPalette.CATEGORY_FLOW_DARK),
             '复合': QtGui.QColor(Colors.NODE_HEADER_COMPOSITE_END),
             '复合节点': QtGui.QColor(Colors.NODE_HEADER_COMPOSITE_END),
         }
-        return color_map.get(cat, QtGui.QColor('#3A3A3A'))
+        return color_map.get(cat, QtGui.QColor(GraphPalette.NODE_CONTENT_BORDER))
 

@@ -240,7 +240,34 @@ def _connect_nodes(
     if allow_continue is not None and not allow_continue():
         executor.log("用户终止/暂停，放弃连线", log_callback)
         return False
-    matching_service = PortMatchingService(executor, log_callback, visual_callback)
+    graph_label = (
+        str(getattr(graph_model, "graph_id", "") or getattr(graph_model, "id", "") or getattr(graph_model, "name", ""))
+    ).strip()
+    trace_context = {
+        "trace_id": f"{int(time.time() * 1000)}-{src_node_id}->{dst_node_id}",
+        "src_node_id": src_node_id,
+        "dst_node_id": dst_node_id,
+    }
+    if src_port_name:
+        trace_context["src_port_name"] = src_port_name
+    if dst_port_name:
+        trace_context["dst_port_name"] = dst_port_name
+    if graph_label:
+        trace_context["graph"] = graph_label
+
+    matching_service = PortMatchingService(
+        executor,
+        log_callback,
+        visual_callback,
+        trace_context=trace_context,
+    )
+    matching_service._log_trace(
+        "追踪",
+        "开始连接追踪",
+        graph=graph_label or "unknown",
+        src_node=src_node.title,
+        dst_node=dst_node.title,
+    )
     align_attempts = 0
     frame_state: Optional[ConnectionFrameState] = None
     src_snapshot = None

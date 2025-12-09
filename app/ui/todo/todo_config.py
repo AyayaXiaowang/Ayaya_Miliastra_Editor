@@ -135,8 +135,9 @@ class DetailTypeIcons:
         "graph_add_dict_pairs": "+",
         "graph_add_branch_outputs": "+",
         "graph_config_branch_outputs": "◦",
-         "graph_bind_signal": "◦",
-        "default": "◆"
+        "graph_bind_signal": "◦",
+        "graph_bind_struct": "◦",
+        "default": "◆",
     }
     
     # 复合节点类型图标
@@ -246,9 +247,10 @@ class StepTypeColors:
         "graph_add_dict_pairs": ThemeColors.TODO_STEP_GRAPH_ADD_DICT_PAIRS,
         "graph_add_branch_outputs": ThemeColors.TODO_STEP_GRAPH_ADD_BRANCH_OUTPUTS,
         "graph_config_branch_outputs": ThemeColors.TODO_STEP_GRAPH_CONFIG_BRANCH_OUTPUTS,
-        # 信号相关步骤
+        # 信号与结构体相关步骤
         "graph_signals_overview": ThemeColors.TODO_STEP_GRAPH_SIGNALS_OVERVIEW,
         "graph_bind_signal": ThemeColors.TODO_STEP_GRAPH_BIND_SIGNAL,
+        "graph_bind_struct": ThemeColors.TODO_STEP_GRAPH_BIND_STRUCT,
     }
 
     # 节点类别 → 颜色（与图场景标题栏色系一致）
@@ -422,6 +424,7 @@ class StepTypeRules:
         "graph_config_branch_outputs",
         "graph_signals_overview",
         "graph_bind_signal",
+        "graph_bind_struct",
     }
 
     # 支持在任务树上渲染富文本 token 的图步骤类型

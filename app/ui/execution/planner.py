@@ -20,6 +20,7 @@ SUPPORTED_STEP_TYPES = {
     "graph_add_dict_pairs",
     "graph_add_branch_outputs",
     "graph_config_branch_outputs",
+    # 绑定信号/结构体等配置类步骤目前仅作为人工指引，不由自动化执行器直接执行。
     "graph_bind_signal",
 }
 

@@ -156,6 +156,10 @@ class ResourceIndexService:
         self.resource_index.clear()
         self.build_index()
 
+    def compute_resources_fingerprint(self) -> str:
+        """计算当前资源库指纹（文件数 + 最新修改时间）。"""
+        return self._index_builder.compute_resources_fingerprint()
+
     def save_persistent_index(self) -> None:
         """将当前内存中的资源索引写入磁盘缓存。"""
         self._index_builder._save_persistent_resource_index(  # type: ignore[attr-defined]

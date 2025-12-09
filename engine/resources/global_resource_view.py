@@ -13,6 +13,9 @@ from engine.resources.management_view_helpers import (
 from engine.resources.ingame_save_template_schema_view import (
     get_default_ingame_save_template_schema_view,
 )
+from engine.resources.level_variable_schema_view import (
+    get_default_level_variable_schema_view,
+)
 from engine.signal import get_default_signal_repository
 from engine.graph.models.package_model import (
     TemplateConfig,
@@ -149,6 +152,11 @@ class GlobalResourceView:
             # 映射与“单一配置体”字段集合由 management_view_helpers 统一维护，
             # 便于 PackageView/GlobalResourceView/UnclassifiedResourceView 共享一致语义。
             for management_field_name, resource_type in MANAGEMENT_FIELD_TO_RESOURCE_TYPE.items():
+                if management_field_name == "level_variables":
+                    schema_view = get_default_level_variable_schema_view()
+                    management_data[management_field_name] = schema_view.get_all_variables()
+                    continue
+
                 resource_ids = self.resource_manager.list_resources(resource_type)
 
                 # 局内存档管理：单一聚合配置体，由全局元配置 + 所有模板列表组成。
@@ -189,20 +197,20 @@ class GlobalResourceView:
         return self._management_cache
 
     def _build_save_points_config_for_global_view(self) -> dict:
-        """构建局内存档管理的聚合配置：全局元配置 + 所有代码级模板列表。
+        """构建局内存档管理的聚合配置：全局状态 + 所有代码级模板列表。
 
         设计约定：
-        - 元配置存放在 ID 为 'global_view_save_points' 的 SAVE_POINT 资源中
-          （enabled/active_template_id/updated_at）；
         - 每个局内存档模板以一份 Python 代码资源存在于
           `assets/资源库/管理配置/局内存档管理/` 目录下，由
           `IngameSaveTemplateSchemaView` 聚合为 {template_id: payload} 视图；
-        - 本方法只负责将“元配置”与“模板定义视图”组合为管理页面使用的聚合结构，
-          不再从 JSON SAVE_POINT 资源中还原模板本体。
+        - 模板 payload 中的可选字段 `is_default_template` 用于表达“当前工程默认/主模板”，
+          当任意模板的该字段为 True 时，视图层认为局内存档整体处于启用状态；
+        - 旧版的全局元配置仍存放在 ID 为 'global_view_save_points' 的 SAVE_POINT 资源中
+          （enabled/active_template_id/updated_at），仅作为缺省回退与兼容来源。
         """
         aggregator_id = "global_view_save_points"
 
-        # 1. 读取全局元配置
+        # 1. 读取旧版全局元配置（仅作为缺省回退）
         meta_payload: dict = {}
         if self.resource_manager.resource_exists(ResourceType.SAVE_POINT, aggregator_id):
             candidate = self.resource_manager.load_resource(ResourceType.SAVE_POINT, aggregator_id)
@@ -244,11 +252,30 @@ class GlobalResourceView:
 
         templates.sort(key=_template_sort_key)
 
-        enabled_flag = bool(meta_payload.get("enabled", False))
-        active_template_id = str(meta_payload.get("active_template_id", "")).strip()
-        updated_at_text = str(meta_payload.get("updated_at", "")).strip()
+        # 4. 依据模板状态与旧版元配置综合计算启用状态与当前模板 ID
+        default_template_id_from_templates = ""
+        for template_payload in templates:
+            is_default = bool(template_payload.get("is_default_template", False))
+            if not is_default:
+                continue
+            raw_id = template_payload.get("template_id", "")
+            template_id_text = str(raw_id).strip()
+            if not template_id_text:
+                continue
+            default_template_id_from_templates = template_id_text
+            break
 
-        # 若元配置中的 active_template_id 已不在模板列表中，则在读取视图时回退为“未启用”
+        enabled_flag = False
+        active_template_id = ""
+        updated_at_text = str(meta_payload.get("updated_at", "")).strip()
+        if default_template_id_from_templates:
+            enabled_flag = True
+            active_template_id = default_template_id_from_templates
+        else:
+            enabled_flag = bool(meta_payload.get("enabled", False))
+            active_template_id = str(meta_payload.get("active_template_id", "")).strip()
+
+        # 若激活模板 ID 已不在模板列表中，则在读取视图时回退为“未启用”
         if enabled_flag and active_template_id:
             if not any(
                 str(t.get("template_id", "")).strip() == active_template_id for t in templates

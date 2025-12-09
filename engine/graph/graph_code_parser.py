@@ -558,69 +558,38 @@ class GraphCodeParser:
         """从 Graph Code 中推导结构体节点的默认绑定信息。
 
         约定与边界：
-        - 仅在模块 docstring 中出现且仅出现一次形如 ``struct_xxx`` 的结构体 ID 时启用；
-        - 仅绑定标记为基础结构体（struct_ype == "basic" 或未显式标注类型）的定义；
+        - 直接从代码中的结构体节点调用中提取"结构体名"参数，根据结构体名查找定义；
+        - 支持所有类型的结构体（basic、ingame_save 等），不再限制为 basic 类型；
         - 仅为尚未在 ``GraphModel.metadata['struct_bindings']`` 中出现绑定记录的节点写入默认绑定；
         - 对于每个结构体节点，默认将 `field_names` 设置为当前图模型中已存在、且在目标结构体定义里
-          出现的字段端口名集合（按出现顺序去重），从而让“拼装/拆分/修改结构体”节点在编辑器中只生成
+          出现的字段端口名集合（按出现顺序去重），从而让"拼装/拆分/修改结构体"节点在编辑器中只生成
           与当前代码实际使用字段一致的数据端口。
         """
         if not isinstance(tree, ast.Module):
-            return
-
-        docstring_text = ast.get_docstring(tree)
-        if not docstring_text:
-            return
-
-        # 在模块 docstring 中查找唯一的结构体 ID（形式为 struct_xxx）。
-        # 注意：这里使用的是正则中的“单词边界” \b，而不是字面量反斜杠。
-        pattern = r"\bstruct_[A-Za-z0-9_]+\b"
-        struct_id_candidates = dedupe_preserve_order(re.findall(pattern, docstring_text))
-        if len(struct_id_candidates) != 1:
-            return
-
-        struct_id_text = struct_id_candidates[0]
-        if not struct_id_text:
             return
 
         from engine.resources.definition_schema_view import get_default_definition_schema_view
 
         schema_view = get_default_definition_schema_view()
         all_struct_definitions = schema_view.get_all_struct_definitions()
-        struct_payload = all_struct_definitions.get(struct_id_text)
-        if not isinstance(struct_payload, dict):
+        if not all_struct_definitions:
             return
 
-        struct_type_raw = struct_payload.get("struct_ype")
-        struct_type = str(struct_type_raw).strip() if isinstance(struct_type_raw, str) else ""
-        if struct_type and struct_type != "basic":
-            return
-
-        struct_name_raw = struct_payload.get("name")
-        struct_name = (
-            str(struct_name_raw).strip()
-            if isinstance(struct_name_raw, str) and str(struct_name_raw).strip()
-            else struct_id_text
-        )
-
-        # 预先收集结构体定义中的字段名集合，后续用于对代码中出现的字段名做合法性过滤。
-        defined_field_names: List[str] = []
-        value_entries = struct_payload.get("value")
-        if isinstance(value_entries, Sequence):
-            for entry in value_entries:
-                if not isinstance(entry, Mapping):
-                    continue
-                raw_name = entry.get("key")
-                name_text = str(raw_name).strip() if isinstance(raw_name, str) else ""
-                if not name_text:
-                    continue
-                if name_text not in defined_field_names:
-                    defined_field_names.append(name_text)
-        defined_field_name_set = set(defined_field_names)
+        # 构建"结构体名 → 结构体 ID"的反向索引，用于根据代码中的"结构体名"参数查找结构体定义
+        struct_name_to_id: Dict[str, str] = {}
+        for struct_id, struct_payload in all_struct_definitions.items():
+            if not isinstance(struct_payload, dict):
+                continue
+            name_raw = struct_payload.get("name")
+            name_text = str(name_raw).strip() if isinstance(name_raw, str) else ""
+            if name_text:
+                struct_name_to_id[name_text] = struct_id
+            # 同时用 struct_id 作为名字的后备（兼容 struct_xxx 格式）
+            struct_name_to_id[struct_id] = struct_id
 
         existing_bindings = graph_model.get_struct_bindings()
 
-        # 构造“结构体节点 → 源码行范围”索引，便于将 AST 中的调用与具体节点对应起来。
+        # 构造"结构体节点 → 源码行范围"索引，便于将 AST 中的调用与具体节点对应起来。
         span_records: List[Tuple[str, int, int, str]] = []
         for raw_node_id, node in graph_model.nodes.items():
             node_title = getattr(node, "title", "") or ""
@@ -659,9 +628,51 @@ class GraphCodeParser:
                     best_id = candidate_id
             return best_id
 
-        field_names_by_node_id: Dict[str, List[str]] = {}
+        def _extract_struct_name_from_call(call_node: ast.Call) -> Optional[str]:
+            """从调用中提取"结构体名"参数的常量值"""
+            for keyword in call_node.keywords or []:
+                if keyword.arg == "结构体名":
+                    if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                        return keyword.value.value.strip()
+                    # 兼容旧版 ast.Str
+                    if hasattr(ast, 'Str') and isinstance(keyword.value, ast.Str):
+                        return keyword.value.s.strip()  # type: ignore[attr-defined]
+            return None
 
-        # 1) 处理“拼装结构体 / 修改结构体”调用：字段名来源于关键字参数。
+        def _get_struct_info(struct_name_text: str) -> Optional[Tuple[str, str, Dict[str, Any], List[str]]]:
+            """根据结构体名获取结构体信息：(struct_id, struct_name, payload, field_names)"""
+            struct_id = struct_name_to_id.get(struct_name_text)
+            if not struct_id:
+                return None
+            struct_payload = all_struct_definitions.get(struct_id)
+            if not isinstance(struct_payload, dict):
+                return None
+
+            name_raw = struct_payload.get("name")
+            struct_name = (
+                str(name_raw).strip()
+                if isinstance(name_raw, str) and str(name_raw).strip()
+                else struct_id
+            )
+
+            # 提取字段列表
+            defined_field_names: List[str] = []
+            value_entries = struct_payload.get("value")
+            if isinstance(value_entries, Sequence):
+                for entry in value_entries:
+                    if not isinstance(entry, Mapping):
+                        continue
+                    raw_name = entry.get("key")
+                    name_text = str(raw_name).strip() if isinstance(raw_name, str) else ""
+                    if name_text and name_text not in defined_field_names:
+                        defined_field_names.append(name_text)
+
+            return struct_id, struct_name, struct_payload, defined_field_names
+
+        # 收集每个节点的绑定信息：{node_id: (struct_id, struct_name, field_names)}
+        node_binding_info: Dict[str, Tuple[str, str, List[str]]] = {}
+
+        # 1) 处理"拼装结构体 / 修改结构体"调用：从"结构体名"参数提取结构体，字段名来源于关键字参数。
         for ast_node in ast.walk(tree):
             if not isinstance(ast_node, ast.Call):
                 continue
@@ -675,15 +686,33 @@ class GraphCodeParser:
             if not func_name:
                 continue
 
-            if func_name == STRUCT_BUILD_NODE_TITLE:
+            if func_name in (STRUCT_BUILD_NODE_TITLE, STRUCT_MODIFY_NODE_TITLE):
                 lineno, end_lineno = _get_ast_span(ast_node)
                 if lineno <= 0:
                     continue
-                matched_id = _match_struct_node_id(STRUCT_BUILD_NODE_TITLE, lineno, end_lineno)
-                if not matched_id:
+                matched_node_id = _match_struct_node_id(func_name, lineno, end_lineno)
+                if not matched_node_id:
                     continue
-                static_inputs = set(STRUCT_BUILD_STATIC_INPUTS)
-                target_list = field_names_by_node_id.setdefault(matched_id, [])
+
+                # 提取"结构体名"参数
+                struct_name_text = _extract_struct_name_from_call(ast_node)
+                if not struct_name_text:
+                    continue
+
+                struct_info = _get_struct_info(struct_name_text)
+                if not struct_info:
+                    continue
+                struct_id, struct_name, struct_payload, defined_field_names = struct_info
+                defined_field_name_set = set(defined_field_names)
+
+                # 确定静态输入端口
+                if func_name == STRUCT_BUILD_NODE_TITLE:
+                    static_inputs = set(STRUCT_BUILD_STATIC_INPUTS)
+                else:
+                    static_inputs = set(STRUCT_MODIFY_STATIC_INPUTS)
+
+                # 收集代码中实际使用的字段名
+                used_field_names: List[str] = []
                 for keyword in ast_node.keywords or []:
                     arg_name = keyword.arg
                     if not isinstance(arg_name, str) or not arg_name:
@@ -692,30 +721,12 @@ class GraphCodeParser:
                         continue
                     if arg_name not in defined_field_name_set:
                         continue
-                    if arg_name not in target_list:
-                        target_list.append(arg_name)
+                    if arg_name not in used_field_names:
+                        used_field_names.append(arg_name)
 
-            elif func_name == STRUCT_MODIFY_NODE_TITLE:
-                lineno, end_lineno = _get_ast_span(ast_node)
-                if lineno <= 0:
-                    continue
-                matched_id = _match_struct_node_id(STRUCT_MODIFY_NODE_TITLE, lineno, end_lineno)
-                if not matched_id:
-                    continue
-                static_inputs = set(STRUCT_MODIFY_STATIC_INPUTS)
-                target_list = field_names_by_node_id.setdefault(matched_id, [])
-                for keyword in ast_node.keywords or []:
-                    arg_name = keyword.arg
-                    if not isinstance(arg_name, str) or not arg_name:
-                        continue
-                    if arg_name in static_inputs:
-                        continue
-                    if arg_name not in defined_field_name_set:
-                        continue
-                    if arg_name not in target_list:
-                        target_list.append(arg_name)
+                node_binding_info[matched_node_id] = (struct_id, struct_name, used_field_names)
 
-        # 2) 处理“拆分结构体”：字段名来源于左侧的多目标赋值。
+        # 2) 处理"拆分结构体"：从"结构体名"参数提取结构体，字段名来源于左侧的多目标赋值。
         for ast_node in ast.walk(tree):
             if not isinstance(ast_node, (ast.Assign, ast.AnnAssign)):
                 continue
@@ -740,11 +751,23 @@ class GraphCodeParser:
             lineno, end_lineno = _get_ast_span(value_node)
             if lineno <= 0:
                 continue
-            matched_id = _match_struct_node_id(STRUCT_SPLIT_NODE_TITLE, lineno, end_lineno)
-            if not matched_id:
+            matched_node_id = _match_struct_node_id(STRUCT_SPLIT_NODE_TITLE, lineno, end_lineno)
+            if not matched_node_id:
                 continue
 
-            target_list = field_names_by_node_id.setdefault(matched_id, [])
+            # 提取"结构体名"参数
+            struct_name_text = _extract_struct_name_from_call(value_node)
+            if not struct_name_text:
+                continue
+
+            struct_info = _get_struct_info(struct_name_text)
+            if not struct_info:
+                continue
+            struct_id, struct_name, struct_payload, defined_field_names = struct_info
+            defined_field_name_set = set(defined_field_names)
+
+            # 收集代码中实际使用的字段名（从赋值目标）
+            used_field_names: List[str] = []
 
             def _collect_names_from_target(target: ast.AST) -> None:
                 if isinstance(target, ast.Name):
@@ -753,8 +776,8 @@ class GraphCodeParser:
                         return
                     if name_text not in defined_field_name_set:
                         return
-                    if name_text not in target_list:
-                        target_list.append(name_text)
+                    if name_text not in used_field_names:
+                        used_field_names.append(name_text)
                 elif isinstance(target, ast.Tuple):
                     for element in target.elts:
                         _collect_names_from_target(element)
@@ -765,7 +788,9 @@ class GraphCodeParser:
             else:
                 _collect_names_from_target(ast_node.target)
 
-        # 3) 写回绑定：保留已有绑定，未显式配置的节点按“代码中实际使用字段”推导字段列表。
+            node_binding_info[matched_node_id] = (struct_id, struct_name, used_field_names)
+
+        # 3) 写回绑定：保留已有绑定，未显式配置的节点按"代码中实际使用字段"推导字段列表。
         for node_id, node in graph_model.nodes.items():
             node_title = getattr(node, "title", "") or ""
             if node_title not in STRUCT_NODE_TITLES:
@@ -776,7 +801,11 @@ class GraphCodeParser:
                 # 避免覆盖 UI 或其它工具已写入的绑定信息。
                 continue
 
-            used_field_names = field_names_by_node_id.get(str(node_id)) or []
+            binding_tuple = node_binding_info.get(str(node_id))
+            if not binding_tuple:
+                continue
+
+            struct_id_text, struct_name, used_field_names = binding_tuple
 
             binding_payload: Dict[str, Any] = {
                 "struct_id": struct_id_text,
@@ -784,7 +813,7 @@ class GraphCodeParser:
             }
             # 若当前节点在代码中已经通过字段名显式使用了一部分结构体字段，
             # 则将这些字段作为默认的 field_names 写入绑定，避免在编辑器中
-            # 再次自动扩展为“全部字段”。
+            # 再次自动扩展为"全部字段"。
             if used_field_names:
                 binding_payload["field_names"] = list(used_field_names)
 

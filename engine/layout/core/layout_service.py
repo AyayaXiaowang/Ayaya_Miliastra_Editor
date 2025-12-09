@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional, Any, Set
 
 from engine.graph.models import GraphModel, BasicBlock
+from engine.configs.settings import settings
 from ..core.layout_algorithm import layout_by_event_regions
 from ..core.layout_context import LayoutContext
 from ..flow.preprocess import promote_flow_outputs_for_layout
@@ -59,6 +60,10 @@ class LayoutService:
         collapse_duplicate_data_copies(working_model)
 
         layout_by_event_regions(working_model)
+
+        # 可选的布局断言检查（仅在调试模式下启用）
+        if getattr(settings, "DEBUG_LAYOUT_ASSERTIONS", False):
+            LayoutService._assert_all_data_nodes_assigned(working_model, node_library)
 
         LayoutService._finalize_layout(
             model,
@@ -160,6 +165,24 @@ class LayoutService:
             # 将增强后的模型一并返回，供上层进行差异合并（包含副本节点与连线的调整）
             result.augmented_model = working_model
         return result
+
+    @staticmethod
+    def _assert_all_data_nodes_assigned(
+        model: GraphModel,
+        node_library: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        断言所有数据节点都被分配到了某个块。
+
+        仅在调试模式下调用，用于检测布局逻辑中可能遗漏的节点。
+        """
+        from ..blocks.data_node_ownership import assert_all_data_nodes_assigned
+
+        orphan_ids = assert_all_data_nodes_assigned(model, node_library)
+        if orphan_ids:
+            raise AssertionError(
+                f"布局断言失败：以下数据节点未被分配到任何块：{orphan_ids}"
+            )
 
     @staticmethod
     def _sync_block_relationship_cache(

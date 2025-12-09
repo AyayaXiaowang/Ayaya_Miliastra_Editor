@@ -153,6 +153,7 @@ class PackageIndex:
     name: str
     description: str = ""
     resources: PackageResources = field(default_factory=PackageResources)
+    resource_names: Dict[str, dict] = field(default_factory=dict)
     level_entity_id: Optional[str] = None  # 关卡实体实例ID（存储在资源库/实例/中）
     signals: Dict[str, dict] = field(default_factory=dict)  # 信号配置（存档级别）
     created_at: str = ""
@@ -275,6 +276,7 @@ class PackageIndex:
             "name": self.name,
             "description": self.description,
             "resources": self.resources.serialize(),
+            "resource_names": self.resource_names,
             "level_entity_id": self.level_entity_id,
             "signals": signals_summary,
             "created_at": self.created_at,
@@ -289,6 +291,7 @@ class PackageIndex:
             name=data["name"],
             description=data.get("description", ""),
             resources=PackageResources.deserialize(data.get("resources", {})),
+            resource_names=data.get("resource_names", {}),
             level_entity_id=data.get("level_entity_id"),
             signals=data.get("signals", {}),
             created_at=data.get("created_at", ""),

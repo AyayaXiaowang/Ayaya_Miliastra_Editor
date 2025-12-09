@@ -138,6 +138,12 @@ def _validate_structs_in_single_graph(
         if not node_id or node_title not in STRUCT_NODE_TITLES:
             continue
 
+        # 提取“结构体名”常量，要求必须填写
+        input_constants = node.get("input_constants", {}) or {}
+        struct_name_constant = ""
+        if isinstance(input_constants, dict) and STRUCT_NAME_PORT_NAME in input_constants:
+            struct_name_constant = str(input_constants.get(STRUCT_NAME_PORT_NAME) or "").strip()
+
         node_detail = dict(base_detail)
         node_detail["node_id"] = node_id
         node_detail["node_title"] = node_title
@@ -151,6 +157,21 @@ def _validate_structs_in_single_graph(
             struct_id = raw_struct_id.strip()
         elif raw_struct_id is not None:
             struct_id = str(raw_struct_id)
+
+        # 0) 要求节点上填写“结构体名”常量，避免无意遗漏
+        if not struct_name_constant:
+            issues.append(
+                ValidationIssue(
+                    level="error",
+                    category="结构体系统",
+                    location=node_location,
+                    message="结构体节点未填写“结构体名”输入端口，无法锁定目标结构体。",
+                    suggestion="请在节点的“结构体名”输入端口填写目标基础结构体名称（与结构体定义一致），并重新保存节点图。",
+                    reference="节点图变量声明设计.md: 结构体节点绑定约定",
+                    detail=node_detail,
+                )
+            )
+            continue
 
         # 1) 结构体存在性校验（节点必须绑定一个基础结构体）
         if not struct_id:

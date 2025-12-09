@@ -34,8 +34,12 @@ from engine.graph.common import (
 from engine.resources.definition_schema_view import (
     get_default_definition_schema_view,
 )
-from ui.dialogs.struct_definition_types import param_type_to_canonical
 from ui.dialogs.struct_binding_dialog import StructBindingDialog
+from ui.graph.core.struct_logic import (
+    build_struct_node_def_proxy,
+    plan_struct_port_sync,
+    resolve_struct_binding,
+)
 
 
 if TYPE_CHECKING:
@@ -97,30 +101,6 @@ def get_current_package_structs(scene: "GraphScene") -> Optional[Dict[str, dict]
     return structs
 
 
-def _extract_struct_fields(struct_data: Mapping[str, object]) -> List[Tuple[str, str]]:
-    """从结构体定义 JSON 中提取字段列表。
-
-    返回 [(字段名, 规范中文类型名)]。
-    """
-    value_entries = struct_data.get("value")
-    if not isinstance(value_entries, Sequence):
-        return []
-
-    fields: List[Tuple[str, str]] = []
-    for entry in value_entries:
-        if not isinstance(entry, Mapping):
-            continue
-        raw_name = entry.get("key")
-        raw_param_type = entry.get("param_type")
-        field_name = str(raw_name).strip() if isinstance(raw_name, str) else ""
-        param_type = str(raw_param_type).strip() if isinstance(raw_param_type, str) else ""
-        if not field_name or not param_type:
-            continue
-        canonical_type = param_type_to_canonical(param_type)
-        fields.append((field_name, canonical_type))
-    return fields
-
-
 # ---------------------------------------------------------------------------
 # NodeDef 代理：为结构体节点叠加字段端口类型
 # ---------------------------------------------------------------------------
@@ -142,84 +122,17 @@ def build_struct_node_def_proxy_for_scene(
     if node_title not in STRUCT_NODE_TITLES:
         return None
 
-    struct_bindings = scene.model.get_struct_bindings()
-    binding = struct_bindings.get(str(node.id))
-    if not isinstance(binding, dict):
-        return None
-
-    struct_id_value = binding.get("struct_id")
-    struct_id = str(struct_id_value) if struct_id_value is not None else ""
-    if not struct_id:
-        return None
-
     structs = get_current_package_structs(scene)
-    if not structs or struct_id not in structs:
+    if not structs:
         return None
 
-    struct_data = structs[struct_id]
-    all_fields = _extract_struct_fields(struct_data)
-    if not all_fields:
+    struct_bindings = scene.model.get_struct_bindings()
+    binding_payload = struct_bindings.get(str(node.id)) or {}
+    context = resolve_struct_binding(binding_payload, structs)
+    if context is None:
         return None
 
-    selected_names_value = binding.get("field_names") or []
-    selected_names: List[str] = []
-    if isinstance(selected_names_value, Sequence) and not isinstance(selected_names_value, (str, bytes)):
-        for entry in selected_names_value:
-            if isinstance(entry, str) and entry:
-                selected_names.append(entry)
-
-    # 若绑定中未显式记录字段列表，回退为“全部字段”
-    if not selected_names:
-        selected_names = [name for name, _ in all_fields]
-
-    selected_set = set(selected_names)
-    selected_fields: List[Tuple[str, str]] = [
-        (name, type_name) for (name, type_name) in all_fields if name in selected_set
-    ]
-    if not selected_fields:
-        return None
-
-    input_types: Dict[str, str] = dict(getattr(base_def, "input_types", {}) or {})
-    output_types: Dict[str, str] = dict(getattr(base_def, "output_types", {}) or {})
-
-    if node_title == STRUCT_SPLIT_NODE_TITLE:
-        static_outputs = set(STRUCT_SPLIT_STATIC_OUTPUTS)
-        for field_name, field_type in selected_fields:
-            if field_name in static_outputs:
-                continue
-            output_types.setdefault(field_name, field_type)
-    elif node_title == STRUCT_BUILD_NODE_TITLE:
-        static_inputs = set(STRUCT_BUILD_STATIC_INPUTS)
-        for field_name, field_type in selected_fields:
-            if field_name in static_inputs:
-                continue
-            input_types.setdefault(field_name, field_type)
-    elif node_title == STRUCT_MODIFY_NODE_TITLE:
-        static_inputs = set(STRUCT_MODIFY_STATIC_INPUTS)
-        for field_name, field_type in selected_fields:
-            if field_name in static_inputs:
-                continue
-            input_types.setdefault(field_name, field_type)
-    else:
-        return None
-
-    return NodeDef(
-        name=base_def.name,
-        category=base_def.category,
-        inputs=list(base_def.inputs),
-        outputs=list(base_def.outputs),
-        description=base_def.description,
-        scopes=list(base_def.scopes),
-        mount_restrictions=list(base_def.mount_restrictions),
-        doc_reference=base_def.doc_reference,
-        input_types=input_types,
-        output_types=output_types,
-        input_generic_constraints=dict(base_def.input_generic_constraints),
-        output_generic_constraints=dict(base_def.output_generic_constraints),
-        dynamic_port_type=base_def.dynamic_port_type,
-        is_composite=base_def.is_composite,
-        composite_id=base_def.composite_id,
-    )
+    return build_struct_node_def_proxy(node_title, base_def, context)
 
 
 def get_effective_node_def_for_scene(
@@ -335,82 +248,29 @@ def sync_struct_ports_for_node(
     if not node:
         return
 
-    binding = scene.model.get_node_struct_binding(node_id)
-    if not isinstance(binding, dict):
+    binding_payload = scene.model.get_node_struct_binding(node_id)
+    context = resolve_struct_binding(binding_payload, structs)
+    if context is None:
         return
 
-    struct_id_value = binding.get("struct_id")
-    struct_id = str(struct_id_value) if struct_id_value is not None else ""
-    if not struct_id or struct_id not in structs:
-        return
-
-    struct_data = structs[struct_id]
-    all_fields = _extract_struct_fields(struct_data)
-    if not all_fields:
-        return
-
-    selected_names_value = binding.get("field_names") or []
-    selected_names: List[str] = []
-    if isinstance(selected_names_value, Sequence) and not isinstance(selected_names_value, (str, bytes)):
-        for entry in selected_names_value:
-            if isinstance(entry, str) and entry:
-                selected_names.append(entry)
-
-    if not selected_names:
-        selected_names = [name for name, _ in all_fields]
-
-    selected_set = set(selected_names)
-    selected_fields: List[Tuple[str, str]] = [
-        (name, type_name) for (name, type_name) in all_fields if name in selected_set
-    ]
-    if not selected_fields:
-        return
-
+    plan = plan_struct_port_sync(node, context)
     node_title = getattr(node, "title", "") or ""
+    if node_title not in STRUCT_NODE_TITLES:
+        return
 
-    # 若节点上存在“结构体名”输入端口，则基于绑定信息或结构体定义同步其常量值，便于在 UI 与 Graph Code 中展示已绑定结构体。
-    struct_name_text = ""
-    raw_struct_name = binding.get("struct_name")
-    if isinstance(raw_struct_name, str) and raw_struct_name.strip():
-        struct_name_text = raw_struct_name.strip()
-    else:
-        raw_name_from_def = struct_data.get("name")
-        if isinstance(raw_name_from_def, str) and raw_name_from_def.strip():
-            struct_name_text = raw_name_from_def.strip()
-        else:
-            struct_name_text = struct_id
     has_struct_name_port = any(
         getattr(port, "name", "") == STRUCT_NAME_PORT_NAME
         for port in getattr(node, "inputs", []) or []
     )
-    if has_struct_name_port and struct_name_text:
+    if has_struct_name_port and plan.struct_name_constant:
         if not isinstance(node.input_constants, dict):
             node.input_constants = {}
-        node.input_constants[STRUCT_NAME_PORT_NAME] = struct_name_text
+        node.input_constants[STRUCT_NAME_PORT_NAME] = plan.struct_name_constant
 
-    if node_title == STRUCT_SPLIT_NODE_TITLE:
-        static_outputs = set(STRUCT_SPLIT_STATIC_OUTPUTS)
-        existing = {port.name for port in getattr(node, "outputs", []) or []}
-        for field_name, _ in selected_fields:
-            if field_name in static_outputs or field_name in existing:
-                continue
-            node.add_output_port(field_name)
-    elif node_title == STRUCT_BUILD_NODE_TITLE:
-        static_inputs = set(STRUCT_BUILD_STATIC_INPUTS)
-        existing = {port.name for port in getattr(node, "inputs", []) or []}
-        for field_name, _ in selected_fields:
-            if field_name in static_inputs or field_name in existing:
-                continue
-            node.add_input_port(field_name)
-    elif node_title == STRUCT_MODIFY_NODE_TITLE:
-        static_inputs = set(STRUCT_MODIFY_STATIC_INPUTS)
-        existing = {port.name for port in getattr(node, "inputs", []) or []}
-        for field_name, _ in selected_fields:
-            if field_name in static_inputs or field_name in existing:
-                continue
-            node.add_input_port(field_name)
-    else:
-        return
+    for port_name in plan.add_inputs:
+        node.add_input_port(port_name)
+    for port_name in plan.add_outputs:
+        node.add_output_port(port_name)
 
     node_item = scene.node_items.get(node_id)
     if node_item is not None:

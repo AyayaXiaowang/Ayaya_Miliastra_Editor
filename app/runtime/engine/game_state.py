@@ -3,6 +3,8 @@
 from typing import Any, Dict, List, Optional, Callable, Tuple
 import random
 
+from app.runtime.engine.trace_logging import TraceRecorder
+
 
 class MockEntity:
     """Mock实体对象"""
@@ -41,9 +43,24 @@ class GameRuntime:
         self.music_volume = 100
         self.current_music = None
         self.timers = {}
+
+        # 运行期事件追踪
+        self.trace_recorder = TraceRecorder()
         
         # 创建一些默认实体
         self._create_default_entities()
+
+    def record_trace_event(self, kind: str, message: str, **details: Any) -> None:
+        """将运行时事件写入 TraceRecorder，便于统一的执行链路追踪。"""
+        if self.trace_recorder is None:
+            return
+        self.trace_recorder.record(
+            source="runtime",
+            kind=kind,
+            message=message,
+            stack=[],
+            **details,
+        )
     
     def _create_default_entities(self):
         """创建默认实体用于测试"""
@@ -64,6 +81,12 @@ class GameRuntime:
         """统一的变量写入辅助，负责存值、日志与事件通知。"""
         storage[key] = value
         print(f"[{log_prefix}] {log_target} = {value}")
+        self.record_trace_event(
+            kind="variable",
+            message=f"{log_prefix}:{log_target}",
+            value=value,
+            trigger_event=trigger_event,
+        )
         if trigger_event and event_var_name:
             self.trigger_event(f"变量变化_{event_var_name}", value=value)
     
@@ -194,6 +217,11 @@ class GameRuntime:
             **kwargs: 事件参数
         """
         print(f"[事件触发] {event_name}")
+        self.record_trace_event(
+            kind="event",
+            message=event_name,
+            payload=dict(kwargs),
+        )
         
         # 调用注册的处理器
         if event_name in self.event_handlers:

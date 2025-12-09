@@ -9,6 +9,9 @@ from engine.resources.management_view_helpers import (
     MANAGEMENT_FIELD_TO_RESOURCE_TYPE,
     SINGLE_CONFIG_MANAGEMENT_FIELDS,
 )
+from engine.resources.level_variable_schema_view import (
+    get_default_level_variable_schema_view,
+)
 from engine.graph.models.package_model import (
     TemplateConfig,
     InstanceConfig,
@@ -250,6 +253,17 @@ class UnclassifiedResourceView:
                     if resource_id not in classified_ids
                 ]
 
+                if management_field_name == "level_variables":
+                    schema_view = get_default_level_variable_schema_view()
+                    all_variables = schema_view.get_all_variables()
+                    unclassified_resources: Dict[str, dict] = {}
+                    for variable_id, payload in all_variables.items():
+                        if variable_id in classified_ids:
+                            continue
+                        unclassified_resources[variable_id] = payload
+                    management_data[management_field_name] = unclassified_resources
+                    continue
+
                 # 局内存档管理：在未分类视图下，同样以“全局元配置 + 未归档模板列表”的方式呈现。
                 if management_field_name == "save_points":
                     management_data[management_field_name] = (
@@ -296,11 +310,12 @@ class UnclassifiedResourceView:
         """构建未分类视图下的局内存档聚合配置。
 
         - 模板来源：所有代码级局内存档模板中未被任何包引用的记录；
-        - 元配置：与全局视图共用 `global_view_save_points` 资源中的启用状态与当前模板 ID。
+        - 启用状态：优先根据模板 payload 中的 `is_default_template` 计算当前启用模板；
+          旧版仍可从 `global_view_save_points` 资源中读取 enabled/active_template_id 作为回退。
         """
         aggregator_id = "global_view_save_points"
 
-        # 读取全局元配置（与 GlobalResourceView 共用）
+        # 读取旧版全局元配置（与 GlobalResourceView 共用，仅作回退）
         meta_payload: dict = {}
         if self.resource_manager.resource_exists(ResourceType.SAVE_POINT, aggregator_id):
             candidate = self.resource_manager.load_resource(ResourceType.SAVE_POINT, aggregator_id)
@@ -343,9 +358,28 @@ class UnclassifiedResourceView:
 
         templates.sort(key=_template_sort_key)
 
-        enabled_flag = bool(meta_payload.get("enabled", False))
-        active_template_id = str(meta_payload.get("active_template_id", "")).strip()
+        # 依据模板状态与旧版元配置综合计算启用状态与当前模板 ID
+        default_template_id_from_templates = ""
+        for template_payload in templates:
+            is_default = bool(template_payload.get("is_default_template", False))
+            if not is_default:
+                continue
+            raw_id = template_payload.get("template_id", "")
+            template_id_text = str(raw_id).strip()
+            if not template_id_text:
+                continue
+            default_template_id_from_templates = template_id_text
+            break
+
+        enabled_flag = False
+        active_template_id = ""
         updated_at_text = str(meta_payload.get("updated_at", "")).strip()
+        if default_template_id_from_templates:
+            enabled_flag = True
+            active_template_id = default_template_id_from_templates
+        else:
+            enabled_flag = bool(meta_payload.get("enabled", False))
+            active_template_id = str(meta_payload.get("active_template_id", "")).strip()
 
         # active_template_id 不在当前未分类集合中时，仅在视图层关闭启用状态
         if enabled_flag and active_template_id:

@@ -9,6 +9,10 @@ from typing import Optional, Callable
 from PyQt6 import QtCore, QtWidgets
 
 from engine.resources.resource_manager import ResourceManager, ResourceType
+from engine.resources.definition_schema_view import (
+    invalidate_default_struct_cache,
+    invalidate_default_signal_cache,
+)
 from engine.graph.models.graph_config import GraphConfig
 
 
@@ -56,6 +60,8 @@ class FileWatcherManager(QtCore.QObject):
         self._resource_change_timer: Optional[QtCore.QTimer] = None
         # 已监控的资源库子目录
         self._resource_watch_dirs: list[Path] = []
+        # 最近一次记录的资源库指纹
+        self._resource_library_fingerprint: str = self.resource_manager.get_resource_library_fingerprint()
 
         # 启动时为资源库 JSON 目录建立监控
         self._setup_resource_watchers()
@@ -90,18 +96,41 @@ class FileWatcherManager(QtCore.QObject):
                     self.current_graph_file_path = None
 
     def _setup_resource_watchers(self) -> None:
-        """为资源库 JSON 目录添加文件系统监控。"""
+        """为资源库目录（含子目录）添加文件系统监控。
+        
+        QFileSystemWatcher.directoryChanged 只有在被监控的目录本身发生变化时才会触发，
+        修改子目录中的文件不会触发上级目录的变更信号，因此需要递归监控所有子目录。
+        """
         self._resource_watch_dirs.clear()
         resource_root = self.resource_manager.resource_library_dir
         if not resource_root.exists():
             return
 
-        candidate_dirs = [
+        # 需要递归监控的根目录列表
+        root_dirs_to_watch = [
             resource_root / "实例",
             resource_root / "元件库",
             resource_root / "管理配置",
             resource_root / "战斗预设",
+            resource_root / "节点图",
+            resource_root / "复合节点库",
+            resource_root / "地图索引",
         ]
+        
+        # 应该忽略的目录名（如 __pycache__）
+        ignored_dir_names = {"__pycache__", ".git", ".vscode", "__MACOSX"}
+        
+        # 收集所有需要监控的目录（包括根目录及其子目录）
+        candidate_dirs = [resource_root]
+        for root_dir in root_dirs_to_watch:
+            if not root_dir.exists() or not root_dir.is_dir():
+                continue
+            candidate_dirs.append(root_dir)
+            # 递归收集所有子目录
+            for sub_dir in root_dir.rglob("*"):
+                if sub_dir.is_dir() and sub_dir.name not in ignored_dir_names:
+                    candidate_dirs.append(sub_dir)
+        
         existing_dirs = set(self.file_watcher.directories())
 
         for directory in candidate_dirs:
@@ -177,8 +206,29 @@ class FileWatcherManager(QtCore.QObject):
     
     def _handle_resource_directory_change(self) -> None:
         """处理资源库目录变化：触发资源刷新与提示。"""
+        latest_fingerprint = self.resource_manager.compute_resource_library_fingerprint()
+        baseline_fingerprint = self.resource_manager.get_resource_library_fingerprint()
+        if latest_fingerprint == baseline_fingerprint:
+            return
+
+        self.resource_manager.set_resource_library_fingerprint(latest_fingerprint)
+        self._resource_library_fingerprint = latest_fingerprint
+
+        # 刷新结构体和信号定义的全局缓存
+        # 这些定义存放在 管理配置/结构体定义/ 和 管理配置/信号/ 目录下
+        # 由于是全局单例，直接调用刷新函数即可
+        invalidate_default_struct_cache()
+        invalidate_default_signal_cache()
+        print("[文件监控] 已刷新结构体和信号定义缓存")
+
         if self.on_resource_library_changed is not None:
             self.on_resource_library_changed()
+
+        # 刷新 UI 后再次同步指纹基线，确保后续保存不会因为 UI 刷新过程中的
+        # 自动保存操作而误判为"外部修改"
+        self.resource_manager.refresh_resource_library_fingerprint()
+        self._resource_library_fingerprint = self.resource_manager.get_resource_library_fingerprint()
+
         self.show_toast.emit("资源库已更新", "info")
     
     def _reload_graph_from_file(self) -> None:

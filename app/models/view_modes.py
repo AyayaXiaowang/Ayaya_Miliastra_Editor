@@ -209,10 +209,11 @@ VIEW_MODE_CONFIG = {
     #   - "player_editor"         → 战斗预设玩家模板详情面板
     #   - "player_class_editor"   → 战斗预设职业详情面板
     #   - "skill_editor"          → 战斗预设技能详情面板
+    #   - "item_editor"           → 战斗预设道具详情面板
     #   - "validation_detail"     → 验证问题详情面板（验证模式下用于在右侧展示选中问题的详细信息）
     # 说明：
     #   - 基础“属性”面板（模板/实例）按选择态由 UI 层自行控制，此处不强制；
-    #   - 战斗预设模式下的“玩家模板 / 职业 / 技能”详情标签同样由选中状态动态控制，
+    #   - 战斗预设模式下的“玩家模板 / 职业 / 技能 / 道具”详情标签同样由选中状态动态控制，
     #     因此在集中配置中不预先挂载，避免在仅选中玩家模板时仍显示空的“职业/技能”页签。
 RIGHT_PANEL_TABS: Dict[ViewMode, Tuple[str, ...]] = {
     ViewMode.TEMPLATE: tuple(),

@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Set, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Iterator, Set, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..context import ValidationContext
@@ -58,37 +58,6 @@ def normalize_expr(expr: ast.AST) -> str:
     return text
 
 
-def extract_declared_graph_vars_from_docstring(source_text: str) -> Set[str]:
-    tree = ast.parse(source_text)
-    doc = ast.get_docstring(tree)
-    if not isinstance(doc, str) or len(doc) == 0:
-        return set()
-    lines = [ln.strip() for ln in doc.splitlines()]
-    in_vars = False
-    names: Set[str] = set()
-    for ln in lines:
-        if not in_vars:
-            if ln.startswith("节点图变量") or ln.startswith("graph_variables"):
-                in_vars = True
-            continue
-        if not ln:
-            continue
-        if ln.startswith("-"):
-            entry = ln[1:].strip()
-            entry = entry.replace("[对外暴露]", "").strip()
-            if ":" in entry:
-                var_name = entry.split(":", 1)[0].strip()
-                if var_name:
-                    names.add(var_name)
-            else:
-                maybe_name = entry.split()[0].strip()
-                if maybe_name:
-                    names.add(maybe_name)
-        else:
-            break
-    return names
-
-
 def extract_declared_graph_vars_from_code(tree: ast.Module) -> Set[str]:
     """从代码级 GRAPH_VARIABLES 声明中提取已声明的图变量名集合。"""
     declared: Set[str] = set()
@@ -103,7 +72,7 @@ def extract_declared_graph_vars_from_code(tree: ast.Module) -> Set[str]:
 
 
 def extract_declared_graph_vars(tree: ast.Module, source_text: str) -> Set[str]:
-    """返回通过 GRAPH_VARIABLES 声明的图变量名集合（docstring 不再作为声明来源）。"""
+    """返回通过 GRAPH_VARIABLES 声明的图变量名集合。"""
     return extract_declared_graph_vars_from_code(tree)
 
 

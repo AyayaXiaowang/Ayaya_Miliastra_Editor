@@ -23,11 +23,48 @@ class VariableConfig:
     
     @staticmethod
     def deserialize(data: dict) -> VariableConfig:
+        # 兼容 name 和 variable_name 两种字段名
+        name_value = data.get("name") or data.get("variable_name", "")
         return VariableConfig(
-            name=data["name"],
+            name=name_value,
             variable_type=data["variable_type"],
             default_value=data.get("default_value"),
             description=data.get("description", "")
+        )
+
+
+@dataclass
+class LevelVariableDefinition:
+    """关卡级变量的代码级定义（集中声明，按 ID 引用）"""
+    variable_id: str
+    variable_name: str
+    variable_type: str
+    default_value: Any = None
+    is_global: bool = True
+    description: str = ""
+    metadata: dict = field(default_factory=dict)
+
+    def serialize(self) -> dict:
+        return {
+            "variable_id": self.variable_id,
+            "variable_name": self.variable_name,
+            "variable_type": self.variable_type,
+            "default_value": self.default_value,
+            "is_global": self.is_global,
+            "description": self.description,
+            "metadata": self.metadata,
+        }
+
+    @staticmethod
+    def deserialize(data: dict) -> LevelVariableDefinition:
+        return LevelVariableDefinition(
+            variable_id=data["variable_id"],
+            variable_name=data.get("variable_name", data.get("name", "")),
+            variable_type=data["variable_type"],
+            default_value=data.get("default_value"),
+            is_global=data.get("is_global", True),
+            description=data.get("description", ""),
+            metadata=data.get("metadata", {}),
         )
 
 

@@ -260,14 +260,16 @@ class StructDefinitionSection(BaseManagementSection):
                 canonical_type_name = (
                     param_type_to_canonical(raw_type_name) if raw_type_name else ""
                 )
-                initial_fields.append(
-                    {
-                        "name": field_name,
-                        "type_name": canonical_type_name,
-                        "raw_type_name": raw_type_name,
-                        "value_node": entry.get("value"),
-                    }
-                )
+                field_dict: Dict[str, object] = {
+                    "name": field_name,
+                    "type_name": canonical_type_name,
+                    "raw_type_name": raw_type_name,
+                    "value_node": entry.get("value"),
+                }
+                # 透传列表长度等元数据（主要用于局内存档结构体的 lenth）
+                if "lenth" in entry:
+                    field_dict["lenth"] = entry.get("lenth")
+                initial_fields.append(field_dict)
         else:
             members_value = data.get("members")
             if isinstance(members_value, Mapping):
@@ -334,3 +336,52 @@ class InGameSaveStructDefinitionSection(StructDefinitionSection):
             seen_types.add(canonical_name)
             normalized_types.append(canonical_name)
         return normalized_types
+
+    def _build_row_data(self, struct_id: str, payload: Mapping[str, object]) -> ManagementRowData:
+        """在列表中为局内存档结构体额外展示“列表字段与长度定义”摘要。"""
+        display_name = self._get_struct_display_name(struct_id, payload)
+        field_count = self._calculate_field_count(payload)
+        attr1_text = f"字段数量: {field_count}"
+
+        value_entries = payload.get("value")
+        list_field_summaries: List[str] = []
+        list_field_count = 0
+        if isinstance(value_entries, Sequence):
+            for entry in value_entries:
+                if not isinstance(entry, Mapping):
+                    continue
+                field_name_value = entry.get("key")
+                param_type_value = entry.get("param_type")
+                field_name = str(field_name_value).strip() if isinstance(field_name_value, str) else ""
+                param_type = str(param_type_value).strip() if isinstance(param_type_value, str) else ""
+                if not field_name or not param_type:
+                    continue
+                if not param_type.endswith("列表") or param_type == "结构体列表":
+                    continue
+                list_field_count += 1
+                length_value = entry.get("lenth")
+                if isinstance(length_value, (int, float)):
+                    length_int = int(length_value)
+                    if length_int > 0 and len(list_field_summaries) < 3:
+                        list_field_summaries.append(f"{field_name}={length_int}")
+
+        if list_field_count > 0:
+            if list_field_summaries:
+                summary_text = "；".join(list_field_summaries)
+                attr2_text = f"列表字段: {list_field_count}（{summary_text}...）"
+            else:
+                attr2_text = f"列表字段: {list_field_count}"
+        else:
+            attr2_text = "无列表字段"
+
+        description_text = str(payload.get("description", ""))
+        return ManagementRowData(
+            name=display_name,
+            type_name=self.type_name,
+            attr1=attr1_text,
+            attr2=attr2_text,
+            attr3="",
+            description=description_text,
+            last_modified="",
+            user_data=(self.section_key, struct_id),
+        )

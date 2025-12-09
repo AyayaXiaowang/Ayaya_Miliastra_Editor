@@ -28,7 +28,11 @@ from .management_section_variable import VariableSection
 from .management_section_preset_point import PresetPointSection
 from .management_section_skill_resource import SkillResourceSection
 from .management_section_background_music import BackgroundMusicSection
-from .management_section_equipment_data import EquipmentDataSection
+from .management_section_equipment_data import (
+    EquipmentEntrySection,
+    EquipmentTagSection,
+    EquipmentTypeSection,
+)
 from .management_section_main_camera import MainCameraSection
 from .management_section_path import PathSection
 from .management_section_multi_language import MultiLanguageSection
@@ -54,7 +58,9 @@ MANAGEMENT_LIBRARY_SECTIONS: Tuple[BaseManagementSection, ...] = (
     PresetPointSection(),
     SkillResourceSection(),
     BackgroundMusicSection(),
-    EquipmentDataSection(),
+    EquipmentEntrySection(),
+    EquipmentTagSection(),
+    EquipmentTypeSection(),
     MainCameraSection(),
     PathSection(),
     MultiLanguageSection(),
@@ -85,6 +91,9 @@ __all__ = [
     "MANAGEMENT_LIBRARY_SECTIONS",
     "MANAGEMENT_SECTION_MAP",
     "get_management_section_by_key",
+    "EquipmentEntrySection",
+    "EquipmentTagSection",
+    "EquipmentTypeSection",
 ]
 
 

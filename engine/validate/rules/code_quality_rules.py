@@ -98,11 +98,17 @@ class LongWireRule(ValidationRule):
 
 
 class UnusedQueryOutputRule(ValidationRule):
-    """未使用的数据/查询输出"""
+    """未使用的数据/查询输出
+
+    检测声明了变量接收节点输出但从未使用该变量的情况。
+    支持两种赋值形式：
+    - 简单赋值：x = 查询(...)
+    - 带类型注解的赋值：x: "类型" = 查询(...)
+    """
 
     rule_id = "engine_code_unused_query_output"
     category = "代码规范"
-    default_level = "warning"
+    default_level = "error"
 
     def apply(self, ctx: ValidationContext) -> List[EngineIssue]:
         if ctx.is_composite or ctx.file_path is None:
@@ -117,8 +123,9 @@ class UnusedQueryOutputRule(ValidationRule):
             assigned: Dict[str, int] = {}
             used: Set[str] = set()
 
-            # 收集：简单赋值（x = 查询(...)）
+            # 收集：简单赋值（x = 查询(...)）和带类型注解的赋值（x: "类型" = 查询(...)）
             for node in ast.walk(method):
+                # 简单赋值：x = 查询(...)
                 if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
                     fname = getattr(getattr(node.value, "func", None), "id", None)
                     if isinstance(fname, str) and (fname in query_funcs):
@@ -126,6 +133,15 @@ class UnusedQueryOutputRule(ValidationRule):
                         if target:
                             lineno = getattr(node, "lineno", 0) or 0
                             assigned[target] = lineno
+
+                # 带类型注解的赋值：x: "类型" = 查询(...)
+                if isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Call):
+                    fname = getattr(getattr(node.value, "func", None), "id", None)
+                    if isinstance(fname, str) and (fname in query_funcs):
+                        target = node.target
+                        if isinstance(target, ast.Name):
+                            lineno = getattr(node, "lineno", 0) or 0
+                            assigned[target.id] = lineno
 
             # 使用：Name Load
             for node in ast.walk(method):
@@ -142,7 +158,7 @@ class UnusedQueryOutputRule(ValidationRule):
                         level=self.default_level,
                         category=self.category,
                         code="CODE_UNUSED_QUERY_OUTPUT",
-                        message=f"变量 '{var}' 接收了查询节点输出但后续未使用；请删除赋值或使用其值",
+                        message=f"变量 '{var}' 接收了节点输出但后续未使用；请删除该赋值语句或使用其值",
                         file=str(file_path),
                         line_span=str(line),
                     ))

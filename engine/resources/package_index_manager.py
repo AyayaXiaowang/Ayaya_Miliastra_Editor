@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, TYPE_CHECKING
 from datetime import datetime
 
+from engine.configs.resource_types import ResourceType
 from engine.resources.package_index import PackageIndex, PackageResources
 from engine.graph.models.package_model import InstanceConfig
 from engine.utils.logging.logger import log_info
@@ -17,6 +18,41 @@ if TYPE_CHECKING:
 
 class PackageIndexManager:
     """存档索引管理器"""
+    _COMBAT_RESOURCE_TYPE_MAP: Dict[str, ResourceType] = {
+        "player_templates": ResourceType.PLAYER_TEMPLATE,
+        "player_classes": ResourceType.PLAYER_CLASS,
+        "unit_statuses": ResourceType.UNIT_STATUS,
+        "skills": ResourceType.SKILL,
+        "projectiles": ResourceType.PROJECTILE,
+        "items": ResourceType.ITEM,
+    }
+
+    _MANAGEMENT_RESOURCE_TYPE_MAP: Dict[str, ResourceType] = {
+        "timers": ResourceType.TIMER,
+        "level_variables": ResourceType.LEVEL_VARIABLE,
+        "preset_points": ResourceType.PRESET_POINT,
+        "skill_resources": ResourceType.SKILL_RESOURCE,
+        "currency_backpack": ResourceType.CURRENCY_BACKPACK,
+        "equipment_data": ResourceType.EQUIPMENT_DATA,
+        "shop_templates": ResourceType.SHOP_TEMPLATE,
+        "ui_layouts": ResourceType.UI_LAYOUT,
+        "ui_widget_templates": ResourceType.UI_WIDGET_TEMPLATE,
+        "multi_language": ResourceType.MULTI_LANGUAGE,
+        "main_cameras": ResourceType.MAIN_CAMERA,
+        "light_sources": ResourceType.LIGHT_SOURCE,
+        "background_music": ResourceType.BACKGROUND_MUSIC,
+        "paths": ResourceType.PATH,
+        "entity_deployment_groups": ResourceType.ENTITY_DEPLOYMENT_GROUP,
+        "unit_tags": ResourceType.UNIT_TAG,
+        "scan_tags": ResourceType.SCAN_TAG,
+        "shields": ResourceType.SHIELD,
+        "peripheral_systems": ResourceType.PERIPHERAL_SYSTEM,
+        "save_points": ResourceType.SAVE_POINT,
+        "chat_channels": ResourceType.CHAT_CHANNEL,
+        "level_settings": ResourceType.LEVEL_SETTINGS,
+        "signals": ResourceType.SIGNAL,
+        "struct_definitions": ResourceType.STRUCT_DEFINITION,
+    }
     
     def __init__(self, workspace_path: Path, resource_manager: 'ResourceManager'):
         """初始化存档索引管理器
@@ -168,6 +204,60 @@ class PackageIndexManager:
         
         return False
     
+    def _resolve_display_name(self, resource_type: ResourceType, resource_id: str) -> str:
+        """根据资源类型解析可读名称，未命名时回退到ID。"""
+        metadata = self.resource_manager.get_resource_metadata(resource_type, resource_id)
+        if metadata:
+            raw_name = metadata.get("name")
+            if isinstance(raw_name, str):
+                cleaned_name = raw_name.strip()
+                if cleaned_name:
+                    return cleaned_name
+        return resource_id
+
+    def _build_resource_names(self, package_index: PackageIndex) -> Dict[str, dict]:
+        """为当前存档引用的资源生成 ID->可读名 映射。"""
+        resource_names: Dict[str, dict] = {
+            "templates": {},
+            "instances": {},
+            "graphs": {},
+            "composites": {},
+            "combat_presets": {key: {} for key in self._COMBAT_RESOURCE_TYPE_MAP},
+            "management": {key: {} for key in self._MANAGEMENT_RESOURCE_TYPE_MAP},
+        }
+
+        def fill_bucket(target: Dict[str, str], resource_ids: List[str], resource_type: Optional[ResourceType]) -> None:
+            for resource_id in resource_ids:
+                if not isinstance(resource_id, str) or not resource_id:
+                    continue
+                if resource_type is None:
+                    target[resource_id] = resource_id
+                else:
+                    target[resource_id] = self._resolve_display_name(resource_type, resource_id)
+
+        fill_bucket(resource_names["templates"], package_index.resources.templates, ResourceType.TEMPLATE)
+        fill_bucket(resource_names["instances"], package_index.resources.instances, ResourceType.INSTANCE)
+        fill_bucket(resource_names["graphs"], package_index.resources.graphs, ResourceType.GRAPH)
+        fill_bucket(resource_names["composites"], package_index.resources.composites, None)
+
+        for bucket_name, resource_type in self._COMBAT_RESOURCE_TYPE_MAP.items():
+            bucket_ids = package_index.resources.combat_presets.get(bucket_name, [])
+            fill_bucket(resource_names["combat_presets"][bucket_name], bucket_ids, resource_type)
+
+        for bucket_name, resource_type in self._MANAGEMENT_RESOURCE_TYPE_MAP.items():
+            bucket_ids = package_index.resources.management.get(bucket_name, [])
+            fill_bucket(resource_names["management"][bucket_name], bucket_ids, resource_type)
+
+        return resource_names
+
+    def _refresh_resource_names(self, package_index: PackageIndex) -> bool:
+        """刷新并写回资源名称映射，返回是否发生变更。"""
+        latest_names = self._build_resource_names(package_index)
+        if package_index.resource_names != latest_names:
+            package_index.resource_names = latest_names
+            return True
+        return False
+    
     def _get_package_file_path(self, package_id: str, package_name: str = None) -> Path:
         """获取存档索引文件路径（优先使用name命名）
         
@@ -256,7 +346,6 @@ class PackageIndexManager:
         )
         
         # 保存关卡实体到资源库
-        from engine.configs.resource_types import ResourceType
         level_entity_data = level_entity.serialize()
         self.resource_manager.save_resource(ResourceType.INSTANCE, level_entity_id, level_entity_data)
         
@@ -294,6 +383,7 @@ class PackageIndexManager:
         Args:
             package_index: 存档索引对象
         """
+        self._refresh_resource_names(package_index)
         package_index.updated_at = datetime.now().isoformat()
         
         # 使用name作为文件名
@@ -363,6 +453,9 @@ class PackageIndexManager:
             if isinstance(inline_todo_states, dict) and inline_todo_states:
                 package_index.todo_states = dict(inline_todo_states)
                 self._save_todo_states(package_index)
+        
+        if self._refresh_resource_names(package_index):
+            self.save_package_index(package_index)
         
         # 更新缓存
         if package_id not in self.package_id_to_filename:
@@ -439,8 +532,13 @@ class PackageIndexManager:
             package_id: 存档ID
         """
         packages_data = self._load_packages_list_data()
+        previous_last_opened = packages_data.get("last_opened_package_id")
+        if previous_last_opened == package_id:
+            return
+
         packages_data["last_opened_package_id"] = package_id
         self._save_packages_list_data(packages_data)
+        self.resource_manager.refresh_resource_library_fingerprint()
     
     def get_last_opened_package(self) -> Optional[str]:
         """获取最近打开的存档ID

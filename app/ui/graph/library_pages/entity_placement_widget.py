@@ -361,6 +361,7 @@ class EntityPlacementWidget(
             if not self.current_package:
                 return
             if previously_selected_id:
+                self.notify_selection_state(False, context={"source": "instance"})
                 self.instance_selected.emit("")
 
         rebuild_list_with_preserved_selection(

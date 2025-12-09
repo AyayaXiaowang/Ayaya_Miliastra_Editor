@@ -60,6 +60,8 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
     field_changed = QtCore.pyqtSignal()
     field_added = QtCore.pyqtSignal()
     field_deleted = QtCore.pyqtSignal()
+    # 当用户请求查看只读结构体详情时发射，参数为结构体 ID
+    struct_view_requested = QtCore.pyqtSignal(str)
 
     def __init__(
         self,
@@ -77,6 +79,10 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
         self._dict_type_resolver: Optional[
             Callable[[str, Mapping[str, Any]], Tuple[str, str]]
         ] = None
+        # 值列展示模式：
+        # - "value"：默认行为，按字段类型展示/编辑实际数据值；
+        # - "metadata"：元数据模式，仅将传入的 value 视为只读文本展示（例如列表长度），不做列表/字典展开。
+        self._value_mode: str = "value"
 
         # 列标题：默认采用“序号 / 名字 / 数据类型 / 数据值”，允许调用方按需覆盖，
         # 但仍固定为 4 列结构以保持组件行为与样式的一致性。
@@ -204,6 +210,20 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
         """
         self._dict_type_resolver = resolver
 
+    def set_column_headers(self, headers: Sequence[str]) -> None:
+        """更新表头标题（保留 4 列结构）。"""
+        normalized_headers: List[str] = [str(title) for title in headers]
+        if len(normalized_headers) < 4:
+            normalized_headers.extend([""] * (4 - len(normalized_headers)))
+        self._column_headers = normalized_headers[:4]
+        self.table.setHorizontalHeaderLabels(self._column_headers)
+
+    def set_value_mode(self, mode: str) -> None:
+        """设置值列展示模式：'value' 或 'metadata'。"""
+        if mode not in ("value", "metadata"):
+            mode = "value"
+        self._value_mode = mode
+
     def add_field_row(
         self,
         name: str,
@@ -280,7 +300,7 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
 
         返回格式：
         [
-            {"name": str, "type_name": str, "value": Any},
+            {"name": str, "type_name": str, "value": Any, "readonly": bool},
             ...
         ]
         """
@@ -291,8 +311,12 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
             name_widget = self._get_cell_line_edit(row, 1)
             type_widget = self._get_cell_combo_box(row, 2)
 
+            is_readonly = False
+
             if isinstance(name_widget, QtWidgets.QLineEdit):
                 field_name = name_widget.text().strip()
+                if name_widget.isReadOnly():
+                    is_readonly = True
             else:
                 field_name = ""
             if not field_name:
@@ -301,6 +325,8 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
 
             if isinstance(type_widget, QtWidgets.QComboBox):
                 canonical_type_name = type_widget.currentText().strip()
+                if not type_widget.isEnabled():
+                    is_readonly = True
             else:
                 canonical_type_name = ""
             if not canonical_type_name:
@@ -319,11 +345,14 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
                 value_widget = self.table.cellWidget(value_row_index, 1)
             value = self._extract_value_from_widget(canonical_type_name, value_widget)
 
-            fields.append({
-                "name": field_name,
-                "type_name": canonical_type_name,
-                "value": value,
-            })
+            fields.append(
+                {
+                    "name": field_name,
+                    "type_name": canonical_type_name,
+                    "value": value,
+                    "readonly": is_readonly,
+                }
+            )
 
             row += 2
 
@@ -575,6 +604,22 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
     ) -> QtWidgets.QWidget:
         """创建值编辑控件（基础/列表/字典/结构体）。"""
         canonical_type_name = normalize_canonical_type_name(type_name or "")
+        # 元数据模式：仅将传入的 value 以只读文本形式展示（例如列表长度），不做类型特化。
+        if self._value_mode == "metadata":
+            text = ""
+            if isinstance(value, (int, float)):
+                int_value = int(value)
+                text = str(int_value) if float(value) == float(int_value) else str(value)
+            elif isinstance(value, str):
+                text = value
+            line_edit = ClickToEditLineEdit(text, self.table)
+            line_edit.setPlaceholderText("")
+            line_edit.setClearButtonEnabled(False)
+            line_edit.setMinimumHeight(Sizes.INPUT_HEIGHT)
+            line_edit.setReadOnly(True or readonly)
+            line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+            return self._wrap_line_edit_in_value_cell(line_edit)
+
         if not canonical_type_name:
             line_edit = ClickToEditLineEdit("", self.table)
             line_edit.setPlaceholderText("无初始值")
@@ -666,9 +711,14 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
                 if readonly:
                     editor.setStyleSheet(ThemeManager.readonly_input_style())
                 editor.editingFinished.connect(self._on_content_changed)
+                # 只读模式下为结构体字段添加"查看"按钮
+                if readonly and struct_id_text:
+                    return self._create_readonly_struct_cell_with_view_button(
+                        editor, struct_id_text
+                    )
                 return self._wrap_line_edit_in_value_cell(editor)
 
-            # 使用下拉框选择结构体 ID（首项为空表示“未选择”）
+            # 使用下拉框选择结构体 ID（首项为空表示"未选择"）
             combo = ScrollSafeComboBox(self.table)
             combo.setMinimumHeight(Sizes.INPUT_HEIGHT)
             combo.setEditable(False)
@@ -699,11 +749,22 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
             combo.currentIndexChanged.connect(lambda _index: self._on_content_changed())
 
             container = QtWidgets.QWidget(self.table)
-            layout = QtWidgets.QVBoxLayout(container)
+            layout = QtWidgets.QHBoxLayout(container)
             layout.setContentsMargins(0, 0, 0, 0)
-            layout.setSpacing(0)
-            layout.addWidget(combo)
-            layout.addStretch(1)
+            layout.setSpacing(Sizes.SPACING_SMALL)
+            layout.addWidget(combo, 1)
+
+            # 只读模式下为结构体字段添加"查看"按钮
+            if readonly and struct_id_text:
+                view_button = QtWidgets.QPushButton("查看", self.table)
+                view_button.setFixedHeight(Sizes.INPUT_HEIGHT)
+                view_button.setFixedWidth(50)
+                view_button.setToolTip(f"查看结构体 {struct_id_text} 的定义")
+                view_button.clicked.connect(
+                    lambda _checked, sid=struct_id_text: self._on_view_struct_clicked(sid)
+                )
+                layout.addWidget(view_button)
+                self._attach_context_menu_forwarding(view_button)
 
             self._attach_context_menu_forwarding(combo)
             self._attach_context_menu_forwarding(container)
@@ -796,6 +857,45 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
         self._attach_context_menu_forwarding(line_edit)
         self._attach_context_menu_forwarding(container)
         return container
+
+    def _create_readonly_struct_cell_with_view_button(
+        self,
+        line_edit: QtWidgets.QLineEdit,
+        struct_id: str,
+    ) -> QtWidgets.QWidget:
+        """为只读结构体字段创建带"查看"按钮的单元格容器。"""
+        container = QtWidgets.QWidget(self.table)
+        layout = QtWidgets.QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(Sizes.SPACING_SMALL)
+
+        # 文本框部分
+        text_container = wrap_click_to_edit_line_edit_for_table_cell(
+            self.table,
+            line_edit,
+        )
+        layout.addWidget(text_container, 1)
+
+        # 查看按钮
+        view_button = QtWidgets.QPushButton("查看", self.table)
+        view_button.setFixedHeight(Sizes.INPUT_HEIGHT)
+        view_button.setFixedWidth(50)
+        view_button.setToolTip(f"查看结构体 {struct_id} 的定义")
+        view_button.clicked.connect(
+            lambda _checked, sid=struct_id: self._on_view_struct_clicked(sid)
+        )
+        layout.addWidget(view_button)
+
+        self._attach_context_menu_forwarding(line_edit)
+        self._attach_context_menu_forwarding(text_container)
+        self._attach_context_menu_forwarding(view_button)
+        self._attach_context_menu_forwarding(container)
+        return container
+
+    def _on_view_struct_clicked(self, struct_id: str) -> None:
+        """处理查看结构体按钮点击事件。"""
+        if struct_id:
+            self.struct_view_requested.emit(struct_id)
 
     def _get_base_types(self) -> List[str]:
         """供字典编辑对话框选择键/值类型使用的"基础类型"集合。"""

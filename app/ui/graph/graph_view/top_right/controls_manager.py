@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from PyQt6 import QtWidgets, QtCore
+from ui.graph.graph_palette import GraphPalette
 
 if TYPE_CHECKING:
     from ui.graph.graph_view import GraphView
@@ -31,27 +32,29 @@ class TopRightControlsManager:
         # 创建自动排版按钮（浮动在右上角）
         button = QtWidgets.QPushButton("⚡ 自动排版", view)
         button.setToolTip("根据节点依赖关系自动重新排列节点位置\n（仅在节点图无错误时可用）")
-        button.setStyleSheet("""
-            QPushButton {
-                background-color: #4A9EFF;
+        button.setStyleSheet(
+            f"""
+            QPushButton {{
+                background-color: {GraphPalette.BTN_PRIMARY};
                 color: white;
                 border: none;
                 border-radius: 4px;
                 padding: 8px 16px;
                 font-size: 13px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5AAFFF;
-            }
-            QPushButton:pressed {
-                background-color: #3A8EEF;
-            }
-            QPushButton:disabled {
-                background-color: #666666;
-                color: #999999;
-            }
-        """)
+            }}
+            QPushButton:hover {{
+                background-color: {GraphPalette.BTN_PRIMARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {GraphPalette.BTN_PRIMARY_PRESSED};
+            }}
+            QPushButton:disabled {{
+                background-color: {GraphPalette.BTN_DISABLED_BG};
+                color: {GraphPalette.BTN_DISABLED_TEXT};
+            }}
+        """
+        )
         button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         button.raise_()  # 确保按钮在最上层
         

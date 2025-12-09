@@ -57,11 +57,46 @@ class PositionApplicator:
         return sorted(self.layout_blocks, key=lambda block: block.order_index)
 
     def _convert_and_save_basic_blocks(self, ordered_layout_blocks: List["LayoutBlock"]) -> None:
-        """转换为BasicBlock并保存到模型"""
+        """转换为BasicBlock并保存到模型
+
+        注意：这里需要根据副本节点的 copy_block_id 精确归属到对应块，避免同一个数据副本
+        被多个 BasicBlock 同时引用，从而在 UI 中表现为“同一节点出现在多个块内”。
+        """
         basic_blocks = []
         for layout_block in ordered_layout_blocks:
+            # 按块过滤可见的数据节点：
+            # - 普通节点：始终归入所在块
+            # - 副本节点：仅当 copy_block_id / ID 后缀与当前块 order_index 匹配时保留
+            effective_data_nodes: List[str] = []
+            for node_id in layout_block.data_nodes:
+                node_obj = self.model.nodes.get(node_id)
+                if not node_obj:
+                    continue
+
+                is_copy = bool(getattr(node_obj, "is_data_node_copy", False))
+                if is_copy:
+                    copy_block_id = getattr(node_obj, "copy_block_id", "") or ""
+                    expected_index = self._parse_block_index(copy_block_id)
+
+                    # 若 copy_block_id 无法解析（返回哨兵值），则尝试从 ID 后缀 `_copy_block_{idx}_...` 推断
+                    if expected_index >= 10**6 and isinstance(node_id, str) and "_copy_block_" in node_id:
+                        suffix = node_id.rsplit("_copy_block_", 1)[-1]
+                        parts = suffix.split("_")
+                        if parts and parts[0].isdigit():
+                            expected_index = int(parts[0])
+
+                    current_index = getattr(layout_block, "order_index", 0)
+                    # 仅当副本的目标块索引与当前块一致时才纳入本 BasicBlock
+                    if 0 < expected_index < 10**6 and expected_index != current_index:
+                        continue
+
+                effective_data_nodes.append(node_id)
+
+            # 将过滤后的数据节点写回 LayoutBlock，保持后续调试逻辑一致
+            layout_block.data_nodes = list(effective_data_nodes)
+
             basic_block = build_basic_block(
-                node_ids=layout_block.flow_nodes + layout_block.data_nodes,
+                node_ids=layout_block.flow_nodes + effective_data_nodes,
                 color=layout_block.color,
             )
             basic_blocks.append(basic_block)
@@ -175,9 +210,27 @@ class PositionApplicator:
             if target_id in self.model.nodes:
                 self.model.nodes[target_id].pos = pos
 
+        # 调试信息仅合并链路信息，保留原块内的基础数值（final_y / base_y 等）
         if isinstance(debug_map, dict):
             for target_id, (_, info_dict) in copy_debug_overrides.items():
-                debug_map[target_id] = info_dict
+                existing = debug_map.get(target_id)
+                if not isinstance(existing, Dict):
+                    debug_map[target_id] = info_dict
+                    continue
+
+                existing_chains = existing.get("chains")
+                new_chains = info_dict.get("chains")
+                if isinstance(existing_chains, list) or isinstance(new_chains, list):
+                    merged: list[Any] = []
+                    if isinstance(existing_chains, list):
+                        merged.extend(existing_chains)
+                    if isinstance(new_chains, list):
+                        for item in new_chains:
+                            if item not in merged:
+                                merged.append(item)
+                    existing["chains"] = merged
+
+                debug_map[target_id] = existing
 
     @staticmethod
     def _normalize_pos(pos: Any) -> Optional[Tuple[float, float]]:

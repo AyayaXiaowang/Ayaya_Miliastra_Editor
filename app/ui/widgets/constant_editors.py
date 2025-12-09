@@ -7,6 +7,8 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import TYPE_CHECKING, Optional, Union
 
+from ui.graph.graph_palette import GraphPalette
+
 if TYPE_CHECKING:
     from ui.graph.items.node_item import NodeGraphicsItem
 
@@ -20,7 +22,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
         self.port_type = port_type
         self._layout_timer = None  # 兼容保留（将使用 Debouncer）
         self._layout_debouncer = None
-        self.setDefaultTextColor(QtGui.QColor('#E0E0E0'))  # 使用更亮的颜色，与端口标签一致
+        self.setDefaultTextColor(QtGui.QColor(GraphPalette.TEXT_LABEL))  # 使用更亮的颜色，与端口标签一致
         self.setFont(QtGui.QFont('Consolas', 8))
         self.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextEditorInteraction)
 
@@ -79,7 +81,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
         doc_cursor = self.textCursor()
         doc_cursor.select(QtGui.QTextCursor.SelectionType.Document)
         fmt = QtGui.QTextCharFormat()
-        fmt.setForeground(QtGui.QBrush(QtGui.QColor('#E0E0E0')))
+        fmt.setForeground(QtGui.QBrush(QtGui.QColor(GraphPalette.TEXT_LABEL)))
         doc_cursor.mergeCharFormat(fmt)
         doc_cursor.clearSelection()
         self.setTextCursor(doc_cursor)
@@ -136,27 +138,27 @@ class ConstantBoolComboBox(QtWidgets.QGraphicsProxyWidget):
         self.combo = QtWidgets.QComboBox()
         self.combo.addItems(["否", "是"])
         self.combo.setFont(QtGui.QFont('Microsoft YaHei UI', 8))
-        self.combo.setStyleSheet("""
-            QComboBox {
-                background-color: #2A2A2A;
-                color: #E0E0E0;
-                border: 1px solid #3A3A3A;
+        self.combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {GraphPalette.INPUT_BG};
+                color: {GraphPalette.TEXT_LABEL};
+                border: 1px solid {GraphPalette.INPUT_BORDER};
                 border-radius: 3px;
                 padding: 2px 5px;
-            }
-            QComboBox:hover {
-                border: 1px solid #5A5A5A;
-            }
-            QComboBox::drop-down {
+            }}
+            QComboBox:hover {{
+                border: 1px solid {GraphPalette.INPUT_BORDER_HOVER};
+            }}
+            QComboBox::drop-down {{
                 border: none;
-            }
-            QComboBox::down-arrow {
+            }}
+            QComboBox::down-arrow {{
                 image: none;
                 border-left: 4px solid transparent;
                 border-right: 4px solid transparent;
-                border-top: 5px solid #E0E0E0;
+                border-top: 5px solid {GraphPalette.TEXT_LABEL};
                 margin-right: 5px;
-            }
+            }}
         """)
         
         # 设置初始值
@@ -228,25 +230,25 @@ class ConstantVector3Edit(QtWidgets.QGraphicsProxyWidget):
         layout.addWidget(self.y_edit)
         layout.addWidget(self.z_edit)
         
-        container.setStyleSheet("""
-            QWidget {
+        container.setStyleSheet(f"""
+            QWidget {{
                 background-color: transparent;
-            }
-            QLabel {
-                color: #A0A0A0;
+            }}
+            QLabel {{
+                color: {GraphPalette.TEXT_SECONDARY};
                 font-size: 8px;
-            }
-            QLineEdit {
-                background-color: #2A2A2A;
-                color: #E0E0E0;
-                border: 1px solid #3A3A3A;
+            }}
+            QLineEdit {{
+                background-color: {GraphPalette.INPUT_BG};
+                color: {GraphPalette.TEXT_LABEL};
+                border: 1px solid {GraphPalette.INPUT_BORDER};
                 border-radius: 2px;
                 padding: 1px 3px;
                 font-size: 8px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #5A5A5A;
-            }
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {GraphPalette.INPUT_BORDER_HOVER};
+            }}
         """)
         
         self.setWidget(container)

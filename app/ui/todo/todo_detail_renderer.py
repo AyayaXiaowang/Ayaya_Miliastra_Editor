@@ -88,6 +88,8 @@ class TodoDetailBuilder:
             return self._build_graph_signals_overview_document(info)
         if detail_type == "graph_bind_signal":
             return self._build_graph_bind_signal_document(todo, info)
+        if detail_type == "graph_bind_struct":
+            return self._build_graph_bind_struct_document(todo, info)
 
         return self._build_fallback_document(todo)
 
@@ -754,6 +756,70 @@ class TodoDetailBuilder:
                 text=(
                     "在节点图中右键该节点，可通过“选择信号…”绑定信号，"
                     "或通过“打开信号管理器…”调整信号定义。"
+                ),
+                style=ParagraphStyle.HINT,
+            )
+        )
+
+        document.sections.append(section)
+        return document
+
+    def _build_graph_bind_struct_document(self, todo: TodoItem, info: dict) -> DetailDocument:
+        document = DetailDocument()
+        section = DetailSection(title=str(todo.title), level=3)
+
+        node_title = str(info.get("node_title", ""))
+        node_identifier = str(info.get("node_id", ""))
+        if node_title or node_identifier:
+            target_text_parts: List[str] = []
+            if node_title:
+                target_text_parts.append(node_title)
+            if node_identifier:
+                target_text_parts.append(f"({node_identifier})")
+            section.blocks.append(
+                ParagraphBlock(
+                    text="目标节点：" + " ".join(target_text_parts),
+                    style=ParagraphStyle.EMPHASIS,
+                )
+            )
+
+        struct_name = str(info.get("struct_name") or "")
+        struct_identifier = str(info.get("struct_id") or "")
+        if struct_name or struct_identifier:
+            struct_text_parts: List[str] = []
+            if struct_name:
+                struct_text_parts.append(struct_name)
+            if struct_identifier:
+                struct_text_parts.append(f"({struct_identifier})")
+            section.blocks.append(
+                ParagraphBlock(
+                    text="当前绑定结构体：" + " ".join(struct_text_parts),
+                    style=ParagraphStyle.NORMAL,
+                )
+            )
+        else:
+            section.blocks.append(
+                ParagraphBlock(
+                    text="当前绑定结构体：未选择",
+                    style=ParagraphStyle.HINT,
+                )
+            )
+
+        field_names = info.get("field_names") or []
+        if isinstance(field_names, list) and field_names:
+            field_names_text = "、".join(str(name) for name in field_names)
+            section.blocks.append(
+                ParagraphBlock(
+                    text=f"已选字段：{field_names_text}",
+                    style=ParagraphStyle.NORMAL,
+                )
+            )
+
+        section.blocks.append(
+            ParagraphBlock(
+                text=(
+                    "在节点图中右键该节点，通过“配置结构体…”对话框选择结构体与字段；"
+                    "结构体名输入端口只作展示，不参与连线。"
                 ),
                 style=ParagraphStyle.HINT,
             )

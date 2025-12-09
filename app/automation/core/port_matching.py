@@ -263,11 +263,21 @@ class PortMatchingService:
         executor,
         log_callback,
         visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]],
+        trace_context: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.executor = executor
         self.log_callback = log_callback
         self.visual_callback = visual_callback
-        self.logger = StructuredLogger(executor, log_callback, prefix="[连接] ")
+        self.trace_context = dict(trace_context) if trace_context else {}
+        self.logger = StructuredLogger(
+            executor,
+            log_callback,
+            prefix="[连接] ",
+            context=self.trace_context,
+        )
+
+    def _log_trace(self, category: str, message: str, **details: Any) -> None:
+        self.logger.log(category, message, **details)
 
     def _log_bbox_side(
         self,
@@ -501,6 +511,13 @@ class PortMatchingService:
         src_ok = _is_within_position_threshold(self.executor, src_bbox, src_node.pos)
         dst_ok = _is_within_position_threshold(self.executor, dst_bbox, dst_node.pos)
         if src_ok and dst_ok:
+            self._log_trace(
+                "定位",
+                "节点位置通过",
+                screenshot_token=frame_state.screenshot_token,
+                src_bbox=src_bbox,
+                dst_bbox=dst_bbox,
+            )
             return src_bbox, dst_bbox, src_debug, dst_debug
 
         self._log_bbox_side("源", src_node, src_bbox, src_debug)
@@ -525,6 +542,13 @@ class PortMatchingService:
         )
         if reestimate_result is not None:
             src_bbox_new, dst_bbox_new, src_debug_new, dst_debug_new = reestimate_result
+            self._log_trace(
+                "定位",
+                "缩放重估后节点位置通过",
+                screenshot_token=frame_state.screenshot_token,
+                src_bbox=src_bbox_new,
+                dst_bbox=dst_bbox_new,
+            )
             return src_bbox_new, dst_bbox_new, src_debug_new, dst_debug_new
 
         return None
@@ -623,6 +647,15 @@ class PortMatchingService:
             src_selection_kind=src_selection_kind,
             dst_selection_kind=dst_selection_kind,
         )
+        self._log_trace(
+            "端口",
+            "端口筛选计划",
+            screenshot_token=id(screenshot),
+            src_candidates=len(src_screen_cands),
+            dst_candidates=len(dst_screen_cands),
+            src_expected_kind=str(src_selection_kind or "unknown"),
+            dst_expected_kind=str(dst_selection_kind or "unknown"),
+        )
 
         src_ordinal_index = _ordinal_in_model(
             src_node,
@@ -669,7 +702,15 @@ class PortMatchingService:
         )
 
         if src_center == (0, 0) or dst_center == (0, 0):
-            self.logger.log("端口", "未能定位端口")
+            self._log_trace(
+                "端口",
+                "未能定位端口",
+                screenshot_token=id(screenshot),
+                src_found=src_center != (0, 0),
+                dst_found=dst_center != (0, 0),
+                src_candidates_total=len(src_ports_all),
+                dst_candidates_total=len(dst_ports_all),
+            )
             if self.visual_callback is not None:
                 rects_ports = []
                 for p in src_ports_all:
@@ -710,6 +751,17 @@ class PortMatchingService:
                 "[序号] 实际命中",
                 src=src_ord_actual if src_ord_actual is not None else "None",
                 dst=dst_ord_actual if dst_ord_actual is not None else "None",
+            )
+            self._log_trace(
+                "端口",
+                "端口命中结果",
+                screenshot_token=id(screenshot),
+                src_center=(int(src_center[0]), int(src_center[1])),
+                dst_center=(int(dst_center[0]), int(dst_center[1])),
+                src_ord_plan=src_ordinal_index if src_ordinal_index is not None else "None",
+                dst_ord_plan=dst_ordinal_index if dst_ordinal_index is not None else "None",
+                src_ord_actual=src_ord_actual if src_ord_actual is not None else "None",
+                dst_ord_actual=dst_ord_actual if dst_ord_actual is not None else "None",
             )
             circles = [
                 {

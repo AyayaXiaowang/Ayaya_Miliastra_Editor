@@ -13,6 +13,9 @@ from engine.resources.management_view_helpers import (
 from engine.resources.package_index import PackageIndex
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.signal import get_default_signal_repository
+from engine.resources.level_variable_schema_view import (
+    get_default_level_variable_schema_view,
+)
 from engine.graph.models.package_model import (
     TemplateConfig,
     InstanceConfig,
@@ -186,6 +189,23 @@ class PackageView:
             # 映射与“单一配置体”字段集合由 management_view_helpers 统一维护，
             # 便于 PackageView/GlobalResourceView/UnclassifiedResourceView 共享一致语义。
             for management_field_name, resource_type in MANAGEMENT_FIELD_TO_RESOURCE_TYPE.items():
+                if management_field_name == "level_variables":
+                    schema_view = get_default_level_variable_schema_view()
+                    all_variables = schema_view.get_all_variables()
+                    resource_ids = self.package_index.resources.management.get(
+                        management_field_name,
+                        [],
+                    )
+                    if resource_ids:
+                        filtered: Dict[str, dict] = {}
+                        for var_id in resource_ids:
+                            if var_id in all_variables:
+                                filtered[var_id] = all_variables[var_id]
+                        management_data[management_field_name] = filtered
+                    else:
+                        management_data[management_field_name] = {}
+                    continue
+
                 # 局内存档管理：在具体存档视图下仅通过“所属存档”多选行维护模板归属，
                 # 聚合编辑仍在 <全部资源>/<未分类资源> 视图中完成，这里提供一个空配置体。
                 if management_field_name == "save_points":

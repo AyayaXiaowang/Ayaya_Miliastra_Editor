@@ -155,6 +155,15 @@ class ClassFormatParser:
         
         # 使用 IR 管线解析方法体
         ir_env = IRVarEnv()
+        data_output_var_map = method_spec.get('data_output_var_map', {}) or {}
+        predeclared_locals: List[str] = []
+        for pin_name, pin_type in method_spec.get('outputs', []):
+            if pin_type == "流程":
+                continue
+            var_name = data_output_var_map.get(pin_name, pin_name)
+            if isinstance(var_name, str) and var_name:
+                predeclared_locals.append(var_name)
+        ir_env.add_predeclared_locals(predeclared_locals)
         
         # 如果是事件处理器，将事件参数输出注册到环境
         if event_node:
@@ -224,9 +233,9 @@ class ClassFormatParser:
         """
         # 根据方法类型建立不同的映射
         method_type = method_spec['type']
-        
+
         data_output_var_map = method_spec.get('data_output_var_map', {})
-        
+
         if method_type == 'flow_entry':
             # 流程入口：需要映射输入引脚和输出引脚
             for pin_name, pin_type in method_spec['inputs']:
@@ -311,11 +320,13 @@ class ClassFormatParser:
                     # 保证验证不过度报错，同时在 UI 预览中仍然列出该虚拟引脚。
                     virtual_pin.allow_unmapped = True
 
-            # 在输出映射前，尝试识别“纯分支出口”场景：
-            # 若方法体中存在双分支/多分支节点，且其所有流程出口均未连接到后续节点，
-            # 则可以按顺序将复合节点的流程输出虚拟引脚绑定到这些分支端口，
-            # 例如：条件为真/条件为假 → 是/否。
+            # 在输出映射前，尝试识别“分支出口”场景：
+            # 若方法体中存在双分支/多分支节点，优先将复合节点的流程输出虚拟引脚绑定到这些分支端口。
+            # 理想情况：所有流程出口均未连接到后续节点（纯分支出口），此时可以一一对应。
+            # 实际上，即便分支出口后还有少量局部变量设置节点，仍然希望在 UI 中把流程出口锚定到分支节点本身，
+            # 而不是尾部的“设置局部变量”等技术性节点。
             branch_exit_targets: List[Tuple[str, str]] = []
+            primary_branch_flow_outputs: List[Tuple[str, str]] = []
             for node in method_graph.nodes.values():
                 title = getattr(node, "title", "")
                 if title in ("双分支", "多分支"):
@@ -329,6 +340,9 @@ class ClassFormatParser:
                         flow_outputs = [p.name for p in node.outputs]
                     if not flow_outputs:
                         continue
+                    # 记录第一个分支节点及其所有流程出口，作为兜底锚点：
+                    if not primary_branch_flow_outputs:
+                        primary_branch_flow_outputs = [(node.id, port_name) for port_name in flow_outputs]
                     has_branch_out_edges = False
                     for edge in method_graph.edges.values():
                         if edge.src_node != node.id:
@@ -341,6 +355,12 @@ class ClassFormatParser:
                         for port_name in flow_outputs:
                             branch_exit_targets.append((node.id, port_name))
                     break
+
+            # 若存在分支节点但其流程出口后仍接有节点（例如仅用于设置局部变量并立即返回），
+            # 则退回到以分支节点为锚点的简化策略：仍按分支端口顺序绑定流程虚拟引脚，
+            # 避免将流程出口映射到语义上次要的“设置局部变量”等尾节点。
+            if (not branch_exit_targets) and primary_branch_flow_outputs:
+                branch_exit_targets = primary_branch_flow_outputs
 
             # 输出引脚：流程出 + 数据出
             branch_exit_index = 0
@@ -366,7 +386,7 @@ class ClassFormatParser:
                         self._map_flow_exit_pin(vpin, method_graph)
                 else:
                     self._map_data_output_pin(vpin, pin_name, data_output_var_map, var_env_snapshot)
-        
+
         elif method_type == 'event_handler':
             # 事件处理器：输出引脚映射
             for pin_name, pin_type in method_spec['outputs']:
@@ -407,27 +427,38 @@ class ClassFormatParser:
             vpin: 虚拟引脚配置
             graph: 图模型
         """
-        # 查找无入边的流程入口节点
+        candidates: List[Tuple[NodeModel, str]] = []
         for node in graph.nodes.values():
             flow_in_port = next((p for p in node.inputs if is_flow_port_name(p.name)), None)
             if not flow_in_port:
                 continue
-            
-            # 检查是否有流程入边
             has_incoming_flow = False
             for edge in graph.edges.values():
                 if edge.dst_node == node.id and edge.dst_port == flow_in_port.name:
                     has_incoming_flow = True
                     break
-            
-            if not has_incoming_flow:
-                vpin.mapped_ports.append(MappedPort(
-                    node_id=node.id,
-                    port_name=flow_in_port.name,
-                    is_input=True,
-                    is_flow=True
-                ))
-                break
+            if has_incoming_flow:
+                continue
+            candidates.append((node, flow_in_port.name))
+
+        if not candidates:
+            return
+
+        def _priority(item: Tuple[NodeModel, str]) -> Tuple[int, float]:
+            node, _ = item
+            title = getattr(node, "title", "")
+            # 优先使用双分支/多分支作为首个流程节点，其次保持插入顺序
+            if title in ("双分支", "多分支"):
+                return (0, 0.0)
+            return (1, node.pos[0] if node.pos else 0.0)
+
+        best_node, best_port = sorted(candidates, key=_priority)[0]
+        vpin.mapped_ports.append(MappedPort(
+            node_id=best_node.id,
+            port_name=best_port,
+            is_input=True,
+            is_flow=True
+        ))
     
     def _map_flow_exit_pin(self, vpin: VirtualPinConfig, graph: GraphModel) -> None:
         """映射流程出虚拟引脚到图中的流程出口节点

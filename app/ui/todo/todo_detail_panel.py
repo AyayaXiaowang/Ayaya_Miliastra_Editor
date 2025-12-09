@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtCore import Qt
 
 from app.models import TodoItem
@@ -11,6 +11,7 @@ from ui.todo.todo_detail_model import DetailDocument
 from ui.todo.todo_detail_renderer import TodoDetailBuilder
 from ui.todo.todo_detail_adapter import TodoDetailAdapter
 from ui.todo.todo_widgets import create_execute_button
+from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
 class TodoDetailView(QtWidgets.QWidget):
@@ -23,7 +24,7 @@ class TodoDetailView(QtWidgets.QWidget):
         super().__init__(parent)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(Sizes.SPACING_SMALL)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._layout = layout
 
@@ -45,14 +46,19 @@ class TodoDetailView(QtWidgets.QWidget):
         for section in document.sections:
             if section.title:
                 title_label = QtWidgets.QLabel(section.title)
+                title_label.setTextFormat(Qt.TextFormat.PlainText)
+                title_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
                 font = title_label.font()
-                # level 越小视为层级越高，这里简单用字号表达
                 if section.level <= 3:
-                    font.setPointSize(font.pointSize() + 2)
+                    font.setPointSize(Sizes.FONT_HEADING)
                     font.setBold(True)
                 elif section.level == 4:
+                    font.setPointSize(Sizes.FONT_TITLE)
                     font.setBold(True)
+                else:
+                    font.setPointSize(max(font.pointSize(), Sizes.FONT_LARGE))
                 title_label.setFont(font)
+                title_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
                 title_label.setWordWrap(True)
                 self._layout.addWidget(title_label)
 
@@ -61,18 +67,29 @@ class TodoDetailView(QtWidgets.QWidget):
 
                 if isinstance(block, ParagraphBlock):
                     label = QtWidgets.QLabel(block.text)
+                    label.setTextFormat(Qt.TextFormat.PlainText)
                     label.setWordWrap(True)
+                    label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
                     font = label.font()
+                    font.setPointSize(Sizes.FONT_NORMAL)
+                    color_hex = Colors.TEXT_PRIMARY
                     if block.style == ParagraphStyle.EMPHASIS:
+                        font.setPointSize(Sizes.FONT_LARGE)
                         font.setBold(True)
                     elif block.style == ParagraphStyle.HINT:
-                        font.setPointSize(max(font.pointSize() - 1, 8))
+                        font.setPointSize(Sizes.FONT_SMALL)
+                        color_hex = Colors.TEXT_HINT
                     label.setFont(font)
+                    label.setStyleSheet(f"color: {color_hex};")
                     self._layout.addWidget(label)
                 elif isinstance(block, BulletListBlock):
                     for item_text in block.items:
                         bullet_label = QtWidgets.QLabel(f"• {item_text}")
+                        bullet_label.setTextFormat(Qt.TextFormat.PlainText)
                         bullet_label.setWordWrap(True)
+                        bullet_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+                        bullet_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
+                        bullet_label.setContentsMargins(Sizes.PADDING_SMALL, 0, 0, 0)
                         self._layout.addWidget(bullet_label)
                 elif isinstance(block, TableBlock):
                     headers = list(block.headers)
@@ -95,6 +112,13 @@ class TodoDetailView(QtWidgets.QWidget):
                         table.setHorizontalHeaderLabels(headers)
                     else:
                         table.horizontalHeader().hide()
+                    vertical_header = table.verticalHeader()
+                    if vertical_header is not None:
+                        vertical_header.setVisible(False)
+                        vertical_header.setDefaultSectionSize(
+                            Sizes.INPUT_HEIGHT + Sizes.PADDING_SMALL
+                        )
+                    table.setAlternatingRowColors(True)
                     for row_index, row in enumerate(rows):
                         for column_index, cell_text in enumerate(row):
                             item = QtWidgets.QTableWidgetItem(str(cell_text))
@@ -105,7 +129,26 @@ class TodoDetailView(QtWidgets.QWidget):
                     header.setSectionResizeMode(
                         QtWidgets.QHeaderView.ResizeMode.ResizeToContents
                     )
-                    table.verticalHeader().hide()
+                    palette = table.palette()
+                    palette.setColor(QtGui.QPalette.ColorRole.Base, QtGui.QColor(Colors.BG_CARD))
+                    palette.setColor(
+                        QtGui.QPalette.ColorRole.AlternateBase,
+                        QtGui.QColor(Colors.BG_MAIN),
+                    )
+                    palette.setColor(
+                        QtGui.QPalette.ColorRole.Text,
+                        QtGui.QColor(Colors.TEXT_PRIMARY),
+                    )
+                    palette.setColor(
+                        QtGui.QPalette.ColorRole.Highlight,
+                        QtGui.QColor(Colors.BG_SELECTED),
+                    )
+                    palette.setColor(
+                        QtGui.QPalette.ColorRole.HighlightedText,
+                        QtGui.QColor(Colors.TEXT_PRIMARY),
+                    )
+                    table.setPalette(palette)
+                    table.setStyleSheet(ThemeManager.table_style())
                     table.setSizePolicy(
                         QtWidgets.QSizePolicy.Policy.Expanding,
                         QtWidgets.QSizePolicy.Policy.Fixed,
@@ -124,9 +167,9 @@ class TodoDetailView(QtWidgets.QWidget):
 
 
 class TodoDetailPanel(QtWidgets.QWidget):
-    """右侧详情页：标题/描述/HTML 详情 + 执行按钮。
+    """右侧详情页：标题/描述/结构化详情 + 执行按钮。
 
-    依赖适配器与渲染器完成统计与 HTML 生成。
+    依赖适配器与 TodoDetailBuilder / TodoDetailView 完成统计与结构化文档渲染，不再使用 HTML。
     """
 
     execute_clicked = QtCore.pyqtSignal()
@@ -138,14 +181,21 @@ class TodoDetailPanel(QtWidgets.QWidget):
         self.setObjectName("detailCard")
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(12)
+        layout.setContentsMargins(
+            Sizes.PADDING_LARGE,
+            Sizes.PADDING_LARGE,
+            Sizes.PADDING_LARGE,
+            Sizes.PADDING_LARGE,
+        )
+        layout.setSpacing(Sizes.SPACING_MEDIUM)
 
         title_label = QtWidgets.QLabel("任务详情")
+        title_label.setTextFormat(Qt.TextFormat.PlainText)
         title_font = title_label.font()
-        title_font.setPointSize(16)
+        title_font.setPointSize(Sizes.FONT_HEADING)
         title_font.setBold(True)
         title_label.setFont(title_font)
+        title_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
         layout.addWidget(title_label)
 
         scroll = QtWidgets.QScrollArea()
@@ -156,20 +206,27 @@ class TodoDetailPanel(QtWidgets.QWidget):
         self.detail_widget = QtWidgets.QWidget()
         self.detail_layout = QtWidgets.QVBoxLayout(self.detail_widget)
         self.detail_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.detail_layout.setSpacing(10)
+        self.detail_layout.setSpacing(Sizes.SPACING_MEDIUM)
 
         self.detail_title = QtWidgets.QLabel("请选择一个任务")
         self.detail_title.setObjectName("detailContentTitle")
         self.detail_title.setWordWrap(True)
+        self.detail_title.setTextFormat(Qt.TextFormat.PlainText)
         font = self.detail_title.font()
-        font.setPointSize(14)
+        font.setPointSize(Sizes.FONT_TITLE)
         font.setBold(True)
         self.detail_title.setFont(font)
+        self.detail_title.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
         self.detail_layout.addWidget(self.detail_title)
 
         self.detail_desc = QtWidgets.QLabel("")
         self.detail_desc.setObjectName("detailContentDesc")
         self.detail_desc.setWordWrap(True)
+        self.detail_desc.setTextFormat(Qt.TextFormat.PlainText)
+        desc_font = self.detail_desc.font()
+        desc_font.setPointSize(Sizes.FONT_NORMAL)
+        self.detail_desc.setFont(desc_font)
+        self.detail_desc.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
         self.detail_layout.addWidget(self.detail_desc)
 
         self.execute_button = create_execute_button(

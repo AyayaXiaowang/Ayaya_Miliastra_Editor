@@ -29,11 +29,6 @@ from ui.graph.library_pages.library_scaffold import (
     LibraryPageMixin,
     LibrarySelection,
 )
-from ui.graph.library_pages.management_extra_sections import (
-    BackgroundMusicSection,
-    EquipmentDataSection,
-    SkillResourceSection,
-)
 from ui.graph.library_pages.management_sections import (
     BaseManagementSection,
     ManagementRowData,
@@ -73,10 +68,6 @@ class ManagementLibraryWidget(
         self.current_package: Optional[ManagementPackage] = None
         # section_key → Section 实例（仅包含已迁移到列表式管理的类型）
         self._sections: Dict[str, BaseManagementSection] = dict(MANAGEMENT_SECTION_MAP)
-        # 额外接入技能资源 / 背景音乐 / 装备数据的 Section 实现，统一在库页面中以列表形式管理。
-        self._sections.setdefault("skill_resource", SkillResourceSection())
-        self._sections.setdefault("background_music", BackgroundMusicSection())
-        self._sections.setdefault("equipment_data", EquipmentDataSection())
 
         # 来自 section_registry 的集中配置
         self._section_specs: list[ManagementSectionSpec] = list(MANAGEMENT_SECTIONS)
@@ -596,9 +587,11 @@ class ManagementLibraryWidget(
             return
 
         if row_data is None or section_key is None:
+            self.notify_selection_state(False, context={"source": "management", "section_key": section_key})
             handler(False, "", "", [])
             return
 
+        self.notify_selection_state(True, context={"source": "management", "section_key": section_key})
         spec = self._spec_by_key.get(section_key)
         panel_title = spec.title if spec is not None else "详情"
         panel_description = "在左侧选择一条记录查看详情，并在主界面右侧直接编辑。"
@@ -717,7 +710,7 @@ class ManagementLibraryWidget(
         if user_data is None:
             self.show_warning("警告", "请先选择要删除的记录")
             return
-        _, item_id = user_data
+        section_key, item_id = user_data
 
         display_name = current_item.text() if current_item is not None else item_id
         if not self.confirm("确认删除", f"确定要删除 '{display_name}' 吗？"):

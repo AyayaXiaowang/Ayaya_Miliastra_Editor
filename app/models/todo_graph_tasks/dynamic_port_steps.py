@@ -15,7 +15,11 @@ from app.models.todo_builder_helpers import (
 from app.models.todo_graph_tasks.edge_lookup import GraphEdgeLookup
 from app.models.todo_node_type_helper import NodeTypeHelper
 from app.models.todo_structure_helpers import ensure_child_reference
-from engine.graph.common import SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE
+from engine.graph.common import (
+    SIGNAL_SEND_NODE_TITLE,
+    SIGNAL_LISTEN_NODE_TITLE,
+    STRUCT_NAME_PORT_NAME,
+)
 
 
 class DynamicPortStepPlanner:
@@ -125,12 +129,22 @@ class DynamicPortStepPlanner:
         if self._edge_lookup is None:
             payload: List[Dict[str, Any]] = []
             for constant_name, constant_value in constants.items():
+                name_text = str(constant_name)
                 # 信号发送节点的“信号名”端口由专门的信号绑定步骤处理，这里不再生成重复的配置参数步骤。
-                if node_title == SIGNAL_SEND_NODE_TITLE and str(constant_name) == "信号名":
+                if node_title == SIGNAL_SEND_NODE_TITLE and name_text == "信号名":
+                    continue
+                # 结构体相关节点的“结构体名”端口同样由独立的结构体绑定步骤处理，
+                # 在通用参数步骤中不再重复生成“配置结构体名”这一项。
+                if name_text == STRUCT_NAME_PORT_NAME:
                     continue
                 if self._should_skip_constant_param(constant_value):
                     continue
-                payload.append({"param_name": constant_name, "param_value": constant_value})
+                payload.append(
+                    {
+                        "param_name": constant_name,
+                        "param_value": constant_value,
+                    }
+                )
             return payload
 
         result: List[Dict[str, Any]] = []
@@ -139,6 +153,9 @@ class DynamicPortStepPlanner:
             port_name = str(key)
             # 同样地，信号发送节点的“信号名”端口不参与通用参数配置步骤。
             if node_title == SIGNAL_SEND_NODE_TITLE and port_name == "信号名":
+                continue
+            # 结构体节点的“结构体名”端口由结构体绑定步骤负责，这里跳过。
+            if port_name == STRUCT_NAME_PORT_NAME:
                 continue
             if self._should_skip_constant_param(value):
                 continue

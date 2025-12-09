@@ -179,13 +179,13 @@ class CombatSkillPanel(PanelScaffold):
         )
         main_layout.setSpacing(Sizes.SPACING_MEDIUM)
 
-        # --- 基础信息分组：名称 / ID / 技能类型 ---
+        # --- 基础信息分组：名称 / 存储ID / 技能类型 ---
         basic_info_group = QtWidgets.QGroupBox("基础信息")
         basic_info_layout = QtWidgets.QFormLayout(basic_info_group)
         basic_info_layout.setSpacing(Sizes.SPACING_SMALL)
 
         self.id_label = QtWidgets.QLabel("-")
-        basic_info_layout.addRow("配置ID:", self.id_label)
+        basic_info_layout.addRow("存储ID:", self.id_label)
 
         self.name_edit = QtWidgets.QLineEdit()
         self.name_edit.setPlaceholderText("例如：单手武器-连段1")

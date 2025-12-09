@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict
 
 from importlib.machinery import SourceFileLoader
+import pprint
 
 
 class IngameSaveTemplateSchemaService:
@@ -22,7 +23,11 @@ class IngameSaveTemplateSchemaService:
         - 至少包含 template_id 与 template_name 字段；
         - save_point_id 建议与 template_id 相同，用于与 ResourceType.SAVE_POINT 的
           命名约定保持直观一致；
+        - 可选字段 is_default_template: bool，用于表达“当前工程默认/主模板”状态。
     """
+
+    def __init__(self) -> None:
+        self._template_files: Dict[str, Path] = {}
 
     def _get_workspace_root(self) -> Path:
         return Path(__file__).resolve().parents[2]
@@ -41,8 +46,12 @@ class IngameSaveTemplateSchemaService:
             return {}
 
         results: Dict[str, Dict] = {}
+        self._template_files = {}
 
         for python_path in base_directory.rglob("*.py"):
+            # 允许在目录中放置校验或工具脚本（如 `校验局内存档管理.py`），这些脚本不参与模板 Schema 聚合。
+            if "校验" in python_path.stem:
+                continue
             module_name = f"code_save_point_template_{abs(hash(python_path.as_posix()))}"
             loader = SourceFileLoader(module_name, str(python_path))
             module = loader.load_module()
@@ -86,8 +95,12 @@ class IngameSaveTemplateSchemaService:
                 template_payload["save_point_name"] = template_name_text
 
             results[normalized_template_id] = template_payload
+            self._template_files[normalized_template_id] = python_path
 
         return results
+
+    def get_template_file_path(self, template_id: str) -> Path | None:
+        return self._template_files.get(template_id)
 
 
 class IngameSaveTemplateSchemaView:
@@ -111,6 +124,12 @@ class IngameSaveTemplateSchemaView:
         all_templates = self.get_all_templates()
         return all_templates.get(template_id)
 
+    def get_template_file_path(self, template_id: str) -> Path | None:
+        """按模板 ID 获取对应的 Python 模块路径（若存在）。"""
+        # 确保已加载一次，以构建文件路径映射。
+        self.get_all_templates()
+        return self._schema_service.get_template_file_path(template_id)
+
 
 _default_ingame_save_template_schema_view: IngameSaveTemplateSchemaView | None = None
 
@@ -122,4 +141,48 @@ def get_default_ingame_save_template_schema_view() -> IngameSaveTemplateSchemaVi
         _default_ingame_save_template_schema_view = IngameSaveTemplateSchemaView()
     return _default_ingame_save_template_schema_view
 
+def update_default_template_id(default_template_id: str | None) -> None:
+    """根据给定模板 ID 更新各局内存档模板中的 is_default_template 状态。
+
+    - 若 default_template_id 为空或无效，则所有模板的 is_default_template 均为 False。
+    - 若 default_template_id 对应某个模板，则仅该模板的 is_default_template 为 True。
+    """
+    schema_view = get_default_ingame_save_template_schema_view()
+    all_templates = schema_view.get_all_templates()
+
+    normalized_default_id: str | None = None
+    if default_template_id is not None:
+        candidate_id = str(default_template_id).strip()
+        if candidate_id and candidate_id in all_templates:
+            normalized_default_id = candidate_id
+
+    for template_id, payload in all_templates.items():
+        file_path = schema_view.get_template_file_path(template_id)
+        if file_path is None or not file_path.is_file():
+            continue
+
+        template_payload = dict(payload)
+        template_payload["template_id"] = template_id
+        if not str(template_payload.get("save_point_id", "")).strip():
+            template_payload["save_point_id"] = template_id
+
+        is_default = normalized_default_id is not None and template_id == normalized_default_id
+        template_payload["is_default_template"] = is_default
+
+        source_lines = [
+            "from __future__ import annotations",
+            "",
+            "from typing import Any, Dict",
+            "",
+            "",
+            f'SAVE_POINT_ID = "{template_id}"',
+            "",
+            "",
+            "SAVE_POINT_PAYLOAD: Dict[str, Any] = "
+            + pprint.pformat(template_payload, width=88, sort_dicts=False),
+            "",
+            "",
+        ]
+        source_text = "\n".join(source_lines)
+        file_path.write_text(source_text, encoding="utf-8")
 

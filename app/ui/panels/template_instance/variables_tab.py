@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from PyQt6 import QtCore, QtWidgets
 
-from engine.configs.resource_types import ResourceType
 from engine.graph.models.package_model import VariableConfig
 from engine.graph.models.entity_templates import get_all_variable_types
+from engine.resources.level_variable_schema_view import (
+    get_default_level_variable_schema_view,
+)
 from engine.utils.name_utils import generate_unique_name
 from ui.dialogs.struct_definition_types import (
     is_struct_type,
@@ -406,6 +409,7 @@ class VariablesTab(TemplateInstanceTabBase):
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
         self._is_read_only = False
+        self._external_read_only = False
         self._add_button: Optional[QtWidgets.QPushButton] = None
         self._delete_button: Optional[QtWidgets.QPushButton] = None
         self._build_ui()
@@ -483,10 +487,16 @@ class VariablesTab(TemplateInstanceTabBase):
         self.fields_table_widget.set_struct_id_options(struct_ids)
 
     def _load_variables(self) -> None:
+        self._external_read_only = self._has_external_custom_variables()
+        if self._add_button is not None:
+            self._add_button.setEnabled(not self._external_read_only and not self._is_read_only)
+        if self._delete_button is not None:
+            self._delete_button.setEnabled(not self._external_read_only and not self._is_read_only)
+
         fields = []
         for row_data in self._iter_variable_rows():
             # 只读模式下即便是覆写/额外变量也不允许编辑
-            readonly = (row_data.source == "inherited") or self._is_read_only
+            readonly = (row_data.source == "inherited") or self._is_read_only or self._external_read_only
             fields.append({
                 "name": row_data.variable.name,
                 "type_name": row_data.variable.variable_type,
@@ -518,9 +528,131 @@ class VariablesTab(TemplateInstanceTabBase):
         # 其他类型
         return default_value if default_value is not None else ""
 
+    # 外部变量加载 ---------------------------------------------------------
+    def _has_external_custom_variables(self) -> bool:
+        template_path = self._get_custom_variable_path(for_template=True)
+        instance_path = self._get_custom_variable_path(for_template=False)
+        return bool(template_path or instance_path)
+
+    def _get_custom_variable_path(self, *, for_template: bool) -> str:
+        if not self.current_object:
+            return ""
+        if for_template:
+            if self.object_type == "template":
+                metadata = getattr(self.current_object, "metadata", {}) or {}
+                return str(metadata.get("custom_variable_file", "")).strip()
+            if self.object_type == "instance":
+                template_obj = self._template_for_instance(self._current_instance()) if self._current_instance() else None
+                metadata = getattr(template_obj, "metadata", {}) if template_obj else {}
+                if not isinstance(metadata, dict):
+                    return ""
+                return str(metadata.get("custom_variable_file", "")).strip()
+            return ""
+        # for instance
+        if self.object_type == "instance":
+            instance_obj = self._current_instance()
+            if instance_obj:
+                metadata = getattr(instance_obj, "metadata", {}) or {}
+                path_text = str(metadata.get("custom_variable_file", "")).strip()
+                if path_text:
+                    return path_text
+            template_obj = self._template_for_instance(instance_obj) if instance_obj else None
+            metadata = getattr(template_obj, "metadata", {}) if template_obj else {}
+            if isinstance(metadata, dict):
+                return str(metadata.get("custom_variable_file", "")).strip()
+        if self.object_type == "level_entity":
+            metadata = getattr(self.current_object, "metadata", {}) or {}
+            return str(metadata.get("custom_variable_file", "")).strip()
+        return ""
+
+    def _load_external_variable_configs(self, *, for_template: bool) -> list[VariableConfig]:
+        ref_text = self._get_custom_variable_path(for_template=for_template)
+        if not ref_text:
+            return []
+
+        normalized_ref = str(ref_text).strip()
+        if not normalized_ref:
+            return []
+
+        # 统一从代码级关卡变量 Schema 视图中解析外部变量定义，避免在 UI 层直接 import 代码模块。
+        schema_view = get_default_level_variable_schema_view()
+        all_variables = schema_view.get_all_variables()
+
+        # 路径分隔符一律归一化为 "/"，便于与 source_path 对齐。
+        normalized_ref = normalized_ref.replace("\\", "/")
+
+        results: list[VariableConfig] = []
+
+        for payload in all_variables.values():
+            if not isinstance(payload, dict):
+                continue
+
+            source_path_value = payload.get("source_path")
+            source_stem_value = payload.get("source_stem")
+            metadata_value = payload.get("metadata", {})
+
+            source_candidates: list[str] = []
+
+            if isinstance(source_path_value, str):
+                source_candidates.append(source_path_value.strip())
+
+            if isinstance(metadata_value, dict):
+                metadata_source = metadata_value.get("source_path")
+                if isinstance(metadata_source, str):
+                    source_candidates.append(metadata_source.strip())
+
+            if isinstance(source_stem_value, str):
+                source_candidates.append(source_stem_value.strip())
+
+            matched = False
+            for candidate in source_candidates:
+                candidate_text = candidate.replace("\\", "/")
+                if not candidate_text:
+                    continue
+
+                # 精确匹配完整相对路径（例如 自定义变量/forge_hero_player_template_variables.py）
+                if candidate_text == normalized_ref:
+                    matched = True
+                    break
+
+                # 退化为仅按文件名（不含扩展名）匹配，允许 metadata.custom_variable_file
+                # 直接填写“ID 风格”的文件名（例如 forge_hero_player_template_variables）。
+                candidate_stem = Path(candidate_text).stem
+                if candidate_stem == normalized_ref:
+                    matched = True
+                    break
+
+            if not matched:
+                continue
+
+            name_value = payload.get("variable_name", payload.get("name", ""))
+            type_value = payload.get("variable_type")
+            default_value = payload.get("default_value")
+            description_value = payload.get("description", "")
+
+            if not isinstance(name_value, str) or not isinstance(type_value, str):
+                continue
+
+            var_config = VariableConfig(
+                name=name_value,
+                variable_type=type_value,
+                default_value=default_value,
+                description=str(description_value) if description_value is not None else "",
+            )
+            results.append(var_config)
+
+        return results
+
+    def _get_workspace_root(self) -> Path:
+        if self.resource_manager and hasattr(self.resource_manager, "workspace_path"):
+            return Path(self.resource_manager.workspace_path)
+        return Path(__file__).resolve().parents[3]
+
     def _add_variable(self) -> None:
         """直接添加一个默认变量到表格中，让用户内联编辑。"""
         if not self.current_object or not self.service:
+            return
+        if self._external_read_only:
             return
 
         # 为默认变量名称生成不重复的名字（新变量 / 新变量_1 / 新变量_2 ...）
@@ -555,6 +687,8 @@ class VariablesTab(TemplateInstanceTabBase):
         """删除按钮点击事件。"""
         if not self.current_object or not self.service:
             return
+        if self._external_read_only:
+            return
         
         # 获取当前选中的行
         table = self.fields_table_widget.table
@@ -578,6 +712,8 @@ class VariablesTab(TemplateInstanceTabBase):
         # 右键删除通过通用组件已经完成了UI删除，但我们需要同步到数据模型
         # 重新加载以保持一致
         if not self.current_object or not self.service:
+            return
+        if self._external_read_only:
             return
         
         # 获取当前字段数据
@@ -625,6 +761,8 @@ class VariablesTab(TemplateInstanceTabBase):
     def _on_variables_changed(self) -> None:
         """字段内容变化时，写回到数据模型。"""
         if not self.current_object or not self.service:
+            return
+        if self._external_read_only:
             return
 
         # 从通用组件获取所有字段（按表格当前行顺序）
@@ -713,6 +851,14 @@ class VariablesTab(TemplateInstanceTabBase):
             instance_attr="override_variables",
             level_attr="override_variables",
         )
+
+        external_template_vars = self._load_external_variable_configs(for_template=True)
+        external_instance_vars = self._load_external_variable_configs(for_template=False)
+
+        if external_template_vars:
+            template_vars = external_template_vars
+        if external_instance_vars:
+            instance_vars = external_instance_vars
         if self.object_type == "template":
             for var in template_vars:
                 yield VariableRow(var, "template")

@@ -5,7 +5,7 @@ from typing import Optional, Sequence, Tuple
 from PyQt6 import QtGui, QtWidgets
 
 from ui.foundation.base_widgets import FormDialog
-from ui.foundation.theme_manager import Colors
+from ui.foundation.theme_manager import Colors, ThemeManager
 
 
 class FormDialogBuilder:
@@ -38,6 +38,7 @@ class FormDialogBuilder:
         if placeholder:
             line_edit.setPlaceholderText(placeholder)
         line_edit.setReadOnly(read_only)
+        line_edit.setStyleSheet(ThemeManager.input_style())
         self._form_layout.addRow(label, line_edit)
         return line_edit
 
@@ -48,6 +49,7 @@ class FormDialogBuilder:
         current_text: Optional[str] = None,
     ) -> QtWidgets.QComboBox:
         combo_box = QtWidgets.QComboBox()
+        combo_box.setStyleSheet(ThemeManager.combo_box_style())
         combo_box.addItems(list(items))
         if current_text:
             combo_box.setCurrentText(current_text)
@@ -63,6 +65,7 @@ class FormDialogBuilder:
         single_step: int = 1,
     ) -> QtWidgets.QSpinBox:
         spin_box = QtWidgets.QSpinBox()
+        spin_box.setStyleSheet(ThemeManager.spin_box_style())
         spin_box.setRange(minimum, maximum)
         spin_box.setSingleStep(single_step)
         spin_box.setValue(value)
@@ -80,6 +83,7 @@ class FormDialogBuilder:
         suffix: Optional[str] = None,
     ) -> QtWidgets.QDoubleSpinBox:
         spin_box = QtWidgets.QDoubleSpinBox()
+        spin_box.setStyleSheet(ThemeManager.spin_box_style())
         spin_box.setRange(minimum, maximum)
         spin_box.setDecimals(decimals)
         spin_box.setSingleStep(single_step)
@@ -108,6 +112,7 @@ class FormDialogBuilder:
             text_edit.setMinimumHeight(min_height)
         if max_height:
             text_edit.setMaximumHeight(max_height)
+        text_edit.setStyleSheet(ThemeManager.input_style())
         self._form_layout.addRow(label, text_edit)
         return text_edit
 
@@ -122,7 +127,9 @@ class FormDialogBuilder:
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
         color_edit = QtWidgets.QLineEdit(color)
+        color_edit.setStyleSheet(ThemeManager.input_style())
         pick_button = QtWidgets.QPushButton(button_text)
+        pick_button.setStyleSheet(ThemeManager.button_style())
 
         def choose_color() -> None:
             initial = QtGui.QColor(color_edit.text() or Colors.BG_CARD)
@@ -159,6 +166,7 @@ class FormDialogBuilder:
         for axis, default in zip(labels, defaults):
             layout.addWidget(QtWidgets.QLabel(axis))
             spin = QtWidgets.QDoubleSpinBox()
+            spin.setStyleSheet(ThemeManager.spin_box_style())
             spin.setRange(minimum, maximum)
             spin.setDecimals(decimals)
             spin.setValue(default)

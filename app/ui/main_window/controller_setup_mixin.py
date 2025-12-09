@@ -27,6 +27,8 @@ class ControllerSetupMixin:
         self.package_controller.get_property_panel_object_type = (
             lambda: self.property_panel.object_type
         )
+        if hasattr(self, "refresh_resource_library"):
+            self.package_controller.on_external_resource_change = self.refresh_resource_library
 
         # 图编辑控制器
         self.graph_controller = GraphEditorController(

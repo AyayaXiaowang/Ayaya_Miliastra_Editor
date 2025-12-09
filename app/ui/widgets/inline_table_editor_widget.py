@@ -19,7 +19,7 @@ from ui.dialogs.table_edit_helpers import (
 )
 from ui.dialogs.value_editor_common_widgets import ClickToEditLineEdit
 from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Colors, Sizes
+from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
 @dataclass(frozen=True)
@@ -212,7 +212,8 @@ class InlineTableEditorWidget(QtWidgets.QWidget):
             QtGui.QColor(Colors.TEXT_PRIMARY),
         )
         self.table.setPalette(palette)
-        self.table.setStyleSheet("QTableWidget::item { padding: 2px; }")
+        # 使用全局表格样式，保持与信号列表/两行字段表格一致
+        self.table.setStyleSheet(ThemeManager.table_style())
 
     # ------------------------------------------------------------------ 事件处理
 

@@ -16,6 +16,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from engine.configs.settings import settings
 from ui.foundation.canvas_background import draw_grid_background as _draw_grid_background
 from ui.foundation.theme import ThemeRegistry
+from ui.foundation.theme.combo_proxy_style import ComboArrowProxyStyle
 from ui.foundation.theme.styles import (
     component_styles,
     composite_styles,
@@ -277,6 +278,10 @@ class ThemeManager:
             palette.setColor(QtGui.QPalette.ColorRole.HighlightedText, text_on_primary)
 
         app.setPalette(palette)
+
+        # 3) 安装下拉箭头代理样式（在全局样式表前设置，确保绘制链就绪）
+        base_style = app.style()
+        app.setStyle(ComboArrowProxyStyle(base_style))
 
         # 3) 应用字体与全局样式表（依赖上一步选定的 Colors）
         app.setFont(QtGui.QFont("Microsoft YaHei UI", Sizes.FONT_NORMAL))

@@ -14,6 +14,7 @@ from ui.graph.virtual_pin_ui_service import (
     build_port_context_menu as build_port_context_menu_from_service,
 )
 from ui.foundation import dialog_utils
+from ui.graph.graph_palette import GraphPalette
 
 if TYPE_CHECKING:
     from ui.graph.graph_scene import GraphScene, NodeGraphicsItem
@@ -175,34 +176,42 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
             # rounded diamond-like pill
             if is_highlight_state:
                 # 高亮：优先使用自定义颜色
-                color = self.highlight_color if has_custom_highlight else QtGui.QColor('#FFD700')
+                color = self.highlight_color if has_custom_highlight else QtGui.QColor(GraphPalette.WARN_GOLD)
                 painter.setPen(QtGui.QPen(color, 3))
                 c = QtGui.QColor(color)
                 c.setAlpha(100)
                 painter.setBrush(c)  # 半透明填充
             elif is_exposed:
                 # 已暴露：使用金色边框和填充
-                painter.setPen(QtGui.QPen(QtGui.QColor('#FFD700'), 2))
-                painter.setBrush(QtGui.QColor(255, 215, 0, 50))  # 淡金色填充
+                painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.WARN_GOLD), 2))
+                fill = QtGui.QColor(GraphPalette.WARN_GOLD)
+                fill.setAlpha(GraphPalette.PORT_EXPOSED_FILL_ALPHA)
+                painter.setBrush(fill)  # 淡金色填充
             else:
-                painter.setPen(QtGui.QPen(QtGui.QColor('#FFFFFF'), 2))
+                painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.PORT_DEFAULT_OUTPUT), 2))
                 painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(port_rect, 4, 4)
         else:
             if is_highlight_state:
                 # 高亮：优先使用自定义颜色
-                pen_color = self.highlight_color if has_custom_highlight else QtGui.QColor('#00FF00')
+                pen_color = self.highlight_color if has_custom_highlight else QtGui.QColor(GraphPalette.PORT_HIGHLIGHT_DATA)
                 c = QtGui.QColor(pen_color)
                 c.setAlpha(100)
                 painter.setBrush(c)  # 半透明填充
                 pen_width = 3
             elif is_exposed:
                 # 已暴露：使用金色边框和填充
-                pen_color = QtGui.QColor('#FFD700')
-                painter.setBrush(QtGui.QColor(255, 215, 0, 50))  # 淡金色填充
+                pen_color = QtGui.QColor(GraphPalette.WARN_GOLD)
+                fill = QtGui.QColor(GraphPalette.WARN_GOLD)
+                fill.setAlpha(GraphPalette.PORT_EXPOSED_FILL_ALPHA)
+                painter.setBrush(fill)  # 淡金色填充
                 pen_width = 2
             else:
-                pen_color = QtGui.QColor('#D0D0D0') if self.is_input else QtGui.QColor('#FFFFFF')
+                pen_color = (
+                    QtGui.QColor(GraphPalette.PORT_DEFAULT_INPUT)
+                    if self.is_input
+                    else QtGui.QColor(GraphPalette.PORT_DEFAULT_OUTPUT)
+                )
                 painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
                 pen_width = 2
             pen = QtGui.QPen(pen_color)
@@ -252,10 +261,10 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
 
                 # 标签背景颜色（金色渐变）
                 gradient = QtGui.QLinearGradient(tag_rect.topLeft(), tag_rect.bottomLeft())
-                gradient.setColorAt(0, QtGui.QColor('#FFD700'))
-                gradient.setColorAt(1, QtGui.QColor('#FFA500'))
+                gradient.setColorAt(0, QtGui.QColor(GraphPalette.PORT_EXPOSED_TAG_START))
+                gradient.setColorAt(1, QtGui.QColor(GraphPalette.PORT_EXPOSED_TAG_END))
                 painter.setBrush(gradient)
-                painter.setPen(QtGui.QPen(QtGui.QColor('#CC8800'), 2))
+                painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.PORT_EXPOSED_TAG_OUTLINE), 2))
 
                 # 根据端口类型绘制不同形状
                 if self.is_flow:
@@ -266,7 +275,7 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
                     painter.drawRoundedRect(tag_rect, tag_radius, tag_radius)
 
                 # 绘制数字
-                painter.setPen(QtGui.QPen(QtGui.QColor('#FFFFFF'), 1))
+                painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.TEXT_BRIGHT), 1))
                 font = QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold)
                 painter.setFont(font)
                 painter.drawText(tag_rect, QtCore.Qt.AlignmentFlag.AlignCenter, number_text)
@@ -504,7 +513,7 @@ class BranchPortValueEdit(QtWidgets.QGraphicsTextItem):
         super().__init__(parent)
         self.node_item = node_item
         self.port_name = port_name  # 当前端口名称
-        self.setDefaultTextColor(QtGui.QColor('#FFD700'))  # 金黄色，表示这是流程端口相关
+        self.setDefaultTextColor(QtGui.QColor(GraphPalette.WARN_GOLD))  # 金黄色，表示这是流程端口相关
         self.setFont(QtGui.QFont('Consolas', 8))
         self.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextEditorInteraction)
         self.setPlainText(port_name)  # 默认显示端口名称
@@ -538,7 +547,7 @@ class BranchPortValueEdit(QtWidgets.QGraphicsTextItem):
         doc_cursor = self.textCursor()
         doc_cursor.select(QtGui.QTextCursor.SelectionType.Document)
         fmt = QtGui.QTextCharFormat()
-        fmt.setForeground(QtGui.QBrush(QtGui.QColor('#FFD700')))
+        fmt.setForeground(QtGui.QBrush(QtGui.QColor(Colors.ACCENT)))
         doc_cursor.mergeCharFormat(fmt)
         doc_cursor.clearSelection()
         self.setTextCursor(doc_cursor)

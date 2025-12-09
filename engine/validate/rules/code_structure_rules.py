@@ -16,6 +16,7 @@ from engine.graph.common import (
     SIGNAL_SEND_STATIC_INPUTS,
     SIGNAL_NAME_PORT_NAME,
 )
+from engine.graph.ir.arg_normalizer import is_reserved_argument
 from engine.signal import get_default_signal_repository
 
 from ..context import ValidationContext
@@ -324,6 +325,7 @@ class SignalParamNamesRule(ValidationRule):
 
         file_path: Path = ctx.file_path
         tree = get_cached_module(ctx)
+        module_constant_strings = _collect_module_constant_strings(tree)
 
         # 加载全局信号定义视图（来自代码级 Schema 视图或内置常量）。
         repo = get_default_signal_repository()
@@ -354,8 +356,10 @@ class SignalParamNamesRule(ValidationRule):
                     if name != SIGNAL_NAME_PORT_NAME:
                         continue
                     value = getattr(kw, "value", None)
-                    if isinstance(value, ast.Constant) and isinstance(getattr(value, "value", None), str):
-                        signal_key = value.value.strip()  # type: ignore[attr-defined]
+                    signal_key = _extract_signal_name_from_value(
+                        value,
+                        module_constant_strings,
+                    )
                     break
 
                 if not signal_key:
@@ -441,6 +445,46 @@ class SignalParamNamesRule(ValidationRule):
                 )
 
         return issues
+
+
+def _collect_module_constant_strings(tree: ast.AST) -> Dict[str, str]:
+    """收集模块顶层的字符串常量声明，支持普通与注解赋值。"""
+    constant_strings: Dict[str, str] = {}
+    module_body = getattr(tree, "body", []) or []
+    for node in module_body:
+        target_names: List[str] = []
+        value_node = None
+        if isinstance(node, ast.Assign):
+            value_node = getattr(node, "value", None)
+            for target in getattr(node, "targets", []) or []:
+                if isinstance(target, ast.Name):
+                    target_names.append(target.id)
+        elif isinstance(node, ast.AnnAssign):
+            value_node = getattr(node, "value", None)
+            target = getattr(node, "target", None)
+            if isinstance(target, ast.Name):
+                target_names.append(target.id)
+        if not target_names or not isinstance(value_node, ast.Constant):
+            continue
+        if not isinstance(getattr(value_node, "value", None), str):
+            continue
+        constant_text = value_node.value.strip()
+        if not constant_text:
+            continue
+        for target_name in target_names:
+            if target_name and target_name not in constant_strings:
+                constant_strings[target_name] = constant_text
+    return constant_strings
+
+
+def _extract_signal_name_from_value(value_node: ast.AST | None, constant_strings: Dict[str, str]) -> str:
+    """解析“信号名”参数的取值：直接字面量或顶层命名常量。"""
+    if isinstance(value_node, ast.Constant) and isinstance(getattr(value_node, "value", None), str):
+        return value_node.value.strip()
+    if isinstance(value_node, ast.Name):
+        referenced_text = constant_strings.get(value_node.id, "")
+        return referenced_text.strip()
+    return ""
 
 
 def _is_constant_var_declaration(node: ast.AST) -> bool:
@@ -641,11 +685,11 @@ class EventNameRule(ValidationRule):
 
 
 class TypeNameRule(ValidationRule):
-    """类型名合法性校验：节点图代码中的中文类型注解/节点图变量声明必须使用已支持的数据类型。
+    """类型名合法性校验：节点图代码中的中文类型注解与代码级图变量声明必须使用受支持的数据类型。
 
     能力：
+    - 检查文件顶部 GRAPH_VARIABLES 清单中声明的图变量类型名
     - 检查函数体内 AnnAssign 形式的中文字符串类型注解（例如：x: "整数" = ...）
-    - 检查文件头 docstring 中“节点图变量：”段落里声明的类型名
     - 类型集合统一来源于：数据类型规则、结构体支持类型、节点库端口类型
     """
 
@@ -713,71 +757,6 @@ class TypeNameRule(ValidationRule):
                         message,
                     )
                 )
-
-        return issues
-
-    def _check_docstring_graph_var_types(
-        self,
-        doc: str,
-        file_path: Path,
-        allowed_types: Set[str],
-        at_node: ast.AST,
-    ) -> List[EngineIssue]:
-        """解析文件头注释中的“节点图变量：”段落并校验每个变量声明的类型名。"""
-        lines = [ln.strip() for ln in doc.splitlines()]
-        in_vars_block = False
-        issues: List[EngineIssue] = []
-
-        for line in lines:
-            if not in_vars_block:
-                if line.startswith("节点图变量") or line.startswith("graph_variables"):
-                    in_vars_block = True
-                continue
-
-            if not line:
-                continue
-
-            if not line.startswith("-"):
-                # 一旦离开以 "-" 开头的列表段落，就停止解析节点图变量部分
-                break
-
-            entry = line[1:].strip()
-            entry = entry.replace("[对外暴露]", "").strip()
-            if ":" not in entry:
-                continue
-
-            name_part, tail = entry.split(":", 1)
-            var_name = name_part.strip().split()[0]
-            type_and_default = tail.strip()
-            if not type_and_default:
-                continue
-
-            type_text = type_and_default
-            if "=" in type_text:
-                type_text = type_text.split("=", 1)[0].strip()
-            # 去掉可能跟随在类型名后的说明，例如 "[仅作为结构体字段的镜像]" 等
-            if "[" in type_text:
-                type_text = type_text.split("[", 1)[0].strip()
-
-            if not type_text:
-                continue
-            if type_text in allowed_types:
-                continue
-
-            message = (
-                f"节点图变量『{var_name}』在文件头声明中使用了未知类型名『{type_text}』；"
-                "请使用节点图支持的数据类型（例如：整数、字符串、布尔值、实体、结构体等），"
-                "或在类型配置与节点定义中新增该类型后再使用。"
-            )
-            issues.append(
-                create_rule_issue(
-                    self,
-                    file_path,
-                    at_node,
-                    "DOC_UNKNOWN_TYPE_NAME",
-                    message,
-                )
-            )
 
         return issues
 
@@ -883,4 +862,84 @@ def _is_literal_expression(expr: ast.AST | None) -> bool:
     if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, (ast.USub, ast.UAdd)) and isinstance(expr.operand, ast.Constant):
         return True
     return False
+
+
+class LocalVarInitialValueRule(ValidationRule):
+    """【获取局部变量】初始值校验：显式调用时必须提供『初始值』。
+
+    场景：
+    - 在 Graph Code 或复合节点类格式中，程序员可以直接调用【获取局部变量】；
+    - 若未为参数『初始值』提供值（既无关键字“初始值=...”，也无非保留位置参数），
+      则局部变量在首次写入前处于未定义状态，容易导致后续逻辑依赖空值。
+
+    规则：
+    - 针对代码中显式出现的【获取局部变量(...)】调用：
+      - 必须提供关键字参数 `初始值=...`，或在保留参数（self/game/owner_entity/self.game/self.owner_entity）之后
+        传入一个非 None 的位置参数；
+      - 显式传入 None（例如 `初始值=None` 或第二个参数为 `None`）视为未配置初始值。
+    """
+
+    rule_id = "engine_code_local_var_initial"
+    category = "代码规范"
+    default_level = "error"
+
+    def apply(self, ctx: ValidationContext) -> List[EngineIssue]:
+        if ctx.file_path is None:
+            return []
+
+        file_path: Path = ctx.file_path
+        tree = get_cached_module(ctx)
+        issues: List[EngineIssue] = []
+
+        for _, method in iter_class_methods(tree):
+            for node in ast.walk(method):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = getattr(node, "func", None)
+                if not isinstance(func, ast.Name) or func.id != "获取局部变量":
+                    continue
+
+                if self._has_valid_initial_arg(node):
+                    continue
+
+                msg = (
+                    f"{line_span_text(node)}: 【获取局部变量】必须为参数『初始值』提供有效的默认值；"
+                    "请使用关键字形式“初始值=...”或在保留参数之后提供一个非 None 的数据参数，"
+                    "避免在首次使用前局部变量为未定义值。"
+                )
+                issues.append(
+                    create_rule_issue(
+                        self,
+                        file_path,
+                        node,
+                        "CODE_LOCAL_VAR_INITIAL_REQUIRED",
+                        msg,
+                    )
+                )
+
+        return issues
+
+    def _has_valid_initial_arg(self, call: ast.Call) -> bool:
+        """判断【获取局部变量】调用是否为『初始值』提供了有效参数。"""
+        # 1) 优先检查关键字参数 “初始值”
+        for kw in getattr(call, "keywords", []) or []:
+            if kw.arg != "初始值":
+                continue
+            value = getattr(kw, "value", None)
+            # 显式 None 视为未设置
+            if isinstance(value, ast.Constant) and getattr(value, "value", None) is None:
+                return False
+            return True
+
+        # 2) 若无关键字参数，检查是否存在非保留的位置参数
+        for arg in getattr(call, "args", []) or []:
+            if is_reserved_argument(arg):
+                continue
+            # 显式 None 视为未配置初始值
+            if isinstance(arg, ast.Constant) and getattr(arg, "value", None) is None:
+                return False
+            return True
+
+        # 既没有“初始值”关键字，也没有任何非保留数据参数 → 视为未提供初始值
+        return False
 

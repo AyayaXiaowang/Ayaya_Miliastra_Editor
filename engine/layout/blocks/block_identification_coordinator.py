@@ -1,11 +1,11 @@
 """
 块识别协调器
 
-负责协调基本块的识别过程，包括：
-- 递归识别流程节点序列
-- 调用块内布局
-- 分配块颜色和序号
-- 处理分支递归
+负责协调基本块的识别过程，支持两阶段布局：
+- 阶段1：只识别流程节点，创建LayoutBlock框架
+- 阶段2：在全局复制完成后，放置数据节点并计算坐标
+
+新流程将复制逻辑从块内移到全局阶段，解决复制时机问题。
 """
 
 from __future__ import annotations
@@ -40,7 +40,9 @@ from .data_chain_enumerator import DataChainEnumerator
 from .data_node_placer import DataNodePlacer
 from ..utils.coordinate_assigner import CoordinateAssigner
 from .block_bounds_calculator import BlockBoundsCalculator
+
 SharedEdgeIndexMap = Dict[str, CopyOnWriteEdgeIndex]
+
 
 @dataclass(frozen=True)
 class _BlockLayoutScalars:
@@ -63,8 +65,22 @@ def _make_block_layout_scalars(node_width: float, node_height: float) -> _BlockL
     )
 
 
+@dataclass
+class BlockContextCache:
+    """缓存块的上下文信息，用于阶段2"""
+    context: BlockLayoutContext
+    flow_node_ids: List[str]
+    event_metadata: Optional[Tuple[Optional[str], Optional[str]]]
+    scalars: _BlockLayoutScalars
+
+
 class BlockLayoutExecutor:
-    """负责准备块上下文并串联块内布局管线。"""
+    """负责准备块上下文并串联块内布局管线。
+    
+    支持两阶段布局：
+    - 阶段1：identify_flow_only() - 只识别流程节点，创建LayoutBlock框架
+    - 阶段2：layout_data_phase() - 放置数据节点并计算坐标
+    """
 
     def __init__(
         self,
@@ -82,38 +98,122 @@ class BlockLayoutExecutor:
         self.block_padding = block_padding
         self._shared_edge_indices_provider = shared_edge_indices_provider
         self._scalars_cache: Optional[_BlockLayoutScalars] = None
-        self._enable_copy = bool(getattr(settings, "DATA_NODE_CROSS_BLOCK_COPY", False))
+        
+        # 缓存每个块的上下文，用于阶段2
+        self._block_context_cache: Dict[int, BlockContextCache] = {}
 
     def _get_cached_scalars(self) -> _BlockLayoutScalars:
         if self._scalars_cache is None:
             self._scalars_cache = _make_block_layout_scalars(self.node_width, self.node_height)
         return self._scalars_cache
 
-    def layout_block(
+    def identify_flow_only(
         self,
         flow_node_ids: List[str],
-        global_visited: Set[str],
         block_order_index: int,
         event_metadata: Optional[Tuple[Optional[str], Optional[str]]] = None,
-    ) -> Tuple["LayoutBlock", List[str]]:
+    ) -> LayoutBlock:
+        """阶段1：只识别流程节点，创建LayoutBlock框架（不放置数据节点）
+        
+        Args:
+            flow_node_ids: 流程节点ID列表
+            block_order_index: 块序号
+            event_metadata: 事件元数据
+            
+        Returns:
+            只包含流程节点的LayoutBlock
+        """
         scalars = self._get_cached_scalars()
-        context = self._prepare_block_context(
+        
+        # 创建块上下文（不放置数据节点）
+        context = self._prepare_block_context_minimal(
             flow_node_ids,
-            global_visited,
             block_order_index,
             event_metadata=event_metadata,
             scalars=scalars,
         )
-        return self._run_block_layout_pipeline(context, flow_node_ids, block_order_index, scalars)
+        
+        # 缓存上下文，供阶段2使用
+        self._block_context_cache[block_order_index] = BlockContextCache(
+            context=context,
+            flow_node_ids=flow_node_ids,
+            event_metadata=event_metadata,
+            scalars=scalars,
+        )
+        
+        # 创建只包含流程节点的LayoutBlock
+        layout_block = LayoutBlock()
+        layout_block.flow_nodes = list(flow_node_ids)
+        layout_block.data_nodes = []
+        layout_block.node_local_pos = {}
+        layout_block.width = 0.0
+        layout_block.height = 0.0
+        layout_block.node_width = self.node_width
+        layout_block.event_root_id = event_metadata[0] if event_metadata else None
+        
+        # 收集分支信息（用于递归识别下一个块）
+        if flow_node_ids:
+            seen_targets: Set[str] = set()
+            deduplicated_branches: List[Tuple[str, str]] = []
+            for flow_node_id in flow_node_ids:
+                ordered_edges = get_ordered_flow_out_edges(self.global_layout_ctx, flow_node_id)
+                if not ordered_edges:
+                    continue
+                for port_name, target_id in ordered_edges:
+                    if target_id in flow_node_ids:
+                        continue
+                    if target_id in seen_targets:
+                        continue
+                    seen_targets.add(target_id)
+                    deduplicated_branches.append((port_name, target_id))
+            layout_block.last_node_branches = deduplicated_branches
+        
+        return layout_block
 
-    def _prepare_block_context(
+    def layout_data_phase(
+        self,
+        block: LayoutBlock,
+        block_data_nodes: Set[str],
+    ) -> None:
+        """阶段2：放置数据节点并计算坐标
+        
+        Args:
+            block: 阶段1创建的LayoutBlock
+            block_data_nodes: 该块应放置的数据节点ID集合（由全局复制管理器提供）
+        """
+        block_order_index = block.order_index
+        cached = self._block_context_cache.get(block_order_index)
+        
+        if cached is None:
+            # 回退：如果没有缓存，直接返回（不应该发生）
+            return
+        
+        context = cached.context
+        flow_node_ids = cached.flow_node_ids
+        scalars = cached.scalars
+        
+        # 将全局复制阶段确定的数据节点设置到上下文
+        context.set_block_data_nodes(block_data_nodes)
+        
+        # 执行数据节点放置和坐标计算管线
+        self._run_data_placement_pipeline(context, block, flow_node_ids, scalars)
+        
+        # 更新调试信息
+        current_map = getattr(self.model, "_layout_y_debug_info", None)
+        if current_map is None:
+            current_map = {}
+            setattr(self.model, "_layout_y_debug_info", current_map)
+        for node_id, info in context.debug_y_info.items():
+            current_map[node_id] = info
+
+    def _prepare_block_context_minimal(
         self,
         flow_node_ids: List[str],
-        global_visited: Set[str],
         block_order_index: int,
         event_metadata: Optional[Tuple[Optional[str], Optional[str]]] = None,
         scalars: Optional[_BlockLayoutScalars] = None,
-    ) -> "BlockLayoutContext":
+    ) -> BlockLayoutContext:
+        """创建最小化的块上下文（用于阶段1）"""
         scalars = scalars or self._get_cached_scalars()
         shared_edge_indices = self._shared_edge_indices_provider() if self._shared_edge_indices_provider else None
         event_root_id: Optional[str] = None
@@ -133,7 +233,7 @@ class BlockLayoutExecutor:
             ui_node_header_height=UI_NODE_HEADER_HEIGHT,
             ui_row_height=UI_ROW_HEIGHT,
             input_port_to_data_gap=INPUT_PORT_TO_DATA_GAP_DEFAULT,
-            skip_data_node_ids=global_visited,
+            skip_data_node_ids=None,  # 新流程不需要 skip_data_ids
             global_layout_context=ctx_global,
             block_order_index=block_order_index,
             event_flow_title=event_title,
@@ -141,31 +241,33 @@ class BlockLayoutExecutor:
             shared_edge_indices=shared_edge_indices,
         )
 
-    def _run_block_layout_pipeline(
+    def _run_data_placement_pipeline(
         self,
-        context: "BlockLayoutContext",
+        context: BlockLayoutContext,
+        block: LayoutBlock,
         flow_node_ids: List[str],
-        block_order_index: int,
         scalars: _BlockLayoutScalars,
-    ) -> Tuple["LayoutBlock", List[str]]:
+    ) -> None:
+        """执行数据节点放置和坐标计算管线"""
         slot_width = scalars.slot_width
         flow_y = scalars.flow_y
         data_y_spacing = scalars.data_y_spacing
 
+        # 枚举数据链
         chain_enum = DataChainEnumerator(context)
         chain_enum.enumerate_all_chains()
 
+        # 放置数据节点（不启用块内复制，复制已在全局阶段完成）
         data_placer = DataNodePlacer(
             context,
             count_outgoing_data_edges,
-            block_id=f"block_{block_order_index}",
-            enable_copy=self._enable_copy,
+            block_id=f"block_{block.order_index}",
+            enable_copy=False,  # 禁用块内复制
         )
         data_placer.place_all_data_nodes(placement_instructions=chain_enum.placement_instructions)
-        data_placer.finalize_redirects_for_copies()
-        data_placer.propagate_chain_indices_to_copies()
         data_placer.apply_chain_based_stack_order()
 
+        # 分配坐标
         coordinate_assigner = CoordinateAssigner(
             context,
             slot_width,
@@ -174,9 +276,11 @@ class BlockLayoutExecutor:
         )
         coordinate_assigner.assign_all_coordinates()
 
+        # 计算边界
         bounds_calculator = BlockBoundsCalculator(context, self.block_padding)
         width, height = bounds_calculator.compute_and_normalize()
 
+        # 更新LayoutBlock
         shared_nodes = context.shared_data_nodes
         filtered_data_nodes = (
             [node_id for node_id in context.data_nodes_in_order if node_id not in shared_nodes]
@@ -194,66 +298,25 @@ class BlockLayoutExecutor:
             else dict(context.node_local_pos)
         )
 
-        layout_block = LayoutBlock()
-        layout_block.flow_nodes = list(flow_node_ids)
-        layout_block.data_nodes = filtered_data_nodes
-        layout_block.node_local_pos = filtered_local_pos
-        layout_block.width = width
-        layout_block.height = height
-        layout_block.node_width = context.node_width
-        layout_block.event_root_id = context.event_flow_id
+        block.data_nodes = filtered_data_nodes
+        block.node_local_pos = filtered_local_pos
+        block.width = width
+        block.height = height
 
-        if flow_node_ids:
-            seen_targets: Set[str] = set()
-            deduplicated_branches: List[Tuple[str, str]] = []
-            for flow_node_id in flow_node_ids:
-                ordered_edges = get_ordered_flow_out_edges(self.global_layout_ctx, flow_node_id)
-                if not ordered_edges:
-                    continue
-                for port_name, target_id in ordered_edges:
-                    if target_id in flow_node_ids:
-                        continue
-                    if target_id in seen_targets:
-                        continue
-                    seen_targets.add(target_id)
-                    deduplicated_branches.append((port_name, target_id))
-            if deduplicated_branches:
-                layout_block.last_node_branches = deduplicated_branches
-
-        current_map = getattr(self.model, "_layout_y_debug_info", None)
-        if current_map is None:
-            current_map = {}
-            setattr(self.model, "_layout_y_debug_info", current_map)
-        for node_id, info in context.debug_y_info.items():
-            current_map[node_id] = info
-
-        data_nodes_for_visit: List[str] = []
-        seen_data_nodes: Set[str] = set()
-        for node_id in context.data_nodes_in_order:
-            if node_id in shared_nodes:
-                continue
-            if node_id in seen_data_nodes:
-                continue
-            seen_data_nodes.add(node_id)
-            data_nodes_for_visit.append(node_id)
-        for node_id in context.placed_data_nodes:
-            if node_id in shared_nodes:
-                continue
-            if node_id in seen_data_nodes:
-                continue
-            seen_data_nodes.add(node_id)
-            data_nodes_for_visit.append(node_id)
-
-        return layout_block, data_nodes_for_visit
 
 class BlockIdentificationCoordinator:
-    """块识别协调器"""
+    """块识别协调器
+    
+    支持两阶段布局：
+    - 阶段1：identify_blocks_flow_only() - 只识别流程节点
+    - 阶段2：layout_block_data_phase() - 放置数据节点并计算坐标
+    """
 
     def __init__(
         self,
         model: GraphModel,
         global_layout_ctx: LayoutContext,
-        layout_blocks: List["LayoutBlock"],
+        layout_blocks: List[LayoutBlock],
         colors: List[str],
         node_width: float,
         node_height: float,
@@ -284,32 +347,31 @@ class BlockIdentificationCoordinator:
         else:
             self._event_title_lookup = build_event_title_lookup(self.model)
 
-        shared_indices_provider = self._ensure_shared_edge_indices if getattr(
-            settings, "DATA_NODE_CROSS_BLOCK_COPY", False
-        ) else None
+        # 不再使用 shared_edge_indices_provider，因为复制逻辑移到全局阶段
         self._layout_executor = BlockLayoutExecutor(
             model=self.model,
             global_layout_ctx=self.global_layout_ctx,
             node_width=self.node_width,
             node_height=self.node_height,
             block_padding=self.block_padding,
-            shared_edge_indices_provider=shared_indices_provider,
+            shared_edge_indices_provider=None,
         )
         setattr(self.model, "_layout_y_debug_info", {})
 
-    def identify_and_layout_blocks(
+    def identify_blocks_flow_only(
         self,
         start_node_id: str,
         global_visited: Set[str],
         event_root_id: Optional[str] = None,
         event_title: Optional[str] = None,
     ) -> None:
-        """
-        递归识别基本块并进行块内布局（委托两个纯函数完成识别/布局）
+        """阶段1：递归识别基本块的流程节点（不放置数据节点）
         
         Args:
             start_node_id: 起始节点ID
             global_visited: 全局已访问节点集合
+            event_root_id: 事件根节点ID
+            event_title: 事件标题
         """
         if start_node_id in global_visited:
             return
@@ -323,7 +385,7 @@ class BlockIdentificationCoordinator:
             metadata = (event_root_id, resolved_title)
             self._event_metadata_cache[event_root_id] = metadata
 
-        # 阶段1：识别流程节点序列（纯函数，传入 layout_context 优化边查询）
+        # 识别流程节点序列
         current_block_nodes = identify_block_flow_nodes(
             self.model,
             start_node_id,
@@ -341,12 +403,11 @@ class BlockIdentificationCoordinator:
         for node_id in current_block_nodes:
             global_visited.add(node_id)
 
-        # 阶段2：块内局部布局（纯函数）
+        # 阶段1：只识别流程节点，创建LayoutBlock框架
         block_order_index = self._block_sequence
-        layout_block, placed_data_nodes = self._layout_block_internal(
+        layout_block = self._layout_executor.identify_flow_only(
             current_block_nodes,
-            global_visited,
-            block_order_index=block_order_index,
+            block_order_index,
             event_metadata=metadata,
         )
 
@@ -356,72 +417,30 @@ class BlockIdentificationCoordinator:
         layout_block.order_index = block_order_index
         self._block_sequence += 1
 
-        # 记录块内数据节点为已访问，避免跨块重复
-        for data_node_id in placed_data_nodes:
-            global_visited.add(data_node_id)
-
         self.layout_blocks.append(layout_block)
 
         # 递归处理分支
         for _, next_node_id in layout_block.last_node_branches:
             if metadata:
-                self.identify_and_layout_blocks(next_node_id, global_visited, metadata[0], metadata[1])
+                self.identify_blocks_flow_only(next_node_id, global_visited, metadata[0], metadata[1])
             else:
-                self.identify_and_layout_blocks(next_node_id, global_visited)
+                self.identify_blocks_flow_only(next_node_id, global_visited)
 
-    def _layout_block_internal(
+    def layout_block_data_phase(
         self,
-        flow_node_ids: List[str],
-        global_visited: Set[str],
-        block_order_index: int = 0,
-        event_metadata: Optional[Tuple[Optional[str], Optional[str]]] = None,
-    ) -> Tuple["LayoutBlock", List[str]]:
-        """
-        基于已识别的流程节点序列，完成"块内局部布局与边界计算"（纯函数）
-        
-        本函数作为协调器，将布局任务委派给专门的类来完成。
-        返回（布局块，块内放置的数据节点集合）。
+        block: LayoutBlock,
+        block_data_nodes: Set[str],
+    ) -> None:
+        """阶段2：为指定块放置数据节点并计算坐标
         
         Args:
-            flow_node_ids: 流程节点ID列表
-            global_visited: 全局已访问节点集合
-            block_order_index: 块序号
-            
-        Returns:
-            (布局块, 块内数据节点ID列表)
+            block: 阶段1创建的LayoutBlock
+            block_data_nodes: 该块应放置的数据节点ID集合
         """
-        resolved_metadata = event_metadata or self._resolve_event_metadata(flow_node_ids)
-
-        return self._layout_executor.layout_block(
-            flow_node_ids=flow_node_ids,
-            global_visited=global_visited,
-            block_order_index=block_order_index,
-            event_metadata=resolved_metadata,
-        )
-
-    def _ensure_shared_edge_indices(self) -> SharedEdgeIndexMap:
-        """
-        构建（或返回已有的）可变边索引副本，供跨块复制场景共享。
-        """
-        if self._shared_edge_indices is not None:
-            return self._shared_edge_indices
-
-        def _clone_index(index: Dict[str, List[Any]]) -> CopyOnWriteEdgeIndex:
-            return CopyOnWriteEdgeIndex(index)
-
-        layout_ctx = self.global_layout_ctx
-        self._shared_edge_indices = {
-            "data_in_edges_by_dst": _clone_index(layout_ctx.dataInByNode),
-            "data_out_edges_by_src": _clone_index(layout_ctx.dataOutByNode),
-            "flow_in_edges_by_dst": _clone_index(layout_ctx.flowInByNode),
-            "flow_out_edges_by_src": _clone_index(layout_ctx.flowOutByNode),
-        }
-        return self._shared_edge_indices
+        self._layout_executor.layout_data_phase(block, block_data_nodes)
 
     def _resolve_event_metadata(self, flow_node_ids: List[str]) -> Tuple[Optional[str], Optional[str]]:
-        """
-        获取块所属事件流的 ID 与标题，优先使用缓存避免重复回溯。
-        """
+        """获取块所属事件流的 ID 与标题，优先使用缓存避免重复回溯。"""
         for flow_node_id in flow_node_ids:
             cached_value = self._event_metadata_cache.get(flow_node_id)
             if cached_value is not None:
@@ -437,9 +456,7 @@ class BlockIdentificationCoordinator:
         return self._compute_event_metadata(flow_node_ids)
 
     def _compute_event_metadata(self, flow_node_ids: List[str]) -> Tuple[Optional[str], Optional[str]]:
-        """
-        回溯到事件节点并批量缓存结果，避免后续块重复遍历。
-        """
+        """回溯到事件节点并批量缓存结果，避免后续块重复遍历。"""
         visited_nodes: Set[str] = set()
         traversal_queue: deque[str] = deque(flow_node_ids)
         resolved_event_id: Optional[str] = None
@@ -486,4 +503,3 @@ class BlockIdentificationCoordinator:
             fallback_title=fallback_title,
             title_lookup=self._event_title_lookup,
         )
-

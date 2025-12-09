@@ -1,6 +1,6 @@
 """元数据提取工具
 
-从节点图代码的docstring中提取元数据信息。
+从节点图代码中提取元数据：基础信息依赖 docstring，图变量仅支持代码级 GRAPH_VARIABLES。
 """
 from __future__ import annotations
 
@@ -28,75 +28,6 @@ class GraphMetadata:
     node_name: str = ""
     node_description: str = ""
     scope: str = "server"
-
-
-def _parse_dict_type_tag(tag_content: str) -> tuple[Optional[str], Optional[str]]:
-    """从方括号标签中解析“字典键/值类型”声明。
-
-    支持格式示例（中英文分隔符均可）：
-    - [键类型=整数, 值类型=字符串]
-    - [键类型: GUID，值类型: 结构体]
-    - [key_type=整数, value_type=字符串]
-
-    返回 (key_type_name, value_type_name)，若未解析到则对应位置为 None。
-    """
-    key_type_name: Optional[str] = None
-    value_type_name: Optional[str] = None
-
-    text = tag_content.strip()
-    if not text:
-        return key_type_name, value_type_name
-
-    normalized_text = text.replace("，", ",")
-    segments = [segment.strip() for segment in normalized_text.split(",") if segment.strip()]
-
-    for segment in segments:
-        segment_normalized = segment.replace("：", ":")
-        lower_segment = segment_normalized.lower()
-
-        if "键类型" in segment_normalized or "键数据类型" in segment_normalized or "key_type" in lower_segment:
-            if "=" in segment_normalized:
-                _, rhs = segment_normalized.split("=", 1)
-            elif ":" in segment_normalized:
-                _, rhs = segment_normalized.split(":", 1)
-            else:
-                continue
-            candidate = rhs.strip().strip('"').strip("'")
-            if candidate:
-                key_type_name = candidate
-            continue
-
-        if "值类型" in segment_normalized or "值数据类型" in segment_normalized or "value_type" in lower_segment:
-            if "=" in segment_normalized:
-                _, rhs = segment_normalized.split("=", 1)
-            elif ":" in segment_normalized:
-                _, rhs = segment_normalized.split(":", 1)
-            else:
-                continue
-            candidate = rhs.strip().strip('"').strip("'")
-            if candidate:
-                value_type_name = candidate
-            continue
-
-    return key_type_name, value_type_name
-
-
-def _strip_string_literal_quotes(raw_value: str) -> str:
-    """去掉围绕在默认值外层的一对字符串引号。
-
-    仅在同时满足以下条件时才会生效：
-    - 文本长度至少为 2；
-    - 首尾字符相同且为单引号或双引号。
-
-    示例：
-    - '"1077936132"' -> '1077936132'
-    - "'文本'" -> '文本'
-    - '未加引号' -> 原样返回
-    """
-    text = raw_value.strip()
-    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
-        return text[1:-1]
-    return text
 
 
 def parse_dynamic_ports(ports_str: str) -> Dict[str, List[str]]:
@@ -138,10 +69,6 @@ def extract_metadata_from_docstring(docstring: str) -> GraphMetadata:
     graph_type: server
     description: 实现压力板的上下移动
     dynamic_ports: node_3=[分支1,分支2], node_5=[选项A]
-    
-    节点图变量：
-    - 初始位置: 三维向量 = (0, 0, 0)
-    - 触发次数: 整数 = 0
     ```
     
     Args:
@@ -156,92 +83,16 @@ def extract_metadata_from_docstring(docstring: str) -> GraphMetadata:
         return metadata
     
     lines = docstring.strip().split('\n')
-    in_variables_section = False
     
     for line in lines:
         line = line.strip()
-        
-        # 检查是否进入节点图变量区域
+
         if line.startswith("节点图变量") or line.startswith("graph_variables"):
-            in_variables_section = True
+            # 图变量不再从 docstring 解析，跳过此段落
             continue
-        
-        # 解析节点图变量
-        if in_variables_section and line.startswith('-'):
-            # 格式：- 变量名: 类型 = 默认值 [对外暴露] [说明...]
-            var_line = line[1:].strip()
 
-            # 先处理尾部方括号标签，避免污染默认值
-            is_exposed = False
-            description_text = ""
-            dict_key_type_name: Optional[str] = None
-            dict_value_type_name: Optional[str] = None
-            while var_line.endswith(']'):
-                lb = var_line.rfind('[')
-                if lb == -1:
-                    break
-                tag_content = var_line[lb + 1 : -1].strip()
-                if not tag_content:
-                    # 兼容空的 [] 写法，视为默认值一部分
-                    break
-
-                tag_handled = False
-
-                if '对外暴露' in tag_content:
-                    is_exposed = True
-                    tag_handled = True
-
-                key_type_candidate, value_type_candidate = _parse_dict_type_tag(tag_content)
-                if key_type_candidate is not None:
-                    dict_key_type_name = key_type_candidate
-                    tag_handled = True
-                if value_type_candidate is not None:
-                    dict_value_type_name = value_type_candidate
-                    tag_handled = True
-
-                if not tag_handled:
-                    description_text = (
-                        f"{description_text}\n{tag_content}" if description_text else tag_content
-                    )
-                var_line = var_line[:lb].rstrip()
-            
-            if ':' in var_line:
-                name_part, rest = var_line.split(':', 1)
-                var_name = name_part.strip()
-                
-                # 解析类型和默认值
-                if '=' in rest:
-                    type_part, value_part = rest.split('=', 1)
-                    var_type = type_part.strip()
-                    default_text = value_part.strip()
-                    if default_text:
-                        default_value = _strip_string_literal_quotes(default_text)
-                    else:
-                        default_value = None
-                else:
-                    var_type = rest.strip()
-                    default_value = None
-
-                variable_entry: Dict[str, Any] = {
-                    "name": var_name,
-                    "variable_type": var_type,
-                    "default_value": default_value,
-                    "description": description_text,
-                    "is_exposed": is_exposed,
-                }
-
-                normalized_var_type = var_type.strip()
-                if normalized_var_type == "字典":
-                    if dict_key_type_name is not None:
-                        variable_entry["dict_key_type"] = dict_key_type_name
-                    if dict_value_type_name is not None:
-                        variable_entry["dict_value_type"] = dict_value_type_name
-
-                metadata.graph_variables.append(variable_entry)
-            continue
-        
         # 解析元数据字段
-        if ':' in line and not in_variables_section:
+        if ':' in line:
             key, value = line.split(':', 1)
             key = key.strip().lower()
             value = value.strip()
@@ -439,10 +290,10 @@ def extract_graph_variables_from_ast(tree: ast.Module) -> List[Dict[str, Any]]:
 
 
 def extract_metadata_from_code(code: str) -> GraphMetadata:
-    """从代码字符串中提取元数据（支持 docstring 与 GRAPH_VARIABLES 双来源）。
+    """从代码字符串中提取元数据：基础字段来自 docstring，图变量仅读取代码级 GRAPH_VARIABLES。
 
-    优先从 docstring 解析基础元数据；若代码中存在 GRAPH_VARIABLES 声明，
-    则以代码级声明覆盖 docstring 中的节点图变量列表。
+    优先从 docstring 解析 graph_id / graph_name 等基础信息；图变量清单始终依赖
+    模块顶层的 GRAPH_VARIABLES 声明（若未声明则保持为空列表）。
     """
     tree = ast.parse(code)
     docstring = ast.get_docstring(tree)

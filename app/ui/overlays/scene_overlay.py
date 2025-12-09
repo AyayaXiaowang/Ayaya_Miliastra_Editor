@@ -9,6 +9,7 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, Dict, List
 from ui.overlays.text_layout import GridOccupancyIndex
+from ui.graph.graph_palette import GraphPalette
 
 
 class SceneOverlayMixin:
@@ -107,9 +108,9 @@ class SceneOverlayMixin:
                         icon_size
                     )
                     painter.setPen(QtCore.Qt.PenStyle.NoPen)
-                    painter.setBrush(QtGui.QBrush(QtGui.QColor('#FFAA00')))
+                    painter.setBrush(QtGui.QBrush(QtGui.QColor(GraphPalette.BADGE_ACCENT)))
                     painter.drawEllipse(icon_rect)
-                    pen = QtGui.QPen(QtGui.QColor(QtCore.Qt.GlobalColor.white))
+                    pen = QtGui.QPen(QtGui.QColor(GraphPalette.TEXT_BRIGHT))
                     painter.setPen(pen)
                     font = painter.font()
                     font.setBold(True)
@@ -137,15 +138,15 @@ class SceneOverlayMixin:
                         badge_size
                     )
                     # 背景(圆形) + 边框描边
-                    painter.setPen(QtGui.QPen(QtGui.QColor('#000000'), 3))
-                    painter.setBrush(QtGui.QBrush(QtGui.QColor('#FFD400')))
+                    painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.BADGE_OUTLINE), 3))
+                    painter.setBrush(QtGui.QBrush(QtGui.QColor(GraphPalette.BADGE_FILL)))
                     painter.drawEllipse(badge_rect)
                     # 文字(黑色加粗,居中)
                     font = painter.font()
                     font.setBold(True)
                     font.setPointSizeF(12.0)
                     painter.setFont(font)
-                    painter.setPen(QtGui.QPen(QtGui.QColor('#000000')))
+                    painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.BADGE_OUTLINE)))
                     painter.drawText(badge_rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(int(order_index)))
                 painter.restore()
             # 全链路高亮:为相关节点绘制彩色描边
@@ -178,15 +179,15 @@ class SceneOverlayMixin:
                             badge_size,
                             badge_size
                         )
-                        badge_color = self._all_chain_node_color_map.get(node_id, QtGui.QColor('#FFD400'))
-                        painter.setPen(QtGui.QPen(QtGui.QColor('#000000'), 3))
+                        badge_color = self._all_chain_node_color_map.get(node_id, QtGui.QColor(GraphPalette.BADGE_FILL))
+                        painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.BADGE_OUTLINE), 3))
                         painter.setBrush(QtGui.QBrush(badge_color))
                         painter.drawEllipse(badge_rect)
                         font = painter.font()
                         font.setBold(True)
                         font.setPointSizeF(11.0)
                         painter.setFont(font)
-                        painter.setPen(QtGui.QPen(QtGui.QColor('#000000')))
+                        painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.BADGE_OUTLINE)))
                         painter.drawText(badge_rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(int(chain_id)))
                     painter.restore()
 

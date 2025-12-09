@@ -4,6 +4,7 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtWidgets
 
 from app.models.view_modes import ViewMode, RIGHT_PANEL_TABS
+from ui.graph.library_pages.library_scaffold import LibrarySelection
 from engine.nodes.node_registry import get_node_registry
 
 
@@ -28,6 +29,8 @@ class ModeSwitchMixin:
             return "职业"
         if tab_id == "skill_editor":
             return "技能"
+        if tab_id == "item_editor":
+            return "道具"
         if tab_id == "validation_detail":
             return "详细信息"
         return tab_id
@@ -54,10 +57,18 @@ class ModeSwitchMixin:
             "struct_editor",
             "main_camera_editor",
             "peripheral_system_editor",
+            "equipment_entry_editor",
+            "equipment_tag_editor",
+            "equipment_type_editor",
         ):
             # 信号 / 结构体 / 主镜头 / 外围系统等专用编辑面板仅在管理模式下使用
             return view_mode == ViewMode.MANAGEMENT
-        if tab_id in ("player_editor", "player_class_editor", "skill_editor"):
+        if tab_id in (
+            "player_editor",
+            "player_class_editor",
+            "skill_editor",
+            "item_editor",
+        ):
             # 战斗预设相关详情面板在战斗预设模式下使用，
             # 同时允许在存档库模式下通过选中战斗预设条目临时拉起。
             return view_mode in (ViewMode.COMBAT, ViewMode.PACKAGES)
@@ -78,6 +89,7 @@ class ModeSwitchMixin:
             "player_editor": getattr(self, 'player_editor_panel', None),
             "player_class_editor": getattr(self, 'player_class_panel', None),
             "skill_editor": getattr(self, 'skill_panel', None),
+            "item_editor": getattr(self, 'item_panel', None),
             "validation_detail": getattr(self, 'validation_detail_panel', None),
         }
         # 管理模式下，“界面控件设置”标签由 `_update_ui_settings_tab_for_management` 单独控制，这里不参与集中配置管理
@@ -106,9 +118,13 @@ class ModeSwitchMixin:
             "struct_editor": getattr(self, "struct_definition_panel", None),
             "main_camera_editor": getattr(self, "main_camera_panel", None),
             "peripheral_system_editor": getattr(self, "peripheral_system_panel", None),
+            "equipment_entry_editor": getattr(self, "equipment_entry_panel", None),
+            "equipment_tag_editor": getattr(self, "equipment_tag_panel", None),
+            "equipment_type_editor": getattr(self, "equipment_type_panel", None),
             "player_editor": getattr(self, "player_editor_panel", None),
             "player_class_editor": getattr(self, "player_class_panel", None),
             "skill_editor": getattr(self, "skill_panel", None),
+            "item_editor": getattr(self, "item_panel", None),
         }
         for tab_id, widget in dynamic_tab_map.items():
             if widget is None:
@@ -154,6 +170,70 @@ class ModeSwitchMixin:
             self.right_panel_container.hide()
         else:
             self.right_panel_container.show()
+
+    def _enforce_right_panel_contract(self, view_mode: ViewMode) -> None:
+        """强制右侧标签集与当前模式允许的集合一致，清理越权残留标签。"""
+        if not hasattr(self, "side_tab"):
+            return
+
+        allowed_tab_ids = set(RIGHT_PANEL_TABS.get(view_mode, tuple()))
+        dynamic_candidates = (
+            "property",
+            "management_property",
+            "signal_editor",
+            "struct_editor",
+            "main_camera_editor",
+            "peripheral_system_editor",
+            "equipment_entry_editor",
+            "equipment_tag_editor",
+            "equipment_type_editor",
+            "player_editor",
+            "player_class_editor",
+            "skill_editor",
+            "item_editor",
+        )
+        for tab_id in dynamic_candidates:
+            if self._is_dynamic_tab_allowed_in_mode(tab_id, view_mode):
+                allowed_tab_ids.add(tab_id)
+
+        widget_to_tab_id: dict[QtWidgets.QWidget, str] = {}
+
+        def _add(widget: QtWidgets.QWidget | None, tab_id: str) -> None:
+            if widget is not None:
+                widget_to_tab_id[widget] = tab_id
+
+        _add(getattr(self, "graph_property_panel", None), "graph_property")
+        _add(getattr(self, "composite_property_panel", None), "composite_property")
+        _add(getattr(self, "composite_pin_panel", None), "composite_pins")
+        _add(getattr(self, "ui_control_settings_panel", None), "ui_settings")
+        _add(getattr(self, "execution_monitor_panel", None), "execution_monitor")
+        _add(getattr(self, "player_editor_panel", None), "player_editor")
+        _add(getattr(self, "player_class_panel", None), "player_class_editor")
+        _add(getattr(self, "skill_panel", None), "skill_editor")
+        _add(getattr(self, "item_panel", None), "item_editor")
+        _add(getattr(self, "validation_detail_panel", None), "validation_detail")
+        _add(getattr(self, "property_panel", None), "property")
+        _add(getattr(self, "management_property_panel", None), "management_property")
+        _add(getattr(self, "signal_management_panel", None), "signal_editor")
+        _add(getattr(self, "struct_definition_panel", None), "struct_editor")
+        _add(getattr(self, "main_camera_panel", None), "main_camera_editor")
+        _add(getattr(self, "peripheral_system_panel", None), "peripheral_system_editor")
+        _add(getattr(self, "equipment_entry_panel", None), "equipment_entry_editor")
+        _add(getattr(self, "equipment_tag_panel", None), "equipment_tag_editor")
+        _add(getattr(self, "equipment_type_panel", None), "equipment_type_editor")
+
+        # 倒序移除，避免索引移动影响后续位置
+        for index in range(self.side_tab.count() - 1, -1, -1):
+            widget = self.side_tab.widget(index)
+            tab_id = widget_to_tab_id.get(widget)
+            if tab_id is None:
+                continue
+            if tab_id not in allowed_tab_ids:
+                if self.side_tab.currentWidget() is widget and self.side_tab.count() > 1:
+                    self.side_tab.setCurrentIndex(0)
+                self.side_tab.removeTab(index)
+
+        self._update_right_panel_visibility()
 
     def _switch_to_first_visible_tab(self) -> None:
         """切换到第一个可见且启用的标签"""
@@ -249,6 +329,55 @@ class ModeSwitchMixin:
                     self.side_tab.setCurrentIndex(0)
                 self.side_tab.removeTab(panel_idx)
         self._update_right_panel_visibility()
+
+    def _ensure_equipment_entry_editor_tab_visible(self, should_show: bool) -> None:
+        """按需显示/隐藏“装备词条”编辑标签。"""
+        if not hasattr(self, "side_tab") or not hasattr(self, "equipment_entry_panel"):
+            return
+        panel = self.equipment_entry_panel
+        idx = self.side_tab.indexOf(panel)
+        if should_show:
+            if idx == -1:
+                self.side_tab.addTab(panel, "装备词条")
+        else:
+            if idx != -1:
+                if self.side_tab.currentWidget() is panel and self.side_tab.count() > 1:
+                    self.side_tab.setCurrentIndex(0)
+                self.side_tab.removeTab(idx)
+        self._update_right_panel_visibility()
+
+    def _ensure_equipment_tag_editor_tab_visible(self, should_show: bool) -> None:
+        """按需显示/隐藏“装备标签”编辑标签。"""
+        if not hasattr(self, "side_tab") or not hasattr(self, "equipment_tag_panel"):
+            return
+        panel = self.equipment_tag_panel
+        idx = self.side_tab.indexOf(panel)
+        if should_show:
+            if idx == -1:
+                self.side_tab.addTab(panel, "装备标签")
+        else:
+            if idx != -1:
+                if self.side_tab.currentWidget() is panel and self.side_tab.count() > 1:
+                    self.side_tab.setCurrentIndex(0)
+                self.side_tab.removeTab(idx)
+        self._update_right_panel_visibility()
+
+    def _ensure_equipment_type_editor_tab_visible(self, should_show: bool) -> None:
+        """按需显示/隐藏“装备类型”编辑标签。"""
+        if not hasattr(self, "side_tab") or not hasattr(self, "equipment_type_panel"):
+            return
+        panel = self.equipment_type_panel
+        idx = self.side_tab.indexOf(panel)
+        if should_show:
+            if idx == -1:
+                self.side_tab.addTab(panel, "装备类型")
+        else:
+            if idx != -1:
+                if self.side_tab.currentWidget() is panel and self.side_tab.count() > 1:
+                    self.side_tab.setCurrentIndex(0)
+                self.side_tab.removeTab(idx)
+        self._update_right_panel_visibility()
+
     def _hide_all_management_edit_pages(self, except_key: str | None = None) -> None:
         """在右侧标签中移除除 except_key 外的所有管理编辑页标签。"""
         if not hasattr(self, "side_tab"):
@@ -382,6 +511,72 @@ class ModeSwitchMixin:
         else:
             self._ensure_peripheral_system_editor_tab_visible(False)
 
+    def _ensure_equipment_entry_editor_tab_for_management(self, section_key: str | None = None) -> None:
+        """根据管理面板当前选中的 section，更新“装备词条”编辑标签可见性。"""
+        current_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        if current_mode != ViewMode.MANAGEMENT:
+            if hasattr(self, "_ensure_equipment_entry_editor_tab_visible"):
+                self._ensure_equipment_entry_editor_tab_visible(False)
+            return
+
+        if section_key is None:
+            management_widget = getattr(self, "management_widget", None)
+            if management_widget is not None:
+                getter = getattr(management_widget, "get_current_section_key", None)
+                if callable(getter):
+                    section_key = getter()
+                else:
+                    section_key = getattr(management_widget, "_last_selected_section_key", None)
+
+        if section_key == "equipment_entries":
+            self._ensure_equipment_entry_editor_tab_visible(True)
+        else:
+            self._ensure_equipment_entry_editor_tab_visible(False)
+
+    def _ensure_equipment_tag_editor_tab_for_management(self, section_key: str | None = None) -> None:
+        """根据管理面板当前选中的 section，更新“装备标签”编辑标签可见性。"""
+        current_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        if current_mode != ViewMode.MANAGEMENT:
+            if hasattr(self, "_ensure_equipment_tag_editor_tab_visible"):
+                self._ensure_equipment_tag_editor_tab_visible(False)
+            return
+
+        if section_key is None:
+            management_widget = getattr(self, "management_widget", None)
+            if management_widget is not None:
+                getter = getattr(management_widget, "get_current_section_key", None)
+                if callable(getter):
+                    section_key = getter()
+                else:
+                    section_key = getattr(management_widget, "_last_selected_section_key", None)
+
+        if section_key == "equipment_tags":
+            self._ensure_equipment_tag_editor_tab_visible(True)
+        else:
+            self._ensure_equipment_tag_editor_tab_visible(False)
+
+    def _ensure_equipment_type_editor_tab_for_management(self, section_key: str | None = None) -> None:
+        """根据管理面板当前选中的 section，更新“装备类型”编辑标签可见性。"""
+        current_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        if current_mode != ViewMode.MANAGEMENT:
+            if hasattr(self, "_ensure_equipment_type_editor_tab_visible"):
+                self._ensure_equipment_type_editor_tab_visible(False)
+            return
+
+        if section_key is None:
+            management_widget = getattr(self, "management_widget", None)
+            if management_widget is not None:
+                getter = getattr(management_widget, "get_current_section_key", None)
+                if callable(getter):
+                    section_key = getter()
+                else:
+                    section_key = getattr(management_widget, "_last_selected_section_key", None)
+
+        if section_key == "equipment_types":
+            self._ensure_equipment_type_editor_tab_visible(True)
+        else:
+            self._ensure_equipment_type_editor_tab_visible(False)
+
     def _ensure_management_edit_page_for_section(self, section_key: str | None = None) -> None:
         """管理模式下为指定 section 清理旧编辑页占位，并依赖统一的列表与右侧面板体系。
 
@@ -433,6 +628,22 @@ class ModeSwitchMixin:
         if should_show:
             if panel_idx == -1:
                 self.side_tab.addTab(panel, self._tab_title_for_id("skill_editor"))
+        else:
+            if panel_idx != -1:
+                if self.side_tab.currentWidget() is panel and self.side_tab.count() > 1:
+                    self.side_tab.setCurrentIndex(0)
+                self.side_tab.removeTab(panel_idx)
+        self._update_right_panel_visibility()
+
+    def _ensure_item_editor_tab_visible(self, should_show: bool) -> None:
+        """按需显示/隐藏“道具”标签（战斗预设-道具详情面板专用）。"""
+        if not hasattr(self, "side_tab") or not hasattr(self, "item_panel"):
+            return
+        panel = self.item_panel
+        panel_idx = self.side_tab.indexOf(panel)
+        if should_show:
+            if panel_idx == -1:
+                self.side_tab.addTab(panel, self._tab_title_for_id("item_editor"))
         else:
             if panel_idx != -1:
                 if self.side_tab.currentWidget() is panel and self.side_tab.count() > 1:
@@ -527,8 +738,12 @@ class ModeSwitchMixin:
                 composite_mgr._save_current_composite()
 
         if self.graph_controller.current_graph_id:
-            print(f"[模式切换] 触发保存节点图...")
-            self.graph_controller.save_current_graph()
+            # 仅在节点图有未保存修改时才触发保存，避免无谓的 I/O 操作
+            if self.graph_controller.is_dirty:
+                print(f"[模式切换] 检测到未保存修改，触发保存节点图...")
+                self.graph_controller.save_current_graph()
+            else:
+                print(f"[模式切换] 节点图无修改，跳过保存")
         else:
             print(f"[模式切换] 跳过保存（无current_graph_id）")
 
@@ -728,6 +943,12 @@ class ModeSwitchMixin:
                     self._ensure_main_camera_editor_tab_for_management()
                 if hasattr(self, "_ensure_peripheral_system_editor_tab_for_management"):
                     self._ensure_peripheral_system_editor_tab_for_management()
+                if hasattr(self, "_ensure_equipment_entry_editor_tab_for_management"):
+                    self._ensure_equipment_entry_editor_tab_for_management()
+                if hasattr(self, "_ensure_equipment_tag_editor_tab_for_management"):
+                    self._ensure_equipment_tag_editor_tab_for_management()
+                if hasattr(self, "_ensure_equipment_type_editor_tab_for_management"):
+                    self._ensure_equipment_type_editor_tab_for_management()
                 # 初次进入管理模式时，根据当前列表选中项同步信号/结构体编辑面板
                 get_selection = getattr(self, "_get_management_current_selection", None)
                 if callable(get_selection):
@@ -776,6 +997,30 @@ class ModeSwitchMixin:
 
         # 战斗预设模式：在应用静态标签后，根据当前战斗预设列表选中条目同步右侧详情面板。
         if view_mode == ViewMode.COMBAT and hasattr(self, "combat_widget"):
+            # 优先恢复在非战斗模式下记录的待处理选中，避免后台立即加载面板带来的卡顿
+            existing_selection = None
+            get_selection_before = getattr(self.combat_widget, "get_current_selection", None)
+            if callable(get_selection_before):
+                existing_selection = get_selection_before()
+            consume_pending = getattr(self, "_consume_pending_combat_selection", None)
+            if callable(consume_pending):
+                pending_selection = consume_pending()
+                if pending_selection is not None:
+                    section_key, item_id = pending_selection
+                    if section_key and item_id:
+                        if not existing_selection or not existing_selection[1]:
+                            selection = LibrarySelection(
+                                kind="combat",
+                                id=item_id,
+                                context={"section_key": section_key},
+                            )
+                            set_selection = getattr(self.combat_widget, "set_selection", None)
+                            if callable(set_selection):
+                                set_selection(selection)
+
+            ensure_default_selection = getattr(self.combat_widget, "ensure_default_selection", None)
+            if callable(ensure_default_selection):
+                ensure_default_selection()
             get_selection = getattr(self.combat_widget, "get_current_selection", None)
             if callable(get_selection):
                 current_selection = get_selection()
@@ -787,7 +1032,11 @@ class ModeSwitchMixin:
                         self._on_player_class_selected(item_id)
                     elif section_key == "skill" and hasattr(self, "_on_skill_selected"):
                         self._on_skill_selected(item_id)
+                    elif section_key == "item" and hasattr(self, "_on_item_selected"):
+                        self._on_item_selected(item_id)
 
+        # 防御性校验：确保右侧标签与当前模式允许集合一致，避免残留。
+        self._enforce_right_panel_contract(view_mode)
         self._switch_to_first_visible_tab()
         self._update_right_panel_visibility()
 

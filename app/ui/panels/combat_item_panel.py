@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets, QtGui
 
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_index_manager import PackageIndexManager
@@ -102,6 +102,7 @@ class CombatItemPanel(PanelScaffold):
         self.id_label: QtWidgets.QLabel
         self.name_edit: QtWidgets.QLineEdit
         self.item_type_combo: QtWidgets.QComboBox
+        self.config_id_edit: QtWidgets.QLineEdit
 
         # 基础设置控件
         self.rarity_combo: QtWidgets.QComboBox
@@ -169,13 +170,13 @@ class CombatItemPanel(PanelScaffold):
         )
         main_layout.setSpacing(Sizes.SPACING_MEDIUM)
 
-        # 顶部基础信息：配置ID / 名称 / 类型
+        # 顶部基础信息：存储ID / 名称 / 类型
         basic_info_group = QtWidgets.QGroupBox("基础信息")
         basic_info_layout = QtWidgets.QFormLayout(basic_info_group)
         basic_info_layout.setSpacing(Sizes.SPACING_SMALL)
 
         self.id_label = QtWidgets.QLabel("-")
-        basic_info_layout.addRow("配置ID:", self.id_label)
+        basic_info_layout.addRow("存储ID:", self.id_label)
 
         self.name_edit = QtWidgets.QLineEdit()
         self.name_edit.setPlaceholderText("例如：生命药水")
@@ -193,6 +194,12 @@ class CombatItemPanel(PanelScaffold):
         )
         self.item_type_combo.currentIndexChanged.connect(self._on_item_type_changed)
         basic_info_layout.addRow("道具类型:", self.item_type_combo)
+
+        self.config_id_edit = QtWidgets.QLineEdit()
+        self.config_id_edit.setPlaceholderText("仅作为数据用的配置ID，例如 1001（纯数字，可选）")
+        self.config_id_edit.setValidator(QtGui.QIntValidator(0, 999999999))
+        self.config_id_edit.editingFinished.connect(self._on_config_id_edited)
+        basic_info_layout.addRow("配置ID(纯数字):", self.config_id_edit)
 
         main_layout.addWidget(basic_info_group)
 
@@ -494,6 +501,10 @@ class CombatItemPanel(PanelScaffold):
         self.item_type_combo.setCurrentIndex(0)
         self.item_type_combo.blockSignals(False)
 
+        self.config_id_edit.blockSignals(True)
+        self.config_id_edit.clear()
+        self.config_id_edit.blockSignals(False)
+
         self.rarity_combo.blockSignals(True)
         self.rarity_combo.setCurrentIndex(0)
         self.rarity_combo.blockSignals(False)
@@ -580,6 +591,11 @@ class CombatItemPanel(PanelScaffold):
         self.item_type_combo.blockSignals(True)
         self.item_type_combo.setCurrentIndex(index)
         self.item_type_combo.blockSignals(False)
+
+        config_id_text = str(self.current_item_data.get("config_id", "")).strip()
+        self.config_id_edit.blockSignals(True)
+        self.config_id_edit.setText(config_id_text)
+        self.config_id_edit.blockSignals(False)
 
         rarity_key = str(self.current_item_data.get("rarity", "common"))
         rarity_display = RARITY_KEY_TO_DISPLAY.get(rarity_key, "灰色")
@@ -758,6 +774,17 @@ class CombatItemPanel(PanelScaffold):
             "任务道具": "quest",
         }
         self.current_item_data["item_type"] = reverse_map.get(display, "consumable")
+        self._mark_item_modified()
+        self.data_changed.emit()
+
+    def _on_config_id_edited(self) -> None:
+        if not self.current_item_data:
+            return
+        text = self.config_id_edit.text().strip()
+        if text:
+            self.current_item_data["config_id"] = text
+        else:
+            self.current_item_data.pop("config_id", None)
         self._mark_item_modified()
         self.data_changed.emit()
 

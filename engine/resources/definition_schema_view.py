@@ -36,6 +36,9 @@ class CodeSchemaResourceService:
         results: Dict[str, Dict] = {}
 
         for py_path in base_dir.rglob("*.py"):
+            # 允许在目录中放置校验或工具脚本（如 `校验结构体定义.py`），这些脚本不参与 Schema 聚合。
+            if "校验" in py_path.stem:
+                continue
             module_name = f"code_struct_resource_{abs(hash(py_path.as_posix()))}"
             loader = SourceFileLoader(module_name, str(py_path))
             module = loader.load_module()
@@ -73,6 +76,9 @@ class CodeSchemaResourceService:
         results: Dict[str, Dict] = {}
 
         for py_path in base_dir.rglob("*.py"):
+            # 允许在目录中放置校验或工具脚本（如 `校验信号.py`），这些脚本不参与 Schema 聚合。
+            if "校验" in py_path.stem:
+                continue
             module_name = f"code_signal_resource_{abs(hash(py_path.as_posix()))}"
             loader = SourceFileLoader(module_name, str(py_path))
             module = loader.load_module()
@@ -128,6 +134,19 @@ class DefinitionSchemaView:
             self._signal_definitions = self._schema_service.load_all_signal_definitions()
         return self._signal_definitions
 
+    def invalidate_struct_cache(self) -> None:
+        """使结构体定义缓存失效，下次调用 get_all_struct_definitions 时重新加载。"""
+        self._struct_definitions = None
+
+    def invalidate_signal_cache(self) -> None:
+        """使信号定义缓存失效，下次调用 get_all_signal_definitions 时重新加载。"""
+        self._signal_definitions = None
+
+    def invalidate_all_caches(self) -> None:
+        """使所有缓存失效。"""
+        self._struct_definitions = None
+        self._signal_definitions = None
+
 
 _default_schema_view: DefinitionSchemaView | None = None
 
@@ -138,5 +157,34 @@ def get_default_definition_schema_view() -> DefinitionSchemaView:
     if _default_schema_view is None:
         _default_schema_view = DefinitionSchemaView()
     return _default_schema_view
+
+
+def invalidate_default_struct_cache() -> None:
+    """使默认 Schema 视图的结构体缓存失效。
+    
+    当结构体定义文件发生变化时调用此函数，
+    下次访问 get_all_struct_definitions() 时会重新加载。
+    """
+    global _default_schema_view
+    if _default_schema_view is not None:
+        _default_schema_view.invalidate_struct_cache()
+
+
+def invalidate_default_signal_cache() -> None:
+    """使默认 Schema 视图的信号缓存失效。
+    
+    当信号定义文件发生变化时调用此函数，
+    下次访问 get_all_signal_definitions() 时会重新加载。
+    """
+    global _default_schema_view
+    if _default_schema_view is not None:
+        _default_schema_view.invalidate_signal_cache()
+
+
+def invalidate_all_default_schema_caches() -> None:
+    """使默认 Schema 视图的所有缓存失效。"""
+    global _default_schema_view
+    if _default_schema_view is not None:
+        _default_schema_view.invalidate_all_caches()
 
 

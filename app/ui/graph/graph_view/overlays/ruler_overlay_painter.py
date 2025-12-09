@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from PyQt6 import QtCore, QtGui
 
+from ui.foundation.theme_manager import Colors
+
 if TYPE_CHECKING:
     from PyQt6 import QtWidgets
 
@@ -31,10 +33,10 @@ class RulerOverlayPainter:
         # 标尺的固定像素大小（不受缩放影响）
         ruler_height = 30
         ruler_width = 80
-        ruler_color = QtGui.QColor('#2B2B2B')
+        ruler_color = QtGui.QColor(Colors.CANVAS_RULER_BACKGROUND)
         ruler_color.setAlpha(230)  # 稍微透明
-        text_color = QtGui.QColor('#B0B0B0')
-        line_color = QtGui.QColor('#4A4A4A')
+        text_color = QtGui.QColor(Colors.CANVAS_RULER_TEXT)
+        line_color = QtGui.QColor(Colors.CANVAS_RULER_LINE)
         
         painter.setFont(QtGui.QFont('Consolas', 9))
         
@@ -121,7 +123,7 @@ class RulerOverlayPainter:
         
         # 绘制左上角的原点指示
         corner_rect = QtCore.QRect(0, 0, ruler_width, ruler_height)
-        painter.fillRect(corner_rect, QtGui.QColor('#3A3A3A'))
+        painter.fillRect(corner_rect, QtGui.QColor(Colors.CANVAS_RULER_CORNER_BACKGROUND))
         painter.setPen(text_color)
         painter.drawText(corner_rect, QtCore.Qt.AlignmentFlag.AlignCenter, "坐标")
 

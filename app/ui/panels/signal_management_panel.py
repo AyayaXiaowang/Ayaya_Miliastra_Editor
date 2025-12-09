@@ -20,7 +20,7 @@ from ui.panels.package_membership_selector import (
     PackageMembershipSelector,
     build_package_membership_row,
 )
-from ui.panels.panel_scaffold import PanelScaffold
+from ui.panels.panel_scaffold import PanelScaffold, build_scrollable_column
 
 
 class SignalManagementPanel(PanelScaffold):
@@ -69,22 +69,21 @@ class SignalManagementPanel(PanelScaffold):
         basic_layout.setContentsMargins(0, 0, 0, 0)
         basic_layout.setSpacing(Sizes.SPACING_SMALL)
 
-        scroll_area = QtWidgets.QScrollArea(basic_tab)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        scroll_area.setHorizontalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        (
+            scroll_area,
+            editor_container,
+            editor_layout,
+        ) = build_scrollable_column(
+            basic_tab,
+            spacing=Sizes.SPACING_SMALL,
+            margins=(0, 0, 0, 0),
+            alignment=QtCore.Qt.AlignmentFlag.AlignTop,
+            add_trailing_stretch=True,
         )
 
-        editor_container = QtWidgets.QWidget(scroll_area)
-        editor_layout = QtWidgets.QVBoxLayout(editor_container)
-        editor_layout.setContentsMargins(0, 0, 0, 0)
-        editor_layout.setSpacing(Sizes.SPACING_SMALL)
-
         self.editor = SignalEditorWidget(editor_container)
-        editor_layout.addWidget(self.editor)
-
-        scroll_area.setWidget(editor_container)
+        stretch_index = max(editor_layout.count() - 1, 0)
+        editor_layout.insertWidget(stretch_index, self.editor)
         basic_layout.addWidget(scroll_area, 1)
         self.tab_widget.addTab(basic_tab, "基本信息")
 

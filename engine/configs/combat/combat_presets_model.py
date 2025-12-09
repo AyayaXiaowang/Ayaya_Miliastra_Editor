@@ -285,6 +285,9 @@ class ItemConfig:
     cooldown: float = 0.0  # 使用冷却
     attributes: Dict[str, float] = field(default_factory=dict)  # 属性加成
     requirements: Dict[str, Any] = field(default_factory=dict)  # 使用要求
+    # 纯数据意义上的“配置ID”，通常用于与外部系统或表格对齐，区别于 item_id（资源主键）。
+    # 推荐使用仅包含数字的字符串，例如 "1001"、"20001"；留空表示未设置。
+    config_id: str = ""
     metadata: dict = field(default_factory=dict)
     
     doc_reference: str = "战斗预设.md:7"
@@ -302,6 +305,7 @@ class ItemConfig:
             "cooldown": self.cooldown,
             "attributes": self.attributes,
             "requirements": self.requirements,
+            "config_id": self.config_id,
             "metadata": self.metadata
         }
     
@@ -319,6 +323,7 @@ class ItemConfig:
             cooldown=data.get("cooldown", 0.0),
             attributes=data.get("attributes", {}),
             requirements=data.get("requirements", {}),
+            config_id=str(data.get("config_id", "")),
             metadata=data.get("metadata", {})
         )
 

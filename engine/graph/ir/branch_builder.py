@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import ast
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from engine.graph.models import GraphModel, NodeModel, PortModel, EdgeModel
 from .var_env import VarEnv
@@ -43,6 +43,19 @@ def extract_match_subject(subject: ast.expr) -> Optional[str]:
     return None
 
 
+def is_pass_only_block(body: List[ast.stmt]) -> bool:
+    """判断语句块是否只包含 pass（视为“空分支体”）
+
+    设计约定：
+    - 用于 match/case 等分支结构中，将『case X: pass』视为显式写出的“空体”；
+    - 这类分支在控制流图中不会生成新的节点，但对应的分支出口仍然可以继续向后接续。
+    """
+    if not body:
+        # match/case 在语法上通常不会出现完全空体，这里出于健壮性仍按“空体”处理
+        return True
+    return all(isinstance(stmt, ast.Pass) for stmt in body)
+
+
 def extract_case_value(pattern: ast.pattern) -> Any:
     """从case模式中提取常量值"""
     if isinstance(pattern, ast.MatchValue):
@@ -52,6 +65,16 @@ def extract_case_value(pattern: ast.pattern) -> Any:
             return "_"
         return pattern.name
     return None
+
+
+def _collect_assigned_names(body: List[ast.stmt]) -> Set[str]:
+    names: Set[str] = set()
+    for stmt in body:
+        for sub in ast.walk(stmt):
+            if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+                if sub.id:
+                    names.add(sub.id)
+    return names
 
 
 def block_has_return(body: List[ast.stmt]) -> bool:
@@ -162,7 +185,14 @@ def create_dual_branch_node(
     # 是分支体
     if stmt.body:
         snapshot = env.snapshot()
+        assigned_true = _collect_assigned_names(stmt.body)
+        assigned_false = _collect_assigned_names(stmt.orelse) if stmt.orelse else set()
+        # 只有在多个分支中都被赋值的变量才需要标记为多分支赋值候选，
+        # 避免为只在单一分支中赋值并使用的变量创建不必要的局部变量节点
+        combined_assigned = assigned_true & assigned_false
+        env.push_multi_assign(combined_assigned)
         true_nodes, true_edges = parse_method_body_func(stmt.body, (branch_node, "是"), graph_model, False, env, ctx, validators)
+        env.pop_multi_assign()
         branch_nodes.extend(true_nodes)
         branch_edges.extend(true_edges)
 
@@ -195,7 +225,13 @@ def create_dual_branch_node(
     # 否分支体
     if stmt.orelse:
         snapshot = env.snapshot()
+        assigned_true = _collect_assigned_names(stmt.body) if stmt.body else set()
+        assigned_false = _collect_assigned_names(stmt.orelse)
+        # 只有在多个分支中都被赋值的变量才需要标记为多分支赋值候选
+        combined_assigned = assigned_true & assigned_false
+        env.push_multi_assign(combined_assigned)
         false_nodes, false_edges = parse_method_body_func(stmt.orelse, (branch_node, "否"), graph_model, False, env, ctx, validators)
+        env.pop_multi_assign()
         branch_nodes.extend(false_nodes)
         branch_edges.extend(false_edges)
 
@@ -233,7 +269,12 @@ def create_multi_branch_node(
     ctx: FactoryContext,
     validators: Validators,
     parse_method_body_func,  # 避免循环导入
-) -> Tuple[Optional[NodeModel], List[NodeModel], List[EdgeModel], List[NodeModel]]:
+) -> Tuple[
+    Optional[NodeModel],
+    List[NodeModel],
+    List[EdgeModel],
+    List[Union[NodeModel, Tuple[NodeModel, str]]],
+]:
     """创建多分支节点（match-case）
     
     Args:
@@ -250,7 +291,10 @@ def create_multi_branch_node(
     """
     branch_nodes: List[NodeModel] = []
     branch_edges: List[EdgeModel] = []
-    branch_last_nodes: List[NodeModel] = []
+    # 分支出口集合：
+    # - 对于非空分支体：记录该分支体中的“最后一个流程节点”；
+    # - 对于仅包含 pass 的分支体：记录 (多分支节点, 对应分支端口名)，表示从该端口可直接接续到后续语句。
+    branch_last_nodes: List[Union[NodeModel, Tuple[NodeModel, str]]] = []
 
     control_var = extract_match_subject(stmt.subject)
     branch_node_id = f"node_多分支_{uuid.uuid4().hex[:8]}"
@@ -302,27 +346,57 @@ def create_multi_branch_node(
                 dst_port="控制表达式",
             ))
 
+    # 只有在多个分支中都被赋值的变量才需要标记为多分支赋值候选，
+    # 用交集来确定哪些变量在所有分支中都被赋值
+    all_case_assigned = [_collect_assigned_names(case.body) for case in stmt.cases]
+    if len(all_case_assigned) > 1:
+        combined_assigned: Set[str] = all_case_assigned[0].copy()
+        for other_assigned in all_case_assigned[1:]:
+            combined_assigned &= other_assigned
+    else:
+        combined_assigned = set()
+
     for case in stmt.cases:
         case_value = extract_case_value(case.pattern)
         branch_port = "默认" if case_value in ("_", None) else str(case_value)
         snapshot = env.snapshot()
-        case_nodes, case_edges = parse_method_body_func(case.body, None, graph_model, False, env, ctx, validators)
+        env.push_multi_assign(combined_assigned)
+        case_nodes, case_edges = parse_method_body_func(
+            case.body,
+            None,
+            graph_model,
+            False,
+            env,
+            ctx,
+            validators,
+        )
+        env.pop_multi_assign()
         branch_nodes.extend(case_nodes)
         branch_edges.extend(case_edges)
+
         if case_nodes:
             first_flow = find_first_flow_node(case_nodes)
             if first_flow and (not is_event_node(first_flow)):
-                branch_edges.append(EdgeModel(
-                    id=str(uuid.uuid4()),
-                    src_node=branch_node_id,
-                    src_port=branch_port,
-                    dst_node=first_flow.id,
-                    dst_port="流程入",
-                ))
+                branch_edges.append(
+                    EdgeModel(
+                        id=str(uuid.uuid4()),
+                        src_node=branch_node_id,
+                        src_port=branch_port,
+                        dst_node=first_flow.id,
+                        dst_port="流程入",
+                    )
+                )
             last_flow = find_last_flow_node(case_nodes)
             has_ret = block_has_return(case.body)
             if last_flow and (not has_ret):
                 branch_last_nodes.append(last_flow)
+        else:
+            # 分支体未生成任何节点：
+            # - 若仅包含 pass，则视为“显式空体”，对应的分支端口仍然可以继续向后接续；
+            # - 若包含 return 等提前终止语句，则不应继续接续（例如 `case _: return`）。
+            if is_pass_only_block(case.body) and (not block_has_return(case.body)):
+                branch_last_nodes.append((branch_node, branch_port))
+
         env.restore(snapshot)
 
     return branch_node, branch_nodes, branch_edges, branch_last_nodes

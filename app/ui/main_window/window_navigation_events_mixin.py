@@ -394,6 +394,13 @@ class WindowAndNavigationEventsMixin:
         # 记录最近一次保存状态，便于离开只读页面后恢复提示
         self._last_save_status = status
 
+        controller = getattr(self, "package_controller", None)
+        if controller is not None:
+            if status == "unsaved" and hasattr(controller, "mark_graph_dirty"):
+                controller.mark_graph_dirty()
+            elif status == "saved" and hasattr(controller, "clear_graph_dirty"):
+                controller.clear_graph_dirty()
+
         if not hasattr(self, "save_status_label"):
             return
 
@@ -450,6 +457,12 @@ class WindowAndNavigationEventsMixin:
             self._ensure_main_camera_editor_tab_for_management(section_key)
         if hasattr(self, "_ensure_peripheral_system_editor_tab_for_management"):
             self._ensure_peripheral_system_editor_tab_for_management(section_key)
+        if hasattr(self, "_ensure_equipment_entry_editor_tab_for_management"):
+            self._ensure_equipment_entry_editor_tab_for_management(section_key)
+        if hasattr(self, "_ensure_equipment_tag_editor_tab_for_management"):
+            self._ensure_equipment_tag_editor_tab_for_management(section_key)
+        if hasattr(self, "_ensure_equipment_type_editor_tab_for_management"):
+            self._ensure_equipment_type_editor_tab_for_management(section_key)
 
     def _open_player_editor(self) -> None:
         """打开玩家编辑器（战斗预设页签内部）"""

@@ -4,6 +4,7 @@ import uuid
 from typing import Dict, List, Optional, Tuple, Any, Union
 
 from engine.graph.models import NodeModel, EdgeModel
+from engine.graph.common import is_branch_node_name, is_loop_node_name
 from engine.nodes.port_type_system import is_flow_port_with_context as _is_flow_port_ctx
 from .var_env import VarEnv
 from .arg_normalizer import normalize_call_arguments, is_reserved_argument
@@ -28,24 +29,68 @@ def is_event_node(node: NodeModel) -> bool:
     return (not has_flow_in) and has_flow_out
 
 
-def _pick_flow_src_port(src_node: NodeModel) -> Optional[str]:
-    # 特例：分支/循环节点的默认出口
-    if src_node.title in ["双分支", "多分支"]:
-        for p in src_node.outputs:
-            if p.name == "默认":
+def pick_default_flow_output_port(src_node: NodeModel) -> Optional[str]:
+    """选择节点的默认流程输出端口。
+
+    统一封装分支/循环节点与普通流程节点的默认出口选择策略，
+    供流程边路由和 break 之类的控制流跳转复用。
+    """
+    # 1) 先按端口名称优先级选择基础默认口（兼容旧 flow_utils 行为）
+    base_port_name: Optional[str] = None
+    for priority_name in ("流程出", "流程", "执行"):
+        for output_port in src_node.outputs:
+            if output_port.name == priority_name:
+                base_port_name = priority_name
+                break
+        if base_port_name is not None:
+            break
+
+    if base_port_name is None and src_node.outputs:
+        base_port_name = src_node.outputs[0].name
+
+    # 2) 分支与循环节点特例：覆盖基础默认口（保持与原有 break 逻辑一致）
+    if is_branch_node_name(src_node.title):
+        for output_port in src_node.outputs:
+            if output_port.name == "默认":
                 return "默认"
-        # 对双分支通常不自动接续，返回 None 以抑制
-        return None
-    if src_node.title in ["有限循环", "列表迭代循环"]:
-        for p in src_node.outputs:
-            if p.name == "循环完成":
+        # 没有“默认”出口时退回基础策略，由调用方决定是否允许自动接续
+        return base_port_name
+
+    if is_loop_node_name(src_node.title):
+        for output_port in src_node.outputs:
+            if output_port.name == "循环完成":
                 return "循环完成"
-    # 常规：选择第一个流程型输出口
-    for p in src_node.outputs:
-        if is_flow_port_ctx(src_node, p.name, True):
-            return p.name
-    # 兜底：若无任何标注为流程的输出，取第一个输出
-    return src_node.outputs[0].name if src_node.outputs else None
+        return base_port_name
+
+    # 3) 普通节点：若基础端口是流程端口则直接返回，否则退化为首个流程端口/首个输出
+    if base_port_name is not None:
+        for output_port in src_node.outputs:
+            if (
+                output_port.name == base_port_name
+                and is_flow_port_ctx(src_node, output_port.name, True)
+            ):
+                return base_port_name
+
+    for output_port in src_node.outputs:
+        if is_flow_port_ctx(src_node, output_port.name, True):
+            return output_port.name
+
+    return base_port_name
+
+
+def _pick_flow_src_port(src_node: NodeModel) -> Optional[str]:
+    """内部使用的默认流程出口选择。
+
+    与 `pick_default_flow_output_port` 共用主体逻辑，但对不带“默认”出口的分支节点
+    继续保持“不要自动接续后续流程”的抑制行为。
+    """
+    if is_branch_node_name(src_node.title):
+        has_default_port = any(
+            output_port.name == "默认" for output_port in src_node.outputs
+        )
+        if not has_default_port:
+            return None
+    return pick_default_flow_output_port(src_node)
 
 
 def _pick_flow_dst_port(dst_node: NodeModel) -> Optional[str]:

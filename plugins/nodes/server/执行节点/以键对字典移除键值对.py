@@ -9,7 +9,10 @@ from engine.utils.logging.logger import log_info
     inputs=[("流程入", "流程"), ("字典", "泛型"), ("键", "泛型")],
     outputs=[("流程出", "流程")],
     description="以键移除指定字典中的键值对",
-    doc_reference="服务器节点/执行节点/执行节点.md"
+    doc_reference="服务器节点/执行节点/执行节点.md",
+    input_generic_constraints={
+        "键": ["实体", "GUID", "整数", "字符串", "阵营", "配置ID", "元件ID"],
+    },
 )
 def 以键对字典移除键值对(game, 字典, 键):
     """以键移除指定字典中的键值对"""

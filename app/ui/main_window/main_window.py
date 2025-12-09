@@ -10,10 +10,17 @@ from engine.graph.models.graph_model import GraphModel
 from engine.configs.settings import settings
 from engine.resources.resource_manager import ResourceManager
 from engine.resources.package_index_manager import PackageIndexManager
+from engine.resources.definition_schema_view import (
+    invalidate_default_struct_cache,
+    invalidate_default_signal_cache,
+)
 from engine.utils.logging.logger import log_info
 from ui.graph.graph_scene import GraphScene
 from ui.graph.graph_view import GraphView
 from ui.devtools.view_inspector import WidgetHoverInspector
+from ui.graph.library_pages.management_section_struct_definitions import (
+    StructDefinitionSection,
+)
 
 # 导入所有Mixin
 from .controller_setup_mixin import ControllerSetupMixin
@@ -146,6 +153,13 @@ class MainWindowV2(
           各视图模型/库页面基于磁盘最新内容重建视图，而无需重启应用；
         - 保持当前存档/视图模式不变，仅刷新其内部数据来源。
         """
+        # 0. 刷新结构体和信号定义的全局缓存（这些是代码级资源）
+        invalidate_default_struct_cache()
+        invalidate_default_signal_cache()
+        # 同步失效管理页面内基于 ResourceManager 的结构体记录快照，
+        # 确保“基础结构体定义”和“局内存档结构体定义”在刷新列表时使用最新的 Schema 数据。
+        StructDefinitionSection._invalidate_struct_records_cache(self.resource_manager)
+
         # 1. 重建资源索引并清空内存缓存
         self.resource_manager.rebuild_index()
         self.resource_manager.clear_cache()

@@ -31,6 +31,7 @@ from .rules.code_structure_rules import (
     EventNameRule,
     TypeNameRule,
     SignalParamNamesRule,
+    LocalVarInitialValueRule,
 )
 from .rules.code_quality_rules import LongWireRule, UnusedQueryOutputRule, UnreachableCodeRule
 from .rules.code_port_types_match import PortTypesMatchRule
@@ -79,7 +80,7 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
         return cached_rules
     if is_composite:
         if composite_enabled:
-            rules = [CompositeTypesAndNestingRule()]
+            rules = [CompositeTypesAndNestingRule(), LocalVarInitialValueRule(), NoListDictLiteralRule()]
             _RULE_CACHE[cache_key] = rules
             return rules
         _RULE_CACHE[cache_key] = []
@@ -102,6 +103,7 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
                 TypeNameRule(),
                 LongWireRule(),
                 SignalParamNamesRule(),
+                LocalVarInitialValueRule(),
             ]
         )
     if m3_enabled:
@@ -144,7 +146,12 @@ def validate_files(
     rules_hash = ""
     if use_cache:
         cache_data = load_validation_cache(workspace)
-        rules_hash = build_rules_hash(config, standard_rules, composite_rules)
+        rules_hash = build_rules_hash(
+            config,
+            standard_rules,
+            composite_rules,
+            workspace=workspace,
+        )
     for file_path in paths_list:
         if use_cache and rules_hash:
             cached = try_load_cached_issues_for_file(

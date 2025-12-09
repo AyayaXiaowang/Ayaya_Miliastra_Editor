@@ -116,14 +116,28 @@ class AddNodePopup(QtWidgets.QWidget):
                 )
         
         # 类别颜色映射
-        category_colors = {
-            "事件节点": "#FF5E9C",
-            "执行节点": "#9CD64B",
-            "查询节点": "#2D5FE3",
-            "运算节点": "#2FAACB",
-            "流程控制节点": "#FF9955",
-            "复合节点": "#AA55FF",  # 紫色，表示复合节点
+        category_colors_light = {
+            "事件节点": Colors.NODE_CATEGORY_EVENT,
+            "执行节点": Colors.NODE_CATEGORY_EXECUTION,
+            "查询节点": Colors.NODE_CATEGORY_QUERY,
+            "运算节点": Colors.NODE_CATEGORY_COMPUTE,
+            "流程控制节点": Colors.NODE_CATEGORY_FLOW,
+            "复合节点": Colors.NODE_CATEGORY_COMPOSITE,
         }
+        category_colors_dark = {
+            "事件节点": Colors.NODE_CATEGORY_EVENT_DARK,
+            "执行节点": Colors.NODE_CATEGORY_EXECUTION_DARK,
+            "查询节点": Colors.NODE_CATEGORY_QUERY_DARK,
+            "运算节点": Colors.NODE_CATEGORY_COMPUTE_DARK,
+            "流程控制节点": Colors.NODE_CATEGORY_FLOW_DARK,
+            "复合节点": Colors.NODE_CATEGORY_COMPOSITE_DARK,
+        }
+        category_colors = category_colors_dark if Colors.IS_DARK else category_colors_light
+        fallback_category_color = (
+            Colors.NODE_CATEGORY_DEFAULT_DARK
+            if Colors.IS_DARK
+            else Colors.NODE_CATEGORY_DEFAULT
+        )
         
         for category, nodes in sorted(grouped.items()):
             # 如果有搜索过滤，检查是否有匹配的节点
@@ -181,7 +195,7 @@ class AddNodePopup(QtWidgets.QWidget):
             
             # 创建类别项
             category_item = QtWidgets.QTreeWidgetItem([category])
-            category_color = category_colors.get(category, "#4A9EFF")
+            category_color = category_colors.get(category, fallback_category_color)
             category_item.setForeground(0, QtGui.QBrush(QtGui.QColor(category_color)))
             font = category_item.font(0)
             font.setBold(True)
@@ -242,7 +256,7 @@ class AddNodePopup(QtWidgets.QWidget):
         if composite_nodes:
             category = "复合节点"
             category_item = QtWidgets.QTreeWidgetItem([category])
-            category_color = category_colors.get(category, "#4A9EFF")
+            category_color = category_colors.get(category, fallback_category_color)
             category_item.setForeground(0, QtGui.QBrush(QtGui.QColor(category_color)))
             font = category_item.font(0)
             font.setBold(True)

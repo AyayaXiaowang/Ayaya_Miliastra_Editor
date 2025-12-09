@@ -326,20 +326,6 @@ def combo_box_style() -> str:
         QComboBox:hover {{
             border: 1px solid {Colors.BORDER_FOCUS};
         }}
-        QComboBox::drop-down {{
-            border: none;
-            width: 20px;
-        }}
-        QComboBox::down-arrow {{
-            image: none;
-            border: 2px solid {Colors.TEXT_SECONDARY};
-            width: 0px;
-            height: 0px;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-top: 6px solid {Colors.TEXT_SECONDARY};
-            margin-right: 6px;
-        }}
         QComboBox QAbstractItemView {{
             background-color: {Colors.BG_CARD};
             border: 1px solid {Colors.BORDER_LIGHT};

@@ -21,6 +21,19 @@ from ui.management.section_registry import (
 class PackageEventsMixin:
     """负责存档加载/保存、下拉框刷新以及资源归属变更等事件处理逻辑。"""
 
+    def _set_pending_combat_selection(self, section_key: str, item_id: str) -> None:
+        """记录战斗预设待处理的选中项，等进入战斗模式后再加载面板。"""
+        if section_key and item_id:
+            setattr(self, "_pending_combat_selection", (section_key, item_id))
+        else:
+            setattr(self, "_pending_combat_selection", None)
+
+    def _consume_pending_combat_selection(self) -> tuple[str, str] | None:
+        """取出并清空待处理的战斗预设选中项。"""
+        pending = getattr(self, "_pending_combat_selection", None)
+        setattr(self, "_pending_combat_selection", None)
+        return pending
+
     # === 存档加载/保存 ===
 
     def _on_package_loaded(self, package_id: str) -> None:
@@ -88,6 +101,107 @@ class PackageEventsMixin:
             self.package_controller.load_package(package_id)
 
     # === 模板 / 实例 / 关卡实体 ===
+    def _on_library_selection_state_changed(
+        self,
+        has_selection: bool,
+        context: Dict[str, Any] | None = None,
+    ) -> None:
+        """库页统一的选中状态回调，用于收起右侧容器。"""
+        selection_context = context or {}
+        current_view_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        source = selection_context.get("source")
+        section_key_any = selection_context.get("section_key")
+        section_key = section_key_any if isinstance(section_key_any, str) else None
+
+        if has_selection:
+            return
+
+        if current_view_mode == ViewMode.TEMPLATE or source == "template":
+            if hasattr(self, "property_panel"):
+                self.property_panel.clear()
+            if hasattr(self, "_ensure_property_tab_visible"):
+                self._ensure_property_tab_visible(False)
+            if hasattr(self, "_update_right_panel_visibility"):
+                self._update_right_panel_visibility()
+            return
+
+        if current_view_mode == ViewMode.PLACEMENT or source == "instance":
+            if hasattr(self, "property_panel"):
+                self.property_panel.clear()
+            if hasattr(self, "_ensure_property_tab_visible"):
+                self._ensure_property_tab_visible(False)
+            if hasattr(self, "_update_right_panel_visibility"):
+                self._update_right_panel_visibility()
+            return
+
+        is_combat_event = source == "combat" or section_key in (
+            "player_template",
+            "player_class",
+            "skill",
+            "item",
+        )
+        if current_view_mode == ViewMode.COMBAT or is_combat_event:
+            self._reset_combat_detail_panels()
+            return
+
+        if current_view_mode == ViewMode.MANAGEMENT or source == "management":
+            self._reset_management_panels_for_empty_selection(section_key)
+            return
+
+        if hasattr(self, "_update_right_panel_visibility"):
+            self._update_right_panel_visibility()
+
+    def _reset_combat_detail_panels(self) -> None:
+        """清空战斗预设模式下的右侧详情标签与上下文。"""
+        panel_pairs = (
+            ("player_editor_panel", "_ensure_player_editor_tab_visible"),
+            ("player_class_panel", "_ensure_player_class_editor_tab_visible"),
+            ("skill_panel", "_ensure_skill_editor_tab_visible"),
+            ("item_panel", "_ensure_item_editor_tab_visible"),
+        )
+        for panel_attr, ensure_method_name in panel_pairs:
+            panel = getattr(self, panel_attr, None)
+            ensure_method = getattr(self, ensure_method_name, None)
+            if panel is not None and hasattr(panel, "set_context"):
+                panel.set_context(None, None)  # type: ignore[arg-type]
+            if callable(ensure_method):
+                ensure_method(False)  # type: ignore[misc]
+        if hasattr(self, "_update_right_panel_visibility"):
+            self._update_right_panel_visibility()
+
+    def _reset_management_panels_for_empty_selection(self, section_key: str | None) -> None:
+        """清空管理模式下的属性与专用编辑标签。"""
+        if hasattr(self, "management_property_panel"):
+            self.management_property_panel.clear()
+        if hasattr(self, "_ensure_management_property_tab_visible"):
+            self._ensure_management_property_tab_visible(False)
+
+        if section_key == "signals":
+            if hasattr(self, "_update_signal_property_panel_for_selection"):
+                self._update_signal_property_panel_for_selection(False)
+        elif section_key in ("struct_definitions", "ingame_struct_definitions"):
+            if hasattr(self, "_update_struct_property_panel_for_selection"):
+                self._update_struct_property_panel_for_selection(False)
+        elif section_key == "main_cameras":
+            if hasattr(self, "_update_main_camera_panel_for_selection"):
+                self._update_main_camera_panel_for_selection(False)
+        elif section_key == "peripheral_systems":
+            if hasattr(self, "_update_peripheral_system_panel_for_selection"):
+                self._update_peripheral_system_panel_for_selection(False)
+        elif section_key == "equipment_entries":
+            if hasattr(self, "_update_equipment_entry_panel_for_selection"):
+                self._update_equipment_entry_panel_for_selection(False)
+        elif section_key == "equipment_tags":
+            if hasattr(self, "_update_equipment_tag_panel_for_selection"):
+                self._update_equipment_tag_panel_for_selection(False)
+        elif section_key == "equipment_types":
+            if hasattr(self, "_update_equipment_type_panel_for_selection"):
+                self._update_equipment_type_panel_for_selection(False)
+
+        if hasattr(self, "_hide_all_management_edit_pages"):
+            self._hide_all_management_edit_pages(None)  # type: ignore[attr-defined]
+        if hasattr(self, "_update_right_panel_visibility"):
+            self._update_right_panel_visibility()
     
     def _on_template_selected(self, template_id: str) -> None:
         """模板选中"""
@@ -98,10 +212,7 @@ class PackageEventsMixin:
         # 在元件库模式下收到空 ID 时，应视为“无有效选中对象”，
         # 主动清空右侧属性面板并移除“属性”标签，避免继续展示已失效的元件属性。
         if not template_id:
-            if current_view_mode == ViewMode.TEMPLATE and hasattr(self, "property_panel"):
-                self.property_panel.clear()
-                if hasattr(self, "_ensure_property_tab_visible"):
-                    self._ensure_property_tab_visible(False)
+            self._on_library_selection_state_changed(False, {"source": "template"})
             return
 
         # 仅在元件库模式下响应该信号，避免在管理/任务清单等模式中因后台刷新
@@ -127,10 +238,7 @@ class PackageEventsMixin:
         # 在实体摆放模式下收到空 ID 时，应视为“无有效选中对象”，
         # 主动清空右侧属性面板并移除“属性”标签，避免继续展示已失效的实体属性。
         if not instance_id:
-            if current_view_mode == ViewMode.PLACEMENT and hasattr(self, "property_panel"):
-                self.property_panel.clear()
-                if hasattr(self, "_ensure_property_tab_visible"):
-                    self._ensure_property_tab_visible(False)
+            self._on_library_selection_state_changed(False, {"source": "instance"})
             return
 
         # 仅在实体摆放模式下响应该信号，避免在管理/任务清单等模式中因后台刷新
@@ -443,20 +551,19 @@ class PackageEventsMixin:
             f"template_id={template_id!r}, current_view_mode={current_view_mode}, "
             f"has_package={bool(package)}",
         )
+        if current_view_mode != ViewMode.COMBAT:
+            self._set_pending_combat_selection("player_template", template_id)
+            return
         if not hasattr(self, "player_editor_panel"):
             return
         has_valid_context = bool(package) and bool(template_id)
 
         if not has_valid_context:
-            self.player_editor_panel.set_context(None, None)
-            if current_view_mode == ViewMode.COMBAT and hasattr(self, "_ensure_player_editor_tab_visible"):
-                self._ensure_player_editor_tab_visible(False)
+            self._on_library_selection_state_changed(False, {"section_key": "player_template"})
             return
         self.player_editor_panel.set_context(package, template_id)
         if current_view_mode == ViewMode.COMBAT and hasattr(self, "_ensure_player_editor_tab_visible"):
             self._ensure_player_editor_tab_visible(True)
-        if hasattr(self, "_schedule_ui_session_state_save"):
-            self._schedule_ui_session_state_save()
 
     def _on_skill_selected(self, skill_id: str) -> None:
         """战斗预设-技能选中"""
@@ -467,14 +574,15 @@ class PackageEventsMixin:
             f"skill_id={skill_id!r}, current_view_mode={current_view_mode}, "
             f"has_package={bool(package)}",
         )
+        if current_view_mode != ViewMode.COMBAT:
+            self._set_pending_combat_selection("skill", skill_id)
+            return
         if not hasattr(self, "skill_panel"):
             return
         has_valid_context = bool(package) and bool(skill_id)
 
         if not has_valid_context:
-            self.skill_panel.set_context(None, None)
-            if current_view_mode == ViewMode.COMBAT and hasattr(self, "_ensure_skill_editor_tab_visible"):
-                self._ensure_skill_editor_tab_visible(False)
+            self._on_library_selection_state_changed(False, {"section_key": "skill"})
             return
         self.skill_panel.set_context(package, skill_id)
         # 在战斗预设模式下选中技能时，自动切到“技能”标签，并按需插入对应标签页
@@ -485,8 +593,34 @@ class PackageEventsMixin:
                 index = self.side_tab.indexOf(self.skill_panel)
                 if index != -1:
                     self.side_tab.setCurrentWidget(self.skill_panel)
-        if hasattr(self, "_schedule_ui_session_state_save"):
-            self._schedule_ui_session_state_save()
+
+    def _on_item_selected(self, item_id: str) -> None:
+        """战斗预设-道具选中"""
+        package = self.package_controller.current_package
+        current_view_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        print(
+            "[COMBAT-PRESETS] _on_item_selected:",
+            f"item_id={item_id!r}, current_view_mode={current_view_mode}, "
+            f"has_package={bool(package)}",
+        )
+        if current_view_mode != ViewMode.COMBAT:
+            self._set_pending_combat_selection("item", item_id)
+            return
+        if not hasattr(self, "item_panel"):
+            return
+        has_valid_context = bool(package) and bool(item_id)
+
+        if not has_valid_context:
+            self._on_library_selection_state_changed(False, {"section_key": "item"})
+            return
+        self.item_panel.set_context(package, item_id)
+        if current_view_mode == ViewMode.COMBAT:
+            if hasattr(self, "_ensure_item_editor_tab_visible"):
+                self._ensure_item_editor_tab_visible(True)
+            if hasattr(self, "side_tab"):
+                index = self.side_tab.indexOf(self.item_panel)
+                if index != -1:
+                    self.side_tab.setCurrentWidget(self.item_panel)
 
     def _on_player_class_selected(self, class_id: str) -> None:
         """战斗预设-职业选中"""
@@ -497,16 +631,15 @@ class PackageEventsMixin:
             f"class_id={class_id!r}, current_view_mode={current_view_mode}, "
             f"has_package={bool(package)}",
         )
+        if current_view_mode != ViewMode.COMBAT:
+            self._set_pending_combat_selection("player_class", class_id)
+            return
         if not hasattr(self, "player_class_panel"):
             return
         has_valid_context = bool(package) and bool(class_id)
 
         if not has_valid_context:
-            self.player_class_panel.set_context(None, None)
-            if current_view_mode == ViewMode.COMBAT and hasattr(
-                self, "_ensure_player_class_editor_tab_visible"
-            ):
-                self._ensure_player_class_editor_tab_visible(False)
+            self._on_library_selection_state_changed(False, {"section_key": "player_class"})
             return
         self.player_class_panel.set_context(package, class_id)
         # 在战斗预设模式下选中职业时，将右侧当前标签切换到“职业”详情，并按需插入对应标签页
@@ -517,8 +650,6 @@ class PackageEventsMixin:
                 index = self.side_tab.indexOf(self.player_class_panel)
                 if index != -1:
                     self.side_tab.setCurrentWidget(self.player_class_panel)
-        if hasattr(self, "_schedule_ui_session_state_save"):
-            self._schedule_ui_session_state_save()
 
     # === 管理页面右侧属性与编辑面板 ===
 
@@ -536,6 +667,16 @@ class PackageEventsMixin:
             section_key = current_key_getter()
             if section_key:
                 return section_key, ""
+        return None
+
+    def _get_current_management_package(self) -> object | None:
+        """获取当前管理视图的包上下文（优先使用 PackageController，回退管理库自身）。"""
+        package = getattr(self.package_controller, "current_package", None)
+        if package is not None:
+            return package
+        management_widget = getattr(self, "management_widget", None)
+        if management_widget is not None:
+            return getattr(management_widget, "current_package", None)
         return None
 
     def _update_signal_property_panel_for_selection(self, has_selection: bool) -> None:
@@ -785,7 +926,7 @@ class PackageEventsMixin:
 
                 if hasattr(self, "management_widget"):
                     self.management_widget._refresh_items()  # type: ignore[attr-defined]
-                self._on_immediate_persist_requested()
+                self._on_immediate_persist_requested(management_keys={"timers"})
 
             name_edit.editingFinished.connect(apply_changes)
             initial_time_spin.editingFinished.connect(apply_changes)
@@ -898,7 +1039,7 @@ class PackageEventsMixin:
                     index_edit.setText(last_valid_index_text)
                     if hasattr(self, "management_widget"):
                         self.management_widget._refresh_items()  # type: ignore[attr-defined]
-                    self._on_immediate_persist_requested()
+                    self._on_immediate_persist_requested(management_keys={"unit_tags"})
                     return
 
                 if index_text_after:
@@ -910,7 +1051,7 @@ class PackageEventsMixin:
 
                 if hasattr(self, "management_widget"):
                     self.management_widget._refresh_items()  # type: ignore[attr-defined]
-                self._on_immediate_persist_requested()
+                self._on_immediate_persist_requested(management_keys={"unit_tags"})
 
             name_edit.editingFinished.connect(apply_changes)
             index_edit.editingFinished.connect(apply_changes)
@@ -1026,7 +1167,7 @@ class PackageEventsMixin:
 
                 if hasattr(self, "management_widget"):
                     self.management_widget._refresh_items()  # type: ignore[attr-defined]
-                self._on_immediate_persist_requested()
+                self._on_immediate_persist_requested(management_keys={"save_points"})
 
             name_edit.editingFinished.connect(apply_changes)
             description_edit.textChanged.connect(lambda: apply_changes())
@@ -1118,6 +1259,161 @@ class PackageEventsMixin:
             )
         if hasattr(self, "_ensure_peripheral_system_editor_tab_visible"):
             self._ensure_peripheral_system_editor_tab_visible(True)
+
+    # --- 装备词条/标签/类型 专用面板 -----------------------------------------
+
+    @staticmethod
+    def _is_equipment_entry_payload(payload: object) -> bool:
+        return isinstance(payload, dict) and (
+            ("entry_name" in payload) or ("entry_type" in payload)
+        )
+
+    @staticmethod
+    def _is_equipment_tag_payload(payload: object) -> bool:
+        return isinstance(payload, dict) and ("tag_name" in payload)
+
+    @staticmethod
+    def _is_equipment_type_payload(payload: object) -> bool:
+        return isinstance(payload, dict) and (("type_name" in payload) or ("allowed_slots" in payload))
+
+    def _get_equipment_payload(
+        self, package: object, storage_id: str
+    ) -> Optional[Dict[str, Any]]:
+        management_view = getattr(package, "management", None)
+        equipment_map = getattr(management_view, "equipment_data", None)
+        if not isinstance(equipment_map, dict):
+            return None
+        payload_any = equipment_map.get(storage_id)
+        return payload_any if isinstance(payload_any, dict) else None
+
+    def _update_equipment_entry_panel_for_selection(self, has_selection: bool) -> None:
+        if not hasattr(self, "equipment_entry_panel"):
+            return
+
+        panel = self.equipment_entry_panel
+
+        selection = self._get_management_current_selection()
+        if not has_selection or selection is None:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_entry_editor_tab_visible"):
+                self._ensure_equipment_entry_editor_tab_visible(False)
+            return
+
+        section_key, storage_id = selection
+        if section_key != "equipment_entries" or not storage_id:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_entry_editor_tab_visible"):
+                self._ensure_equipment_entry_editor_tab_visible(False)
+            return
+
+        package = self._get_current_management_package()
+        if package is None:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_entry_editor_tab_visible"):
+                self._ensure_equipment_entry_editor_tab_visible(False)
+            return
+
+        payload = self._get_equipment_payload(package, storage_id)
+        if not self._is_equipment_entry_payload(payload):
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_entry_editor_tab_visible"):
+                self._ensure_equipment_entry_editor_tab_visible(False)
+            return
+
+        # 绑定上下文与表单
+        panel._set_context_internal(package, storage_id, payload)  # type: ignore[attr-defined]
+
+        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
+        panel.set_packages_and_membership(packages, membership)
+
+        if hasattr(self, "_ensure_equipment_entry_editor_tab_visible"):
+            self._ensure_equipment_entry_editor_tab_visible(True)
+        if hasattr(self, "_hide_all_management_edit_pages"):
+            self._hide_all_management_edit_pages("equipment_entries")  # type: ignore[attr-defined]
+
+    def _update_equipment_tag_panel_for_selection(self, has_selection: bool) -> None:
+        if not hasattr(self, "equipment_tag_panel"):
+            return
+
+        panel = self.equipment_tag_panel
+        selection = self._get_management_current_selection()
+        if not has_selection or selection is None:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_tag_editor_tab_visible"):
+                self._ensure_equipment_tag_editor_tab_visible(False)
+            return
+
+        section_key, storage_id = selection
+        if section_key != "equipment_tags" or not storage_id:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_tag_editor_tab_visible"):
+                self._ensure_equipment_tag_editor_tab_visible(False)
+            return
+
+        package = self._get_current_management_package()
+        if package is None:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_tag_editor_tab_visible"):
+                self._ensure_equipment_tag_editor_tab_visible(False)
+            return
+
+        payload = self._get_equipment_payload(package, storage_id)
+        if not self._is_equipment_tag_payload(payload):
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_tag_editor_tab_visible"):
+                self._ensure_equipment_tag_editor_tab_visible(False)
+            return
+
+        panel._set_context_internal(package, storage_id, payload)  # type: ignore[attr-defined]
+        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
+        panel.set_packages_and_membership(packages, membership)
+
+        if hasattr(self, "_ensure_equipment_tag_editor_tab_visible"):
+            self._ensure_equipment_tag_editor_tab_visible(True)
+        if hasattr(self, "_hide_all_management_edit_pages"):
+            self._hide_all_management_edit_pages("equipment_tags")  # type: ignore[attr-defined]
+
+    def _update_equipment_type_panel_for_selection(self, has_selection: bool) -> None:
+        if not hasattr(self, "equipment_type_panel"):
+            return
+
+        panel = self.equipment_type_panel
+        selection = self._get_management_current_selection()
+        if not has_selection or selection is None:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_type_editor_tab_visible"):
+                self._ensure_equipment_type_editor_tab_visible(False)
+            return
+
+        section_key, storage_id = selection
+        if section_key != "equipment_types" or not storage_id:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_type_editor_tab_visible"):
+                self._ensure_equipment_type_editor_tab_visible(False)
+            return
+
+        package = self._get_current_management_package()
+        if package is None:
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_type_editor_tab_visible"):
+                self._ensure_equipment_type_editor_tab_visible(False)
+            return
+
+        payload = self._get_equipment_payload(package, storage_id)
+        if not self._is_equipment_type_payload(payload):
+            panel.clear()
+            if hasattr(self, "_ensure_equipment_type_editor_tab_visible"):
+                self._ensure_equipment_type_editor_tab_visible(False)
+            return
+
+        panel._set_context_internal(package, storage_id, payload)  # type: ignore[attr-defined]
+        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
+        panel.set_packages_and_membership(packages, membership)
+
+        if hasattr(self, "_ensure_equipment_type_editor_tab_visible"):
+            self._ensure_equipment_type_editor_tab_visible(True)
+        if hasattr(self, "_hide_all_management_edit_pages"):
+            self._hide_all_management_edit_pages("equipment_types")  # type: ignore[attr-defined]
 
     def _build_signal_membership_index(self) -> Dict[str, set[str]]:
         """扫描所有存档索引，构建 {signal_id: {package_id,...}} 归属索引。"""
@@ -1318,7 +1614,7 @@ class PackageEventsMixin:
         current_package_id = getattr(self.package_controller, "current_package_id", None)
         if current_package_id in ("global_view", "unclassified_view"):
             return
-        self._on_immediate_persist_requested()
+        self._on_immediate_persist_requested(index_dirty=True, signals_dirty=True)
 
     def _on_struct_property_panel_struct_changed(self) -> None:
         """右侧结构体面板内容变化时，写回当前结构体定义。"""
@@ -1432,7 +1728,7 @@ class PackageEventsMixin:
         current_package_id = getattr(self.package_controller, "current_package_id", None)
         if current_package_id in ("global_view", "unclassified_view"):
             return
-        self._on_immediate_persist_requested()
+        self._on_immediate_persist_requested(index_dirty=True)
 
     def _resolve_management_resource_binding_for_section(
         self,
@@ -1480,6 +1776,78 @@ class PackageEventsMixin:
             if resource_id in ids_value:
                 membership.add(package_id)
         return packages, membership
+
+    def _get_level_variable_ids_for_source(self, source_key: str) -> list[str]:
+        from engine.resources.level_variable_schema_view import get_default_level_variable_schema_view
+        from ui.graph.library_pages.management_section_variable import VariableSection
+
+        schema_view = get_default_level_variable_schema_view()
+        all_variables = schema_view.get_all_variables()
+        matched: list[str] = []
+        for variable_id, payload in all_variables.items():
+            if not isinstance(payload, dict):
+                continue
+            resolved_source = VariableSection._get_source_key(payload)
+            if resolved_source == source_key:
+                matched.append(variable_id)
+        return matched
+
+    def _get_packages_and_membership_for_level_variable_group(
+        self,
+        source_key: str,
+    ) -> tuple[list[dict], set[str], list[str]]:
+        manager = getattr(self, "package_index_manager", None)
+        if manager is None:
+            return [], set(), []
+        variable_ids = self._get_level_variable_ids_for_source(source_key)
+        packages = manager.list_packages()
+        membership: set[str] = set()
+        for package_info in packages:
+            package_id_value = package_info.get("package_id")
+            if not isinstance(package_id_value, str) or not package_id_value:
+                continue
+            package_id = package_id_value
+            package_index = manager.load_package_index(package_id)
+            if not package_index:
+                continue
+            ids_value = package_index.resources.management.get("level_variables", [])
+            if not isinstance(ids_value, list):
+                continue
+            if variable_ids and all(var_id in ids_value for var_id in variable_ids):
+                membership.add(package_id)
+        return packages, membership, variable_ids
+
+    def _apply_level_variable_membership_change(
+        self,
+        variable_ids: list[str],
+        package_id: str,
+        is_checked: bool,
+    ) -> None:
+        from engine.resources.package_index_manager import PackageIndexManager
+
+        manager = getattr(self, "package_index_manager", None)
+        if not isinstance(manager, PackageIndexManager):
+            return
+
+        for variable_id in variable_ids:
+            if is_checked:
+                manager.add_resource_to_package(
+                    package_id,
+                    "management_level_variables",
+                    variable_id,
+                )
+            else:
+                manager.remove_resource_from_package(
+                    package_id,
+                    "management_level_variables",
+                    variable_id,
+                )
+
+        current_package_id = getattr(self.package_controller, "current_package_id", None)
+        if current_package_id == package_id:
+            current_package = getattr(self.package_controller, "current_package", None)
+            if current_package is not None:
+                current_package.clear_cache()
 
     def _apply_management_membership_for_property_panel(
         self,
@@ -1541,7 +1909,7 @@ class PackageEventsMixin:
         current_package_id = getattr(self.package_controller, "current_package_id", None)
         if current_package_id in ("global_view", "unclassified_view"):
             return
-        self._on_immediate_persist_requested()
+        self._on_immediate_persist_requested(index_dirty=True)
 
     def _on_peripheral_system_panel_package_membership_changed(
         self,
@@ -1565,7 +1933,67 @@ class PackageEventsMixin:
         current_package_id = getattr(self.package_controller, "current_package_id", None)
         if current_package_id in ("global_view", "unclassified_view"):
             return
-        self._on_immediate_persist_requested()
+        self._on_immediate_persist_requested(index_dirty=True)
+
+    def _on_equipment_entry_package_membership_changed(
+        self,
+        storage_id: str,
+        package_id: str,
+        is_checked: bool,
+    ) -> None:
+        if not storage_id or not package_id:
+            return
+        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
+        _ = packages
+        if is_checked:
+            membership.add(package_id)
+        else:
+            membership.discard(package_id)
+        self._apply_management_membership_for_property_panel("equipment_data", storage_id, membership)
+        current_package_id = getattr(self.package_controller, "current_package_id", None)
+        if current_package_id in ("global_view", "unclassified_view"):
+            return
+        self._on_immediate_persist_requested(index_dirty=True)
+
+    def _on_equipment_tag_package_membership_changed(
+        self,
+        storage_id: str,
+        package_id: str,
+        is_checked: bool,
+    ) -> None:
+        if not storage_id or not package_id:
+            return
+        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
+        _ = packages
+        if is_checked:
+            membership.add(package_id)
+        else:
+            membership.discard(package_id)
+        self._apply_management_membership_for_property_panel("equipment_data", storage_id, membership)
+        current_package_id = getattr(self.package_controller, "current_package_id", None)
+        if current_package_id in ("global_view", "unclassified_view"):
+            return
+        self._on_immediate_persist_requested(index_dirty=True)
+
+    def _on_equipment_type_package_membership_changed(
+        self,
+        storage_id: str,
+        package_id: str,
+        is_checked: bool,
+    ) -> None:
+        if not storage_id or not package_id:
+            return
+        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
+        _ = packages
+        if is_checked:
+            membership.add(package_id)
+        else:
+            membership.discard(package_id)
+        self._apply_management_membership_for_property_panel("equipment_data", storage_id, membership)
+        current_package_id = getattr(self.package_controller, "current_package_id", None)
+        if current_package_id in ("global_view", "unclassified_view"):
+            return
+        self._on_immediate_persist_requested(index_dirty=True)
 
     def _on_management_property_panel_membership_changed(
         self,
@@ -1583,26 +2011,45 @@ class PackageEventsMixin:
         if not resource_key or not resource_id or not package_id:
             return
 
-        packages, membership = self._get_management_packages_and_membership(resource_key, resource_id)
-        _ = packages
-        if is_checked:
-            membership.add(package_id)
+        if resource_key == "level_variables":
+            variable_ids = self._get_level_variable_ids_for_source(resource_id)
+            target_ids = variable_ids if variable_ids else [resource_id]
+            self._apply_level_variable_membership_change(target_ids, package_id, is_checked)
         else:
-            membership.discard(package_id)
+            packages, membership = self._get_management_packages_and_membership(resource_key, resource_id)
+            _ = packages
+            if is_checked:
+                membership.add(package_id)
+            else:
+                membership.discard(package_id)
 
-        self._apply_management_membership_for_property_panel(resource_key, resource_id, membership)
-        # 在全局视图/未分类视图下，仅通过 PackageIndexManager 即时写回各存档索引，
-        # 不再触发当前视图的整包保存逻辑，避免在聚合视图中对管理配置本体进行额外落盘。
+            self._apply_management_membership_for_property_panel(resource_key, resource_id, membership)
+
+            self._sync_current_package_index_for_membership(
+                package_id,
+                f"management_{resource_key}",
+                resource_id,
+                is_checked,
+            )
+
         current_package_id = getattr(self.package_controller, "current_package_id", None)
         if current_package_id in ("global_view", "unclassified_view"):
             return
-        self._on_immediate_persist_requested()
+        self._on_immediate_persist_requested(index_dirty=True)
 
     def _on_management_edit_page_data_updated(self) -> None:
         """右侧管理编辑页数据更新后，刷新管理库列表并立即持久化。"""
         if hasattr(self, "management_widget"):
             self.management_widget._refresh_items()  # type: ignore[attr-defined]
-        self._on_immediate_persist_requested()
+        selection = self._get_management_current_selection()
+        management_keys: set[str] = set()
+        if selection is not None:
+            section_key = selection[0]
+            if isinstance(section_key, str) and section_key:
+                management_keys.add(section_key)
+        self._on_immediate_persist_requested(
+            management_keys=management_keys if management_keys else None
+        )
 
     def _on_management_selection_changed(
         self,
@@ -1629,27 +2076,7 @@ class PackageEventsMixin:
             return
 
         if not has_selection:
-            # 无选中记录时，统一收起通用属性面板与专用编辑面板
-            if hasattr(self, "management_property_panel"):
-                self.management_property_panel.clear()
-            if hasattr(self, "_ensure_management_property_tab_visible"):
-                self._ensure_management_property_tab_visible(False)
-            if section_key == "signals":
-                self._update_signal_property_panel_for_selection(False)
-            elif section_key in ("struct_definitions", "ingame_struct_definitions"):
-                self._update_struct_property_panel_for_selection(False)
-            elif section_key == "main_cameras" and hasattr(
-                self, "_update_main_camera_panel_for_selection"
-            ):
-                self._update_main_camera_panel_for_selection(False)
-            elif section_key == "peripheral_systems" and hasattr(
-                self, "_update_peripheral_system_panel_for_selection"
-            ):
-                self._update_peripheral_system_panel_for_selection(False)
-            # 其余使用内联表单的 Section 在清空选中时，由统一逻辑收起属性面板
-            # 其余管理类型：隐藏通用管理编辑页
-            if hasattr(self, "_hide_all_management_edit_pages"):
-                self._hide_all_management_edit_pages(None)  # type: ignore[attr-defined]
+            self._on_library_selection_state_changed(False, {"section_key": section_key})
             return
 
         # 信号管理与结构体定义：仅保留各自的专用编辑面板，不再展示通用“属性”标签
@@ -1683,13 +2110,39 @@ class PackageEventsMixin:
             if hasattr(self, "_hide_all_management_edit_pages"):
                 self._hide_all_management_edit_pages(None)  # type: ignore[attr-defined]
             return
+        if section_key == "equipment_entries":
+            if hasattr(self, "_update_equipment_entry_panel_for_selection"):
+                self._update_equipment_entry_panel_for_selection(True)
+            if hasattr(self, "_ensure_management_property_tab_visible"):
+                self._ensure_management_property_tab_visible(False)
+            if hasattr(self, "_hide_all_management_edit_pages"):
+                self._hide_all_management_edit_pages("equipment_entries")  # type: ignore[attr-defined]
+            return
+        if section_key == "equipment_tags":
+            if hasattr(self, "_update_equipment_tag_panel_for_selection"):
+                self._update_equipment_tag_panel_for_selection(True)
+            if hasattr(self, "_ensure_management_property_tab_visible"):
+                self._ensure_management_property_tab_visible(False)
+            if hasattr(self, "_hide_all_management_edit_pages"):
+                self._hide_all_management_edit_pages("equipment_tags")  # type: ignore[attr-defined]
+            return
+        if section_key == "equipment_types":
+            if hasattr(self, "_update_equipment_type_panel_for_selection"):
+                self._update_equipment_type_panel_for_selection(True)
+            if hasattr(self, "_ensure_management_property_tab_visible"):
+                self._ensure_management_property_tab_visible(False)
+            if hasattr(self, "_hide_all_management_edit_pages"):
+                self._hide_all_management_edit_pages("equipment_types")  # type: ignore[attr-defined]
+            return
 
         # 其余管理类型：优先尝试使用 Section 提供的右侧就地编辑表单；
         # 若 Section 未实现内联表单，则退化为只读摘要展示。
         inline_handled = False
         binding: ManagementResourceBinding | None = None
+        section_obj = None
         if section_key:
             binding = self._resolve_management_resource_binding_for_section(section_key)
+            section_obj = get_management_section_by_key(section_key)
 
         # 所属存档多选行启用规则：
         # - 默认仅对按 ID 列表管理的资源类型启用（aggregation_mode == "id_list"）；
@@ -1697,36 +2150,57 @@ class PackageEventsMixin:
         #   （level_settings），即便采用单配置聚合语义，仍允许在属性面板顶部按“配置体 ID”
         #   维护包级归属关系，使其行为与战斗预设模板保持一致。
         membership_supported = False
-        if binding is not None:
+        if section_key == "variable":
+            membership_supported = True
+        elif binding is not None:
             if binding.key in {"save_points", "currency_backpack", "level_settings"}:
                 membership_supported = True
             else:
                 membership_supported = getattr(binding, "aggregation_mode", "id_list") == "id_list"
 
         if hasattr(self, "management_property_panel") and membership_supported and item_id and binding is not None:
-            packages, membership = self._get_management_packages_and_membership(binding.key, item_id)
-            self.management_property_panel.set_membership_context(  # type: ignore[attr-defined]
-                section_key,
-                binding.key,
-                item_id,
-                packages,
-                membership,
-            )
+            if section_key == "variable":
+                packages, membership, variable_ids = self._get_packages_and_membership_for_level_variable_group(item_id)
+                if section_obj is not None and hasattr(section_obj, "set_usage_text"):
+                    usage_names = [pkg.get("name", pkg.get("package_id", "")) for pkg in packages if pkg.get("package_id") in membership]
+                    if usage_names:
+                        section_obj.set_usage_text("，".join(usage_names))
+                    else:
+                        section_obj.set_usage_text("未被任何存档引用")
+                self.management_property_panel.set_membership_context(  # type: ignore[attr-defined]
+                    section_key,
+                    binding.key,
+                    item_id,
+                    packages,
+                    membership,
+                )
+            else:
+                packages, membership = self._get_management_packages_and_membership(binding.key, item_id)
+                self.management_property_panel.set_membership_context(  # type: ignore[attr-defined]
+                    section_key,
+                    binding.key,
+                    item_id,
+                    packages,
+                    membership,
+                )
         elif hasattr(self, "management_property_panel"):
             # 无法解析到明确的管理资源，或当前 Section 使用聚合配置体语义（单配置/聚合视图），
             # 清空所属存档上下文但仍保留下方表单区域。
             self.management_property_panel._clear_membership_context()  # type: ignore[attr-defined]
 
+        if hasattr(self, "_update_right_panel_visibility"):
+            self._update_right_panel_visibility()
+
         if section_key and item_id:
             current_package = getattr(self.package_controller, "current_package", None)
-            section_obj = get_management_section_by_key(section_key)
             management_panel = self.management_property_panel
 
             if current_package is not None and section_obj is not None:
                 def _on_inline_changed() -> None:
                     if hasattr(self, "management_widget"):
                         self.management_widget._refresh_items()  # type: ignore[attr-defined]
-                    self._on_immediate_persist_requested()
+                    key_set = {section_key} if isinstance(section_key, str) and section_key else None
+                    self._on_immediate_persist_requested(management_keys=key_set)
 
                 inline_result = section_obj.build_inline_edit_form(
                     parent=management_panel,
@@ -1764,8 +2238,51 @@ class PackageEventsMixin:
         仍由各库页自身与控制器协同处理；后续如需按资源类型做差异化处理，
         可在此方法中根据 event.kind / event.operation / event.context 分派逻辑。
         """
-        _ = event
-        self._on_immediate_persist_requested()
+        template_id: str | None = None
+        instance_id: str | None = None
+        management_keys: set[str] | None = None
+        combat_dirty = False
+        signals_dirty = False
+        graph_dirty = False
+        index_dirty = False
+
+        kind = getattr(event, "kind", "") or ""
+        operation = getattr(event, "operation", "") or ""
+        context = getattr(event, "context", None)
+
+        if kind == "template":
+            template_id = event.id
+        elif kind == "instance":
+            instance_id = event.id
+        elif kind == "graph":
+            graph_dirty = True
+        elif kind == "combat":
+            combat_dirty = True
+            index_dirty = True
+        elif kind == "management":
+            combat_dirty = False
+            section_key = None
+            if isinstance(context, dict):
+                section_key = context.get("section_key")
+            if isinstance(section_key, str) and section_key:
+                management_keys = {section_key}
+            index_dirty = True
+        elif kind == "signal":
+            signals_dirty = True
+            index_dirty = True
+
+        if operation in {"create", "delete"}:
+            index_dirty = True
+
+        self._on_immediate_persist_requested(
+            graph_dirty=graph_dirty,
+            template_id=template_id,
+            instance_id=instance_id,
+            management_keys=management_keys,
+            combat_dirty=combat_dirty,
+            signals_dirty=signals_dirty,
+            index_dirty=index_dirty,
+        )
 
     def _on_data_updated(self) -> None:
         """右侧属性面板的数据更新"""
@@ -1794,10 +2311,31 @@ class PackageEventsMixin:
 
         # 右侧属性面板的任何改动都应立即持久化到资源库与存档索引，
         # 避免仅停留在 UI 模型或内存视图中。
-        self._on_immediate_persist_requested()
+        obj = getattr(self.property_panel, "current_object", None)
+        object_type = getattr(self.property_panel, "object_type", None)
+        template_id: str | None = None
+        instance_id: str | None = None
+        if object_type == "template" and hasattr(obj, "template_id"):
+            template_id = getattr(obj, "template_id")
+        elif object_type in ("instance", "level_entity") and hasattr(obj, "instance_id"):
+            instance_id = getattr(obj, "instance_id")
+        self._on_immediate_persist_requested(
+            template_id=template_id,
+            instance_id=instance_id,
+        )
 
-    def _on_immediate_persist_requested(self) -> None:
-        """要求立即将当前存档的增删改写入本地资源与索引。
+    def _on_immediate_persist_requested(
+        self,
+        *,
+        graph_dirty: bool = False,
+        template_id: str | None = None,
+        instance_id: str | None = None,
+        management_keys: set[str] | None = None,
+        combat_dirty: bool = False,
+        signals_dirty: bool = False,
+        index_dirty: bool = False,
+    ) -> None:
+        """要求立即将当前存档的增删改写入本地资源与索引（按脏块增量落盘）。
 
         为避免在短时间内因多次属性变更触发频繁落盘，这里使用单次定时器做轻量去抖：
         在最近一次请求后的短暂间隔内合并为一次实际保存。
@@ -1808,6 +2346,23 @@ class PackageEventsMixin:
         current_package_id = getattr(self.package_controller, "current_package_id", None)
         if not current_package_id:
             return
+
+        controller = getattr(self, "package_controller")
+        if controller is not None:
+            if graph_dirty:
+                controller.mark_graph_dirty()
+            if template_id:
+                controller.mark_template_dirty(template_id)
+            if instance_id:
+                controller.mark_instance_dirty(instance_id)
+            if management_keys:
+                controller.mark_management_dirty(management_keys)
+            if combat_dirty:
+                controller.mark_combat_dirty()
+            if signals_dirty:
+                controller.mark_signals_dirty()
+            if index_dirty:
+                controller.mark_index_dirty()
 
         # 懒初始化去抖定时器
         timer = getattr(self, "_immediate_persist_timer", None)
@@ -1823,7 +2378,10 @@ class PackageEventsMixin:
                 package_id = getattr(controller, "current_package_id", None)
                 if not package_id:
                     return
-                controller.save_package()
+                if hasattr(controller, "save_dirty_blocks"):
+                    controller.save_dirty_blocks()
+                else:
+                    controller.save_package()
 
             timer.timeout.connect(_do_persist)
             setattr(self, "_immediate_persist_timer", timer)
@@ -1898,6 +2456,16 @@ class PackageEventsMixin:
             else:
                 if resource_id in struct_ids:
                     struct_ids.remove(resource_id)
+        elif resource_type.startswith("management_"):
+            # 其他管理配置：泛化维护 management 下的 ID 列表
+            management_key = resource_type[len("management_") :]
+            members = current_index.resources.management.setdefault(management_key, [])
+            if is_checked:
+                if resource_id not in members:
+                    members.append(resource_id)
+            else:
+                if resource_id in members:
+                    members.remove(resource_id)
 
         # 2. 同步当前 PackageView 的缓存（仅在其为 PackageView 时才需要）
         from engine.resources.package_view import PackageView  # 局部导入以避免循环依赖

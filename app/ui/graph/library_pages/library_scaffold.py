@@ -64,6 +64,31 @@ class LibraryPageMixin:
     def set_selection(self, selection: Optional[LibrarySelection]) -> None:
         _ = selection
 
+    def notify_selection_state(
+        self,
+        has_selection: bool,
+        *,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        """向主窗口报告当前库页是否存在有效选中项。
+
+        设计用途：
+        - 库页在刷新或清空选中时可调用本方法，主窗口统一依据当前视图模式
+          收起右侧属性/详情容器并更新可见性，而无需各页面分别调用
+          `_update_right_panel_visibility()`。
+        - `context` 可在需要时附带额外信息（例如 section_key），供主窗口针对
+          特定模式执行更精细的收起逻辑。
+        """
+        window = self.window()
+        handler = getattr(window, "_on_library_selection_state_changed", None) if window else None
+        if callable(handler):
+            handler(has_selection, context or {})
+            return
+        if not has_selection:
+            updater = getattr(window, "_update_right_panel_visibility", None) if window else None
+            if callable(updater):
+                updater()
+
 
 class DualPaneLibraryScaffold(PanelScaffold):
     """提供带左右分区的通用 PanelScaffold 模板。"""

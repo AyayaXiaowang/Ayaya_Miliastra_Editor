@@ -442,7 +442,7 @@ class GraphResourceService:
     # ===== 内部：布局设置兼容性检查 =====
 
     def _current_layout_settings_snapshot(self) -> dict:
-        """获取与布局结果相关的全局设置快照（跨块复制、紧凑排列等）。"""
+        """获取与布局结果相关的全局设置快照（跨块复制、紧凑排列、布局算法版本等）。"""
         from engine.configs.settings import settings
 
         return {
@@ -452,6 +452,8 @@ class GraphResourceService:
             "LAYOUT_TIGHT_BLOCK_PACKING": bool(
                 getattr(settings, "LAYOUT_TIGHT_BLOCK_PACKING", True)
             ),
+            # 布局算法版本号：用于在跨块复制/块归属等布局语义发生变更时主动失效旧缓存。
+            "LAYOUT_ALGO_VERSION": int(getattr(settings, "LAYOUT_ALGO_VERSION", 1)),
         }
 
     def _is_persistent_layout_settings_compatible(self, persisted: dict) -> bool:
@@ -471,7 +473,14 @@ class GraphResourceService:
             return False
         current = self._current_layout_settings_snapshot()
         for key, current_value in current.items():
-            if bool(cached_settings.get(key)) != bool(current_value):
+            cached_value = cached_settings.get(key)
+            # 对布尔开关保持向后兼容的布尔比较
+            if isinstance(current_value, bool):
+                if bool(cached_value) != current_value:
+                    return False
+                continue
+            # 对于非布尔字段（例如布局算法版本号），使用精确相等判定，缺失或不相等即视为不兼容
+            if cached_value != current_value:
                 return False
         return True
 

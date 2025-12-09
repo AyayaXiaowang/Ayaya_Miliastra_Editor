@@ -10,7 +10,7 @@ from typing import Dict, Optional
 from pathlib import Path
 
 from engine.nodes.node_definition_loader import NodeDef
-from engine.nodes.advanced_node_features import CompositeNodeConfig
+from engine.nodes.advanced_node_features import CompositeNodeConfig, MappedPort
 from engine.graph.common import node_name_index_from_library, apply_layout_quietly
 from engine.graph.utils.metadata_extractor import (
     GraphMetadata,
@@ -19,6 +19,11 @@ from engine.graph.utils.metadata_extractor import (
 from engine.graph.ir.virtual_pin_builder import build_virtual_pins_from_class
 from engine.graph.composite.class_format_parser import ClassFormatParser
 from engine.utils.logging.logger import log_info
+from engine.graph.utils.ast_utils import (
+    collect_module_constants,
+    set_module_constants_context,
+    clear_module_constants_context,
+)
 
 
 class CompositeCodeParser:
@@ -106,13 +111,6 @@ class CompositeCodeParser:
         # 2. 提取元数据（从代码：docstring + GRAPH_VARIABLES）
         if metadata_obj is None:
             metadata_obj = extract_metadata_from_code(code)
-        metadata = {
-            'composite_id': metadata_obj.composite_id,
-            'node_name': metadata_obj.node_name,
-            'node_description': metadata_obj.node_description,
-            'scope': metadata_obj.scope,
-            'folder_path': metadata_obj.folder_path,
-        }
         
         # 3. 找到复合节点类定义
         class_def = self._find_composite_class(tree)
@@ -128,24 +126,37 @@ class CompositeCodeParser:
         if self.verbose:
             log_info("  提取了 {} 个虚拟引脚", len(virtual_pins))
         
-        # 5. 委托类格式解析器解析所有装饰的方法，生成子图
+        # 5. 收集模块级常量并设置上下文（支持在节点调用中引用模块级常量）
+        module_constants = collect_module_constants(tree)
+        if self.verbose and module_constants:
+            log_info("  收集到 {} 个模块级常量: {}", len(module_constants), list(module_constants.keys()))
+        set_module_constants_context(module_constants)
+        
+        # 6. 委托类格式解析器解析所有装饰的方法，生成子图
         graph_model = self.class_parser.parse_class_methods(class_def, virtual_pins)
         
-        # 6. 应用布局
+        # 清除模块常量上下文
+        clear_module_constants_context()
+        
+        # 7. 应用布局
         if self.verbose:
             log_info("[CompositeCodeParser] 应用自动布局...")
         
         apply_layout_quietly(graph_model)
+
+        # 7.1 将虚拟引脚映射扩展到布局阶段创建的"数据节点副本"上，保持映射与最终子图一致
+        self._propagate_virtual_pin_mappings_to_copies(virtual_pins, graph_model)
         
-        # 7. 构建CompositeNodeConfig
+        # 8. 构建CompositeNodeConfig
+        class_name = class_def.name
         composite = CompositeNodeConfig(
-            composite_id=metadata.get("composite_id", f"composite_{class_def.name}"),
-            node_name=metadata.get("node_name", class_def.name),
-            node_description=metadata.get("node_description", ""),
-            scope=metadata.get("scope", "server"),
+            composite_id=metadata_obj.composite_id or f"composite_{class_name}",
+            node_name=class_name,
+            node_description=metadata_obj.node_description or "",
+            scope=metadata_obj.scope or "server",
             virtual_pins=virtual_pins,
             sub_graph=graph_model.serialize(),
-            folder_path=metadata.get("folder_path", "")
+            folder_path=metadata_obj.folder_path or ""
         )
         
         if self.verbose:
@@ -156,6 +167,73 @@ class CompositeCodeParser:
             )
         
         return composite
+
+    def _propagate_virtual_pin_mappings_to_copies(
+        self,
+        virtual_pins,
+        graph_model,
+    ) -> None:
+        """在布局后将虚拟引脚映射同步到数据节点副本上。
+
+        布局管线在启用 DATA_NODE_CROSS_BLOCK_COPY 时，会为跨块共享的数据节点创建
+        `is_data_node_copy=True` 的副本，并通过 `original_node_id` 记录根原始节点 ID。
+        虚拟引脚映射是在布局前基于原始节点 ID 构建的，若不做同步，布局产生的副本
+        将缺乏映射信息，导致在某些块内查看时看起来“输入未连接”。
+
+        这里按以下规则扩展映射：
+        - 针对每个虚拟引脚当前的 mapped_ports 条目 (node_id, port_name, ...)，
+          查找所有 `original_node_id == node_id` 且 `is_data_node_copy=True` 的副本；
+        - 为这些副本追加同名端口的映射，保持 is_input / is_flow 与原映射一致；
+        - 已存在完全相同条目时不会重复追加。
+        """
+        # 构建 原始ID -> [副本ID...] 的索引，仅关注数据节点副本
+        copies_by_origin = {}
+        for node in graph_model.nodes.values():
+            origin_id = getattr(node, "original_node_id", "") or ""
+            if not origin_id:
+                continue
+            if not getattr(node, "is_data_node_copy", False):
+                continue
+            copies_by_origin.setdefault(str(origin_id), []).append(str(node.id))
+
+        if not copies_by_origin:
+            return
+
+        for pin in virtual_pins:
+            mapped = getattr(pin, "mapped_ports", None) or []
+            if not mapped:
+                continue
+
+            # 复制当前列表快照，避免在迭代过程中扩容影响遍历
+            existing_mappings = list(mapped)
+            for entry in existing_mappings:
+                origin_node_id = getattr(entry, "node_id", None)
+                if not origin_node_id:
+                    continue
+                copy_ids = copies_by_origin.get(str(origin_node_id))
+                if not copy_ids:
+                    continue
+
+                for copy_id in copy_ids:
+                    # 避免添加重复映射
+                    already_exists = any(
+                        (mp.node_id == copy_id)
+                        and (mp.port_name == entry.port_name)
+                        and (mp.is_input == entry.is_input)
+                        and (mp.is_flow == entry.is_flow)
+                        for mp in pin.mapped_ports
+                    )
+                    if already_exists:
+                        continue
+
+                    pin.mapped_ports.append(
+                        MappedPort(
+                            node_id=copy_id,
+                            port_name=entry.port_name,
+                            is_input=entry.is_input,
+                            is_flow=entry.is_flow,
+                        )
+                    )
     
     def _detect_class_format(self, tree: ast.Module) -> bool:
         """检测是否为类格式（基于AST）"""

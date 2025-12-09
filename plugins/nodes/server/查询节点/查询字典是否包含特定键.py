@@ -9,7 +9,10 @@ from engine.utils.logging.logger import log_info
     inputs=[("字典", "泛型"), ("键", "泛型")],
     outputs=[("是否包含", "布尔值")],
     description="查询指定字典是否包含特定的键",
-    doc_reference="服务器节点/查询节点/查询节点.md"
+    doc_reference="服务器节点/查询节点/查询节点.md",
+    input_generic_constraints={
+        "键": ["实体", "GUID", "整数", "字符串", "阵营", "配置ID", "元件ID"],
+    },
 )
 def 查询字典是否包含特定键(game, 字典, 键):
     """查询指定字典是否包含特定的键"""

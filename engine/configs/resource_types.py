@@ -40,8 +40,3 @@ class ResourceType(Enum):
     STRUCT_DEFINITION = "管理配置/结构体定义"
     SIGNAL = "管理配置/信号"
 
-    # 代码级 Schema 资源（预留入口，当前仍由引擎配置常量提供数据）
-    STRUCT_DEFINITION_CODE = "管理配置/结构体定义_py"
-    SIGNAL_DEFINITION_CODE = "管理配置/信号_py"
-
-

@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import sys
 
+from dataclasses import dataclass
+from typing import Callable, Iterable
+
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from app.models import UiNavigationRequest
@@ -33,14 +36,30 @@ from ui.graph.library_pages.package_library_widget import PackageLibraryWidget
 from ui.panels.combat_player_panel import CombatPlayerEditorPanel
 from ui.panels.combat_class_panel import CombatPlayerClassPanel
 from ui.panels.combat_skill_panel import CombatSkillPanel
-from ui.management.section_registry import (
-    MANAGEMENT_SECTIONS,
-    ManagementSectionSpec,
-)
+from ui.panels.combat_item_panel import CombatItemPanel
+from ui.management.section_registry import MANAGEMENT_SECTIONS, ManagementSectionSpec
+
+
+@dataclass
+class StackPageSpec:
+    """描述中央堆叠中的页面构建与后置处理。"""
+
+    attribute_name: str
+    builder: Callable[[], QtWidgets.QWidget]
+    after_create: Callable[[QtWidgets.QWidget], None] | None = None
 
 
 class UISetupMixin:
     """UI设置相关方法的Mixin"""
+
+    def _connect_optional_signal(
+        self, sender: object, signal_name: str, handler: Callable[..., None]
+    ) -> None:
+        """安全连接可选信号，避免到处散落的 hasattr 判断。"""
+        optional_signal = getattr(sender, signal_name, None)
+        if optional_signal is None:
+            return
+        optional_signal.connect(handler)
 
     def _apply_global_theme(self) -> None:
         """应用全局主题样式"""
@@ -88,60 +107,62 @@ class UISetupMixin:
         main_layout.addWidget(self.nav_bar)
 
     def _create_central_stack(self) -> None:
-        """创建中间堆叠窗口及各模式页面。"""
+        """创建中间堆叠窗口及各模式页面（数据驱动，便于扩展）。"""
         self.central_stack = QtWidgets.QStackedWidget()
-        self._create_template_page()
-        self._create_placement_page()
-        self._create_combat_page()
-        self._create_management_page()
-        self._create_todo_page()
-        self._create_composite_placeholder_page()
-        self._create_graph_library_page()
-        self._create_validation_page()
-        self._create_graph_editor_page()
-        self._create_package_library_page()
+        for page_spec in self._central_page_specs():
+            page_widget = page_spec.builder()
+            setattr(self, page_spec.attribute_name, page_widget)
+            self.central_stack.addWidget(page_widget)
+            if page_spec.after_create is not None:
+                page_spec.after_create(page_widget)
 
-    def _create_template_page(self) -> None:
+    def _central_page_specs(self) -> Iterable[StackPageSpec]:
+        """集中描述中央堆叠页，新增模式时只需扩展此列表。"""
+        return (
+            StackPageSpec("template_widget", self._create_template_page),
+            StackPageSpec("placement_widget", self._create_placement_page),
+            StackPageSpec("combat_widget", self._create_combat_page),
+            StackPageSpec("management_widget", self._create_management_page),
+            StackPageSpec("todo_widget", self._create_todo_page),
+            StackPageSpec("_composite_placeholder", self._create_composite_placeholder_page),
+            StackPageSpec("graph_library_widget", self._create_graph_library_page),
+            StackPageSpec("validation_panel", self._create_validation_page),
+            StackPageSpec("view", self._create_graph_editor_page),
+            StackPageSpec("package_library_widget", self._create_package_library_page),
+        )
+
+    def _create_template_page(self) -> TemplateLibraryWidget:
         """元件库页面（ViewMode.TEMPLATE）。"""
-        self.template_widget = TemplateLibraryWidget()
-        self.template_widget.template_selected.connect(self._on_template_selected)
-        if hasattr(self.template_widget, "data_changed"):
-            self.template_widget.data_changed.connect(self._on_library_page_data_changed)
-        self.central_stack.addWidget(self.template_widget)
+        template_widget = TemplateLibraryWidget()
+        template_widget.template_selected.connect(self._on_template_selected)
+        self._connect_optional_signal(template_widget, "data_changed", self._on_library_page_data_changed)
+        return template_widget
 
-    def _create_placement_page(self) -> None:
+    def _create_placement_page(self) -> EntityPlacementWidget:
         """实体摆放页面（ViewMode.PLACEMENT）。"""
-        self.placement_widget = EntityPlacementWidget()
-        self.placement_widget.instance_selected.connect(self._on_instance_selected)
-        self.placement_widget.level_entity_selected.connect(self._on_level_entity_selected)
-        if hasattr(self.placement_widget, "data_changed"):
-            self.placement_widget.data_changed.connect(self._on_library_page_data_changed)
-        self.central_stack.addWidget(self.placement_widget)
+        placement_widget = EntityPlacementWidget()
+        placement_widget.instance_selected.connect(self._on_instance_selected)
+        placement_widget.level_entity_selected.connect(self._on_level_entity_selected)
+        self._connect_optional_signal(placement_widget, "data_changed", self._on_library_page_data_changed)
+        return placement_widget
 
-    def _create_combat_page(self) -> None:
+    def _create_combat_page(self) -> CombatPresetsWidget:
         """战斗预设页面（ViewMode.COMBAT）。"""
-        self.combat_widget = CombatPresetsWidget()
-        if hasattr(self.combat_widget, "player_template_selected"):
-            # 玩家模板选中时更新右侧玩家模板详情面板
-            self.combat_widget.player_template_selected.connect(self._on_player_template_selected)
-        if hasattr(self.combat_widget, "player_class_selected"):
-            # 职业选中时更新右侧职业详情面板
-            self.combat_widget.player_class_selected.connect(self._on_player_class_selected)
-        if hasattr(self.combat_widget, "skill_selected"):
-            # 技能选中时更新右侧技能详情面板
-            self.combat_widget.skill_selected.connect(self._on_skill_selected)
-        if hasattr(self.combat_widget, "data_changed"):
-            self.combat_widget.data_changed.connect(self._on_library_page_data_changed)
-        self.central_stack.addWidget(self.combat_widget)
+        combat_widget = CombatPresetsWidget()
+        self._connect_optional_signal(combat_widget, "player_template_selected", self._on_player_template_selected)
+        self._connect_optional_signal(combat_widget, "player_class_selected", self._on_player_class_selected)
+        self._connect_optional_signal(combat_widget, "skill_selected", self._on_skill_selected)
+        self._connect_optional_signal(combat_widget, "item_selected", self._on_item_selected)
+        self._connect_optional_signal(combat_widget, "data_changed", self._on_library_page_data_changed)
+        return combat_widget
 
-    def _create_management_page(self) -> None:
+    def _create_management_page(self) -> ManagementLibraryWidget:
         """管理面板页面（ViewMode.MANAGEMENT）。"""
-        self.management_widget = ManagementLibraryWidget()
-        if hasattr(self.management_widget, "data_changed"):
-            self.management_widget.data_changed.connect(self._on_library_page_data_changed)
-        if hasattr(self.management_widget, "active_section_changed"):
-            self.management_widget.active_section_changed.connect(self._on_management_section_changed)
-        if hasattr(self.management_widget, "ui_control_group_manager"):
+        management_widget = ManagementLibraryWidget()
+        self._connect_optional_signal(management_widget, "data_changed", self._on_library_page_data_changed)
+        self._connect_optional_signal(management_widget, "active_section_changed", self._on_management_section_changed)
+        if hasattr(management_widget, "ui_control_group_manager"):
+
             def _on_open_player_editor_requested() -> None:
                 request = UiNavigationRequest(
                     resource_kind="combat",
@@ -151,19 +172,18 @@ class UISetupMixin:
                 )
                 self.nav_coordinator.handle_request(request)
 
-            self.management_widget.ui_control_group_manager.open_player_editor_requested.connect(
+            management_widget.ui_control_group_manager.open_player_editor_requested.connect(
                 _on_open_player_editor_requested
             )
-        self.central_stack.addWidget(self.management_widget)
+        return management_widget
 
-    def _create_todo_page(self) -> None:
+    def _create_todo_page(self) -> TodoListWidget:
         """任务清单页面（ViewMode.TODO）。"""
-        self.todo_widget = TodoListWidget()
-        self.todo_widget.main_window = self
-        # 将资源访问依赖注入到任务清单页面，供详情/树等内部模块复用，而无需直接依赖 MainWindow 结构
+        todo_widget = TodoListWidget()
+        todo_widget.main_window = self
         if hasattr(self, "resource_manager"):
-            self.todo_widget.resource_manager = self.resource_manager
-        self.todo_widget.todo_checked.connect(self._on_todo_checked)
+            todo_widget.resource_manager = self.resource_manager
+        todo_widget.todo_checked.connect(self._on_todo_checked)
 
         def _on_todo_jump_to_task(detail_info: dict) -> None:
             graph_id = str(detail_info.get("graph_id") or "")
@@ -192,35 +212,35 @@ class UISetupMixin:
                 self.nav_coordinator.handle_request(request)
             elif jump_type == "edge":
                 edge_id = jump_info.get("edge_id")
-                src_node = jump_info.get("src_node")
-                dst_node = jump_info.get("dst_node")
+                source_node_id = jump_info.get("src_node")
+                target_node_id = jump_info.get("dst_node")
                 request = UiNavigationRequest(
                     resource_kind="graph_preview",
                     resource_id=None,
                     desired_focus="graph_edge",
                     origin="todo_preview",
                     edge_id=str(edge_id) if edge_id else None,
-                    source_node_id=str(src_node) if src_node else None,
-                    target_node_id=str(dst_node) if dst_node else None,
+                    source_node_id=str(source_node_id) if source_node_id else None,
+                    target_node_id=str(target_node_id) if target_node_id else None,
                     payload=dict(jump_info),
                 )
                 self.nav_coordinator.handle_request(request)
 
-        self.todo_widget.jump_to_task.connect(_on_todo_jump_to_task)
-        self.todo_widget.preview_view.jump_to_graph_element.connect(_on_todo_preview_jump)
-        self.central_stack.addWidget(self.todo_widget)
+        todo_widget.jump_to_task.connect(_on_todo_jump_to_task)
+        todo_widget.preview_view.jump_to_graph_element.connect(_on_todo_preview_jump)
+        return todo_widget
 
-    def _create_composite_placeholder_page(self) -> None:
+    def _create_composite_placeholder_page(self) -> QtWidgets.QWidget:
         """复合节点管理器占位页面（ViewMode.COMPOSITE，懒加载）。"""
         self.composite_widget = None
         self._composite_placeholder = QtWidgets.QWidget()
-        self.central_stack.addWidget(self._composite_placeholder)
+        return self._composite_placeholder
 
-    def _create_graph_library_page(self) -> None:
+    def _create_graph_library_page(self) -> GraphLibraryWidget:
         """节点图库页面（ViewMode.GRAPH_LIBRARY）。"""
-        self.graph_library_widget = GraphLibraryWidget(self.resource_manager, self.package_index_manager)
-        self.graph_library_widget.graph_selected.connect(self._on_graph_library_selected)
-        self.graph_library_widget.graph_double_clicked.connect(self._on_graph_library_double_clicked)
+        graph_library_widget = GraphLibraryWidget(self.resource_manager, self.package_index_manager)
+        graph_library_widget.graph_selected.connect(self._on_graph_library_selected)
+        graph_library_widget.graph_double_clicked.connect(self._on_graph_library_double_clicked)
 
         def _on_graph_library_jump(entity_type: str, entity_id: str, package_id: str) -> None:
             request = UiNavigationRequest(
@@ -232,25 +252,24 @@ class UISetupMixin:
             )
             self.nav_coordinator.handle_request(request)
 
-        self.graph_library_widget.jump_to_entity_requested.connect(_on_graph_library_jump)
-        self.central_stack.addWidget(self.graph_library_widget)
+        graph_library_widget.jump_to_entity_requested.connect(_on_graph_library_jump)
+        return graph_library_widget
 
-    def _create_validation_page(self) -> None:
+    def _create_validation_page(self) -> ValidationPanel:
         """验证面板页面（ViewMode.VALIDATION）。"""
-        self.validation_panel = ValidationPanel()
+        validation_panel = ValidationPanel()
 
         def _on_validation_jump_to_issue(detail: dict) -> None:
             request = UiNavigationRequest.for_validation_issue(detail)
             self.nav_coordinator.handle_request(request)
 
-        self.validation_panel.jump_to_issue.connect(_on_validation_jump_to_issue)
-        self.validation_panel.setMinimumWidth(600)
-        self.central_stack.addWidget(self.validation_panel)
+        validation_panel.jump_to_issue.connect(_on_validation_jump_to_issue)
+        validation_panel.setMinimumWidth(600)
+        return validation_panel
 
-    def _create_graph_editor_page(self) -> None:
+    def _create_graph_editor_page(self) -> GraphView:
         """节点图编辑页面（ViewMode.GRAPH_EDITOR）。"""
         self.view.setMinimumWidth(400)
-        self.central_stack.addWidget(self.view)
 
         self.graph_editor_todo_button = QtWidgets.QPushButton("前往执行", self.view)
         self.graph_editor_todo_button.setObjectName("graphEditorTodoButton")
@@ -282,21 +301,22 @@ class UISetupMixin:
         self.graph_editor_todo_button.setVisible(False)
         self.graph_editor_todo_button.clicked.connect(self._on_graph_editor_execute_from_todo)
         self.view.set_extra_top_right_button(self.graph_editor_todo_button)
+        return self.view
 
-    def _create_package_library_page(self) -> None:
+    def _create_package_library_page(self) -> PackageLibraryWidget:
         """存档页面（ViewMode.PACKAGES）。"""
-        self.package_library_widget = PackageLibraryWidget(self.resource_manager, self.package_index_manager)
-        self.package_library_widget.packages_changed.connect(self._refresh_package_list)
-        # 在存档库右侧详情树中点击资源条目时，将对应资源上下文交给主窗口，由其决定右侧属性/图属性面板的展示。
-        if hasattr(self, "_on_package_resource_activated"):
-            self.package_library_widget.resource_activated.connect(self._on_package_resource_activated)
-        # 在存档库右侧详情树中点击管理配置类条目时，在当前视图右侧展示管理属性摘要与所属存档多选行。
-        if hasattr(self, "_on_package_management_resource_activated"):
-            self.package_library_widget.management_resource_activated.connect(
-                self._on_package_management_resource_activated
-            )
-        # 在存档库右侧详情树中双击元件/实例/关卡实体时，请求主窗口通过导航协调器跳转到对应页面并选中目标条目。
+        package_library_widget = PackageLibraryWidget(self.resource_manager, self.package_index_manager)
+        package_library_widget.packages_changed.connect(self._refresh_package_list)
+        self._connect_optional_signal(
+            package_library_widget, "resource_activated", self._on_package_resource_activated
+        )
+        self._connect_optional_signal(
+            package_library_widget,
+            "management_resource_activated",
+            self._on_package_management_resource_activated,
+        )
         if hasattr(self, "nav_coordinator"):
+
             def _on_package_library_jump(entity_type: str, entity_id: str, package_id: str) -> None:
                 request = UiNavigationRequest(
                     resource_kind=entity_type,
@@ -307,18 +327,14 @@ class UISetupMixin:
                 )
                 self.nav_coordinator.handle_request(request)
 
-            self.package_library_widget.jump_to_entity_requested.connect(_on_package_library_jump)
-        # 在存档库右侧详情树中双击管理配置分类或条目时，请求主窗口跳转到对应管理页面并选中目标记录。
-        if hasattr(self, "_on_package_management_item_requested"):
-            self.package_library_widget.management_item_requested.connect(
-                self._on_package_management_item_requested
-            )
-        # 在存档库右侧详情树中双击节点图时，复用节点图库的双击逻辑，直接在节点图编辑器中以独立方式打开。
-        if hasattr(self, "_on_graph_library_double_clicked"):
-            self.package_library_widget.graph_double_clicked.connect(
-                self._on_graph_library_double_clicked
-            )
-        self.central_stack.addWidget(self.package_library_widget)
+            package_library_widget.jump_to_entity_requested.connect(_on_package_library_jump)
+        self._connect_optional_signal(
+            package_library_widget, "management_item_requested", self._on_package_management_item_requested
+        )
+        self._connect_optional_signal(
+            package_library_widget, "graph_double_clicked", self._on_graph_library_double_clicked
+        )
+        return package_library_widget
 
     def _create_right_panel_container(self) -> None:
         """创建右侧标签面板及属性相关组件。"""
@@ -343,6 +359,11 @@ class UISetupMixin:
 
     def _create_property_panels(self) -> None:
         """创建右侧属性类面板（元件/图/复合节点/虚拟引脚/管理配置等）。"""
+        from ui.panels.equipment_data_management_panel import (
+            EquipmentEntryManagementPanel,
+            EquipmentTagManagementPanel,
+            EquipmentTypeManagementPanel,
+        )
         self.property_panel = TemplateInstancePanel(self.resource_manager, self.package_index_manager)
         self.property_panel.data_updated.connect(self._on_data_updated)
         self.property_panel.graph_selected.connect(self._on_graph_selected)
@@ -364,9 +385,15 @@ class UISetupMixin:
             self.right_panel_container,
         )
         # 玩家模板详情只负责更新地图与索引，与模板/实例属性面板的刷新逻辑解耦
-        self.player_editor_panel.data_changed.connect(self._on_immediate_persist_requested)
-        if hasattr(self.player_editor_panel, "graph_selected"):
-            self.player_editor_panel.graph_selected.connect(self._on_player_editor_graph_selected)
+        self.player_editor_panel.data_changed.connect(
+            lambda: self._on_immediate_persist_requested(
+                combat_dirty=True,
+                index_dirty=True,
+            )
+        )
+        self._connect_optional_signal(
+            self.player_editor_panel, "graph_selected", self._on_player_editor_graph_selected
+        )
 
         # 职业详情面板（战斗预设-职业）
         self.player_class_panel = CombatPlayerClassPanel(
@@ -374,9 +401,15 @@ class UISetupMixin:
             self.package_index_manager,
             self.right_panel_container,
         )
-        self.player_class_panel.data_changed.connect(self._on_immediate_persist_requested)
-        if hasattr(self.player_class_panel, "graph_selected"):
-            self.player_class_panel.graph_selected.connect(self._on_player_editor_graph_selected)
+        self.player_class_panel.data_changed.connect(
+            lambda: self._on_immediate_persist_requested(
+                combat_dirty=True,
+                index_dirty=True,
+            )
+        )
+        self._connect_optional_signal(
+            self.player_class_panel, "graph_selected", self._on_player_editor_graph_selected
+        )
 
         # 技能详情面板（战斗预设-技能）
         self.skill_panel = CombatSkillPanel(
@@ -385,9 +418,27 @@ class UISetupMixin:
             self.right_panel_container,
         )
         self.skill_panel.setMinimumWidth(360)
-        self.skill_panel.data_changed.connect(self._on_immediate_persist_requested)
-        if hasattr(self.skill_panel, "graph_selected"):
-            self.skill_panel.graph_selected.connect(self._on_player_editor_graph_selected)
+        self.skill_panel.data_changed.connect(
+            lambda: self._on_immediate_persist_requested(
+                combat_dirty=True,
+                index_dirty=True,
+            )
+        )
+        self._connect_optional_signal(self.skill_panel, "graph_selected", self._on_player_editor_graph_selected)
+
+        # 道具详情面板（战斗预设-道具）
+        self.item_panel = CombatItemPanel(
+            self.resource_manager,
+            self.package_index_manager,
+            self.right_panel_container,
+        )
+        self.item_panel.setMinimumWidth(360)
+        self.item_panel.data_changed.connect(
+            lambda: self._on_immediate_persist_requested(
+                combat_dirty=True,
+                index_dirty=True,
+            )
+        )
 
         self.graph_property_panel = GraphPropertyPanel(self.resource_manager, self.package_index_manager)
 
@@ -421,28 +472,59 @@ class UISetupMixin:
         # 管理配置通用属性面板（管理模式下复用主窗口右侧“属性”标签）
         self.management_property_panel = ManagementPropertyPanel(self.right_panel_container)
         self.management_property_panel.setMinimumWidth(300)
-        if hasattr(self.management_property_panel, "management_package_membership_changed"):
-            self.management_property_panel.management_package_membership_changed.connect(  # type: ignore[attr-defined]
-                self._on_management_property_panel_membership_changed  # type: ignore[attr-defined]
-            )
+        self._connect_optional_signal(
+            self.management_property_panel,
+            "management_package_membership_changed",
+            self._on_management_property_panel_membership_changed,
+        )
+
+        # 装备数据管理专用编辑面板（词条 / 标签 / 类型）
+        self.equipment_entry_panel = EquipmentEntryManagementPanel(self.right_panel_container)
+        self.equipment_entry_panel.setMinimumWidth(380)
+        self.equipment_entry_panel.data_updated.connect(self._on_management_edit_page_data_updated)
+        self._connect_optional_signal(
+            self.equipment_entry_panel,
+            "package_membership_changed",
+            self._on_equipment_entry_package_membership_changed,
+        )
+
+        self.equipment_tag_panel = EquipmentTagManagementPanel(self.right_panel_container)
+        self.equipment_tag_panel.setMinimumWidth(360)
+        self.equipment_tag_panel.data_updated.connect(self._on_management_edit_page_data_updated)
+        self._connect_optional_signal(
+            self.equipment_tag_panel,
+            "package_membership_changed",
+            self._on_equipment_tag_package_membership_changed,
+        )
+
+        self.equipment_type_panel = EquipmentTypeManagementPanel(self.right_panel_container)
+        self.equipment_type_panel.setMinimumWidth(380)
+        self.equipment_type_panel.data_updated.connect(self._on_management_edit_page_data_updated)
+        self._connect_optional_signal(
+            self.equipment_type_panel,
+            "package_membership_changed",
+            self._on_equipment_type_package_membership_changed,
+        )
 
         # 外围系统管理专用编辑面板（管理模式下“外围系统管理” Section 使用）
         self.peripheral_system_panel = PeripheralSystemManagementPanel(self.right_panel_container)
         self.peripheral_system_panel.setMinimumWidth(360)
         self.peripheral_system_panel.data_updated.connect(self._on_management_edit_page_data_updated)
-        if hasattr(self.peripheral_system_panel, "system_package_membership_changed"):
-            self.peripheral_system_panel.system_package_membership_changed.connect(  # type: ignore[attr-defined]
-                self._on_peripheral_system_panel_package_membership_changed  # type: ignore[attr-defined]
-            )
+        self._connect_optional_signal(
+            self.peripheral_system_panel,
+            "system_package_membership_changed",
+            self._on_peripheral_system_panel_package_membership_changed,
+        )
 
         # 主镜头管理专用编辑面板（管理模式下“主镜头管理” Section 使用）
         self.main_camera_panel = MainCameraManagementPanel(self.right_panel_container)
         self.main_camera_panel.setMinimumWidth(360)
         self.main_camera_panel.data_updated.connect(self._on_management_edit_page_data_updated)
-        if hasattr(self.main_camera_panel, "camera_package_membership_changed"):
-            self.main_camera_panel.camera_package_membership_changed.connect(  # type: ignore[attr-defined]
-                self._on_main_camera_panel_package_membership_changed  # type: ignore[attr-defined]
-            )
+        self._connect_optional_signal(
+            self.main_camera_panel,
+            "camera_package_membership_changed",
+            self._on_main_camera_panel_package_membership_changed,
+        )
 
         # 信号管理专用编辑面板（管理模式下“信号管理” Section 使用）
         self.signal_management_panel = SignalManagementPanel(self.right_panel_container)
@@ -451,10 +533,11 @@ class UISetupMixin:
             self.signal_management_panel.editor.signal_changed.connect(
                 self._on_signal_property_panel_changed  # type: ignore[attr-defined]
             )
-        if hasattr(self.signal_management_panel, "signal_package_membership_changed"):
-            self.signal_management_panel.signal_package_membership_changed.connect(  # type: ignore[attr-defined]
-                self._on_signal_property_panel_package_membership_changed  # type: ignore[attr-defined]
-            )
+        self._connect_optional_signal(
+            self.signal_management_panel,
+            "signal_package_membership_changed",
+            self._on_signal_property_panel_package_membership_changed,
+        )
 
         # 结构体定义专用编辑面板（管理模式下“结构体定义” Section 使用）
         self.struct_definition_panel = StructDefinitionManagementPanel(self.right_panel_container)
@@ -469,7 +552,15 @@ class UISetupMixin:
         # 管理编辑页逻辑统一使用：
         # - `ManagementPropertyPanel` 构建只读或可编辑表单；
         # - 专用编辑面板（信号 / 结构体 / 主镜头等）承载复杂配置。
-        self.management_edit_pages: dict[str, QtWidgets.QWidget] = {}
+        self.management_edit_pages: dict[str, QtWidgets.QWidget] = {
+            "equipment_entries": self.equipment_entry_panel,
+            "equipment_tags": self.equipment_tag_panel,
+            "equipment_types": self.equipment_type_panel,
+            "peripheral_systems": self.peripheral_system_panel,
+            "main_cameras": self.main_camera_panel,
+            "signals": self.signal_management_panel,
+            "struct_definitions": self.struct_definition_panel,
+        }
 
         # 验证问题详情面板（验证模式下右侧“详细信息”标签使用）
         self.validation_detail_panel = ValidationDetailPanel(self.right_panel_container)

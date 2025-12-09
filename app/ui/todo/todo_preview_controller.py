@@ -69,6 +69,7 @@ class TodoPreviewController:
         self.register_handler("event_flow_root", self._handle_event_flow_root)
         self.register_handler("graph_signals_overview", self._handle_graph_signals_overview)
         self.register_handler("graph_bind_signal", self._handle_graph_bind_signal)
+        self.register_handler("graph_bind_struct", self._handle_graph_bind_struct)
 
         dynamic_port_types = (
             "graph_add_variadic_inputs",
@@ -562,6 +563,15 @@ class TodoPreviewController:
             )
 
     def _handle_graph_bind_signal(self, todo: TodoItem, current_version: int) -> None:
+        node_id = todo.detail_info.get("node_id")
+        self._highlight_single_node_and_focus(
+            node_id=node_id,
+            current_version=current_version,
+            dim_unrelated=True,
+            hide_overlay=True,
+        )
+
+    def _handle_graph_bind_struct(self, todo: TodoItem, current_version: int) -> None:
         node_id = todo.detail_info.get("node_id")
         self._highlight_single_node_and_focus(
             node_id=node_id,

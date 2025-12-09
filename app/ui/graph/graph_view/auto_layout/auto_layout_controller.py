@@ -7,6 +7,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from PyQt6 import QtWidgets
+from ui.foundation.toast_notification import ToastNotification
+
 from engine.graph import validate_graph
 from engine.validate import validate_files
 
@@ -56,9 +59,8 @@ class AutoLayoutController:
         errors = cls._collect_validation_errors(view, virtual_pin_mappings)
         
         if errors:
-            # 有错误，输出到控制台而不是弹窗；受 GRAPH_UI_VERBOSE 控制
             from engine.configs.settings import settings as _settings_ui
-
+            
             if getattr(_settings_ui, "GRAPH_UI_VERBOSE", False):
                 print("\n" + "=" * 80)
                 print("【自动布局】节点图存在错误，无法自动排版")
@@ -66,6 +68,17 @@ class AutoLayoutController:
                 for error in errors:
                     print(f"  • {error}")
                 print("=" * 80 + "\n")
+            
+            first_error = errors[0]
+            max_message_length = 180
+            if len(first_error) > max_message_length:
+                first_error = first_error[: max_message_length - 3] + "..."
+            toast_message = (
+                f"自动排版失败：节点图存在 {len(errors)} 个错误，"
+                f"例如：{first_error}。在设置>自动排版中开启“图编辑器详细日志”可查看完整原因。"
+            )
+            if isinstance(view, QtWidgets.QWidget):
+                ToastNotification.show_message(view, toast_message, "warning")
             return
         
         # 没有错误，执行自动排版（基于克隆就地布局 + 差异合并）
@@ -140,31 +153,29 @@ class AutoLayoutController:
         model_node_ids = set(view.scene().model.nodes.keys())
         scene_node_ids = set(view.scene().node_items.keys())
         new_node_ids = model_node_ids - scene_node_ids
-        
+
         if new_node_ids:
             # 添加新节点（如跨块复制产生的副本）到场景
             for node_id in new_node_ids:
                 node = view.scene().model.nodes[node_id]
                 view.scene().add_node_item(node)
-            
-            # 检查是否有新边需要添加（连接副本的边）
-            model_edge_ids = set(view.scene().model.edges.keys())
-            scene_edge_ids = set(view.scene().edge_items.keys())
-            new_edge_ids = model_edge_ids - scene_edge_ids
-            
-            for edge_id in new_edge_ids:
-                edge = view.scene().model.edges[edge_id]
-                view.scene().add_edge_item(edge)
 
         # 同步模型位置到图形项（包括新添加的）
         for node_id, node_item in view.scene().node_items.items():
             if node_id in view.scene().model.nodes:
                 model_pos = view.scene().model.nodes[node_id].pos
                 node_item.setPos(model_pos[0], model_pos[1])
-        
-        # 更新所有连线
-        for edge_item in list(view.scene().edge_items.values()):
-            edge_item.update_path()
+
+        # 基于模型重建所有连线图形项，避免多次自动排版后 UI 与模型脱节
+        scene_edges = view.scene().edge_items
+        scene = view.scene()
+        for edge_id in list(scene_edges.keys()):
+            edge_item = scene_edges.pop(edge_id, None)
+            if edge_item is not None:
+                scene.removeItem(edge_item)
+
+        for edge in scene.model.edges.values():
+            scene.add_edge_item(edge)
         
         # 触发场景重绘以显示基本块
         view.scene().update()

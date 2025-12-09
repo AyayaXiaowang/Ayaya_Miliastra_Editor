@@ -28,7 +28,7 @@ class NoListDictLiteralRule(ValidationRule):
     default_level = "error"
 
     def apply(self, ctx: ValidationContext) -> List[EngineIssue]:
-        if ctx.is_composite or ctx.file_path is None:
+        if ctx.file_path is None:
             return []
 
         file_path: Path = ctx.file_path

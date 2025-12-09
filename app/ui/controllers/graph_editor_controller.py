@@ -20,6 +20,7 @@ from engine.graph.common import (
 )
 from ui.graph.graph_undo import AddNodeCommand
 from engine.nodes.node_definition_loader import NodeDef
+from engine.nodes.port_name_rules import parse_range_definition
 from ui.graph.graph_scene import GraphScene
 from ui.graph.graph_view import GraphView
 from ui.graph.scene_builder import populate_scene_from_model
@@ -491,13 +492,36 @@ class GraphEditorController(QtCore.QObject):
         print(f"[添加节点] 添加前Model中有 {len(self.model.nodes)} 个节点")
         
         node_id = self.model.gen_id("node")
+
+        # 针对带键值对变参的节点（如“拼装字典”），为新建节点提供更贴近实际使用的初始端口：
+        # - 默认直接创建一对 (键0, 值0) 输入端口，而不是占位定义“键0~49/值0~49”。
+        input_names: list[str] = list(getattr(node_def, "inputs", []) or [])
+        if node_def.name == "拼装字典":
+            data_inputs = [
+                str(name)
+                for name in input_names
+                if str(name) not in ("流程入", "流程出")
+            ]
+            if len(data_inputs) >= 2:
+                first = parse_range_definition(str(data_inputs[0]))
+                second = parse_range_definition(str(data_inputs[1]))
+                if first is not None and second is not None:
+                    prefix_key = str(first.get("prefix") or "")
+                    prefix_value = str(second.get("prefix") or "")
+                    start_index = int(first.get("start", 0))
+                    if prefix_key and prefix_value:
+                        input_names = [
+                            f"{prefix_key}{start_index}",
+                            f"{prefix_value}{start_index}",
+                        ]
+
         cmd = AddNodeCommand(
             self.model,
             self.scene,
             node_id,
             node_def.name,
             node_def.category,
-            node_def.inputs,
+            input_names,
             node_def.outputs,
             pos=(scene_pos.x(), scene_pos.y())
         )

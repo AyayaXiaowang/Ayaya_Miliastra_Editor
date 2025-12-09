@@ -15,6 +15,7 @@ from app.models.todo_pipeline.step_mode import GraphStepMode
 from app.models.todo_structure_helpers import ensure_child_reference
 from engine.graph.models import GraphModel
 from engine.configs.settings import settings
+from engine.graph.common import STRUCT_NODE_TITLES
 
 
 class EventFlowEmitters:
@@ -159,6 +160,7 @@ class EventFlowEmitters:
         current_node,
         data_node,
         edge,
+        model: GraphModel,
         graph_id: str,
         template_ctx_id: str,
         instance_ctx_id: str,
@@ -234,6 +236,19 @@ class EventFlowEmitters:
             step_id=f"{data_step_id}:params",
             params_payload=params_payload if params_payload else None,
         )
+        node_title = getattr(data_node, "title", "") or ""
+        if node_title in STRUCT_NODE_TITLES:
+            self.ensure_struct_binding_for_node(
+                flow_root=flow_root,
+                flow_root_id=flow_root_id,
+                graph_id=graph_id,
+                node_obj=data_node,
+                template_ctx_id=template_ctx_id,
+                instance_ctx_id=instance_ctx_id,
+                suppress_auto_jump=suppress_auto_jump,
+                task_type=task_type,
+                model=model,
+            )
 
     def create_node_batch(
         self,
@@ -273,8 +288,21 @@ class EventFlowEmitters:
             ensure_child_reference(flow_root, create_step_id)
             from engine.graph.common import SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE
 
-            if getattr(node_obj, "title", "") in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE):
+            node_title = getattr(node_obj, "title", "") or ""
+            if node_title in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE):
                 self._ensure_signal_binding_todo(
+                    flow_root=flow_root,
+                    flow_root_id=flow_root_id,
+                    graph_id=graph_id,
+                    node_obj=node_obj,
+                    template_ctx_id=template_ctx_id,
+                    instance_ctx_id=instance_ctx_id,
+                    suppress_auto_jump=suppress_auto_jump,
+                    task_type=task_type,
+                    model=model,
+                )
+            if node_title in STRUCT_NODE_TITLES:
+                self.ensure_struct_binding_for_node(
                     flow_root=flow_root,
                     flow_root_id=flow_root_id,
                     graph_id=graph_id,
@@ -565,6 +593,82 @@ class EventFlowEmitters:
         self._add_todo(todo)
         ensure_child_reference(flow_root, todo_id)
 
+    def _ensure_struct_binding_todo(
+        self,
+        *,
+        flow_root: TodoItem,
+        flow_root_id: str,
+        graph_id: str,
+        node_obj,
+        template_ctx_id: str,
+        instance_ctx_id: str,
+        suppress_auto_jump: bool,
+        task_type: str,
+        model: GraphModel,
+    ) -> None:
+        node_id = getattr(node_obj, "id", "") or ""
+        if not node_id:
+            return
+        node_title = getattr(node_obj, "title", "") or ""
+        if node_title not in STRUCT_NODE_TITLES:
+            return
+
+        todo_id = f"{flow_root_id}:bind_struct:{node_id}"
+        existing_map: Dict[str, TodoItem] = getattr(self.dynamic_steps, "todo_map", {})
+        if todo_id in existing_map:
+            return
+
+        binding = model.get_node_struct_binding(node_id)
+        struct_id_text = ""
+        struct_name_text = ""
+        field_names_list: List[str] = []
+        if isinstance(binding, dict):
+            raw_struct_id = binding.get("struct_id")
+            if isinstance(raw_struct_id, str):
+                struct_id_text = raw_struct_id.strip()
+            elif raw_struct_id is not None:
+                struct_id_text = str(raw_struct_id)
+
+            raw_struct_name = binding.get("struct_name")
+            if isinstance(raw_struct_name, str):
+                struct_name_text = raw_struct_name.strip()
+
+            raw_field_names = binding.get("field_names") or []
+            if isinstance(raw_field_names, Sequence) and not isinstance(raw_field_names, (str, bytes)):
+                for entry in raw_field_names:
+                    if isinstance(entry, str) and entry:
+                        field_names_list.append(entry)
+
+        title = f"为【{node_title}】节点配置结构体"
+
+        detail_info: Dict[str, Any] = {
+            "type": "graph_bind_struct",
+            "graph_id": graph_id,
+            "node_id": node_id,
+            "node_title": node_title,
+            "struct_id": struct_id_text or None,
+            "struct_name": struct_name_text,
+            "field_names": field_names_list,
+            "template_id": template_ctx_id if template_ctx_id else None,
+            "instance_id": instance_ctx_id if instance_ctx_id else None,
+        }
+        if suppress_auto_jump:
+            detail_info["no_auto_jump"] = True
+
+        todo = TodoItem(
+            todo_id=todo_id,
+            title=title,
+            description="在节点上选择或确认绑定的结构体与字段",
+            level=5,
+            parent_id=flow_root_id,
+            children=[],
+            task_type=task_type,
+            target_id=graph_id,
+            detail_info=detail_info,
+        )
+        self._add_todo(todo)
+        ensure_child_reference(flow_root, todo_id)
+
     def ensure_signal_binding_for_event_start(
         self,
         *,
@@ -584,6 +688,32 @@ class EventFlowEmitters:
             flow_root_id=flow_root_id,
             graph_id=graph_id,
             node_obj=start_node,
+            template_ctx_id=template_ctx_id,
+            instance_ctx_id=instance_ctx_id,
+            suppress_auto_jump=suppress_auto_jump,
+            task_type=task_type,
+            model=model,
+        )
+
+    def ensure_struct_binding_for_node(
+        self,
+        *,
+        flow_root: TodoItem,
+        flow_root_id: str,
+        graph_id: str,
+        node_obj,
+        template_ctx_id: str,
+        instance_ctx_id: str,
+        suppress_auto_jump: bool,
+        task_type: str,
+        model: GraphModel,
+    ) -> None:
+        """为任意结构体节点补充“配置结构体”步骤。"""
+        self._ensure_struct_binding_todo(
+            flow_root=flow_root,
+            flow_root_id=flow_root_id,
+            graph_id=graph_id,
+            node_obj=node_obj,
             template_ctx_id=template_ctx_id,
             instance_ctx_id=instance_ctx_id,
             suppress_auto_jump=suppress_auto_jump,

@@ -44,6 +44,13 @@ def _remove_dir_contents(dir_path: Path) -> int:
     return removed
 
 
+def _remove_file_if_exists(file_path: Path) -> int:
+    if not file_path.exists():
+        return 0
+    file_path.unlink()
+    return 1
+
+
 def run_clear_operations(
     workspace_path: Path,
     clear_all: bool,
@@ -51,16 +58,23 @@ def run_clear_operations(
     clear_resource_index_cache: bool,
     clear_node_cache: bool,
 ) -> None:
-    cache_root = workspace_path / "app" / "runtime" / "cache"
+    runtime_root = workspace_path / "app" / "runtime"
+    cache_root = runtime_root / "cache"
     graph_cache = cache_root / "graph_cache"
     resource_cache = cache_root / "resource_cache"
     node_cache = cache_root / "node_cache"
+    ui_session_state_file = cache_root / "ui_last_session.json"
+    ingame_save_selection_file = cache_root / "player_ingame_save_selection.json"
+    todo_states_dir = runtime_root / "todo_states"
 
     if clear_all:
         removed = 0
         removed += _remove_dir_contents(graph_cache)
         removed += _remove_dir_contents(resource_cache)
         removed += _remove_dir_contents(node_cache)
+        removed += _remove_file_if_exists(ui_session_state_file)
+        removed += _remove_file_if_exists(ingame_save_selection_file)
+        removed += _remove_dir_contents(todo_states_dir)
         print(f"[OK] 已清除所有缓存（磁盘）。删除的持久化文件/目录数: {removed}")
         return
 

@@ -7,7 +7,7 @@
 from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtCore import Qt
 
-from ui.foundation.theme_manager import Colors
+from ui.foundation.theme_manager import Colors, ThemeManager
 
 
 def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
@@ -261,6 +261,26 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     events_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
     events_table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
     events_table.horizontalHeader().setStretchLastSection(True)
+    palette = events_table.palette()
+    palette.setColor(QtGui.QPalette.ColorRole.Base, QtGui.QColor(Colors.BG_CARD))
+    palette.setColor(
+        QtGui.QPalette.ColorRole.AlternateBase,
+        QtGui.QColor(Colors.BG_MAIN),
+    )
+    palette.setColor(
+        QtGui.QPalette.ColorRole.Text,
+        QtGui.QColor(Colors.TEXT_PRIMARY),
+    )
+    palette.setColor(
+        QtGui.QPalette.ColorRole.Highlight,
+        QtGui.QColor(Colors.BG_SELECTED),
+    )
+    palette.setColor(
+        QtGui.QPalette.ColorRole.HighlightedText,
+        QtGui.QColor(Colors.TEXT_PRIMARY),
+    )
+    events_table.setPalette(palette)
+    events_table.setStyleSheet(ThemeManager.table_style())
     splitter.addWidget(events_table)
 
     # 日志正文（支持可点击锚点）

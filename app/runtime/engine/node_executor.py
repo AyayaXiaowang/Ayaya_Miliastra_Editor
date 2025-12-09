@@ -1,6 +1,9 @@
 """节点执行器基类 - 用于扩展节点执行逻辑"""
 
-from typing import Any, Callable, Dict, List
+import time
+from typing import Any, Callable, Dict, List, Optional
+
+from app.runtime.engine.trace_logging import TraceRecorder
 
 
 class NodeExecutor:
@@ -17,9 +20,38 @@ class NodeExecutor:
         self.execution_stack = []  # 执行栈
         self.breakpoints = set()   # 断点
         self.trace_enabled = False  # 是否启用追踪
+        self.trace_recorder: Optional[TraceRecorder] = getattr(game_runtime, "trace_recorder", None)
+
+    def _record_trace(self, kind: str, message: str, stack: List[str], **details: Any) -> None:
+        if self.trace_recorder is None:
+            return
+        self.trace_recorder.record(
+            source="node_executor",
+            kind=kind,
+            message=message,
+            stack=stack,
+            **details,
+        )
+
+    @staticmethod
+    def _summarize_call(args, kwargs) -> Dict[str, Any]:
+        return {
+            "args": [type(argument).__name__ for argument in args],
+            "kwargs": {key: type(value).__name__ for key, value in kwargs.items()},
+        }
     
     def execute_node(self, node_name: str, node_func: Callable, *args, **kwargs):
         """执行单个节点"""
+        call_stack = list(self.execution_stack)
+        call_stack.append(node_name)
+        call_signature = self._summarize_call(args, kwargs)
+        start_time = time.perf_counter()
+        self._record_trace(
+            kind="start",
+            message=node_name,
+            stack=call_stack,
+            call_signature=call_signature,
+        )
         if self.trace_enabled:
             print(f"[执行追踪] 开始执行节点: {node_name}")
             self.execution_stack.append(node_name)
@@ -27,11 +59,23 @@ class NodeExecutor:
         # 检查断点
         if node_name in self.breakpoints:
             print(f"[断点] 在节点 {node_name} 处暂停")
+            self._record_trace(
+                kind="breakpoint",
+                message=node_name,
+                stack=call_stack,
+            )
             # 这里可以添加交互式调试逻辑
         
         # 执行节点
         result = node_func(*args, **kwargs)
-        
+        duration_ms = (time.perf_counter() - start_time) * 1000.0
+        self._record_trace(
+            kind="finish",
+            message=node_name,
+            stack=call_stack,
+            duration_ms=duration_ms,
+            result_type=type(result).__name__,
+        )
         if self.trace_enabled:
             self.execution_stack.pop()
             print(f"[执行追踪] 完成执行节点: {node_name}, 返回值: {result}")

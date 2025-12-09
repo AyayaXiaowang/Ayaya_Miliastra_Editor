@@ -11,6 +11,7 @@ from typing import Optional, Sequence
 from PyQt6 import QtWidgets
 
 from ui.foundation.base_widgets import FormDialog
+from ui.foundation.theme_manager import ThemeManager
 
 
 def prompt_text(
@@ -30,6 +31,7 @@ def prompt_text(
     dialog = FormDialog(title=title, width=420, height=200, parent=parent)
 
     line_edit = QtWidgets.QLineEdit()
+    line_edit.setStyleSheet(ThemeManager.input_style())
     if placeholder:
         line_edit.setPlaceholderText(placeholder)
     if text:
@@ -68,6 +70,7 @@ def prompt_item(
     dialog = FormDialog(title=title, width=420, height=200, parent=parent)
 
     combo = QtWidgets.QComboBox()
+    combo.setStyleSheet(ThemeManager.combo_box_style())
     combo.addItems(choices)
     combo.setEditable(editable)
 
@@ -104,6 +107,7 @@ def prompt_int(
     dialog = FormDialog(title=title, width=420, height=200, parent=parent)
 
     spin_box = QtWidgets.QSpinBox()
+    spin_box.setStyleSheet(ThemeManager.spin_box_style())
     spin_box.setRange(minimum, maximum)
     spin_box.setSingleStep(step)
     spin_box.setValue(value)

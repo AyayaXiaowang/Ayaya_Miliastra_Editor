@@ -1,8 +1,16 @@
 """
 核心布局算法模块
 
-实现基于基本块的两阶段布局算法。
+实现基于基本块的多阶段布局算法。
 职责：高层编排和公共API，具体实现拆分到子模块。
+
+新流程：
+1. 发现事件节点
+2. 识别所有块的流程节点（不放置数据节点）
+3. 全局复制阶段：分析跨块共享，统一创建副本和重定向边
+4. 数据节点放置阶段：为每个块放置数据节点并计算坐标
+5. 块间排版
+6. 应用最终位置
 """
 
 from __future__ import annotations
@@ -41,7 +49,16 @@ from ..core.layout_models import LayoutBlock
 
 
 class LayoutOrchestrator:
-    """布局编排器 - 高层协调者，委托具体任务给专门的模块"""
+    """布局编排器 - 高层协调者，委托具体任务给专门的模块
+    
+    新流程：
+    1. 发现事件节点
+    2. 识别所有块的流程节点（阶段1：只识别，不放置数据节点）
+    3. 全局复制阶段：分析跨块共享，统一创建副本和重定向边
+    4. 数据节点放置阶段：为每个块放置数据节点并计算坐标（阶段2）
+    5. 块间排版
+    6. 应用最终位置
+    """
 
     def __init__(self, model: GraphModel) -> None:
         self.model = model
@@ -68,22 +85,34 @@ class LayoutOrchestrator:
         self._cached_block_relationships: Optional[Dict[str, object]] = None
         self._event_metadata_lookup: Dict[str, Tuple[Optional[str], Optional[str]]] = {}
         self._event_title_lookup: Optional[Dict[str, Optional[str]]] = None
+        
+        # 全局复制管理器（在全局复制阶段创建）
+        self._global_copy_manager: Optional["GlobalCopyManager"] = None
+        # 块识别协调器（用于两阶段调用）
+        self._coordinator: Optional[BlockIdentificationCoordinator] = None
+        self._global_visited: Set[str] = set()
 
     def execute_layout(self) -> None:
-        """执行完整的布局流程"""
+        """执行完整的布局流程（新流程）"""
         # 步骤1：发现事件节点
         if not self._discover_event_nodes():
             # 纯数据图，使用专门布局
             self._layout_pure_data_graph()
             return
 
-        # 步骤2：识别基本块
-        self._identify_all_blocks()
+        # 步骤2：识别所有块的流程节点（不放置数据节点）
+        self._identify_all_blocks_flow_only()
 
-        # 步骤3：块间排版（基于事件链 + 最长约束 + 按编号堆叠）
+        # 步骤3：全局复制阶段
+        self._execute_global_copy()
+
+        # 步骤4：为每个块放置数据节点并计算坐标
+        self._place_all_blocks_data_nodes()
+
+        # 步骤5：块间排版
         self._layout_block_tree_stage()
 
-        # 步骤4：应用最终位置到节点
+        # 步骤6：应用最终位置到节点
         self._apply_final_positions()
 
     def _discover_event_nodes(self) -> bool:
@@ -112,11 +141,11 @@ class LayoutOrchestrator:
             layout_context=self.global_layout_context,
         )
 
-    def _identify_all_blocks(self) -> None:
-        """识别所有基本块（委托给BlockIdentificationCoordinator）"""
-        global_visited: Set[str] = set()
+    def _identify_all_blocks_flow_only(self) -> None:
+        """识别所有基本块的流程节点（阶段1：不放置数据节点）"""
+        self._global_visited = set()
 
-        coordinator = BlockIdentificationCoordinator(
+        self._coordinator = BlockIdentificationCoordinator(
             self.model,
             self.global_layout_context,
             self.layout_blocks,
@@ -128,32 +157,66 @@ class LayoutOrchestrator:
             event_title_lookup=self._event_title_lookup,
         )
 
-        # 从事件节点开始识别
+        # 从事件节点开始识别（阶段1：只识别流程节点）
         for event_node in self.event_nodes:
             resolved_metadata = self._event_metadata_lookup.get(event_node.id)
-            coordinator.identify_and_layout_blocks(
+            self._coordinator.identify_blocks_flow_only(
                 event_node.id,
-                global_visited,
+                self._global_visited,
                 event_root_id=event_node.id,
                 event_title=resolved_metadata[1] if resolved_metadata else getattr(event_node, "title", None),
             )
 
         # 处理孤立流程节点
-        remaining_flow_ids = set(self.global_layout_context.flowCapableNodeIds) - set(global_visited)
-        if not remaining_flow_ids:
+        remaining_flow_ids = set(self.global_layout_context.flowCapableNodeIds) - self._global_visited
+        if remaining_flow_ids:
+            orphan_flow_nodes: List[NodeModel] = []
+            for node_id in remaining_flow_ids:
+                node = self.model.nodes.get(node_id)
+                if node:
+                    orphan_flow_nodes.append(node)
+
+            orphan_flow_nodes.sort(key=get_node_order_key)
+
+            for orphan_node in orphan_flow_nodes:
+                if orphan_node.id not in self._global_visited:
+                    self._coordinator.identify_blocks_flow_only(orphan_node.id, self._global_visited)
+
+    def _execute_global_copy(self) -> None:
+        """全局复制阶段：分析跨块共享，统一创建副本和重定向边"""
+        from ..utils.global_copy_manager import GlobalCopyManager
+        
+        # 无论是否启用复制，都需要分析数据依赖以确定每个块的数据节点归属
+        self._global_copy_manager = GlobalCopyManager(
+            self.model,
+            self.layout_blocks,
+            self.global_layout_context,
+        )
+
+        # 分析所有块的数据依赖
+        self._global_copy_manager.analyze_dependencies()
+
+        # 只有启用复制时才执行复制计划
+        enable_copy = getattr(settings, "DATA_NODE_CROSS_BLOCK_COPY", True)
+        if enable_copy:
+            self._global_copy_manager.execute_copy_plan()
+
+    def _place_all_blocks_data_nodes(self) -> None:
+        """为每个块放置数据节点并计算坐标（阶段2）"""
+        if self._coordinator is None:
             return
 
-        orphan_flow_nodes: List[NodeModel] = []
-        for node_id in remaining_flow_ids:
-            node = self.model.nodes.get(node_id)
-            if node:
-                orphan_flow_nodes.append(node)
-
-        orphan_flow_nodes.sort(key=get_node_order_key)
-
-        for orphan_node in orphan_flow_nodes:
-            if orphan_node.id not in global_visited:
-                coordinator.identify_and_layout_blocks(orphan_node.id, global_visited)
+        # 为每个块执行数据节点放置和坐标计算
+        for block in self.layout_blocks:
+            block_id = f"block_{block.order_index}"
+            
+            # 获取该块应放置的数据节点
+            block_data_nodes: Set[str] = set()
+            if self._global_copy_manager:
+                block_data_nodes = self._global_copy_manager.get_block_data_nodes(block_id)
+            
+            # 执行阶段2：放置数据节点并计算坐标
+            self._coordinator.layout_block_data_phase(block, block_data_nodes)
 
     def _build_event_metadata_lookup(self) -> Dict[str, Tuple[Optional[str], Optional[str]]]:
         """预计算事件ID与标题映射，供块识别阶段复用。"""
@@ -200,7 +263,7 @@ class LayoutOrchestrator:
         
         核心思想：
         - 每个事件组内，将基本块视作节点，从起始块出发按端口自上而下顺序收集整组块
-        - 依据块间有向边执行最长路径动态规划，获得“最靠左且满足拓扑约束”的列索引
+        - 依据块间有向边执行最长路径动态规划，获得"最靠左且满足拓扑约束"的列索引
         - 在每一列内，按块的稳定编号（order_index）从小到大自上而下堆叠
         - 事件组之间按组整体垂直堆叠，组间距为 event_y_gap
         """
@@ -303,14 +366,15 @@ class LayoutOrchestrator:
 
 def layout_by_event_regions(model: GraphModel) -> None:
     """
-    基于基本块的两阶段布局（使用Orchestrator编排器）
-    阶段1：识别基本块并计算块内局部布局
-    阶段2：将基本块作为矩形单元进行整体排版
+    基于基本块的多阶段布局（使用Orchestrator编排器）
     
-    布局特点：
-    - 块内流程节点：从左到右按深度排列（保持原有逻辑）
-    - 块与块之间：按流程树结构排版（分支上下对称）
-    - 数据节点：不参与排版计算
+    新流程：
+    1. 发现事件节点
+    2. 识别所有块的流程节点（不放置数据节点）
+    3. 全局复制阶段：分析跨块共享，统一创建副本和重定向边
+    4. 数据节点放置阶段：为每个块放置数据节点并计算坐标
+    5. 块间排版
+    6. 应用最终位置
     
     Args:
         model: 图模型，会被就地修改（节点位置和基本块）
@@ -320,6 +384,5 @@ def layout_by_event_regions(model: GraphModel) -> None:
 
     orchestrator = LayoutOrchestrator(model)
     orchestrator.execute_layout()
-
 
 

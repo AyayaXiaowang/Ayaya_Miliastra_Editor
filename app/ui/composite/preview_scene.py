@@ -6,18 +6,20 @@ from typing import List, Optional, Tuple
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+from engine.layout import UI_HEADER_EXTRA, UI_NODE_PADDING, UI_ROW_HEIGHT
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig
 from ui.foundation import input_dialogs
 from ui.foundation.context_menu_builder import ContextMenuBuilder
+from ui.foundation.interaction_helpers import handle_wheel_zoom_for_view
 from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 from ui.foundation.view_utils import fit_view_to_scene_items
 from ui.graph.library_mixins import ConfirmDialogMixin
 
 PIN_SIZE = 12
-PIN_SPACING = 40
-NODE_PADDING = 25
+PIN_SPACING = UI_ROW_HEIGHT
+NODE_PADDING = UI_NODE_PADDING
 MIN_NODE_WIDTH = 250
-HEADER_HEIGHT = 45
+HEADER_HEIGHT = UI_ROW_HEIGHT + UI_HEADER_EXTRA
 CORNER_RADIUS = 12
 
 
@@ -136,9 +138,8 @@ class VirtualPinItem(QtWidgets.QGraphicsItem):
             radius = 3 if self.pin_config.is_flow else tag_radius
             painter.drawRoundedRect(tag_rect, radius, radius)
 
-            painter.setPen(QtGui.QPen(QtGui.QColor("#FFFFFF"), 1))
-            painter.setFont(QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold))
             painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 1))
+            painter.setFont(QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold))
             painter.drawText(tag_rect, QtCore.Qt.AlignmentFlag.AlignCenter, self.number_text)
 
             if self.pin_config.is_flow:
@@ -224,6 +225,11 @@ class CompositeNodePreviewGraphics(QtWidgets.QGraphicsView, ConfirmDialogMixin):
         self.merge_mode_active = False
         self.merge_base_pin: Optional[VirtualPinConfig] = None
         self.grid_size = 50
+        self.panning_active = False
+        self.pan_start_position = QtCore.QPointF()
+        self.horizontal_scroll_start = 0
+        self.vertical_scroll_start = 0
+        self.user_adjusted_view = False
 
         self.scene = QtWidgets.QGraphicsScene(self)
         self.setScene(self.scene)
@@ -231,6 +237,8 @@ class CompositeNodePreviewGraphics(QtWidgets.QGraphicsView, ConfirmDialogMixin):
         self.setDragMode(QtWidgets.QGraphicsView.DragMode.NoDrag)
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setTransformationAnchor(QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.merge_toolbar = QtWidgets.QWidget(self)
         self.merge_toolbar.hide()
         self._setup_merge_toolbar()
@@ -245,6 +253,7 @@ class CompositeNodePreviewGraphics(QtWidgets.QGraphicsView, ConfirmDialogMixin):
 
     def load_composite(self, composite: CompositeNodeConfig) -> None:
         self.composite_config = composite
+        self.user_adjusted_view = False
         self._render_preview()
 
     def highlight_pin_names(self, pin_names: List[str]) -> None:
@@ -315,15 +324,20 @@ class CompositeNodePreviewGraphics(QtWidgets.QGraphicsView, ConfirmDialogMixin):
         self.scene.setSceneRect(items_rect.adjusted(-50, -30, 50, 30))
         self.scene.update()
         self.viewport().update()
-        QtCore.QTimer.singleShot(50, lambda: fit_view_to_scene_items(self, self.scene))
+        if not self.user_adjusted_view:
+            QtCore.QTimer.singleShot(50, lambda: fit_view_to_scene_items(self, self.scene))
 
     def _compute_height(self, pins: List[VirtualPinConfig]) -> float:
-        input_flow = len([p for p in pins if p.is_input and p.is_flow])
-        input_data = len([p for p in pins if p.is_input and not p.is_flow])
-        output_flow = len([p for p in pins if not p.is_input and p.is_flow])
-        output_data = len([p for p in pins if not p.is_input and not p.is_flow])
-        max_pins = max(input_flow, input_data, output_flow, output_data, 1)
-        return HEADER_HEIGHT + max_pins * PIN_SPACING + NODE_PADDING * 2
+        input_flow = len([pin for pin in pins if pin.is_input and pin.is_flow])
+        input_data = len([pin for pin in pins if pin.is_input and not pin.is_flow])
+        output_flow = len([pin for pin in pins if not pin.is_input and pin.is_flow])
+        output_data = len([pin for pin in pins if not pin.is_input and not pin.is_flow])
+
+        total_input_rows = input_flow + input_data
+        total_output_rows = output_flow + output_data
+        max_rows = max(total_input_rows, total_output_rows, 1)
+
+        return HEADER_HEIGHT + max_rows * PIN_SPACING + NODE_PADDING * 2
 
     def _create_pins(self, node_width: float, node_height: float, *, is_input: bool) -> None:
         if not self.composite_config:
@@ -431,12 +445,68 @@ class CompositeNodePreviewGraphics(QtWidgets.QGraphicsView, ConfirmDialogMixin):
         super().resizeEvent(event)
         if self.merge_toolbar.isVisible():
             self.merge_toolbar.setGeometry(0, 0, self.width(), 40)
-        if self.scene.sceneRect().isValid():
+        if not self.user_adjusted_view and self.scene.sceneRect().isValid():
             fit_view_to_scene_items(self, self.scene)
 
     def showEvent(self, event) -> None:  # noqa: N802
         super().showEvent(event)
-        if self.scene.sceneRect().isValid():
+        if not self.user_adjusted_view and self.scene.sceneRect().isValid():
             QtCore.QTimer.singleShot(50, lambda: fit_view_to_scene_items(self, self.scene))
+
+    def wheelEvent(self, event: QtGui.QWheelEvent) -> None:  # noqa: N802
+        handle_wheel_zoom_for_view(
+            self,
+            event,
+            base_factor_per_step=1.15,
+            min_scale=0.2,
+            max_scale=5.0,
+        )
+        self.user_adjusted_view = True
+        if not event.isAccepted():
+            super().wheelEvent(event)
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:  # noqa: N802
+        if event.button() in (
+            QtCore.Qt.MouseButton.MiddleButton,
+            QtCore.Qt.MouseButton.LeftButton,
+        ):
+            target_item = self.itemAt(event.position().toPoint())
+            if event.button() == QtCore.Qt.MouseButton.MiddleButton or target_item is None:
+                self._begin_panning(event)
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:  # noqa: N802
+        if self.panning_active:
+            drag_delta = event.position() - self.pan_start_position
+            self.horizontalScrollBar().setValue(
+                int(self.horizontal_scroll_start - drag_delta.x())
+            )
+            self.verticalScrollBar().setValue(
+                int(self.vertical_scroll_start - drag_delta.y())
+            )
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:  # noqa: N802
+        if self.panning_active and event.button() in (
+            QtCore.Qt.MouseButton.MiddleButton,
+            QtCore.Qt.MouseButton.LeftButton,
+        ):
+            self.panning_active = False
+            self.setCursor(QtCore.Qt.CursorShape.ArrowCursor)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def _begin_panning(self, event: QtGui.QMouseEvent) -> None:
+        self.panning_active = True
+        self.pan_start_position = event.position()
+        self.horizontal_scroll_start = self.horizontalScrollBar().value()
+        self.vertical_scroll_start = self.verticalScrollBar().value()
+        self.setCursor(QtCore.Qt.CursorShape.ClosedHandCursor)
+        self.user_adjusted_view = True
+        event.accept()
 
 

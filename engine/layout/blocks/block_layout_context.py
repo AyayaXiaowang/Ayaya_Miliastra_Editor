@@ -65,10 +65,13 @@ class BlockLayoutContext:
         self.placed_data_nodes: Set[str] = set()
         self.data_nodes_in_order: List[str] = []
         self.flow_bottom_by_slot: Dict[int, float] = {}
-        self.pending_copy_sources: Set[str] = set()
         self.shared_data_nodes: Set[str] = set()
-        # 跨块去重：在本块内放置数据节点时跳过这些数据节点（来自全局visited）
+        # 该块应放置的数据节点集合（由全局复制管理器在阶段2设置）
+        self.block_data_nodes: Set[str] = set()
+        self._block_data_nodes_set: bool = False  # 标记是否已通过 set_block_data_nodes 设置
+        # 兼容性：保留 skip_data_ids 和 pending_copy_sources，但不再使用
         self.skip_data_ids: Set[str] = set(skip_data_node_ids or [])
+        self.pending_copy_sources: Set[str] = set()
         # 全局索引上下文（只读复用，避免重复构建）
         self._global_layout_context: Optional[LayoutContext] = global_layout_context
         if self._global_layout_context is None:
@@ -189,6 +192,28 @@ class BlockLayoutContext:
         self._node_height_cache[node_id] = height
         return height
 
+    # ===== 全局复制阶段接口 =====
+    def set_block_data_nodes(self, data_nodes: Set[str]) -> None:
+        """设置该块应放置的数据节点集合（由全局复制管理器调用）
+        
+        Args:
+            data_nodes: 该块应放置的数据节点ID集合
+        """
+        self.block_data_nodes = set(data_nodes)
+        self._block_data_nodes_set = True  # 标记已设置（即使是空集合）
+    
+    def should_place_data_node(self, node_id: str) -> bool:
+        """判断数据节点是否应该在该块放置
+        
+        新逻辑：如果 block_data_nodes 已设置（包括空集合），则只放置其中的节点；
+        否则回退到旧逻辑（放置所有遇到的数据节点）。
+        """
+        # 使用标记判断是否已设置，而不是检查集合是否非空
+        if self._block_data_nodes_set:
+            return node_id in self.block_data_nodes
+        # 兼容旧逻辑
+        return node_id not in self.skip_data_ids
+
     # ===== 链枚举状态复位（支持复制后重枚举）=====
     def reset_chain_enumeration_state(self) -> None:
         """复位与链枚举相关的所有状态，以便在复制与边重定向之后重新枚举数据链。"""
@@ -202,7 +227,7 @@ class BlockLayoutContext:
         self.chain_consumer_port_name.clear()
         self.chain_consumer_port_index.clear()
         self.flow_pair_required_gap.clear()
-        # 链读集合以跨块边界为初始“已读”集合
+        # 链读集合以跨块边界为初始"已读"集合
         self.next_chain_id = 1
 
 

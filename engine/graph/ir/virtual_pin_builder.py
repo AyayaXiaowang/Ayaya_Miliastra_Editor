@@ -20,7 +20,7 @@ from engine.graph.composite.pin_marker_collector import (
 def build_virtual_pins_from_class(class_def: ast.ClassDef) -> List[VirtualPinConfig]:
     """从类格式的复合节点提取虚拟引脚
     
-    解析类中使用 @flow_entry、@event_handler、@data_method 装饰的方法，
+    解析类中使用 @flow_entry、@event_handler 装饰的方法，
     提取所有虚拟引脚定义。
     
     Args:
@@ -114,32 +114,6 @@ def build_virtual_pins_from_class(class_def: ast.ClassDef) -> List[VirtualPinCon
                     mapped_ports=[]
                 ))
                 pin_index += 1
-        
-        elif method_spec['type'] == 'data_method':
-            # 纯数据方法：inputs 和 outputs（无流程引脚）
-            for pin_name, pin_type in method_spec['inputs']:
-                virtual_pins.append(VirtualPinConfig(
-                    pin_index=pin_index,
-                    pin_name=pin_name,
-                    pin_type=pin_type,
-                    is_input=True,
-                    is_flow=False,
-                    description="",
-                    mapped_ports=[]
-                ))
-                pin_index += 1
-            
-            for pin_name, pin_type in method_spec['outputs']:
-                virtual_pins.append(VirtualPinConfig(
-                    pin_index=pin_index,
-                    pin_name=pin_name,
-                    pin_type=pin_type,
-                    is_input=False,
-                    is_flow=False,
-                    description="",
-                    mapped_ports=[]
-                ))
-                pin_index += 1
 
     # 复合节点允许根据需要暴露多个流程出口（例如条件分支、多分支等），
     # 具体分支结构由后续 IR 构建与布局逻辑处理。
@@ -147,55 +121,40 @@ def build_virtual_pins_from_class(class_def: ast.ClassDef) -> List[VirtualPinCon
 
 
 def _apply_auto_pin_configuration(func_def: ast.FunctionDef, method_spec: Dict) -> Dict:
-    method_spec.setdefault('data_output_var_map', {})
-    auto_inputs = method_spec.get('auto_inputs', False)
-    auto_outputs = method_spec.get('auto_outputs', False)
+    """从方法体内的引脚声明辅助函数推断 inputs/outputs
     
-    if not (auto_inputs or auto_outputs):
-        return method_spec
+    所有引脚都通过方法体内的 流程入/流程出/数据入/数据出 辅助函数声明。
+    """
+    method_spec.setdefault('data_output_var_map', {})
     
     markers = collect_pin_markers(func_def)
     method_type = method_spec.get('type')
     
     if method_type == 'flow_entry':
-        if auto_inputs:
-            method_spec['inputs'] = _build_flow_entry_inputs(func_def, markers)
-        if auto_outputs:
-            outputs, var_map = _build_outputs_from_markers(
-                markers,
-                include_default_flow=False,
-            )
-            method_spec['outputs'] = outputs
-            method_spec['data_output_var_map'] = var_map
+        method_spec['inputs'] = _build_flow_entry_inputs(func_def, markers)
+        outputs, var_map = _build_outputs_from_markers(
+            markers,
+            include_default_flow=False,
+        )
+        method_spec['outputs'] = outputs
+        method_spec['data_output_var_map'] = var_map
     
     elif method_type == 'event_handler':
-        if auto_outputs:
-            outputs, var_map = _build_outputs_from_markers(markers, include_default_flow=True)
-            method_spec['outputs'] = outputs
-            method_spec['data_output_var_map'] = var_map
-    
-    elif method_type == 'data_method':
-        if auto_inputs:
-            method_spec['inputs'] = _build_data_inputs(func_def, markers)
-        if auto_outputs:
-            outputs, var_map = _build_outputs_from_markers(markers, include_default_flow=False)
-            method_spec['outputs'] = outputs
-            method_spec['data_output_var_map'] = var_map
+        outputs, var_map = _build_outputs_from_markers(markers, include_default_flow=True)
+        method_spec['outputs'] = outputs
+        method_spec['data_output_var_map'] = var_map
     
     return method_spec
 
 
 def _build_flow_entry_inputs(func_def: ast.FunctionDef, markers: PinMarkerSummary) -> List[Tuple[str, str]]:
     inputs: List[Tuple[str, str]] = []
-    flow_markers = markers.flow_inputs or [PinMarker("流程入", "流程")]
+    # 只有用户显式声明了流程入时才添加，不自动生成默认流程入
+    flow_markers = markers.flow_inputs or []
     for marker in flow_markers:
         inputs.append((marker.name, marker.pin_type))
     inputs.extend(_merge_data_inputs(func_def, markers))
     return inputs
-
-
-def _build_data_inputs(func_def: ast.FunctionDef, markers: PinMarkerSummary) -> List[Tuple[str, str]]:
-    return _merge_data_inputs(func_def, markers)
 
 
 def _merge_data_inputs(func_def: ast.FunctionDef, markers: PinMarkerSummary) -> List[Tuple[str, str]]:
@@ -237,11 +196,14 @@ def _build_outputs_from_markers(markers: PinMarkerSummary, *, include_default_fl
 def extract_method_spec_from_decorators(func_def: ast.FunctionDef) -> Optional[Dict]:
     """从方法的装饰器提取规范信息（公共API）
     
+    引脚定义通过方法体内的 流程入/流程出/数据入/数据出 辅助函数声明，
+    此函数仅识别装饰器类型和基本配置参数。
+    
     Args:
         func_def: 函数定义AST节点
         
     Returns:
-        方法规范字典，包含 type、inputs、outputs 等字段
+        方法规范字典，包含 type 等字段
         如果没有相关装饰器，返回 None
     """
     for decorator in func_def.decorator_list:
@@ -251,103 +213,26 @@ def extract_method_spec_from_decorators(func_def: ast.FunctionDef) -> Optional[D
                 decorator_name = decorator.func.id
                 
                 if decorator_name == 'flow_entry':
-                    # 提取 inputs 和 outputs
-                    has_inputs_kw = _has_keyword(decorator, 'inputs')
-                    has_outputs_kw = _has_keyword(decorator, 'outputs')
-                    inputs = _extract_pin_list_from_decorator(decorator, 'inputs') if has_inputs_kw else []
-                    outputs = _extract_pin_list_from_decorator(decorator, 'outputs') if has_outputs_kw else []
                     internal = _extract_bool_from_decorator(decorator, 'internal', False)
                     return {
                         'type': 'flow_entry',
-                        'inputs': inputs,
-                        'outputs': outputs,
                         'internal': internal,
-                        'auto_inputs': not has_inputs_kw,
-                        'auto_outputs': not has_outputs_kw,
                         'data_output_var_map': {},
                     }
                 
                 elif decorator_name == 'event_handler':
-                    # 提取 event 和 outputs
                     event_name = _extract_string_from_decorator(decorator, 'event')
-                    has_outputs_kw = _has_keyword(decorator, 'outputs')
-                    outputs = _extract_pin_list_from_decorator(decorator, 'outputs') if has_outputs_kw else []
-                    # 默认不暴露事件参数，用户需要明确指定 expose_event_params=True
                     expose_params = _extract_bool_from_decorator(decorator, 'expose_event_params', False)
                     internal = _extract_bool_from_decorator(decorator, 'internal', False)
                     return {
                         'type': 'event_handler',
                         'event_name': event_name,
-                        'outputs': outputs,
                         'expose_event_params': expose_params,
                         'internal': internal,
-                        'auto_outputs': not has_outputs_kw,
-                        'data_output_var_map': {},
-                    }
-                
-                elif decorator_name == 'data_method':
-                    # 提取 inputs 和 outputs
-                    has_inputs_kw = _has_keyword(decorator, 'inputs')
-                    has_outputs_kw = _has_keyword(decorator, 'outputs')
-                    inputs = _extract_pin_list_from_decorator(decorator, 'inputs') if has_inputs_kw else []
-                    outputs = _extract_pin_list_from_decorator(decorator, 'outputs') if has_outputs_kw else []
-                    internal = _extract_bool_from_decorator(decorator, 'internal', False)
-                    return {
-                        'type': 'data_method',
-                        'inputs': inputs,
-                        'outputs': outputs,
-                        'internal': internal,
-                        'auto_inputs': not has_inputs_kw,
-                        'auto_outputs': not has_outputs_kw,
                         'data_output_var_map': {},
                     }
     
     return None
-
-
-def _extract_pin_list_from_decorator(decorator: ast.Call, param_name: str) -> List[Tuple[str, str]]:
-    """从装饰器调用中提取引脚列表
-    
-    例如: inputs=[("流程入", "流程"), ("目标实体", "实体")]
-    
-    Args:
-        decorator: 装饰器调用AST节点
-        param_name: 参数名（inputs 或 outputs）
-        
-    Returns:
-        引脚列表 [(引脚名, 类型), ...]
-    """
-    pins = []
-    
-    for keyword in decorator.keywords:
-        if keyword.arg == param_name:
-            # 期望是一个列表
-            if isinstance(keyword.value, ast.List):
-                for elt in keyword.value.elts:
-                    # 期望是元组 (name, type)
-                    if isinstance(elt, ast.Tuple) and len(elt.elts) >= 2:
-                        name_node = elt.elts[0]
-                        type_node = elt.elts[1]
-                        
-                        # 提取名称和类型（都应该是字符串常量）
-                        if isinstance(name_node, ast.Constant):
-                            pin_name = name_node.value
-                        else:
-                            continue
-                        
-                        if isinstance(type_node, ast.Constant):
-                            pin_type = type_node.value
-                        else:
-                            continue
-                        
-                        pins.append((pin_name, pin_type))
-            break
-    
-    return pins
-
-
-def _has_keyword(decorator: ast.Call, param_name: str) -> bool:
-    return any(keyword.arg == param_name for keyword in decorator.keywords)
 
 
 def _extract_string_from_decorator(decorator: ast.Call, param_name: str) -> str:

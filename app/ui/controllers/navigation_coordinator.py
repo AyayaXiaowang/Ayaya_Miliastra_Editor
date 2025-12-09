@@ -288,7 +288,7 @@ class NavigationCoordinator(QtCore.QObject):
         
         if detail_type == "graph_create_node" or detail_type == "graph_config_node" or detail_type == "graph_config_node_merged" or detail_type == "graph_set_port_types_merged" \
            or detail_type == "graph_add_variadic_inputs" or detail_type == "graph_add_dict_pairs" or detail_type == "graph_add_branch_outputs" \
-           or detail_type == "graph_bind_signal":
+           or detail_type == "graph_bind_signal" or detail_type == "graph_bind_struct":
             # 定位到节点
             node_id = detail_info.get("node_id")
             if node_id:

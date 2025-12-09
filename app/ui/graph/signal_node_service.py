@@ -28,6 +28,11 @@ from engine.graph.common import (
     SIGNAL_NAME_PORT_NAME,
 )
 from engine.signal import get_default_signal_binding_service, compute_signal_schema_hash
+from ui.graph.core.signal_logic import (
+    build_signal_node_def_proxy,
+    plan_signal_port_sync,
+    resolve_signal_binding,
+)
 
 if TYPE_CHECKING:
     from ui.graph.graph_scene import GraphScene
@@ -77,60 +82,11 @@ def build_signal_node_def_proxy_for_scene(
 
     binding_service = get_default_signal_binding_service()
     bound_signal_id = binding_service.get_node_signal_id(scene.model, node.id)
-    if not bound_signal_id:
+    context = resolve_signal_binding(node, signals_dict, bound_signal_id)
+    if context is None:
         return None
 
-    signal_config = signals_dict.get(bound_signal_id)
-    if signal_config is None:
-        return None
-
-    parameters = getattr(signal_config, "parameters", []) or []
-    param_type_map: Dict[str, str] = {}
-    for parameter_config in parameters:
-        param_name = getattr(parameter_config, "name", "")
-        param_type = getattr(parameter_config, "parameter_type", "")
-        if param_name and param_type:
-            param_type_map[str(param_name)] = str(param_type)
-
-    if not param_type_map:
-        return None
-
-    input_types: Dict[str, str] = dict(getattr(base_def, "input_types", {}) or {})
-    output_types: Dict[str, str] = dict(getattr(base_def, "output_types", {}) or {})
-
-    node_title = getattr(node, "title", "") or ""
-    if node_title == SIGNAL_SEND_NODE_TITLE:
-        static_inputs = set(SIGNAL_SEND_STATIC_INPUTS)
-        for param_name, param_type in param_type_map.items():
-            if param_name in static_inputs:
-                continue
-            input_types[param_name] = param_type
-    elif node_title == SIGNAL_LISTEN_NODE_TITLE:
-        static_outputs = set(SIGNAL_LISTEN_STATIC_OUTPUTS)
-        for param_name, param_type in param_type_map.items():
-            if param_name in static_outputs:
-                continue
-            output_types[param_name] = param_type
-    else:
-        return None
-
-    return NodeDef(
-        name=base_def.name,
-        category=base_def.category,
-        inputs=list(base_def.inputs),
-        outputs=list(base_def.outputs),
-        description=base_def.description,
-        scopes=list(base_def.scopes),
-        mount_restrictions=list(base_def.mount_restrictions),
-        doc_reference=base_def.doc_reference,
-        input_types=input_types,
-        output_types=output_types,
-        input_generic_constraints=dict(base_def.input_generic_constraints),
-        output_generic_constraints=dict(base_def.output_generic_constraints),
-        dynamic_port_type=base_def.dynamic_port_type,
-        is_composite=base_def.is_composite,
-        composite_id=base_def.composite_id,
-    )
+    return build_signal_node_def_proxy(getattr(node, "title", "") or "", base_def, context)
 
 
 def get_effective_node_def_for_scene(
@@ -149,46 +105,6 @@ def get_effective_node_def_for_scene(
             return signal_specific_def
 
     return base_def
-
-
-# ---------------------------------------------------------------------------
-# 节点级操作：信号绑定与端口同步
-# ---------------------------------------------------------------------------
-
-
-def _infer_signal_config_from_node_constants(
-    node: NodeModel,
-    signals_dict: Dict[str, SignalConfig],
-) -> Optional[SignalConfig]:
-    """基于节点上的“信号名”输入常量，从信号字典中推断 SignalConfig。
-
-    规则约定（与代码级校验保持一致）：
-    - “信号名”端口只接受『信号名称』（SignalConfig.signal_name），不接受信号 ID；
-    - 当文本恰好等于某个信号名称时，视为有效匹配并返回对应的 SignalConfig；
-    - 匹配成功仅影响当前场景内的 GraphModel.metadata 绑定，不写回磁盘。
-    """
-    if not isinstance(signals_dict, dict):
-        return None
-
-    input_constants = getattr(node, "input_constants", {}) or {}
-    if not isinstance(input_constants, dict):
-        return None
-
-    raw_value = input_constants.get(SIGNAL_NAME_PORT_NAME)
-    if raw_value is None:
-        return None
-
-    text = str(raw_value).strip()
-    if not text:
-        return None
-
-    # 仅按 SignalConfig.signal_name 文本匹配，不接受信号 ID。
-    for candidate in signals_dict.values():
-        signal_name_value = getattr(candidate, "signal_name", None)
-        if str(signal_name_value or "").strip() == text:
-            return candidate
-
-    return None
 
 
 def bind_signal_for_node(scene: "GraphScene", node_id: str) -> None:
@@ -311,24 +227,16 @@ def sync_signal_ports_for_node(
 
     binding_service = get_default_signal_binding_service()
     bound_signal_id = binding_service.get_node_signal_id(scene.model, node_id)
-    signal_config = None
-    if bound_signal_id:
-        signal_config = signals_dict.get(bound_signal_id)
+    context = resolve_signal_binding(node, signals_dict, bound_signal_id)
+    if context is None:
+        return
 
-    # 若尚未写入绑定或绑定已失效，则尝试基于“信号名”常量推断信号定义，并在当前图内补写绑定。
-    if signal_config is None:
-        inferred = _infer_signal_config_from_node_constants(node, signals_dict)
-        if inferred is None:
-            return
-        signal_id_value = getattr(inferred, "signal_id", None)
-        if isinstance(signal_id_value, str) and signal_id_value:
-            binding_service.set_node_signal_id(scene.model, node_id, signal_id_value)
-            bound_signal_id = signal_id_value
-        signal_config = inferred
+    plan = plan_signal_port_sync(node, context)
 
-    # 同步“信号名”输入常量（若节点上存在该端口），用于在 UI 中展示已绑定信号名。
-    signal_name_value = getattr(signal_config, "signal_name", "")
-    if signal_name_value:
+    if plan.bound_signal_id and plan.bound_signal_id != bound_signal_id:
+        binding_service.set_node_signal_id(scene.model, node_id, plan.bound_signal_id)
+
+    if plan.signal_name_constant:
         has_signal_name_port = any(
             getattr(port, "name", "") == SIGNAL_NAME_PORT_NAME
             for port in getattr(node, "inputs", []) or []
@@ -336,38 +244,12 @@ def sync_signal_ports_for_node(
         if has_signal_name_port:
             if not isinstance(node.input_constants, dict):
                 node.input_constants = {}
-            node.input_constants[SIGNAL_NAME_PORT_NAME] = signal_name_value
+            node.input_constants[SIGNAL_NAME_PORT_NAME] = plan.signal_name_constant
 
-    parameters = getattr(signal_config, "parameters", []) or []
-    param_names = [getattr(param, "name", "") for param in parameters if getattr(param, "name", "")]
-    if not param_names:
-        return
-
-    node_title = getattr(node, "title", "") or ""
-    if node_title == SIGNAL_SEND_NODE_TITLE:
-        static_inputs = set(SIGNAL_SEND_STATIC_INPUTS)
-        existing_names = {getattr(port, "name", "") for port in getattr(node, "inputs", []) or []}
-        for param_name in param_names:
-            if param_name in existing_names or param_name in static_inputs:
-                continue
-            node.add_input_port(param_name)
-    elif node_title == SIGNAL_LISTEN_NODE_TITLE:
-        # 监听信号节点：确保左侧存在用于展示/选择的“信号名”输入端口（仅 UI 使用，不参与连线）。
-        has_signal_name_input = any(
-            getattr(port, "name", "") == SIGNAL_NAME_PORT_NAME
-            for port in getattr(node, "inputs", []) or []
-        )
-        if not has_signal_name_input:
-            node.add_input_port(SIGNAL_NAME_PORT_NAME)
-
-        static_outputs = set(SIGNAL_LISTEN_STATIC_OUTPUTS)
-        existing_names = {getattr(port, "name", "") for port in getattr(node, "outputs", []) or []}
-        for param_name in param_names:
-            if param_name in existing_names or param_name in static_outputs:
-                continue
-            node.add_output_port(param_name)
-    else:
-        return
+    for port_name in plan.add_inputs:
+        node.add_input_port(port_name)
+    for port_name in plan.add_outputs:
+        node.add_output_port(port_name)
 
     node_item = scene.node_items.get(node_id)
     if node_item is not None:

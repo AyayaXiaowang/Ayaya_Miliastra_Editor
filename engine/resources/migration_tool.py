@@ -11,6 +11,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from engine.resources.resource_manager import ResourceManager, ResourceType
+from engine.resources.management_naming_rules import get_display_name_field_for_type
 
 
 class ResourceNamingMigrationTool:
@@ -63,6 +64,7 @@ class ResourceNamingMigrationTool:
         
         # 4. 迁移其他资源类型（战斗预设、管理配置等）
         other_types = [
+            (ResourceType.PLAYER_TEMPLATE, "玩家模板"),
             (ResourceType.PLAYER_CLASS, "职业"),
             (ResourceType.UNIT_STATUS, "单位状态"),
             (ResourceType.SKILL, "技能"),
@@ -177,6 +179,7 @@ class ResourceNamingMigrationTool:
         """
         self._log(f"[{resource_type.value}] 开始迁移...")
         count = 0
+        display_name_field = get_display_name_field_for_type(resource_type)
         
         resource_dir = self.resource_library_dir / resource_type.value
         if not resource_dir.exists():
@@ -186,14 +189,31 @@ class ResourceNamingMigrationTool:
         # 只处理JSON文件（节点图.py文件已经是name命名）
         for json_file in resource_dir.glob("*.json"):
             # 读取文件内容
-            with open(json_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+            with open(json_file, 'r', encoding='utf-8') as file_object:
+                data = json.load(file_object)
             
             resource_id = data.get(id_field)
+            if not resource_id:
+                self._log(f"  跳过（缺少ID）: {json_file.name}")
+                continue
+
             resource_name = data.get("name")
-            
-            if not resource_id or not resource_name:
-                self._log(f"  跳过（缺少ID或名称）: {json_file.name}")
+
+            # 若通用 name 缺失或仍等于 ID，则尝试从各资源类型约定的显示名字段回填
+            if (not resource_name or resource_name == resource_id) and display_name_field is not None:
+                display_name_value = data.get(display_name_field)
+                if isinstance(display_name_value, str):
+                    stripped_display_name = display_name_value.strip()
+                    if stripped_display_name:
+                        resource_name = stripped_display_name
+                        if not dry_run:
+                            data["name"] = stripped_display_name
+                            data["updated_at"] = datetime.now().isoformat()
+                            with open(json_file, "w", encoding="utf-8") as output_file:
+                                json.dump(data, output_file, ensure_ascii=False, indent=2)
+
+            if not resource_name:
+                self._log(f"  跳过（缺少名称）: {json_file.name}")
                 continue
             
             # 特殊处理：关卡实体文件保持使用ID命名（避免重名冲突）
@@ -214,8 +234,8 @@ class ResourceNamingMigrationTool:
                 while (resource_dir / f"{new_filename}.json").exists():
                     existing_file = resource_dir / f"{new_filename}.json"
                     # 检查是否是同一个资源
-                    with open(existing_file, 'r', encoding='utf-8') as f:
-                        existing_data = json.load(f)
+                    with open(existing_file, 'r', encoding='utf-8') as existing_stream:
+                        existing_data = json.load(existing_stream)
                         if existing_data.get(id_field) == resource_id:
                             # 已经存在，跳过
                             self._log(f"  跳过（已迁移）: {json_file.name}")

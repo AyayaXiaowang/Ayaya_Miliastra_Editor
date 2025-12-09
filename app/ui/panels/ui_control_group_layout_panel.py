@@ -8,12 +8,9 @@ from engine.configs.components.ui_control_group_model import (
     UIControlGroupTemplate,
     UILayout,
 )
+from ui.foundation.base_widgets import BaseDialog
 from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.dialog_utils import (
-    apply_standard_button_box_labels,
-    show_info_dialog,
-    show_warning_dialog,
-)
+from ui.foundation.dialog_utils import show_info_dialog, show_warning_dialog
 from ui.foundation.theme_manager import Colors, ThemeManager, Sizes
 from ui.foundation.toast_notification import ToastNotification
 from ui.foundation.toolbar_utils import apply_standard_toolbar
@@ -754,43 +751,38 @@ class TemplateEntryWidget(QtWidgets.QFrame):
         self.visibility_changed.emit(self.template_id, checked)
 
 
-class AddWidgetDialog(QtWidgets.QDialog):
+class AddWidgetDialog(BaseDialog):
     """布局内添加控件的选择对话框。"""
 
     def __init__(self, templates: Dict[str, UIControlGroupTemplate], parent=None):
-        super().__init__(parent)
+        super().__init__(
+            title="添加界面控件",
+            width=400,
+            height=500,
+            buttons=QtWidgets.QDialogButtonBox.StandardButton.Ok
+            | QtWidgets.QDialogButtonBox.StandardButton.Cancel,
+            parent=parent,
+        )
 
         self.templates = templates
         self.selected_template_id: Optional[str] = None
 
-        self.setWindowTitle("添加界面控件")
-        self.setFixedSize(400, 500)
-
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        layout = QtWidgets.QVBoxLayout(self)
+        self.setFixedSize(400, 500)
 
-        layout.addWidget(QtWidgets.QLabel("选择要添加的控件组模板:"))
+        self.content_layout.addWidget(QtWidgets.QLabel("选择要添加的控件组模板:"))
 
         self.search_edit = QtWidgets.QLineEdit()
         self.search_edit.setPlaceholderText("搜索模板…")
         self.search_edit.textChanged.connect(self._on_search_text_changed)
-        layout.addWidget(self.search_edit)
+        self.content_layout.addWidget(self.search_edit)
 
         self.template_tree = TemplateTreeWidget("自定义模板", self)
         self.template_tree.currentItemChanged.connect(self._on_selection_changed)
         self.template_tree.refresh(self.templates)
-        layout.addWidget(self.template_tree)
-
-        buttons = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.StandardButton.Ok
-            | QtWidgets.QDialogButtonBox.StandardButton.Cancel
-        )
-        apply_standard_button_box_labels(buttons)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.content_layout.addWidget(self.template_tree)
 
     def _on_selection_changed(self, current, previous) -> None:
         self.selected_template_id = self.template_tree.current_template_id()
