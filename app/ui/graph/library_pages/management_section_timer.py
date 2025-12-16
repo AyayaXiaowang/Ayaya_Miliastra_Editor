@@ -66,7 +66,7 @@ class TimerSection(BaseManagementSection):
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
             if not name_edit.text().strip():
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,

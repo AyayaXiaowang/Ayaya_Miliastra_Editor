@@ -9,10 +9,10 @@ BBox = Tuple[int, int, int, int]
 ScreenPoint = Tuple[int, int]
 
 from app.automation import capture as editor_capture
-from app.automation.core.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
-from app.automation.core.node_snapshot import NodePortsSnapshotCache
-from app.automation.core.structured_logging import StructuredLogger
-from app.automation.core.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
+from app.automation.editor.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
+from app.automation.editor.node_snapshot import NodePortsSnapshotCache
+from app.automation.editor.structured_logging import StructuredLogger
+from app.automation.editor.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
 from app.automation.input.common import build_graph_region_overlay, compute_position_thresholds
 from app.automation.ports._ports import normalize_kind_text
 from app.automation.ports.port_picker import (

@@ -19,16 +19,18 @@ class GraphEventsMixin:
         self.scene = self.graph_controller.get_current_scene()
         self.file_watcher_manager.setup_file_watcher(graph_id)
 
+        # 同步到 ViewState（单一真源）
+        view_state = getattr(self, "view_state", None)
+        graph_state = getattr(view_state, "graph", None)
+        if graph_state is not None:
+            setattr(graph_state, "graph_editor_open_graph_id", str(graph_id or ""))
+
         # 打开图后，若当前处于编辑器模式，则同步右侧"图属性"面板的内容
         from app.models.view_modes import ViewMode as _VM
 
         if _VM.from_index(self.central_stack.currentIndex()) == _VM.GRAPH_EDITOR:
-            graph_prop_idx = self.side_tab.indexOf(self.graph_property_panel)
-            if graph_prop_idx == -1:
-                self.side_tab.addTab(self.graph_property_panel, "图属性")
             self.graph_property_panel.set_graph(graph_id)
-            self.side_tab.setCurrentWidget(self.graph_property_panel)
-            self._update_right_panel_visibility()
+            self.right_panel_registry.ensure_visible("graph_property", visible=True, switch_to=True)
             print(f"[MAIN] 已同步图属性面板: graph_id={graph_id}")
 
         # 与任务清单联动（如果存在对应 Todo 上下文）
@@ -104,6 +106,11 @@ class GraphEventsMixin:
     def _on_graph_library_selected(self, graph_id: str) -> None:
         """图库中图选中"""
         self.graph_property_panel.set_graph(graph_id)
+        # 同步到 ViewState（单一真源）
+        view_state = getattr(self, "view_state", None)
+        graph_state = getattr(view_state, "graph", None)
+        if graph_state is not None:
+            setattr(graph_state, "graph_library_selected_graph_id", str(graph_id or ""))
         # 在图库模式下也监控当前选中的节点图，支持外部修改后自动刷新右侧变量视图
         if hasattr(self, "file_watcher_manager"):
             self.file_watcher_manager.setup_file_watcher(graph_id)

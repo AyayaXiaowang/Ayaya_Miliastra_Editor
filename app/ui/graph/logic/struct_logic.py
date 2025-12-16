@@ -18,7 +18,7 @@ from engine.graph.common import (
 )
 from engine.graph.models.graph_model import NodeModel
 from engine.nodes.node_definition_loader import NodeDef
-from ui.dialogs.struct_definition_types import param_type_to_canonical
+from app.ui.dialogs.struct_definition_types import param_type_to_canonical
 
 
 @dataclass(frozen=True)

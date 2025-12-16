@@ -6,14 +6,18 @@
 3. 同一个块内多个消费者共用一个副本
 """
 
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
+ensure_workspace_root_on_sys_path()
 
 from engine.graph.models import GraphModel, NodeModel, EdgeModel, PortModel
 from engine.layout.utils.global_copy_manager import GlobalCopyManager
-from engine.layout.core.layout_models import LayoutBlock
+from engine.layout.internal.layout_models import LayoutBlock
 
 
 def create_test_node(node_id: str, has_flow: bool = False) -> NodeModel:
@@ -87,7 +91,7 @@ def test_rule_1_same_block_no_copy():
     # 创建块：F1 和 F2 在同一个块
     block1 = LayoutBlock()
     block1.flow_nodes = ["F1", "F2"]
-    block1.order_index = 0
+    block1.order_index = 1
     
     # 执行复制
     manager = GlobalCopyManager(model, [block1])
@@ -152,11 +156,11 @@ def test_rule_2_old_edge_removed():
     # 创建块：F1 在块1，F2 在块2
     block1 = LayoutBlock()
     block1.flow_nodes = ["F1"]
-    block1.order_index = 0
+    block1.order_index = 1
     
     block2 = LayoutBlock()
     block2.flow_nodes = ["F2"]
-    block2.order_index = 1
+    block2.order_index = 2
     
     # 执行复制
     manager = GlobalCopyManager(model, [block1, block2])
@@ -166,10 +170,23 @@ def test_rule_2_old_edge_removed():
     # 验证
     print(f"  场景：块1的A连接块2的F2")
     
-    # 检查旧边是否被删除
-    old_edge_exists = original_edge_a_f2_id in model.edges
-    print(f"  原边 A->F2 存在: {old_edge_exists}")
-    print(f"  预期：原边不存在 (False)")
+    # 检查“旧连线语义”是否断开：不允许再存在 A -> F2 的数据边（edge.id 可能保持不变并被原地重定向）
+    old_semantic_edge_exists = any(
+        e.src_node == "A" and e.dst_node == "F2" and e.dst_port == "输入"
+        for e in model.edges.values()
+    )
+    print(f"  原语义边 A->F2 仍存在: {old_semantic_edge_exists}")
+    print(f"  预期：不存在 (False)")
+
+    # 若 edge.id 保持不变，则该边应被重定向为 副本 -> F2
+    redirected_edge = model.edges.get(original_edge_a_f2_id)
+    redirected_ok = bool(
+        redirected_edge
+        and redirected_edge.dst_node == "F2"
+        and redirected_edge.dst_port == "输入"
+        and "copy" in redirected_edge.src_node
+    )
+    print(f"  原边ID {original_edge_a_f2_id} 已重定向为 副本->F2: {redirected_ok}")
     
     # 检查新边是否创建（副本 -> F2）
     copy_to_f2_edges = [
@@ -189,7 +206,7 @@ def test_rule_2_old_edge_removed():
     print(f"  原边 A->F1 保留: {original_edge_preserved}")
     print(f"  预期：保留 (True)")
     
-    success = (not old_edge_exists) and new_edge_exists and original_edge_preserved
+    success = (not old_semantic_edge_exists) and new_edge_exists and original_edge_preserved and redirected_ok
     if success:
         print("  ✓ 通过：旧边断开，新边创建，owner块边保留")
         return True
@@ -252,11 +269,11 @@ def test_rule_3_one_copy_per_block():
     # 创建块：F1 在块1，F2/F3/F4 在块2
     block1 = LayoutBlock()
     block1.flow_nodes = ["F1"]
-    block1.order_index = 0
+    block1.order_index = 1
     
     block2 = LayoutBlock()
     block2.flow_nodes = ["F2", "F3", "F4"]
-    block2.order_index = 1
+    block2.order_index = 2
     
     # 执行复制
     manager = GlobalCopyManager(model, [block1, block2])
@@ -335,11 +352,11 @@ def test_rule_4_disable_copy_node_in_one_block():
     # 创建块
     block1 = LayoutBlock()
     block1.flow_nodes = ["F1"]
-    block1.order_index = 0
+    block1.order_index = 1
     
     block2 = LayoutBlock()
     block2.flow_nodes = ["F2"]
-    block2.order_index = 1
+    block2.order_index = 2
     
     # 分析依赖但不执行复制（模拟禁用复制）
     manager = GlobalCopyManager(model, [block1, block2])
@@ -347,8 +364,8 @@ def test_rule_4_disable_copy_node_in_one_block():
     # 不调用 execute_copy_plan()
     
     # 检查数据节点归属
-    block1_nodes = manager.get_block_data_nodes("block_0")
-    block2_nodes = manager.get_block_data_nodes("block_1")
+    block1_nodes = manager.get_block_data_nodes("block_1")
+    block2_nodes = manager.get_block_data_nodes("block_2")
     
     print(f"  场景：数据节点A被块1的F1和块2的F2消费，禁用复制")
     print(f"  块1的数据节点: {block1_nodes}")

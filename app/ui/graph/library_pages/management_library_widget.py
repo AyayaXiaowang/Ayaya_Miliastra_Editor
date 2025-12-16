@@ -15,31 +15,31 @@ from PyQt6 import QtCore, QtWidgets
 
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from ui.foundation.theme_manager import Sizes
-from ui.foundation.toast_notification import ToastNotification
-from ui.graph.library_mixins import (
+from app.ui.foundation.theme_manager import Sizes
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.graph.library_mixins import (
     ConfirmDialogMixin,
     SearchFilterMixin,
     ToolbarMixin,
     rebuild_list_with_preserved_selection,
 )
-from ui.graph.library_pages.library_scaffold import (
+from app.ui.graph.library_pages.library_scaffold import (
     DualPaneLibraryScaffold,
     LibraryChangeEvent,
     LibraryPageMixin,
     LibrarySelection,
 )
-from ui.graph.library_pages.management_sections import (
+from app.ui.graph.library_pages.management_sections import (
     BaseManagementSection,
     ManagementRowData,
     MANAGEMENT_SECTION_MAP,
 )
-from ui.management.section_registry import (
+from app.ui.management.section_registry import (
     MANAGEMENT_SECTIONS,
     ManagementSectionSpec,
 )
-from ui.panels.ui_control_group_manager import UIControlGroupManager
-from ui.panels.panel_scaffold import SectionCard
+from app.ui.panels.ui_control_group_manager import UIControlGroupManager
+from app.ui.panels.panel_scaffold import SectionCard
 
 
 ManagementPackage = Union[PackageView, GlobalResourceView]
@@ -446,6 +446,13 @@ class ManagementLibraryWidget(
             on_first_selection=None,
             on_cleared_selection=emit_empty_selection,
         )
+        # 列表重建完成后，若当前仍有选中条目，则主动触发一次选中处理，
+        # 确保右侧管理属性面板与专用编辑面板（例如结构体详情）能够基于最新数据刷新，
+        # 即使刷新前后选中的业务键未变也会重新加载内容。
+        if self.item_list is not None:
+            current_item_after_refresh = self.item_list.currentItem()
+            if current_item_after_refresh is not None:
+                self._on_item_selection_changed()
 
     def _describe_current_scope(self) -> str:
         """根据当前资源视图返回简单 scope 标识，用于变更事件上下文。"""

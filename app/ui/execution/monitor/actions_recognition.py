@@ -240,8 +240,8 @@ class RecognitionActions:
         """Settings 按钮行识别测试：优先基于当前图扫描；无模型时回退为全局检测扫描。"""
         graph_model = self._get_graph_model()
         if graph_model is not None and hasattr(graph_model, 'nodes') and int(len(graph_model.nodes)) > 0 and self._get_workspace_path() is not None:
-            from app.automation.core.editor_executor import EditorExecutor
-            from app.automation.core import editor_connect as _editor_connect
+            from app.automation.editor.editor_executor import EditorExecutor
+            from app.automation.editor import editor_connect as _editor_connect
             executor = EditorExecutor(self._get_workspace_path())
             all_ids = list(getattr(graph_model, 'nodes').keys())
             node_ids_for_scan = [str(x) for x in all_ids[: min(len(all_ids), 30)]]
@@ -292,7 +292,7 @@ class RecognitionActions:
         if self._get_workspace_path() is None:
             self._log("✗ Warning 测试失败：缺少工作区路径")
             return
-        from app.automation.core.editor_executor import EditorExecutor
+        from app.automation.editor.editor_executor import EditorExecutor
         executor = EditorExecutor(self._get_workspace_path())
         facade = AutomationFacade()
         screenshot = facade.capture_window(self._get_window_title())
@@ -679,7 +679,7 @@ class RecognitionActions:
         if self._get_workspace_path() is None:
             self._log("✗ Settings模板测试失败：缺少工作区路径")
             return
-        from app.automation.core.editor_executor import EditorExecutor
+        from app.automation.editor.editor_executor import EditorExecutor
         executor = EditorExecutor(self._get_workspace_path())
         facade = AutomationFacade()
         screenshot = facade.capture_window(self._get_window_title())
@@ -699,7 +699,7 @@ class RecognitionActions:
         if self._get_workspace_path() is None:
             self._log("✗ Add模板测试失败：缺少工作区路径")
             return
-        from app.automation.core.editor_executor import EditorExecutor
+        from app.automation.editor.editor_executor import EditorExecutor
         executor = EditorExecutor(self._get_workspace_path())
         facade = AutomationFacade()
         screenshot = facade.capture_window(self._get_window_title())
@@ -720,7 +720,7 @@ class RecognitionActions:
         if self._get_workspace_path() is None:
             self._log("✗ 搜索框模板测试失败：缺少工作区路径")
             return
-        from app.automation.core.editor_executor import EditorExecutor
+        from app.automation.editor.editor_executor import EditorExecutor
         executor = EditorExecutor(self._get_workspace_path())
         facade = AutomationFacade()
         screenshot = facade.capture_window(self._get_window_title())

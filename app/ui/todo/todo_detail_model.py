@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
+import sys
 
 
 class ParagraphStyle(str, Enum):
@@ -76,5 +77,19 @@ class DetailDocument:
             if has_title or section.blocks:
                 return False
         return True
+
+
+# -----------------------------------------------------------------------------
+# Import aliasing
+#
+# 运行时以 `python -m app.cli.run_app` 启动时，sys.path 默认不包含 `.../app`，
+# 因此 app 内部应统一使用 `app.ui.*` 导入路径。
+#
+# pytest 为了方便，会将 `.../app` 加入 sys.path，使得 `ui.*` 也可以作为顶层包导入。
+# 为避免同一文件被以两个不同模块名加载导致“类同名但 isinstance 失败”，
+# 在这里将两个导入路径做成同一份模块对象。
+# -----------------------------------------------------------------------------
+sys.modules.setdefault("ui.todo.todo_detail_model", sys.modules[__name__])
+sys.modules.setdefault("app.ui.todo.todo_detail_model", sys.modules[__name__])
 
 

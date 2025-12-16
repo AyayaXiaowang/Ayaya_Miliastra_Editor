@@ -10,7 +10,7 @@
   等协议或公开方法访问执行与视口能力。
 
 用法：
-    python tools/check_executor_private_access.py
+    python -m tools.check_executor_private_access
 """
 
 from __future__ import annotations
@@ -20,10 +20,12 @@ import sys
 from pathlib import Path
 
 
-# 将工程根目录加入 sys.path，便于直接导入 engine/* 工具。
-WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
-if str(WORKSPACE_ROOT) not in sys.path:
-    sys.path.insert(0, str(WORKSPACE_ROOT))
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
+ensure_workspace_root_on_sys_path()
 
 from engine.utils.logging.console_sanitizer import ascii_safe_print
 

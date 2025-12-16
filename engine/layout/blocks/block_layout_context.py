@@ -13,7 +13,8 @@ from ..utils.graph_query_utils import (
     build_edge_indices,
     estimate_node_height_ui_exact_with_context,
 )
-from ..core.layout_context import LayoutContext
+from ..internal.layout_context import LayoutContext, get_or_build_layout_context_for_model
+from ..internal.layout_registry_context import LayoutRegistryContext, ensure_layout_registry_context_for_model
 
 
 class BlockLayoutContext:
@@ -75,14 +76,21 @@ class BlockLayoutContext:
         # 全局索引上下文（只读复用，避免重复构建）
         self._global_layout_context: Optional[LayoutContext] = global_layout_context
         if self._global_layout_context is None:
-            cached_ctx = getattr(self.model, "_layout_context_cache", None)
-            if isinstance(cached_ctx, LayoutContext) and getattr(cached_ctx, "model", None) is self.model:
-                self._global_layout_context = cached_ctx
-            else:
-                self._global_layout_context = LayoutContext(self.model)
+            registry_context = ensure_layout_registry_context_for_model(self.model)
+            self._global_layout_context = get_or_build_layout_context_for_model(
+                self.model,
+                registry_context=registry_context,
+            )
         self._shared_edge_indices = shared_edge_indices
         self._edge_indices_are_mutable = bool(shared_edge_indices)
         self._global_edge_api: Optional[LayoutContext] = None
+        # 布局注册表上下文（用于与 UI 一致的端口规划/高度估算），由全局 LayoutContext 注入。
+        self.registry_context: Optional[LayoutRegistryContext] = getattr(self._global_layout_context, "registry_context", None)
+        if self.registry_context is None:
+            raise RuntimeError(
+                "BlockLayoutContext 缺少 LayoutRegistryContext。"
+                "请通过 LayoutService.compute_layout(workspace_path=...) 或 settings.set_config_path(...) 初始化后再执行布局。"
+            )
 
         # 链编号与元信息（用于链驱动的X/Y策略）
         self.data_chain_ids_by_node: Dict[str, List[int]] = {}  # 数据节点 -> 链ID列表（支持一个节点属于多条链）

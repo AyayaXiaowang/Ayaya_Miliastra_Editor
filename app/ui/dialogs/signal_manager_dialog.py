@@ -2,8 +2,8 @@
 
 from PyQt6 import QtCore
 
-from ui.widgets.signal_table_widget import SignalTableWidget
-from ui.dialogs.management_dialog_base import ManagementDialogBase
+from app.ui.widgets.signal_table_widget import SignalTableWidget
+from app.ui.dialogs.management_dialog_base import ManagementDialogBase
 
 
 class SignalManagerDialog(ManagementDialogBase):

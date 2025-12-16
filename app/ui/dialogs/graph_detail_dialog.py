@@ -3,10 +3,10 @@
 from PyQt6 import QtCore, QtWidgets, QtGui
 from typing import List, Tuple, Dict
 
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
-from ui.foundation import dialog_utils
-from ui.widgets.graph_references_table_widget import GraphReferencesTableWidget
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
+from app.ui.foundation import dialog_utils
+from app.ui.widgets.graph_references_table_widget import GraphReferencesTableWidget
 from engine.resources.resource_manager import ResourceManager, ResourceType
 from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.graph_reference_tracker import GraphReferenceTracker

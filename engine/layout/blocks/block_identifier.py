@@ -11,7 +11,7 @@ from engine.graph.models import GraphModel
 from engine.utils.graph.graph_algorithms import collect_event_flow_nodes as collect_event_flow_nodes_util
 
 if TYPE_CHECKING:
-    from ..core.layout_context import LayoutContext
+    from ..internal.layout_context import LayoutContext
 
 
 def identify_block_flow_nodes(

@@ -4,14 +4,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# 确保从项目根导入
+if not __package__:
+    raise SystemExit(
+        "请从项目根目录使用模块方式运行：\n"
+        "  python -X utf8 -m app.cli.run_app\n"
+        "（不再支持通过脚本内 sys.path.insert 的方式运行）"
+    )
+
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
-if str(WORKSPACE_ROOT) not in sys.path:
-    sys.path.insert(0, str(WORKSPACE_ROOT))
-# 使顶层包名 `ui` 可用（UI 模块位于 `app/ui`，内部使用绝对导入 `ui.*`）
-APP_DIR = WORKSPACE_ROOT / "app"
-if str(APP_DIR) not in sys.path:
-    sys.path.insert(0, str(APP_DIR))
 
 from engine.utils.logging.console_sanitizer import install_ascii_safe_print
 
@@ -24,9 +24,9 @@ _preload_ocr = RapidOCR()  # 强制初始化 DLL
 del _preload_ocr
 
 from PyQt6 import QtWidgets  # noqa: E402  # 在 OCR 预热之后导入
-from ui.main_window import MainWindowV2, APP_TITLE  # noqa: E402
-from ui.foundation.theme_manager import ThemeManager  # noqa: E402
-from ui.foundation import dialog_utils  # noqa: E402
+from app.ui.main_window import MainWindowV2, APP_TITLE  # noqa: E402
+from app.ui.foundation.theme_manager import ThemeManager  # noqa: E402
+from app.ui.foundation import dialog_utils  # noqa: E402
 from engine.configs.settings import settings  # noqa: E402
 from engine.utils.logging.logger import log_info  # noqa: E402
 

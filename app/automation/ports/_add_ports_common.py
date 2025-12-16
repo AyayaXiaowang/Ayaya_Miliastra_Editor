@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, Tuple, Callable
 
 from PIL import Image
 
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport
 from engine.graph.models.graph_model import GraphModel, NodeModel
 
 

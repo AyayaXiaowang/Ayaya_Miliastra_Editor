@@ -9,10 +9,10 @@ from typing import Dict, List, Mapping, Optional, Sequence
 from PyQt6 import QtWidgets
 
 from engine.graph.models.entity_templates import get_all_variable_types
-from ui.dialogs.struct_definition_dialog_impl import StructDefinitionEditorWidget
-from ui.dialogs.struct_definition_types import param_type_to_canonical
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import Sizes, ThemeManager
+from app.ui.dialogs.struct_definition_dialog_impl import StructDefinitionEditorWidget
+from app.ui.dialogs.struct_definition_types import param_type_to_canonical
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import Sizes, ThemeManager
 
 
 class StructViewerDialog(BaseDialog):

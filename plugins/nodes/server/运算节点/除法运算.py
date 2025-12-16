@@ -9,7 +9,14 @@ from engine.utils.logging.logger import log_info
     inputs=[("左值", "泛型"), ("右值", "泛型")],
     outputs=[("结果", "泛型")],
     description="除法运算，支持浮点数除法和整数除法。整数除法返回整除结果 除数不应为0，否则可能返回非法值",
-    doc_reference="服务器节点/运算节点/运算节点.md"
+    doc_reference="服务器节点/运算节点/运算节点.md",
+    input_generic_constraints={
+        "左值": ["整数", "浮点数"],
+        "右值": ["整数", "浮点数"],
+    },
+    output_generic_constraints={
+        "结果": ["整数", "浮点数"],
+    },
 )
 def 除法运算(game, 左值, 右值):
     """除法运算，支持浮点数除法和整数除法。整数除法返回整除结果 除数不应为0，否则可能返回非法值"""

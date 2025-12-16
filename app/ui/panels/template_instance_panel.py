@@ -11,16 +11,16 @@ from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.package_view import PackageView
 from engine.resources.resource_manager import ResourceManager
-from ui.foundation.theme_manager import Colors, Sizes
-from ui.panels.graph_data_provider import GraphDataProvider, get_shared_graph_data_provider
-from ui.panels.package_membership_selector import build_package_membership_row
-from ui.panels.panel_scaffold import PanelScaffold
-from ui.panels.template_instance.basic_info_tab import BasicInfoTab
-from ui.panels.template_instance.components_tab import ComponentsTab
-from ui.panels.template_instance.graphs_tab import GraphsTab
-from ui.panels.template_instance.variables_tab import VariablesTab
-from ui.panels.template_instance.tab_base import TemplateInstanceTabBase, is_drop_template_config
-from ui.panels.template_instance_service import TemplateInstanceService
+from app.ui.foundation.theme_manager import Colors, Sizes
+from app.runtime.services.graph_data_service import get_shared_graph_data_service
+from app.ui.panels.package_membership_selector import build_package_membership_row
+from app.ui.panels.panel_scaffold import PanelScaffold
+from app.ui.panels.template_instance.basic_info_tab import BasicInfoTab
+from app.ui.panels.template_instance.components_tab import ComponentsTab
+from app.ui.panels.template_instance.graphs_tab import GraphsTab
+from app.ui.panels.template_instance.variables_tab import VariablesTab
+from app.ui.panels.template_instance.tab_base import TemplateInstanceTabBase, is_drop_template_config
+from app.ui.panels.template_instance_service import TemplateInstanceService
 
 
 class TemplateInstancePanel(PanelScaffold):
@@ -50,7 +50,7 @@ class TemplateInstancePanel(PanelScaffold):
         self.current_object: Optional[Union[TemplateConfig, InstanceConfig]] = None
         self.object_type: str = ""
         self.service = TemplateInstanceService()
-        self.graph_data_provider = get_shared_graph_data_provider(resource_manager, package_index_manager)
+        self.graph_data_provider = get_shared_graph_data_service(resource_manager, package_index_manager)
         # 只读模式开关：
         # - 在模板/实例页面中保持可编辑（False）
         # - 在任务清单等只读上下文中由上层切换为 True，禁用内部编辑控件但保留标签切换能力

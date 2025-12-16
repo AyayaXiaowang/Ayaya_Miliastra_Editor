@@ -124,7 +124,7 @@ class LightSourcesSection(BaseManagementSection):
         )
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             light_id_text = light_id_widget.text().strip()
             if not light_id_text:

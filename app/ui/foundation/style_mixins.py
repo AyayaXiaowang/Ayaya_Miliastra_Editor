@@ -2,7 +2,7 @@
 
 from PyQt6 import QtWidgets
 
-from ui.foundation.theme_manager import ThemeManager, Colors
+from app.ui.foundation.theme_manager import ThemeManager, Colors
 
 
 class StyleMixin:

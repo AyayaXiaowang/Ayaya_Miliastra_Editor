@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, Dict, List
-from ui.overlays.text_layout import GridOccupancyIndex
-from ui.graph.graph_palette import GraphPalette
+from app.ui.overlays.text_layout import GridOccupancyIndex
+from app.ui.graph.graph_palette import GraphPalette
 
 
 class SceneOverlayMixin:
@@ -24,7 +24,7 @@ class SceneOverlayMixin:
     
     def drawBackground(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
         """绘制网格背景和基本块矩形"""
-        from ui.foundation.theme_manager import ThemeManager
+        from app.ui.foundation.theme_manager import ThemeManager
         from engine.configs.settings import settings
         
         # 绘制网格背景
@@ -212,7 +212,7 @@ class SceneOverlayMixin:
             return
         try:
             from engine.layout import LayoutService
-            from engine.layout.core.layout_context import LayoutContext
+            from engine.layout.internal.layout_context import LayoutContext
             from engine.layout.flow.event_flow_analyzer import find_event_roots
             from engine.layout.utils.graph_query_utils import has_flow_edges
             result = LayoutService.compute_layout(self.model, include_augmented_model=True)

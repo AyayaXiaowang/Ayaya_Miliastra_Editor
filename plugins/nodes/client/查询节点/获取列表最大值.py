@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="获取列表最大值",
     category="查询节点",
-    inputs=[("列表", "泛型")],
+    inputs=[("列表", "泛型列表")],
     outputs=[("最大值", "泛型")],
     description="仅对浮点数列表和整数列表有意义，返回列表中的最大值",
     doc_reference="客户端节点/查询节点/查询节点.md"

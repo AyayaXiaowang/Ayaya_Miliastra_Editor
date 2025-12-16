@@ -55,6 +55,7 @@ def _clone_virtual_pin(virtual_pin: VirtualPinConfig) -> VirtualPinConfig:
             for mapped_port in virtual_pin.mapped_ports
         ],
         merge_strategy=virtual_pin.merge_strategy,
+        allow_unmapped=getattr(virtual_pin, "allow_unmapped", False),
     )
 
 
@@ -140,45 +141,11 @@ def cleanup_virtual_pins_for_deleted_node(
     if composite is None:
         return False, set()
 
-    has_changes = False
-    pins_to_delete: List[VirtualPinConfig] = []
-    affected_node_ids: Set[str] = set()
-
-    for virtual_pin in composite.virtual_pins:
-        mapped_nodes_before = [mapped_port.node_id for mapped_port in virtual_pin.mapped_ports]
-        original_count = len(virtual_pin.mapped_ports)
-
-        virtual_pin.mapped_ports = [
-            mapped_port
-            for mapped_port in virtual_pin.mapped_ports
-            if mapped_port.node_id != node_id
-        ]
-
-        if len(virtual_pin.mapped_ports) < original_count:
-            has_changes = True
-            affected_node_ids.update(mapped_nodes_before)
-            log_info(
-                "[虚拟引脚清理] composite_id={} pin='{}' 移除了 {} 个映射 (deleted_node_id={})",
-                composite_id,
-                virtual_pin.pin_name,
-                original_count - len(virtual_pin.mapped_ports),
-                node_id,
-            )
-
-            if not virtual_pin.mapped_ports:
-                pins_to_delete.append(virtual_pin)
-
-    if pins_to_delete:
-        for pin in pins_to_delete:
-            affected_node_ids.update(
-                mapped_port.node_id for mapped_port in getattr(pin, "mapped_ports", [])
-            )
-            composite.virtual_pins.remove(pin)
-        log_info(
-            "[虚拟引脚清理] composite_id={} 删除 {} 个无映射虚拟引脚",
-            composite_id,
-            len(pins_to_delete),
-        )
+    # 统一走 CompositeVirtualPinManager，避免两处实现出现语义分叉
+    has_changes, affected_node_ids, removed_pins = manager.virtual_pin_manager.cleanup_mappings_for_deleted_node(
+        composite_id=composite_id,
+        node_id=node_id,
+    )
 
     if not has_changes:
         return False, affected_node_ids
@@ -186,13 +153,15 @@ def cleanup_virtual_pins_for_deleted_node(
     if not is_read_only:
         manager.update_composite_node(composite_id, composite)
         log_info(
-            "[虚拟引脚清理] composite_id={} 已写回复合节点文件",
+            "[虚拟引脚清理] composite_id={} 已写回复合节点文件（removed_pins={}）",
             composite_id,
+            int(removed_pins),
         )
     else:
         log_info(
-            "[虚拟引脚清理] composite_id={} 只读上下文，仅更新内存（不写盘）",
+            "[虚拟引脚清理] composite_id={} 只读上下文，仅更新内存（removed_pins={}）",
             composite_id,
+            int(removed_pins),
         )
 
     return True, affected_node_ids
@@ -240,6 +209,15 @@ def restore_virtual_pins_from_snapshot(
     for saved_pin in snapshot.modified_pins:
         for virtual_pin in composite.virtual_pins:
             if virtual_pin.pin_index == saved_pin.pin_index:
+                # 恢复该 pin 的全部关键字段（不仅是 mapped_ports），确保撤销后完全一致
+                virtual_pin.pin_name = saved_pin.pin_name
+                virtual_pin.pin_type = saved_pin.pin_type
+                virtual_pin.is_input = saved_pin.is_input
+                virtual_pin.is_flow = saved_pin.is_flow
+                virtual_pin.description = saved_pin.description
+                virtual_pin.merge_strategy = saved_pin.merge_strategy
+                if hasattr(saved_pin, "allow_unmapped"):
+                    virtual_pin.allow_unmapped = saved_pin.allow_unmapped
                 virtual_pin.mapped_ports = [
                     MappedPort(
                         node_id=mapped_port.node_id,

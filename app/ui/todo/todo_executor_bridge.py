@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PyQt6 import QtCore
 from engine.graph.models.graph_model import GraphModel
-from app.automation.core.editor_executor import EditorExecutor
+from app.automation.editor.editor_executor import EditorExecutor
 from app.ui.execution import ExecutionRunner
 from app.ui.execution.guides import ExecutionGuides
 from app.ui.execution.planner import ExecutionPlanner

@@ -5,16 +5,16 @@ from typing import Optional
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import pyqtSignal, Qt
 
-from ui.graph.graph_view.animation.view_transform_animation import ViewTransformAnimation
-from ui.graph.graph_view.overlays.minimap_widget import MiniMapWidget
-from ui.graph.graph_view.overlays.ruler_overlay_painter import RulerOverlayPainter
-from ui.graph.graph_view.controllers.interaction_controller import GraphViewInteractionController
-from ui.graph.graph_view.navigation.viewport_navigator import ViewportNavigator
-from ui.graph.graph_view.highlight.highlight_service import HighlightService
-from ui.graph.graph_view.context.add_node_menu_bridge import AddNodeMenuBridge
-from ui.graph.graph_view.top_right.controls_manager import TopRightControlsManager
-from ui.graph.graph_view.auto_layout.auto_layout_controller import AutoLayoutController
-from ui.graph.graph_view.assembly.view_assembly import ViewAssembly
+from app.ui.graph.graph_view.animation.view_transform_animation import ViewTransformAnimation
+from app.ui.graph.graph_view.overlays.minimap_widget import MiniMapWidget
+from app.ui.graph.graph_view.overlays.ruler_overlay_painter import RulerOverlayPainter
+from app.ui.graph.graph_view.controllers.interaction_controller import GraphViewInteractionController
+from app.ui.graph.graph_view.navigation.viewport_navigator import ViewportNavigator
+from app.ui.graph.graph_view.highlight.highlight_service import HighlightService
+from app.ui.graph.graph_view.context.add_node_menu_bridge import AddNodeMenuBridge
+from app.ui.graph.graph_view.top_right.controls_manager import TopRightControlsManager
+from app.ui.graph.graph_view.auto_layout.auto_layout_controller import AutoLayoutController
+from app.ui.graph.graph_view.assembly.view_assembly import ViewAssembly
 from engine.graph.common import (
     SIGNAL_SEND_NODE_TITLE,
     SIGNAL_LISTEN_NODE_TITLE,

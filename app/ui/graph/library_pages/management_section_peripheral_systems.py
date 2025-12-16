@@ -4,7 +4,7 @@ from datetime import datetime
 import types
 
 from .management_sections_base import *
-from ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.forms.schema_dialog import FormDialogBuilder
 
 
 class PeripheralSystemSection(BaseManagementSection):
@@ -162,7 +162,7 @@ class PeripheralSystemSection(BaseManagementSection):
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
             normalized_name = name_edit.text().strip()
             if not normalized_name:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -611,7 +611,7 @@ class PeripheralSystemSection(BaseManagementSection):
             achievement_name_text = achievement_name_edit.text().strip()
 
             if not achievement_id_text:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -621,7 +621,7 @@ class PeripheralSystemSection(BaseManagementSection):
                 return False
 
             if not read_only_id and achievement_id_text in existing_ids:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -631,7 +631,7 @@ class PeripheralSystemSection(BaseManagementSection):
                 return False
 
             if not achievement_name_text:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -701,7 +701,7 @@ class PeripheralSystemSection(BaseManagementSection):
             leaderboard_name_text = leaderboard_name_edit.text().strip()
 
             if not leaderboard_id_text:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -711,7 +711,7 @@ class PeripheralSystemSection(BaseManagementSection):
                 return False
 
             if not read_only_id and leaderboard_id_text in existing_ids:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -721,7 +721,7 @@ class PeripheralSystemSection(BaseManagementSection):
                 return False
 
             if not leaderboard_name_text:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -793,7 +793,7 @@ class PeripheralSystemSection(BaseManagementSection):
             rank_name_text = rank_name_edit.text().strip()
 
             if not rank_id_text:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -803,7 +803,7 @@ class PeripheralSystemSection(BaseManagementSection):
                 return False
 
             if not read_only_id and rank_id_text in existing_ids:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -813,7 +813,7 @@ class PeripheralSystemSection(BaseManagementSection):
                 return False
 
             if not rank_name_text:
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,

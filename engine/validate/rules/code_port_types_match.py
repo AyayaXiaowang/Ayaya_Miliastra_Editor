@@ -98,6 +98,19 @@ class PortTypesMatchRule(ValidationRule):
                         continue
                     n_actual = _normalize_type(actual)
                     n_expected = _normalize_type(expected)
+
+                    # 算术类运算节点（基础加减乘除）：禁止把『布尔值』当作数值参与运算。
+                    # 说明：部分节点历史上声明为『泛型』以复用“整数/浮点数”实现，但这不应放行布尔值。
+                    if (func_name in {"乘法运算", "减法运算", "除法运算", "加法运算"}) and (port_name in {"左值", "右值"}):
+                        if n_actual == "布尔值":
+                            issues.append(self._issue(
+                                file_path,
+                                kw.value,
+                                "PORT_ARITHMETIC_BOOL_NOT_ALLOWED",
+                                f"{line_span_text(kw.value)}: 函数 '{func_name}' 输入端口 '{port_name}' 禁止传入类型『布尔值』；"
+                                f"布尔值不能参与算术运算，请改用数值变量或显式转换/重写分支逻辑"
+                            ))
+                            continue
                     allowed_types = (
                         (in_constraints.get(func_name, {}) or {}).get(port_name)
                         if func_name in in_constraints
@@ -250,9 +263,13 @@ def _unique_data_output_type(types: List[str]) -> str:
 def _normalize_type(t: str) -> str:
     if not isinstance(t, str):
         return ""
-    if t.startswith("泛型"):
+    text = t.strip()
+    if not text:
+        return ""
+    # 仅对“纯泛型”同义词做归一化，保留诸如“泛型字典”“泛型列表”等具象泛型类型
+    if text in (GENERIC_PORT_TYPE, ANY_PORT_TYPE, "泛型"):
         return GENERIC_PORT_TYPE
-    return t
+    return text
 
 
 def _is_type_allowed_by_constraints(actual: str, allowed: List[str]) -> bool:

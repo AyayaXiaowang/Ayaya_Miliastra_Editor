@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6 import QtWidgets
 
-from ui.foundation.theme_manager import Colors
+from app.ui.foundation.theme_manager import Colors
 from .base import BaseWidgetConfigPanel, WidgetConfigForm
 
 

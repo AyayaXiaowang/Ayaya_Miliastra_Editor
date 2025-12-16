@@ -14,10 +14,10 @@ _spec.loader.exec_module(_module)
 GraphView = _module.GraphView
 
 # 导入子模块
-from ui.graph.graph_view.animation.view_transform_animation import ViewTransformAnimation
-from ui.graph.graph_view.overlays.minimap_widget import MiniMapWidget
-from ui.graph.graph_view.overlays.ruler_overlay_painter import RulerOverlayPainter
-from ui.graph.graph_view.popups.add_node_popup import AddNodePopup
+from app.ui.graph.graph_view.animation.view_transform_animation import ViewTransformAnimation
+from app.ui.graph.graph_view.overlays.minimap_widget import MiniMapWidget
+from app.ui.graph.graph_view.overlays.ruler_overlay_painter import RulerOverlayPainter
+from app.ui.graph.graph_view.popups.add_node_popup import AddNodePopup
 
 __all__ = [
     "GraphView",

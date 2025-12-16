@@ -6,12 +6,12 @@ from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtCore import Qt
 
 from app.models import TodoItem
-from ui.todo.todo_config import TodoStyles, LayoutConstants
-from ui.todo.todo_detail_model import DetailDocument
-from ui.todo.todo_detail_renderer import TodoDetailBuilder
-from ui.todo.todo_detail_adapter import TodoDetailAdapter
-from ui.todo.todo_widgets import create_execute_button
-from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.todo.todo_config import TodoStyles, LayoutConstants
+from app.ui.todo.todo_detail_model import DetailDocument
+from app.ui.todo.todo_detail_renderer import TodoDetailBuilder
+from app.ui.todo.todo_detail_adapter import TodoDetailAdapter
+from app.ui.todo.todo_widgets import create_execute_button
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
 class TodoDetailView(QtWidgets.QWidget):
@@ -63,7 +63,12 @@ class TodoDetailView(QtWidgets.QWidget):
                 self._layout.addWidget(title_label)
 
             for block in section.blocks:
-                from ui.todo.todo_detail_model import ParagraphBlock, ParagraphStyle, TableBlock, BulletListBlock
+                from app.ui.todo.todo_detail_model import (
+                    ParagraphBlock,
+                    ParagraphStyle,
+                    TableBlock,
+                    BulletListBlock,
+                )
 
                 if isinstance(block, ParagraphBlock):
                     label = QtWidgets.QLabel(block.text)

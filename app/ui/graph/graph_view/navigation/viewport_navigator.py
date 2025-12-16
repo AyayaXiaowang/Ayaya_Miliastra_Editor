@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from PyQt6 import QtCore, QtWidgets
 
 if TYPE_CHECKING:
-    from ui.graph.graph_view import GraphView
+    from app.ui.graph.graph_view import GraphView
 
 
 class ViewportNavigator:

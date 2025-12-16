@@ -1,4 +1,4 @@
-"""地图视图 - 用于兼容旧UI，从资源管理器动态组装数据"""
+"""存档视图 - 基于 PackageIndex 从资源管理器聚合存档内引用的数据。"""
 
 from __future__ import annotations
 from typing import Dict, Optional, List
@@ -26,7 +26,7 @@ from engine.graph.models.package_model import (
 
 
 class PackageView:
-    """地图视图 - 模拟旧的PackageModel接口，但数据来自资源管理器"""
+    """存档视图：以 PackageIndex 为索引，从资源管理器聚合模板/实例/管理配置等数据。"""
     
     def __init__(
         self,
@@ -94,9 +94,7 @@ class PackageView:
         """获取关卡实体。
 
         设计约定：
-        - 优先按照 PackageIndex.level_entity_id 从资源库加载关卡实体；
-        - 若索引尚未写入 level_entity_id，但实例中已存在带 is_level_entity 标记的实体，
-          则自动补写索引并复用该实例（兼容旧数据或外部手动创建的关卡实体）。
+        - 仅按 PackageIndex.level_entity_id 从资源库加载关卡实体。
         """
         # 1. 优先使用已缓存结果，避免重复反序列化
         if self._level_entity_cache is not None:
@@ -113,22 +111,7 @@ class PackageView:
                 self._level_entity_cache = InstanceConfig.deserialize(level_entity_data)
                 return self._level_entity_cache
 
-        # 3. 兼容旧数据：若索引中尚未记录 level_entity_id，但实例中已有带 is_level_entity 标记的实体，
-        #    则自动识别并补写索引，后续访问统一走索引路径。
-        for instance_id, instance in self.instances.items():
-            metadata = getattr(instance, "metadata", {}) or {}
-            if isinstance(metadata, dict) and metadata.get("is_level_entity"):
-                self._level_entity_cache = instance
-
-                # 索引未记录时补写关卡实体 ID，并确保被视为当前存档的实例资源
-                if not isinstance(self.package_index.level_entity_id, str) or not self.package_index.level_entity_id:
-                    self.package_index.level_entity_id = instance_id
-                    if instance_id not in self.package_index.resources.instances:
-                        self.package_index.add_instance(instance_id)
-
-                return self._level_entity_cache
-
-        # 4. 当前存档确实不存在关卡实体
+        # 3. 当前存档确实不存在关卡实体
         return None
     
     @property
@@ -297,7 +280,7 @@ class PackageView:
             template_data
         )
         
-        # 添加到地图索引
+        # 添加到功能包索引
         self.package_index.add_template(template.template_id)
         
         # 清除缓存
@@ -305,13 +288,13 @@ class PackageView:
     
     def remove_template(self, template_id: str) -> None:
         """移除模板"""
-        # 从地图索引移除
+        # 从功能包索引移除
         self.package_index.remove_template(template_id)
         
         # 清除缓存
         self._templates_cache = None
         
-        # 注意：不删除资源文件，因为可能被其他地图引用
+        # 注意：不删除资源文件，因为可能被其他功能包引用
     
     def add_instance(self, instance: InstanceConfig) -> None:
         """添加实例"""
@@ -323,7 +306,7 @@ class PackageView:
             instance_data
         )
         
-        # 添加到地图索引
+        # 添加到功能包索引
         self.package_index.add_instance(instance.instance_id)
         
         # 清除缓存
@@ -335,7 +318,7 @@ class PackageView:
         if instance_id == self.package_index.level_entity_id:
             raise ValueError("不允许删除关卡实体")
         
-        # 从地图索引移除
+        # 从功能包索引移除
         self.package_index.remove_instance(instance_id)
         
         # 清除缓存
@@ -355,21 +338,9 @@ class PackageView:
         self._level_entity_cache = None
     
     def serialize(self) -> dict:
-        """序列化为兼容格式（用于导出等）
-        
-        导出为旧格式（嵌入式），用于地图导出和向后兼容
+        """序列化（用于导出）。
+
+        当前导出采用“索引型”格式：仅导出 `PackageIndex.serialize()` 的结果，不嵌入资源 payload。
         """
-        return {
-            "package_id": self.package_id,
-            "name": self.name,
-            "description": self.description,
-            "templates": {tid: t.serialize() for tid, t in self.templates.items()},
-            "instances": {iid: i.serialize() for iid, i in self.instances.items()},
-            "level_entity": self.level_entity.serialize() if self.level_entity else None,
-            "combat_presets": self.combat_presets.serialize(),
-            "management": self.management.serialize(),
-            "signals": {sid: s.serialize() for sid, s in self.signals.items()},
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-        }
+        return self.package_index.serialize()
 

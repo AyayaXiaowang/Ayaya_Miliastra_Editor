@@ -15,11 +15,11 @@ from typing import Optional, Callable, Tuple
 from pathlib import Path
 from PIL import Image
 
-from app.automation.core.executor_protocol import EditorExecutorProtocol
+from app.automation.editor.executor_protocol import EditorExecutorProtocol
 from app.automation import capture as editor_capture
 from app.automation.input.common import sleep_seconds, DEFAULT_DRAG_MOUSE_UP_MS
 
-from app.automation.core.executor_canvas_utils import snap_screen_point_to_canvas_background
+from app.automation.editor.executor_canvas_utils import snap_screen_point_to_canvas_background
 
 
 def is_fast_chain_runtime_enabled(executor: EditorExecutorProtocol) -> bool:

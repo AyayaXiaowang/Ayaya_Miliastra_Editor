@@ -2,12 +2,12 @@
 
 from PyQt6 import QtCore
 
-from ui.foundation.info_snippets import GRAPH_VARIABLE_INFO
+from app.ui.foundation.info_snippets import GRAPH_VARIABLE_INFO
 from engine.graph.models.graph_model import GraphModel
 from engine.configs.resource_types import ResourceType
 from engine.configs.specialized.struct_definitions_data import list_struct_ids
-from ui.widgets.graph_variable_table_widget import GraphVariableTableWidget
-from ui.dialogs.management_dialog_base import ManagementDialogBase
+from app.ui.widgets.graph_variable_table_widget import GraphVariableTableWidget
+from app.ui.dialogs.management_dialog_base import ManagementDialogBase
 
 
 class GraphVariableDialog(ManagementDialogBase):

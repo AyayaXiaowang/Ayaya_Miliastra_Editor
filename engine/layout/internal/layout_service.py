@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Set
 
 from engine.graph.models import GraphModel, BasicBlock
 from engine.configs.settings import settings
-from ..core.layout_algorithm import layout_by_event_regions
-from ..core.layout_context import LayoutContext
+from .layout_algorithm import layout_by_event_regions
+from .layout_context import LayoutContext
+from .layout_registry_context import LayoutRegistryContext, ensure_layout_registry_context_for_model
 from ..flow.preprocess import promote_flow_outputs_for_layout
 from ..utils.node_copy_utils import collapse_duplicate_data_copies
+from ..utils.copy_identity_utils import compute_copy_rank, resolve_copy_target_id
 
 
 @dataclass
@@ -32,8 +35,6 @@ class LayoutService:
     说明：
     - 输入为 GraphModel（核心数据结构，无 UI 依赖）。
     - 返回 LayoutResult，不直接修改传入模型，便于单元测试与复用。
-    - 兼容旧流程：旧的 `layout_by_event_regions(model)` 仍可用于就地修改模型；
-      UI 层建议改为调用本服务并将坐标回填至模型与图形项。
     """
 
     @staticmethod
@@ -43,6 +44,8 @@ class LayoutService:
         include_augmented_model: bool = False,
         clone_model: bool = True,
         write_back_to_input_model: bool = False,
+        workspace_path: Optional[Path] = None,
+        registry_context: Optional[LayoutRegistryContext] = None,
     ) -> LayoutResult:
         """
         Args:
@@ -51,11 +54,20 @@ class LayoutService:
             include_augmented_model: 是否返回布局后的模型引用
             clone_model: 是否在计算前克隆模型；设为 False 可允许调用方就地更新
             write_back_to_input_model: 当 clone_model=True 时，是否把结果回写到原始模型
+            workspace_path: 工作区根目录（用于构建 LayoutRegistryContext）；未提供时要求 settings.set_config_path 已初始化
+            registry_context: 显式注入的 LayoutRegistryContext（优先级最高）
         """
+        effective_registry_context = ensure_layout_registry_context_for_model(
+            model,
+            registry_context=registry_context,
+            workspace_path=workspace_path,
+            include_composite=True,
+        )
         working_model, rename_records = LayoutService._prepare_model_for_layout(
             model,
             node_library,
             clone_model,
+            registry_context=effective_registry_context,
         )
         collapse_duplicate_data_copies(working_model)
 
@@ -81,8 +93,15 @@ class LayoutService:
         model: GraphModel,
         node_library: Optional[Dict[str, Any]],
         clone_model: bool,
+        *,
+        registry_context: LayoutRegistryContext,
     ) -> Tuple[GraphModel, Dict[str, Dict[str, str]]]:
         working_model = model.clone() if clone_model else model
+        ensure_layout_registry_context_for_model(
+            working_model,
+            registry_context=registry_context,
+            include_composite=True,
+        )
         rename_records: Dict[str, Dict[str, str]] = {}
         if node_library:
             rename_records = promote_flow_outputs_for_layout(working_model, node_library)
@@ -122,9 +141,9 @@ class LayoutService:
                 x_pos, y_pos = 0.0, 0.0
             resolved_pos = (float(x_pos), float(y_pos))
             positions[node_id] = resolved_pos
-            target_id = LayoutService._resolve_copy_target_id(working_model, node_obj)
+            target_id = resolve_copy_target_id(node_obj)
             if target_id and target_id not in nodes_with_layout:
-                rank = LayoutService._compute_copy_rank(node_obj)
+                rank = compute_copy_rank(node_obj)
                 LayoutService._register_copy_override(copy_position_overrides, target_id, rank, resolved_pos)
         for original_id, (_, override_pos) in copy_position_overrides.items():
             existing_pos = positions.get(original_id)
@@ -150,9 +169,9 @@ class LayoutService:
                 info_dict = {"text": str(info)}
             y_debug_info[node_id] = info_dict
             node_obj = working_model.nodes.get(node_id)
-            target_id = LayoutService._resolve_copy_target_id(working_model, node_obj)
+            target_id = resolve_copy_target_id(node_obj)
             if target_id and target_id not in nodes_with_layout:
-                rank = LayoutService._compute_copy_rank(node_obj)
+                rank = compute_copy_rank(node_obj)
                 LayoutService._register_copy_override(copy_debug_overrides, target_id, rank, dict(info_dict))
         debug_map = getattr(working_model, "_layout_y_debug_info", None)
         for original_id, (_, info_dict) in copy_debug_overrides.items():
@@ -198,15 +217,21 @@ class LayoutService:
         snapshot = getattr(working, "_layout_block_relationships", None)
         block_cache = getattr(working, "_layout_blocks_cache", None)
         layout_context_cache = getattr(working, "_layout_context_cache", None)
+        layout_cache_signature = getattr(working, "_layout_cache_signature", None)
         if snapshot is not None:
             setattr(original, "_layout_block_relationships", snapshot)
         if block_cache is not None:
             setattr(original, "_layout_blocks_cache", block_cache)
+        if layout_cache_signature is not None:
+            setattr(original, "_layout_cache_signature", layout_cache_signature)
         if isinstance(layout_context_cache, LayoutContext):
             LayoutService._clone_layout_context_from_source(
                 original,
                 layout_context_cache,
             )
+        registry_context_cache = getattr(working, "_layout_registry_context_cache", None)
+        if isinstance(registry_context_cache, LayoutRegistryContext):
+            setattr(original, "_layout_registry_context_cache", registry_context_cache)
         debug_info = getattr(working, "_layout_y_debug_info", None)
         if debug_info is not None:
             setattr(original, "_layout_y_debug_info", dict(debug_info))
@@ -220,9 +245,9 @@ class LayoutService:
             pos = getattr(node_obj, "pos", (0.0, 0.0))
             if node_id in target.nodes:
                 target.nodes[node_id].pos = (float(pos[0]), float(pos[1])) if pos else (0.0, 0.0)
-            target_id = LayoutService._resolve_copy_target_id(source, node_obj)
+            target_id = resolve_copy_target_id(node_obj)
             if target_id and target_id in target.nodes and target_id not in nodes_with_layout:
-                rank = LayoutService._compute_copy_rank(node_obj)
+                rank = compute_copy_rank(node_obj)
                 override_pos = (float(pos[0]), float(pos[1])) if pos else (0.0, 0.0)
                 LayoutService._register_copy_override(copy_position_overrides, target_id, rank, override_pos)
         for original_id, (_, override_pos) in copy_position_overrides.items():
@@ -248,7 +273,12 @@ class LayoutService:
         if hasattr(source_ctx, "clone_for_model"):
             cloned_context = source_ctx.clone_for_model(target)
         else:
-            cloned_context = LayoutContext(target)
+            registry_context = getattr(source_ctx, "registry_context", None) or getattr(
+                target, "_layout_registry_context_cache", None
+            )
+            if not isinstance(registry_context, LayoutRegistryContext):
+                registry_context = None
+            cloned_context = LayoutContext(target, registry_context=registry_context)
             cloned_context.set_event_metadata(getattr(source_ctx, "eventMetadataByNode", {}))
         setattr(target, "_layout_context_cache", cloned_context)
 
@@ -281,28 +311,6 @@ class LayoutService:
                         edge.src_port = reverted[edge.src_port]
 
     @staticmethod
-    def _resolve_copy_target_id(model: GraphModel, node_obj: Optional[object]) -> Optional[str]:
-        if not node_obj:
-            return None
-        node_id = getattr(node_obj, "id", "")
-        has_copy_suffix = isinstance(node_id, str) and "_copy_block_" in node_id
-        is_copy_flag = bool(getattr(node_obj, "is_data_node_copy", False))
-        if not (is_copy_flag or has_copy_suffix):
-            return None
-        original_id = getattr(node_obj, "original_node_id", "") or node_id
-        target_id = LayoutService._strip_copy_suffix(original_id)
-        if target_id in model.nodes:
-            return target_id
-        return target_id or None
-
-    @staticmethod
-    def _compute_copy_rank(node_obj: object) -> Tuple[int, int]:
-        block_id = getattr(node_obj, "copy_block_id", "")
-        block_index = LayoutService._parse_block_index(block_id)
-        copy_counter = LayoutService._parse_copy_counter(getattr(node_obj, "id", ""))
-        return (block_index, copy_counter)
-
-    @staticmethod
     def _register_copy_override(
         overrides: Dict[str, Tuple[Tuple[int, int], Any]],
         original_id: str,
@@ -312,36 +320,6 @@ class LayoutService:
         existing = overrides.get(original_id)
         if existing is None or rank < existing[0]:
             overrides[original_id] = (rank, payload)
-
-    @staticmethod
-    def _parse_block_index(block_id: str) -> int:
-        if isinstance(block_id, str) and block_id.startswith("block_"):
-            suffix = block_id.split("_", 1)[-1]
-            if suffix.isdigit():
-                return int(suffix)
-        return 10**6
-
-    @staticmethod
-    def _parse_copy_counter(node_id: str) -> int:
-        if "_copy_" not in node_id:
-            return 10**6
-        suffix = node_id.rsplit("_copy_", 1)[-1]
-        parts = suffix.split("_")
-        for part in reversed(parts):
-            if part.isdigit():
-                return int(part)
-        return 10**6
-
-    @staticmethod
-    def _strip_copy_suffix(node_id: str) -> str:
-        marker = "_copy_block_"
-        result = node_id
-        while True:
-            idx = result.rfind(marker)
-            if idx == -1:
-                break
-            result = result[:idx]
-        return result
 
     @staticmethod
     def _should_override_original_position(pos: Optional[Tuple[float, float]]) -> bool:

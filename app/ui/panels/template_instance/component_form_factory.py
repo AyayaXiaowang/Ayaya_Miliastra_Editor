@@ -13,9 +13,9 @@ from typing import Any, Dict, List, Optional
 
 from PyQt6 import QtWidgets
 
-from ui.dialogs.graph_selection_dialog import GraphSelectionDialog
-from ui.foundation import dialog_utils
-from ui.foundation.toggle_switch import ToggleSwitch
+from app.ui.dialogs.graph_selection_dialog import GraphSelectionDialog
+from app.ui.foundation import dialog_utils
+from app.ui.foundation.toggle_switch import ToggleSwitch
 
 
 class NameplateConfigForm(QtWidgets.QWidget):
@@ -751,7 +751,7 @@ class TabConfigForm(QtWidgets.QWidget):
             self,
         )
         hint_label.setWordWrap(True)
-        from ui.foundation.theme_manager import Colors
+        from app.ui.foundation.theme_manager import Colors
         hint_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
         layout.addWidget(hint_label)
 

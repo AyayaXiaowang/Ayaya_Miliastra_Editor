@@ -6,13 +6,13 @@ from PyQt6 import QtCore, QtWidgets
 
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from ui.foundation import dialog_utils
-from ui.foundation.theme_manager import Sizes, ThemeManager
-from ui.panels.package_membership_selector import (
+from app.ui.foundation import dialog_utils
+from app.ui.foundation.theme_manager import Sizes, ThemeManager
+from app.ui.panels.package_membership_selector import (
     PackageMembershipSelector,
     build_package_membership_row,
 )
-from ui.panels.panel_scaffold import PanelScaffold
+from app.ui.panels.panel_scaffold import PanelScaffold
 
 
 ManagementPackage = Union[PackageView, GlobalResourceView]

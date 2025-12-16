@@ -7,7 +7,7 @@
 - 在存档索引中声明当前包引用 `signal_all_supported_types_example` 信号。
 
 用法（在项目根目录执行）：
-    python -X utf8 tools/create_example_signal_all_types_package.py
+    python -X utf8 -m tools.create_example_signal_all_types_package
 """
 
 from __future__ import annotations
@@ -16,19 +16,17 @@ import sys
 import io
 from pathlib import Path
 
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
 # 统一工作空间根目录（脚本位于 tools/ 下）
-WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
-TOOLS_DIR = Path(__file__).resolve().parent
-if str(TOOLS_DIR) not in sys.path:
-    sys.path.insert(0, str(TOOLS_DIR))
+WORKSPACE_ROOT = ensure_workspace_root_on_sys_path()
 
 # 修复 Windows 控制台编码问题
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
-
-# 添加项目根路径到 sys.path（保持 tools 目录优先）
-if str(WORKSPACE_ROOT) not in sys.path:
-    sys.path.insert(1, str(WORKSPACE_ROOT))
 
 from engine.resources import ResourceManager, PackageIndexManager, PackageView
 

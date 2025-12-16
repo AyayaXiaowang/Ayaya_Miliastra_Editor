@@ -4,7 +4,7 @@ EditorExecutor 的通用工具函数门面模块：等待钩子、文本输入�
 
 设计说明：
 - 实际实现按职责拆分到 `executor_canvas_utils.py` 与 `executor_hook_utils.py` 中；
-- 对外仍通过本模块暴露统一的函数入口，保持现有调用方 `from app.automation.core import executor_utils`
+- 对外仍通过本模块暴露统一的函数入口，保持现有调用方 `from app.automation.editor import executor_utils`
   的导入方式不变；
 - 不做异常吞噬；调用方按既有逻辑抛错或返回。
 """
@@ -15,9 +15,9 @@ from typing import Optional, Callable, Tuple
 from pathlib import Path
 from PIL import Image
 
-from app.automation.core.executor_protocol import EditorExecutorProtocol
+from app.automation.editor.executor_protocol import EditorExecutorProtocol
 
-from app.automation.core.executor_canvas_utils import (
+from app.automation.editor.executor_canvas_utils import (
     CANVAS_ALLOWED_COLORS,
     CANVAS_COLOR_TOLERANCES,
     CANVAS_COLOR_MAX_DISTANCES,
@@ -30,7 +30,7 @@ from app.automation.core.executor_canvas_utils import (
     snap_screen_point_to_canvas_background,
 )
 
-from app.automation.core.executor_hook_utils import (
+from app.automation.editor.executor_hook_utils import (
     is_fast_chain_runtime_enabled,
     wait_with_hooks,
     input_text_with_hooks,

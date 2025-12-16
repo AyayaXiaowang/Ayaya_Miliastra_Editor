@@ -27,7 +27,7 @@ from app.automation import capture as editor_capture
 from engine.nodes import NodeDef
 from app.automation.vision.ocr_utils import extract_chinese
 from engine.utils.text.text_similarity import levenshtein_distance
-from app.automation.core.node_library_provider import (
+from app.automation.editor.node_library_provider import (
     get_node_library,
     get_workspace_root,
 )

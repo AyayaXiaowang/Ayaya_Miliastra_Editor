@@ -20,7 +20,7 @@ from app.automation.ports._ports import (
 )
 from app.automation.ports.settings_locator import select_settings_center
 from engine.utils.graph.graph_utils import is_flow_port_name
-from app.automation.core import executor_utils as _exec_utils
+from app.automation.editor import executor_utils as _exec_utils
 from app.automation import capture as editor_capture
 from app.automation.input import win_input
 

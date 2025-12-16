@@ -1,61 +1,49 @@
 from __future__ import annotations
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-from ui.foundation.theme_manager import Colors, ThemeManager
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.graph.items.port_item import PortGraphicsItem, BranchPortValueEdit
-from ui.graph.items.node_item import NodeGraphicsItem
-from ui.graph.items.edge_item import EdgeGraphicsItem
-from ui.graph.virtual_pin_ui_service import cleanup_virtual_pins_for_deleted_node as cleanup_virtual_pins_for_deleted_node_ui
-from ui.graph.signal_node_service import (
+from app.ui.foundation.theme_manager import Colors
+from app.ui.graph.items.node_item import NodeGraphicsItem
+from app.ui.graph.virtual_pin_ui_service import cleanup_virtual_pins_for_deleted_node as cleanup_virtual_pins_for_deleted_node_ui
+from app.ui.graph.signal_node_service import (
     get_effective_node_def_for_scene as get_effective_signal_node_def_for_scene,
-    bind_signal_for_node as bind_signal_for_node_service,
-    open_signal_manager as open_signal_manager_service,
     on_signals_updated_from_manager as on_signals_updated_from_manager_service,
+    prepare_node_model_for_scene as prepare_signal_node_model_for_scene,
 )
-from ui.graph.struct_node_service import (
+from app.ui.graph.struct_node_service import (
     get_effective_node_def_for_scene as get_effective_struct_node_def_for_scene,
-    bind_struct_for_node as bind_struct_for_node_service,
-    get_current_package_structs as get_current_package_structs_for_scene,
-    sync_struct_ports_for_node as sync_struct_ports_for_node_service,
+    prepare_node_model_for_scene as prepare_struct_node_model_for_scene,
 )
-from ui.overlays.scene_overlay import SceneOverlayMixin
-from ui.scene.interaction_mixin import SceneInteractionMixin
-from ui.scene.model_ops_mixin import SceneModelOpsMixin
-from ui.scene.ydebug_interaction_mixin import YDebugInteractionMixin
+from app.ui.overlays.scene_overlay import SceneOverlayMixin
+from app.ui.scene.interaction_mixin import SceneInteractionMixin
+from app.ui.scene.model_ops_mixin import SceneModelOpsMixin
+from app.ui.scene.view_context_menu_mixin import SceneViewContextMenuMixin
+from app.ui.scene.ydebug_interaction_mixin import YDebugInteractionMixin
 from typing import Optional, List, Dict, TYPE_CHECKING, Iterable
-from collections import defaultdict, deque
-from engine.graph.models.graph_model import GraphModel, NodeModel, EdgeModel
-from engine.nodes.node_definition_loader import NodeDef
-from ui.graph.graph_undo import (
-    UndoRedoManager,
-    AddNodeCommand,
-    DeleteNodeCommand,
-    AddEdgeCommand,
-    DeleteEdgeCommand,
-    MoveNodeCommand,
-)
-from engine.nodes.port_type_system import can_connect_ports
+from engine.graph.models.graph_model import GraphModel, NodeModel
+from app.ui.graph.graph_undo import UndoRedoManager
 from engine.layout import UI_ROW_HEIGHT  # unified row height metric
 from engine.layout import LayoutService
 from engine.layout.flow.preprocess import promote_flow_outputs_for_layout
-from engine.utils.graph.graph_utils import is_flow_port_name
 from engine.configs.settings import settings as _settings_ui
-from engine.graph.common import (
-    SIGNAL_SEND_NODE_TITLE,
-    SIGNAL_LISTEN_NODE_TITLE,
-    STRUCT_NODE_TITLES,
-)
 
 if TYPE_CHECKING:
-    from ui.dynamic_port_widget import AddPortButton
+    from app.ui.dynamic_port_widget import AddPortButton
+    from app.ui.graph.items.edge_item import EdgeGraphicsItem
+    from app.ui.graph.items.port_item import PortGraphicsItem
 NODE_PADDING = 10
 ROW_HEIGHT = UI_ROW_HEIGHT
 # 为多分支节点的"+"按钮额外预留一行高度，提升可点击与视觉间距
 BRANCH_PLUS_EXTRA_ROWS = 1
 
 
-class GraphScene(SceneOverlayMixin, SceneInteractionMixin, SceneModelOpsMixin, YDebugInteractionMixin, QtWidgets.QGraphicsScene):
+class GraphScene(
+    SceneOverlayMixin,
+    SceneViewContextMenuMixin,
+    SceneInteractionMixin,
+    SceneModelOpsMixin,
+    YDebugInteractionMixin,
+    QtWidgets.QGraphicsScene,
+):
     def __init__(
         self,
         model: GraphModel,
@@ -68,7 +56,16 @@ class GraphScene(SceneOverlayMixin, SceneInteractionMixin, SceneModelOpsMixin, Y
         self.model = model
         # 批量构建标志：加载大图时由控制器临时开启，避免每次 add_node_item 都全局重算场景矩形与小地图
         self.is_bulk_adding_items: bool = False
+        # 批量构建期间的端口重排延迟队列：
+        # - add_edge_item 在连接建立后通常会触发目标节点 _layout_ports() 用于隐藏“已连线输入端口”的常量输入框；
+        # - 在批量装配大图时，逐边重排会导致 O(E) 次端口重算，成为主要卡顿来源；
+        # - 因此在 is_bulk_adding_items=True 时先记录需要刷新端口的节点，批量结束后统一 flush。
+        self._deferred_port_layout_node_ids: set[str] = set()
         self.node_library = node_library or {}  # 节点定义库（用于获取显式类型）
+        # 布局层的“节点注册表派生信息”只读上下文：
+        # 用于端口行规划/高度估算与布局层保持同一真源，避免 graph_query_utils 使用隐式 workspace_root。
+        from engine.layout.internal.layout_registry_context import LayoutRegistryContext
+        self.layout_registry_context = LayoutRegistryContext.from_settings()
         self.node_items: dict[str, NodeGraphicsItem] = {}
         self.edge_items: dict[str, EdgeGraphicsItem] = {}
         # 邻接索引: 记录每个节点关联的连线图形项，避免在拖动节点或移动命令中遍历全图
@@ -119,97 +116,13 @@ class GraphScene(SceneOverlayMixin, SceneInteractionMixin, SceneModelOpsMixin, Y
         from engine.configs.settings import settings as _settings
         if _settings.SHOW_BASIC_BLOCKS and (not getattr(self.model, "basic_blocks", None)):
             node_lib = self.node_library if isinstance(self.node_library, dict) else None
-            _result = LayoutService.compute_layout(self.model, node_library=node_lib, include_augmented_model=False)
+            _result = LayoutService.compute_layout(
+                self.model,
+                node_library=node_lib,
+                include_augmented_model=False,
+                workspace_path=getattr(self.layout_registry_context, "workspace_path", None),
+            )
             self.model.basic_blocks = _result.basic_blocks
-
-    # === 视图上下文菜单桥接（由 GraphView 委托调用） ===
-
-    def handle_view_context_menu(
-        self,
-        view: QtWidgets.QGraphicsView,
-        event: QtGui.QContextMenuEvent,
-        scene_pos: QtCore.QPointF,
-        item: Optional[QtWidgets.QGraphicsItem],
-    ) -> bool:
-        """处理由 GraphView 转发的右键菜单请求。
-
-        返回:
-            bool: 若已处理并接受事件, 返回 True; 否则返回 False 交由默认逻辑处理。
-        """
-        # 在端口上右键：保留原有端口自身的菜单行为（由 Qt 标准分发负责）
-        if isinstance(item, PortGraphicsItem):
-            return False
-
-        # 在节点上右键：为特定节点类型提供节点级菜单（例如信号/结构体节点）
-        node_item: Optional[NodeGraphicsItem] = None
-        if isinstance(item, NodeGraphicsItem):
-            node_item = item
-        elif item is not None and isinstance(item.parentItem(), NodeGraphicsItem):
-            parent_node_item = item.parentItem()
-            if isinstance(parent_node_item, NodeGraphicsItem):
-                node_item = parent_node_item
-
-        if node_item is not None:
-            node_title = getattr(node_item.node, "title", "") or ""
-            node_id = getattr(node_item.node, "id", "") or ""
-
-            menu_builder = ContextMenuBuilder(view)
-            has_action = False
-
-            # 发送/监听信号节点：提供信号绑定与信号管理入口
-            if node_title in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE) and node_id:
-                if hasattr(self, "bind_signal_for_node"):
-                    def _bind_signal() -> None:
-                        self.bind_signal_for_node(node_id)  # type: ignore[attr-defined]
-
-                    menu_builder.add_action("选择信号…", _bind_signal)
-                    has_action = True
-
-                if hasattr(self, "open_signal_manager"):
-                    def _open_signal_manager() -> None:
-                        self.open_signal_manager()  # type: ignore[attr-defined]
-
-                    if has_action:
-                        menu_builder.add_separator()
-                    menu_builder.add_action("打开信号管理器…", _open_signal_manager)
-                    has_action = True
-
-            # 结构体相关节点：提供结构体绑定入口
-            if node_title in STRUCT_NODE_TITLES and node_id:
-                if hasattr(self, "bind_struct_for_node"):
-                    def _bind_struct() -> None:
-                        self.bind_struct_for_node(node_id)  # type: ignore[attr-defined]
-
-                    if has_action:
-                        menu_builder.add_separator()
-                    menu_builder.add_action("配置结构体…", _bind_struct)
-                    has_action = True
-
-            if has_action:
-                menu_builder.exec_global(event.globalPos())
-                event.accept()
-                return True
-
-        # 在连线上右键：显示“删除连线”菜单（统一构建与样式）
-        if isinstance(item, EdgeGraphicsItem):
-            edge_id = item.edge_id
-
-            def _delete_edge() -> None:
-                command = DeleteEdgeCommand(self.model, self, edge_id)
-                self.undo_manager.execute_command(command)
-
-            ContextMenuBuilder(view).add_action("删除连线", _delete_edge).exec_global(event.globalPos())
-            event.accept()
-            return True
-
-        # 在空白处右键：显示“添加节点”菜单（仍复用 GraphView 提供的桥接方法）
-        if item is None and hasattr(view, "_show_add_node_menu"):
-            view._show_add_node_menu(event.globalPos(), scene_pos)
-            event.accept()
-            return True
-
-        # 其它情况：不处理, 交由默认逻辑(例如图元自身的 contextMenuEvent)
-        return False
 
     # === 辅助方法：维护节点到连线的邻接索引 ===
 
@@ -327,30 +240,9 @@ class GraphScene(SceneOverlayMixin, SceneInteractionMixin, SceneModelOpsMixin, Y
         return True
     
     def add_node_item(self, node: NodeModel) -> NodeGraphicsItem:
-        # 监听信号节点在模型层默认没有输入端口，但 UI 需要一个“信号名”选择行：
-        # 若缺失则为当前场景中的节点副本补充一个只读选择输入端口。
-        if getattr(node, "title", "") == SIGNAL_LISTEN_NODE_TITLE:
-            from engine.graph.common import SIGNAL_NAME_PORT_NAME
-
-            has_signal_name_input = any(
-                getattr(port, "name", "") == SIGNAL_NAME_PORT_NAME
-                for port in getattr(node, "inputs", []) or []
-            )
-            if not has_signal_name_input:
-                node.add_input_port(SIGNAL_NAME_PORT_NAME)
-
-        # 结构体相关节点：若模型层已存在结构体绑定，则在创建图形项前
-        # 基于当前包的结构体定义补全字段端口，保持与“配置结构体…”对话框行为一致。
-        from engine.graph.common import STRUCT_NODE_TITLES
-
-        node_title = getattr(node, "title", "") or ""
-        if node_title in STRUCT_NODE_TITLES:
-            struct_bindings = self.model.get_struct_bindings()
-            binding = struct_bindings.get(str(node.id))
-            if isinstance(binding, dict):
-                structs = get_current_package_structs_for_scene(self)
-                if structs:
-                    sync_struct_ports_for_node_service(self, node.id, structs)
+        # 信号/结构体节点的 UI 侧模型预处理下沉到 service，GraphScene 不直接写业务规则。
+        prepare_signal_node_model_for_scene(node)
+        prepare_struct_node_model_for_scene(self, node)
 
         item = NodeGraphicsItem(node)
         item.setPos(node.pos[0], node.pos[1])
@@ -360,6 +252,9 @@ class GraphScene(SceneOverlayMixin, SceneInteractionMixin, SceneModelOpsMixin, Y
             item.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
         
         self.addItem(item)
+        # NodeGraphicsItem 的端口布局依赖 scene() 与 layout_registry_context。
+        # 必须在 addItem 后触发一次布局，避免构造阶段 scene() 仍为 None。
+        item._layout_ports()
         # port items are already added as child items, no need to add to scene separately
         self.node_items[node.id] = item
         self.last_added_node_id = node.id
@@ -404,24 +299,22 @@ class GraphScene(SceneOverlayMixin, SceneInteractionMixin, SceneModelOpsMixin, Y
                 else:
                     mini_map_widget.update()
 
-    # === 信号系统：节点绑定与端口同步 ===
+    def flush_deferred_port_layouts(self) -> None:
+        """批量构建阶段结束后，统一刷新被连线影响的节点端口布局。
 
-    def bind_signal_for_node(self, node_id: str) -> None:
-        """为指定节点弹出信号选择对话框并写入绑定信息（委托给信号适配服务）。"""
-        bind_signal_for_node_service(self, node_id)
-
-    def open_signal_manager(self) -> None:
-        """打开信号管理器对话框，并在信号定义变更后同步当前图中的信号端口。"""
-        open_signal_manager_service(self)
+        设计目标：
+        - 避免在批量装配过程中每条边都触发一次 NodeGraphicsItem._layout_ports()；
+        - 批量装配完成后再集中重排一次，保证“已连接端口隐藏输入框”等 UI 语义正确。
+        """
+        if not self._deferred_port_layout_node_ids:
+            return
+        node_ids = list(self._deferred_port_layout_node_ids)
+        self._deferred_port_layout_node_ids.clear()
+        for node_id in node_ids:
+            node_item = self.node_items.get(node_id)
+            if node_item is not None:
+                node_item._layout_ports()
 
     def _on_signals_updated_from_manager(self) -> None:
         """当信号管理器中的信号定义被修改后，尝试同步当前图中相关节点的端口。"""
         on_signals_updated_from_manager_service(self)
-
-    # === 结构体系统：节点绑定与端口同步 ===
-
-    def bind_struct_for_node(self, node_id: str) -> None:
-        """为指定节点弹出结构体选择对话框并写入绑定信息（委托给结构体适配服务）。"""
-        bind_struct_for_node_service(self, node_id)
-
-

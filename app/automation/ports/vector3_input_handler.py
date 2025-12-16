@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Optional, Tuple, Callable
 from PIL import Image
 
-from app.automation.core.executor_protocol import AutomationStepContext
+from app.automation.editor.executor_protocol import AutomationStepContext
 
 from app.automation import capture as editor_capture
 from app.automation.config.config_params_helpers import (

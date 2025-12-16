@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="对字典按值排序",
     category="执行节点",
-    inputs=[("流程入", "流程"), ("字典", "泛型"), ("排序方式", "枚举")],
+    inputs=[("流程入", "流程"), ("字典", "泛型字典"), ("排序方式", "枚举")],
     outputs=[("流程出", "流程"), ("键列表", "泛型列表"), ("值列表", "泛型列表")],
     description="将指定字典按值进行顺序或逆序排序后输出",
     doc_reference="服务器节点/执行节点/执行节点.md",
@@ -32,6 +32,7 @@ from engine.utils.logging.logger import log_info
             "配置ID列表",
             "阵营列表",
             "结构体列表",
+            "泛型列表",
         ],
     },
 )

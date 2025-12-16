@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, List, TYPE_CHECKING
-from ui.graph.items.edge_item import EdgeGraphicsItem
-from ui.graph.items.port_item import PortGraphicsItem
+from app.ui.graph.items.edge_item import EdgeGraphicsItem
+from app.ui.graph.items.port_item import PortGraphicsItem
 from engine.graph.common import (
     FLOW_PORT_PLACEHOLDER,
     FLOW_BRANCH_PORT_ALIASES,
@@ -19,7 +19,7 @@ from engine.graph.common import (
 from engine.utils.logging.logger import log_warn
 
 if TYPE_CHECKING:
-    from ui.graph.items.node_item import NodeGraphicsItem
+    from app.ui.graph.items.node_item import NodeGraphicsItem
     from engine.graph.models.graph_model import EdgeModel
 
 
@@ -126,8 +126,14 @@ class SceneModelOpsMixin:
         if hasattr(self, "_register_edge_for_nodes"):
             # GraphScene 提供该辅助方法
             self._register_edge_for_nodes(e)
-        # 重新布局目标节点,以隐藏已连接端口的输入框
-        dst_item._layout_ports()
+        # 重新布局目标节点以隐藏已连接端口的输入框。
+        # 批量构建阶段（加载大图/批量装配）若逐边重排会触发 O(E) 次端口布局计算，
+        # 因此在 is_bulk_adding_items=True 时延迟到批量结束后统一 flush。
+        if getattr(self, "is_bulk_adding_items", False):
+            # GraphScene 会提供该集合；此处不做 try/except，缺失即抛错以暴露集成问题。
+            self._deferred_port_layout_node_ids.add(edge.dst_node)  # type: ignore[attr-defined]
+        else:
+            dst_item._layout_ports()
         from engine.configs.settings import settings as _settings_ui
         if getattr(_settings_ui, "GRAPH_UI_VERBOSE", False):
             print(f"已添加连接线: {edge.src_node}.{edge.src_port} -> {edge.dst_node}.{edge.dst_port}")
@@ -135,8 +141,8 @@ class SceneModelOpsMixin:
     
     def delete_selected_items(self) -> None:
         """删除所有选中的节点和连线"""
-        from ui.graph.items.node_item import NodeGraphicsItem
-        from ui.graph.graph_undo import DeleteNodeCommand, DeleteEdgeCommand
+        from app.ui.graph.items.node_item import NodeGraphicsItem
+        from app.ui.graph.graph_undo import DeleteNodeCommand, DeleteEdgeCommand
         
         selected_items = self.selectedItems()
         for item in selected_items:
@@ -150,10 +156,6 @@ class SceneModelOpsMixin:
                 # 使用命令模式删除连线
                 cmd = DeleteEdgeCommand(self.model, self, edge_id)
                 self.undo_manager.execute_command(cmd)
-    
-    def delete_selected_nodes(self) -> None:
-        """删除所有选中的节点(向后兼容)"""
-        self.delete_selected_items()
     
     def _update_scene_rect(self) -> None:
         """更新场景矩形以包含所有节点,并保持大量的扩展空间"""
@@ -287,7 +289,7 @@ class SceneModelOpsMixin:
     
     def copy_selected_nodes(self) -> None:
         """复制选中的节点"""
-        from ui.graph.items.node_item import NodeGraphicsItem
+        from app.ui.graph.items.node_item import NodeGraphicsItem
         from engine.configs.settings import settings as _settings_ui
         
         if self.read_only:
@@ -344,7 +346,7 @@ class SceneModelOpsMixin:
     
     def paste_nodes(self) -> None:
         """粘贴节点到鼠标位置"""
-        from ui.graph.graph_undo import AddNodeCommand, AddEdgeCommand
+        from app.ui.graph.graph_undo import AddNodeCommand, AddEdgeCommand
         from engine.configs.settings import settings as _settings_ui
         
         if self.read_only or not self.clipboard_nodes:

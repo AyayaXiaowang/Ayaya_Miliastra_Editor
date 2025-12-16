@@ -14,12 +14,12 @@ from typing import Callable, Optional, Sequence
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.dialogs.table_edit_helpers import (
+from app.ui.dialogs.table_edit_helpers import (
     wrap_click_to_edit_line_edit_for_table_cell,
 )
-from ui.dialogs.value_editor_common_widgets import ClickToEditLineEdit
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.dialogs.value_editor_common_widgets import ClickToEditLineEdit
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
 @dataclass(frozen=True)

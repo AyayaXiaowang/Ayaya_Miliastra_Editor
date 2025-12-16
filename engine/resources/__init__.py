@@ -12,6 +12,12 @@ from .package_index_manager import PackageIndexManager
 from .package_view import PackageView
 from .global_resource_view import GlobalResourceView
 from .graph_reference_tracker import GraphReferenceTracker
+from .resource_context import (
+    build_resource_context,
+    build_resource_index_context,
+    build_resource_manager,
+    init_workspace_settings,
+)
 
 __all__ = [
     "ResourceManager",
@@ -28,6 +34,10 @@ __all__ = [
     "PackageView",
     "GlobalResourceView",
     "GraphReferenceTracker",
+    "init_workspace_settings",
+    "build_resource_manager",
+    "build_resource_index_context",
+    "build_resource_context",
 ]
 
  

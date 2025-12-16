@@ -9,6 +9,7 @@ from engine.graph.models import GraphModel, NodeModel, EdgeModel
 from .var_env import VarEnv
 from .validators import Validators
 from .node_factory import FactoryContext
+from engine.graph.utils.ast_utils import NOT_EXTRACTABLE, extract_constant_value
 from .flow_utils import (
     pick_default_flow_output_port,
     register_output_variables,
@@ -261,6 +262,57 @@ def parse_method_body(
             analysis_result.used_after_branch,
         )
 
+    # 预扫描方法体内“命名常量”赋值：供后续节点调用参数引用时回填为 input_constants。
+    # 约定：仅收集 target 为 Name 且右值可静态提取的赋值（Assign / AnnAssign）。
+    env.local_const_values.clear()
+    method_module = ast.Module(body=list(body or []), type_ignores=[])
+    for stmt in ast.walk(method_module):
+        if isinstance(stmt, ast.Assign):
+            targets = list(getattr(stmt, "targets", []) or [])
+            if len(targets) != 1 or not isinstance(targets[0], ast.Name):
+                continue
+            value_expr = getattr(stmt, "value", None)
+            if not isinstance(value_expr, ast.expr):
+                continue
+            const_val = extract_constant_value(value_expr)
+            if const_val is NOT_EXTRACTABLE:
+                continue
+            env.set_local_constant(targets[0].id, const_val)
+        elif isinstance(stmt, ast.AnnAssign):
+            target = getattr(stmt, "target", None)
+            value_expr = getattr(stmt, "value", None)
+            if not isinstance(target, ast.Name) or value_expr is None:
+                continue
+            if not isinstance(value_expr, ast.expr):
+                continue
+            const_val = extract_constant_value(value_expr)
+            if const_val is NOT_EXTRACTABLE:
+                continue
+            env.set_local_constant(target.id, const_val)
+
+    # 第二遍：允许“命名常量引用命名常量”（例如 B = A），只要 A 已在第一遍收集到。
+    for stmt in ast.walk(method_module):
+        if isinstance(stmt, ast.Assign):
+            targets = list(getattr(stmt, "targets", []) or [])
+            if len(targets) != 1 or not isinstance(targets[0], ast.Name):
+                continue
+            target_name = str(targets[0].id or "").strip()
+            if not target_name or env.has_local_constant(target_name):
+                continue
+            value_expr = getattr(stmt, "value", None)
+            if isinstance(value_expr, ast.Name) and env.has_local_constant(value_expr.id):
+                env.set_local_constant(target_name, env.get_local_constant(value_expr.id))
+        elif isinstance(stmt, ast.AnnAssign):
+            target = getattr(stmt, "target", None)
+            value_expr = getattr(stmt, "value", None)
+            if not isinstance(target, ast.Name) or value_expr is None:
+                continue
+            target_name = str(target.id or "").strip()
+            if not target_name or env.has_local_constant(target_name):
+                continue
+            if isinstance(value_expr, ast.Name) and env.has_local_constant(value_expr.id):
+                env.set_local_constant(target_name, env.get_local_constant(value_expr.id))
+
     nodes: List[NodeModel] = []
     edges: List[EdgeModel] = []
     prev_flow_node: Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]] = event_node
@@ -277,6 +329,7 @@ def parse_method_body(
                 stmt=stmt,
                 prev_flow_node=prev_flow_node,
                 need_suppress_once=need_suppress_once,
+                graph_model=graph_model,
                 ctx=ctx,
                 env=env,
                 validators=validators,
@@ -325,6 +378,7 @@ def parse_method_body(
                     env=env,
                     ctx=ctx,
                     validators=validators,
+                    graph_model=graph_model,
                 )
                 if handled:
                     nodes.extend(lv_nodes)
@@ -361,6 +415,7 @@ def parse_method_body(
                     stmt=stmt,
                     prev_flow_node=prev_flow_node,
                     need_suppress_once=need_suppress_once,
+                    graph_model=graph_model,
                     ctx=ctx,
                     env=env,
                     validators=validators,
@@ -388,6 +443,11 @@ def parse_method_body(
             
         # 带类型注解的赋值语句（AnnAssign）
         elif isinstance(stmt, ast.AnnAssign):
+            # 纯类型标注（无右值）仅用于阅读/类型提示，不应建模为任何节点。
+            # 例如：`方向X: "浮点数"` 这类语句在旧逻辑中会被误判为“需要局部变量建模”，
+            # 从而生成孤立的【获取局部变量】节点（无连线、无数据）。
+            if stmt.value is None:
+                continue
             # 处理纯别名赋值
             if handle_alias_assignment(stmt.value, stmt.target, env):
                 continue
@@ -408,6 +468,7 @@ def parse_method_body(
                     env=env,
                     ctx=ctx,
                     validators=validators,
+                    graph_model=graph_model,
                 )
                 if handled:
                     nodes.extend(lv_nodes)
@@ -429,6 +490,7 @@ def parse_method_body(
                     stmt=stmt,
                     prev_flow_node=prev_flow_node,
                     need_suppress_once=need_suppress_once,
+                    graph_model=graph_model,
                     ctx=ctx,
                     env=env,
                     validators=validators,

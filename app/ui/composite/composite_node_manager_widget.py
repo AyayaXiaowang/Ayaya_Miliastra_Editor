@@ -15,23 +15,25 @@ from PyQt6 import QtCore, QtWidgets
 from engine.graph.models.graph_model import GraphModel
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig
 from engine.nodes.composite_node_manager import CompositeNodeManager, get_composite_node_manager
+from engine.nodes.node_registry import get_node_registry
 from engine.resources.resource_manager import ResourceManager
-from ui.controllers.graph_editor_controller import GraphEditorController
-from ui.foundation import input_dialogs
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
-from ui.foundation.folder_tree_helper import (
+from app.codegen import CompositeCodeGenerator
+from app.ui.controllers.graph_editor_controller import GraphEditorController
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
+from app.ui.foundation.folder_tree_helper import (
     FolderTreeBuilder,
     capture_expanded_paths,
     restore_expanded_paths,
 )
-from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
-from ui.foundation.toast_notification import ToastNotification
-from ui.graph.graph_scene import GraphScene
-from ui.graph.graph_view import GraphView
-from ui.graph.library_mixins import SearchFilterMixin, ToolbarMixin, ConfirmDialogMixin
-from ui.graph.library_pages.library_scaffold import DualPaneLibraryScaffold
-from ui.panels.panel_scaffold import SectionCard
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.graph.graph_scene import GraphScene
+from app.ui.graph.graph_view import GraphView
+from app.ui.graph.library_mixins import SearchFilterMixin, ToolbarMixin, ConfirmDialogMixin
+from app.ui.graph.library_pages.library_scaffold import DualPaneLibraryScaffold
+from app.ui.panels.panel_scaffold import SectionCard
 
 
 @dataclass(frozen=True)
@@ -55,7 +57,14 @@ class CompositeNodeService:
 
     def __init__(self, workspace_path: Path) -> None:
         self.workspace_path = workspace_path
-        self._manager: CompositeNodeManager = get_composite_node_manager(workspace_path)
+        registry = get_node_registry(workspace_path, include_composite=True)
+        node_library = registry.get_library()
+        code_generator = CompositeCodeGenerator(node_library)
+        self._manager = get_composite_node_manager(
+            workspace_path,
+            base_node_library=node_library,
+            composite_code_generator=code_generator,
+        )
 
     @property
     def manager(self) -> CompositeNodeManager:

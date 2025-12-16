@@ -1,19 +1,19 @@
 from PyQt6 import QtCore, QtWidgets
 from typing import Optional
 
-from ui.foundation import input_dialogs
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.folder_tree_helper import (
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.folder_tree_helper import (
     FolderTreeBuilder,
     capture_expanded_paths,
     restore_expanded_paths,
 )
-from ui.foundation.dialog_utils import (
+from app.ui.foundation.dialog_utils import (
     ask_yes_no_dialog,
     show_info_dialog,
     show_warning_dialog,
 )
-from ui.foundation.toast_notification import ToastNotification
+from app.ui.foundation.toast_notification import ToastNotification
 from engine.resources.resource_manager import ResourceType
 
 

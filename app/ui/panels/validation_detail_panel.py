@@ -6,8 +6,8 @@ from typing import Optional
 
 from PyQt6 import QtWidgets
 
-from ui.foundation.theme_manager import Colors
-from ui.panels.panel_scaffold import PanelScaffold, SectionCard
+from app.ui.foundation.theme_manager import Colors
+from app.ui.panels.panel_scaffold import PanelScaffold, SectionCard
 from engine.validate.comprehensive_types import ValidationIssue
 
 

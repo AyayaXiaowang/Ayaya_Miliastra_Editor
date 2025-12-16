@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional, Sequence
 
 from PyQt6 import QtCore, QtWidgets
 
-from ui.foundation import input_dialogs
+from app.ui.foundation import input_dialogs
 
 FieldGetter = Callable[[], Any]
 FieldSetter = Callable[[Any], None]

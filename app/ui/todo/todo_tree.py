@@ -1,41 +1,27 @@
 from __future__ import annotations
 
 from typing import List, Dict, Optional, Tuple, Any, Callable
-from dataclasses import dataclass
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 
 from app.models import TodoItem
-from engine.graph.models.graph_config import GraphConfig
 from engine.graph.models.graph_model import GraphModel
 from engine.resources.resource_manager import ResourceType
 
-from ui.todo.todo_config import TaskTypeMetadata, TodoStyles, StepTypeColors, DetailTypeIcons, StepTypeRules
-from ui.foundation.theme_manager import Colors as ThemeColors
-from ui.foundation.refresh_gate import RefreshGate
-from ui.todo.tree_check_helpers import set_all_children_state, apply_parent_progress, apply_leaf_state
-from ui.todo.todo_tree_graph_support import TodoTreeGraphSupport
+from app.ui.todo.todo_config import TaskTypeMetadata, TodoStyles, StepTypeColors, DetailTypeIcons, StepTypeRules
+from app.ui.foundation.theme_manager import Colors as ThemeColors
+from app.ui.foundation.refresh_gate import RefreshGate
+from app.ui.todo.tree_check_helpers import set_all_children_state, apply_parent_progress, apply_leaf_state
+from app.ui.todo.todo_tree_graph_support import TodoTreeGraphSupport
+from app.ui.todo.todo_tree_graph_expander import expand_graph_on_demand
 from app.ui.todo.todo_event_flow_blocks import (
     build_event_flow_block_groups,
+    collect_block_node_ids_for_header_item,
     create_block_header_item,
 )
 
-from app.models.todo_generator import TodoGenerator
-
 from .todo_runtime_state import TodoRuntimeState
-
-
-@dataclass
-class _GraphExpandContext:
-    """懒加载模板图步骤时所需的上下文。"""
-
-    parent_id: str
-    graph_id: str
-    graph_config: GraphConfig
-    preview_template_id: str
-    package: Any
-    resource_manager: Any
 
 
 class TodoTreeManager(QtCore.QObject):
@@ -55,7 +41,7 @@ class TodoTreeManager(QtCore.QObject):
         runtime_state: TodoRuntimeState,
         rich_segments_role: int,
         parent=None,
-        graph_expand_dependency_getter: Optional[Callable[[], Optional[Tuple[Any, Any]]]] = None,
+        graph_expand_dependency_getter: Optional[Callable[[], Optional[Tuple[Any, ...]]]] = None,
     ) -> None:
         super().__init__(parent)
         self.tree = tree
@@ -238,7 +224,8 @@ class TodoTreeManager(QtCore.QObject):
         self._refresh_gate.set_refreshing(True)
         self.tree.setUpdatesEnabled(False)
         root = self.tree.invisibleRootItem()
-        self._refresh_item_and_children(root)
+        if root is not None:
+            self._refresh_item_and_children(root)
         self._refresh_gate.set_refreshing(False)
         self.tree.setUpdatesEnabled(True)
 
@@ -305,7 +292,7 @@ class TodoTreeManager(QtCore.QObject):
             return
         detail_type = (todo.detail_info or {}).get("type", "")
         if StepTypeRules.is_template_graph_root(detail_type) and not todo.children:
-            self._expand_graph_on_demand(todo)
+            self.expand_graph_on_demand(todo)
 
     def _on_runtime_status_changed(self, todo_id: str) -> None:
         item = self._item_map.get(todo_id)
@@ -457,6 +444,8 @@ class TodoTreeManager(QtCore.QObject):
     def _refresh_item_and_children(self, parent_item: QtWidgets.QTreeWidgetItem) -> None:
         for child_index in range(parent_item.childCount()):
             item = parent_item.child(child_index)
+            if item is None:
+                continue
             todo_id = item.data(0, Qt.ItemDataRole.UserRole)
             todo = self.todo_map.get(todo_id)
             if not todo:
@@ -884,11 +873,16 @@ class TodoTreeManager(QtCore.QObject):
         root = self.tree.invisibleRootItem()
         dim_color_hex = ThemeColors.TEXT_DISABLED
 
+        if root is None:
+            return
+
         stack: List[QtWidgets.QTreeWidgetItem] = [root]
         while stack:
             parent_item = stack.pop()
             for index in range(parent_item.childCount()):
                 item = parent_item.child(index)
+                if item is None:
+                    continue
                 stack.append(item)
 
                 todo_id = item.data(0, Qt.ItemDataRole.UserRole)
@@ -909,11 +903,16 @@ class TodoTreeManager(QtCore.QObject):
     def _clear_dimmed_flags(self) -> None:
         """清除整棵树上的置灰标记。"""
         root = self.tree.invisibleRootItem()
+        if root is None:
+            return
+
         stack: List[QtWidgets.QTreeWidgetItem] = [root]
         while stack:
             parent_item = stack.pop()
             for index in range(parent_item.childCount()):
                 item = parent_item.child(index)
+                if item is None:
+                    continue
                 stack.append(item)
                 item.setData(0, self.DIMMED_ROLE, None)
 
@@ -939,6 +938,17 @@ class TodoTreeManager(QtCore.QObject):
 
     def find_event_flow_root_for_todo(self, start_todo_id: str) -> Optional[TodoItem]:
         return self._graph_support.find_event_flow_root_for_todo(start_todo_id, self.todo_map)
+
+    def collect_block_node_ids_for_header_item(
+        self,
+        header_item: QtWidgets.QTreeWidgetItem,
+    ) -> List[str]:
+        """为“逻辑块分组头”推导该块内节点 ID 集合（供预览聚焦）。"""
+        return collect_block_node_ids_for_header_item(
+            header_item,
+            self.todo_map,
+            graph_support=self._graph_support,
+        )
 
     @staticmethod
     def _is_todo_related_to_node(detail_info: Dict[str, Any], node_id: str) -> bool:
@@ -967,137 +977,7 @@ class TodoTreeManager(QtCore.QObject):
     # === 懒加载 ===
 
     def expand_graph_on_demand(self, graph_root: TodoItem) -> None:
-        self._expand_graph_on_demand(graph_root)
-
-    def _expand_graph_on_demand(self, graph_root: TodoItem) -> None:
-        """在首次展开模板图根时，按需生成其子步骤并补充到树与 todo 列表中。
-
-        该方法拆分为三步：
-        1) `_resolve_graph_expand_context`：通过注入的依赖解析器解析 package 与资源管理器并加载 GraphConfig；
-        2) `_expand_graph_tasks_for_root`：调用 `TodoGenerator.expand_graph_tasks`，回填 `todos/todo_map` 与父子关系；
-        3) `_attach_expanded_graph_to_tree`：基于最新 todo 结构补充树节点并设置展开状态。
-        """
-        if graph_root.children:
-            return
-
-        context = self._resolve_graph_expand_context(graph_root)
-        if context is None:
-            return
-
-        new_todos = self._expand_graph_tasks_for_root(graph_root, context)
-        if not new_todos:
-            return
-
-        self._refresh_gate.set_refreshing(True)
-        self.tree.setUpdatesEnabled(False)
-        self._attach_expanded_graph_to_tree(graph_root, context, new_todos)
-        self.tree.setUpdatesEnabled(True)
-        self._refresh_gate.set_refreshing(False)
-
-    def _resolve_graph_expand_context(self, graph_root: TodoItem) -> Optional[_GraphExpandContext]:
-        """解析模板图根懒加载所需的上下文。
-
-        - 通过 Todo 的 detail_info 提取 graph_id/template_id；
-        - 通过宿主注入的依赖解析器获取 package/resource_manager；
-        - 使用 resource_manager 加载 GraphConfig。
-        """
-        detail_info = graph_root.detail_info or {}
-        parent_id = str(graph_root.parent_id or "")
-        graph_id = str(detail_info.get("graph_id", "") or "")
-        if not parent_id or not graph_id:
-            return None
-
-        if self._graph_expand_dependency_getter is None:
-            return None
-
-        dependencies = self._graph_expand_dependency_getter()
-        if not isinstance(dependencies, tuple) or len(dependencies) != 2:
-            return None
-        package, resource_manager = dependencies
-        if not package or resource_manager is None:
-            return None
-
-        data = resource_manager.load_resource(ResourceType.GRAPH, graph_id)
-        if not data:
-            return None
-        graph_config = GraphConfig.deserialize(data)
-
-        preview_template_id = str(detail_info.get("template_id", "") or "")
-
-        return _GraphExpandContext(
-            parent_id=parent_id,
-            graph_id=graph_id,
-            graph_config=graph_config,
-            preview_template_id=preview_template_id,
-            package=package,
-            resource_manager=resource_manager,
-        )
-
-    def _expand_graph_tasks_for_root(
-        self,
-        graph_root: TodoItem,
-        context: _GraphExpandContext,
-    ) -> List[TodoItem]:
-        """调用生成器生成图步骤，并同步回填 todo 列表与父子关系。"""
-        new_todos = TodoGenerator.expand_graph_tasks(
-            package=context.package,
-            resource_manager=context.resource_manager,
-            parent_id=context.parent_id,
-            graph_id=context.graph_id,
-            graph_name=context.graph_config.name,
-            graph_data=context.graph_config.data,
-            preview_template_id=context.preview_template_id,
-            suppress_auto_jump=False,
-            graph_root=graph_root,
-            attach_graph_root=False,
-        )
-
-        for expanded_todo in new_todos:
-            if expanded_todo.todo_id not in self.todo_map:
-                self.todo_map[expanded_todo.todo_id] = expanded_todo
-                self.todos.append(expanded_todo)
-
-        parent_todo = self.todo_map.get(context.parent_id)
-        if parent_todo is not None:
-            for expanded_todo in new_todos:
-                if (
-                    expanded_todo.parent_id == context.parent_id
-                    and expanded_todo.todo_id not in parent_todo.children
-                ):
-                    parent_todo.children.append(expanded_todo.todo_id)
-
-        return new_todos
-
-    def _attach_expanded_graph_to_tree(
-        self,
-        graph_root: TodoItem,
-        context: _GraphExpandContext,
-        new_todos: List[TodoItem],
-    ) -> None:
-        """基于最新 todo 结构，将懒加载得到的节点挂载到树上。"""
-        root_item = self._item_map.get(graph_root.todo_id)
-        if root_item is not None:
-            self._build_tree_recursive(graph_root, root_item)
-            root_item.setExpanded(True)
-
-        parent_item = self._item_map.get(context.parent_id)
-        parent_todo = self.todo_map.get(context.parent_id)
-        if parent_item is None or parent_todo is None:
-            return
-
-        for child_id in parent_todo.children:
-            if child_id in self._item_map:
-                continue
-            child_todo = self.todo_map.get(child_id)
-            if not child_todo:
-                continue
-            child_item = self._create_tree_item(child_todo)
-            parent_item.addChild(child_item)
-            if child_todo.children:
-                self._build_tree_recursive(child_todo, child_item)
-            detail_type = (child_todo.detail_info or {}).get("type", "")
-            should_expand = not StepTypeRules.is_event_flow_root(detail_type)
-            child_item.setExpanded(should_expand)
+        expand_graph_on_demand(self, graph_root)
 
     # === 批量操作 ===
 

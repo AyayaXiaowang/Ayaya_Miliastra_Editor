@@ -11,9 +11,9 @@
     - monitor/: 执行监控面板子模块
 
 推荐导入方式：
-    from ui.execution import ExecutionRunner, ExecutionPlanner
-    from ui.execution.strategies import AnchorSelector, RetryHandler
-    from ui.execution.monitor import ExecutionMonitorPanel
+    from app.ui.execution import ExecutionRunner, ExecutionPlanner
+    from app.ui.execution.strategies import AnchorSelector, RetryHandler
+    from app.ui.execution.monitor import ExecutionMonitorPanel
 """
 
 # 主要执行类

@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="查询字典是否包含特定键",
     category="查询节点",
-    inputs=[("字典", "泛型"), ("键", "泛型")],
+    inputs=[("字典", "泛型字典"), ("键", "泛型")],
     outputs=[("是否包含", "布尔值")],
     description="查询指定字典是否包含特定的键",
     doc_reference="服务器节点/查询节点/查询节点.md",

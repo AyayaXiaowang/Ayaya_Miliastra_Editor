@@ -3,8 +3,6 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional, TYPE_CHECKING
-import sys
-import subprocess
 
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig, MappedPort
 from engine.nodes.node_definition_loader import NodeDef
@@ -34,6 +32,7 @@ class CompositeNodeManager:
         resource_manager: Optional["ResourceManager"] = None,
         package_index_manager: Optional["PackageIndexManager"] = None,
         reference_tracker: Optional["GraphReferenceTracker"] = None,
+        composite_code_generator: Optional[object] = None,
     ):
         """初始化复合节点管理器
         
@@ -62,6 +61,8 @@ class CompositeNodeManager:
             verbose=verbose,
             base_node_library=base_node_library,
         )
+        if composite_code_generator is not None:
+            self.loader.set_code_generator(composite_code_generator)
         self.folder_manager = CompositeFolderManager(self.composite_library_dir)
         self.virtual_pin_manager = CompositeVirtualPinManager(self.composite_nodes)
 
@@ -112,20 +113,15 @@ class CompositeNodeManager:
             if py_file.name.startswith("composite_") and py_file.suffix == ".py":
                 composite = self.loader.load_composite_from_file(py_file, load_subgraph=False)
                 if composite:
+                    errors = self.validate_composite_node(composite)
+                    if errors:
+                        error_text = "\n".join(str(err) for err in errors)
+                        raise ValueError(f"复合节点定义非法: file={py_file}\n{error_text}")
                     self.composite_nodes[composite.composite_id] = composite
                     self.composite_index[composite.composite_id] = py_file
         
         if self.verbose:
             log_info(f"加载了 {len(self.composite_nodes)} 个复合节点，{len(self.folder_manager.folders)} 个文件夹")
-        
-        # 迁移旧的JSON文件（如果存在）
-        old_json_file = self.composite_library_dir / "composite_nodes.json"
-        if old_json_file.exists():
-            migrated_composites = self.loader.migrate_from_json(old_json_file)
-            for composite in migrated_composites:
-                self.composite_nodes[composite.composite_id] = composite
-                file_path = self.loader.get_file_save_path(composite)
-                self.composite_index[composite.composite_id] = file_path
     
     
     def generate_unique_name(self, base_name: str = "新建复合节点") -> str:
@@ -525,6 +521,11 @@ class CompositeNodeManager:
         # 检查虚拟引脚
         if not composite.virtual_pins:
             errors.append("复合节点至少需要一个虚拟引脚")
+        else:
+            for virtual_pin in composite.virtual_pins:
+                pin_type_text = str(getattr(virtual_pin, "pin_type", "") or "").strip()
+                if pin_type_text in ("any", "Any", "ANY"):
+                    errors.append(f"虚拟引脚类型禁止使用旧别名 '{pin_type_text}'：请改为 '泛型'（pin='{virtual_pin.pin_name}'）")
         
         # 检查虚拟引脚序号唯一性
         pin_indices = [pin.pin_index for pin in composite.virtual_pins]
@@ -694,6 +695,7 @@ def get_composite_node_manager(
     workspace_path: Path = None,
     verbose: bool = False,
     base_node_library: Optional[Dict[str, NodeDef]] = None,
+    composite_code_generator: Optional[object] = None,
 ) -> CompositeNodeManager:
     """获取全局复合节点管理器实例
     
@@ -718,7 +720,17 @@ def get_composite_node_manager(
             workspace_path,
             verbose=verbose,
             base_node_library=base_node_library,
+            composite_code_generator=composite_code_generator,
         )
+    else:
+        if composite_code_generator is not None:
+            _global_manager.loader.set_code_generator(composite_code_generator)
 
     return _global_manager
+
+
+def clear_global_composite_node_manager_for_tests() -> None:
+    """仅供测试环境使用：清空全局 CompositeNodeManager 单例，避免跨用例状态污染。"""
+    global _global_manager
+    _global_manager = None
 

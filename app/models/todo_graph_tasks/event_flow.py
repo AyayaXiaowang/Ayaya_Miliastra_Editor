@@ -12,7 +12,7 @@ from app.models.todo_graph_tasks.node_predicates import is_event_node
 from app.models.todo_node_type_helper import NodeTypeHelper
 from app.models.todo_pipeline.step_mode import GraphStepMode
 from engine.graph.models import GraphModel
-from engine.layout import layout_by_event_regions
+from engine.layout import LayoutService
 from engine.utils.graph.graph_utils import is_flow_port_name
 from engine.utils.name_utils import dedupe_preserve_order
 
@@ -60,7 +60,7 @@ class EventFlowTaskBuilder:
 
         mode = GraphStepMode.current()
         if not mode.is_human:
-            layout_by_event_regions(model)
+            LayoutService.compute_layout(model, clone_model=False)
 
         # 为当前图注册边索引与信号参数上下文，供动态端口/参数步骤规划复用
         self.dynamic_steps.set_graph_context(edge_lookup)

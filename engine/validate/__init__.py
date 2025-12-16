@@ -16,6 +16,12 @@ from .node_mount_validator import NodeMountValidator
 from .entity_config_validator import EntityConfigValidator
 from .comprehensive_validator import ComprehensiveValidator
 from .roundtrip_validator import RoundtripValidator
+from .node_graph_validator import (
+    NodeGraphValidationError,
+    NodeGraphValidator,
+    validate_node_graph,
+    validate_file,
+)
 
 __all__ = [
     "EngineIssue",
@@ -33,6 +39,10 @@ __all__ = [
     "EntityConfigValidator",
     "ComprehensiveValidator",
     "RoundtripValidator",
+    "NodeGraphValidationError",
+    "NodeGraphValidator",
+    "validate_node_graph",
+    "validate_file",
 ]
 
  

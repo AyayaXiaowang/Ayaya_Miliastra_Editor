@@ -9,9 +9,9 @@ from __future__ import annotations
 from typing import Optional, Tuple, Dict, Any, Callable, List
 from PIL import Image
 
-from app.automation.core.executor_protocol import EditorExecutorProtocol, AutomationStepContext
+from app.automation.editor.executor_protocol import EditorExecutorProtocol, AutomationStepContext
 from app.automation import capture as editor_capture
-from app.automation.core import executor_utils as _exec_utils
+from app.automation.editor import executor_utils as _exec_utils
 from app.automation.ports._ports import is_data_input_port, is_flow_output_port
 from app.automation.ports.port_picker import pick_port_center_for_node
 from app.automation.input.common import build_graph_region_overlay, sleep_seconds
@@ -30,7 +30,7 @@ from app.automation.ports.vector3_input_handler import (
     input_vector3_by_ocr,
     input_vector3_by_geometry,
 )
-from app.automation.core.visualization_helpers import emit_node_and_port_overlays
+from app.automation.editor.visualization_helpers import emit_node_and_port_overlays
 
 
 def visualize_node_and_ports(

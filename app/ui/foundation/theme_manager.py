@@ -14,10 +14,10 @@ from typing import Callable, cast
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.configs.settings import settings
-from ui.foundation.canvas_background import draw_grid_background as _draw_grid_background
-from ui.foundation.theme import ThemeRegistry
-from ui.foundation.theme.combo_proxy_style import ComboArrowProxyStyle
-from ui.foundation.theme.styles import (
+from app.ui.foundation.canvas_background import draw_grid_background as _draw_grid_background
+from app.ui.foundation.theme import ThemeRegistry
+from app.ui.foundation.theme.combo_proxy_style import ComboArrowProxyStyle
+from app.ui.foundation.theme.styles import (
     component_styles,
     composite_styles,
     semantic_styles,

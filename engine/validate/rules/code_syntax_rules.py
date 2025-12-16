@@ -176,6 +176,56 @@ class NoFStringLambdaEnumerateRule(ValidationRule):
         return issues
 
 
+class MatchCaseLiteralPatternRule(ValidationRule):
+    """限制 match/case 的 case 模式必须为字面量（或由字面量组成的 `|` 组合），避免解析器无法静态解析。
+
+    允许：
+    - case "xxx" / case 0 / case True / case None
+    - case "a" | "b"（所有分支均为字面量）
+    - case _（通配）
+
+    禁止：
+    - case 变量名
+    - case self.xxx
+    - case 任意表达式（Call/BinOp/Attribute/...）
+    - case [a, b] / case {"k": v} 等结构模式
+    """
+
+    rule_id = "engine_code_match_case_pattern_must_be_literal"
+    category = "代码规范"
+    default_level = "error"
+
+    def apply(self, ctx: ValidationContext) -> List[EngineIssue]:
+        if ctx.file_path is None:
+            return []
+
+        file_path: Path = ctx.file_path
+        tree = get_cached_module(ctx)
+        issues: List[EngineIssue] = []
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Match):
+                continue
+            for one_case in getattr(node, "cases", []) or []:
+                pattern = getattr(one_case, "pattern", None)
+                if pattern is None:
+                    continue
+                if _is_allowed_match_case_pattern(pattern):
+                    continue
+                issues.append(
+                    create_rule_issue(
+                        self,
+                        file_path,
+                        pattern,
+                        "CODE_MATCH_CASE_PATTERN_NOT_LITERAL",
+                        f"{line_span_text(pattern)}: match/case 的 case 模式必须使用字面量（例如 case \"xxx\"/case 0/case _，或字面量 `|` 组合）；"
+                        f"禁止使用运行期变量/属性/表达式（例如 case self.xxx 或 case 变量名），否则节点图解析器无法解析",
+                    )
+                )
+
+        return issues
+
+
 class NoMethodNestedCallsRule(ValidationRule):
     """禁止方法调用与嵌套方法调用（例如 obj.append()/dct.get()/x.items() 等）。"""
 
@@ -258,6 +308,34 @@ def _is_composite_instance_method_call(func: ast.Attribute, composite_instances:
     
     instance_attr = obj.attr
     return instance_attr in composite_instances
+
+
+def _is_allowed_match_case_pattern(pattern: ast.AST) -> bool:
+    """判断 case pattern 是否为解析器可静态处理的“字面量模式”。
+
+    说明：Python 的 match/case 模式语法非常丰富，但节点图解析器只支持最常见的“常量匹配”与 `_` 通配。
+    """
+    # case _ : MatchAs(name=None, pattern=None)
+    if isinstance(pattern, ast.MatchAs) and getattr(pattern, "name", None) is None and getattr(pattern, "pattern", None) is None:
+        return True
+
+    # case None / case True / case False : MatchSingleton
+    if isinstance(pattern, ast.MatchSingleton):
+        return True
+
+    # case "xxx" / case 0 : MatchValue(value=Constant(...))
+    if isinstance(pattern, ast.MatchValue):
+        value_node = getattr(pattern, "value", None)
+        return isinstance(value_node, ast.Constant)
+
+    # case "a" | "b" : MatchOr(patterns=[...])
+    if isinstance(pattern, ast.MatchOr):
+        inner_patterns = getattr(pattern, "patterns", None) or []
+        if not inner_patterns:
+            return False
+        return all(_is_allowed_match_case_pattern(p) for p in inner_patterns)
+
+    return False
 def _format_attr_chain(attr: ast.Attribute) -> str:
     """生成 a.b.c 形式的可读字符串"""
     parts: List[str] = []

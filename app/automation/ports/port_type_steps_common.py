@@ -19,8 +19,8 @@ from PIL import Image
 
 from engine.graph.models.graph_model import NodeModel
 
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
-from app.automation.core.node_snapshot import NodePortsSnapshotCache
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport
+from app.automation.editor.node_snapshot import NodePortsSnapshotCache
 from app.automation.ports.port_type_ui_steps import locate_port_center, is_first_data_port
 
 

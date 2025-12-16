@@ -1,6 +1,6 @@
 from PyQt6 import QtCore, QtWidgets
 
-from ui.foundation.theme_manager import Colors, Sizes
+from app.ui.foundation.theme_manager import Colors, Sizes
 
 __all__ = ["CollapsibleSection"]
 

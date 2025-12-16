@@ -1,7 +1,7 @@
 """Toast通知组件 - 非模态的角落提示框"""
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
 _TOAST_POPUP_ENABLED: bool = False

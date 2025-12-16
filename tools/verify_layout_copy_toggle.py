@@ -6,8 +6,8 @@ DATA_NODE_CROSS_BLOCK_COPY 打开/关闭两种模式下输出完全一致，避�
 边同步出现分叉。
 
 用法（在项目根目录执行）:
-  python -X utf8 tools/verify_layout_copy_toggle.py
-  python -X utf8 tools/verify_layout_copy_toggle.py --tol 1.0 --max-files 0
+  python -X utf8 -m tools.verify_layout_copy_toggle
+  python -X utf8 -m tools.verify_layout_copy_toggle --tol 1.0 --max-files 0
 
 判定规则：
   - 节点 ID 集合必须一致；
@@ -30,13 +30,17 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")  # type: ignore[attr-defined]
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")  # type: ignore[attr-defined]
 
-WORKSPACE = Path(__file__).resolve().parents[1]
-if str(WORKSPACE) not in sys.path:
-    sys.path.insert(0, str(WORKSPACE))
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
+WORKSPACE = ensure_workspace_root_on_sys_path()
 
 from engine.configs.settings import settings  # noqa: E402
 from engine.graph.models import BasicBlock, EdgeModel, GraphModel  # noqa: E402
 from engine.layout import LayoutService  # noqa: E402
+from engine.utils.cache.cache_paths import get_graph_cache_dir  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,14 +69,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def resolve_cache_dir(root: Path) -> Path:
-    candidates = [
-        root / "runtime" / "cache" / "graph_cache",
-        root / "app" / "runtime" / "cache" / "graph_cache",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError("未找到缓存目录 runtime/cache/graph_cache 或 app/runtime/cache/graph_cache")
+    cache_dir = get_graph_cache_dir(root)
+    if not cache_dir.exists():
+        raise FileNotFoundError(f"未找到 graph_cache 目录：{cache_dir}")
+    return cache_dir
 
 
 def load_cached_graph_data(cache_dir: Path, max_files: int = 0) -> List[tuple[str, dict]]:
@@ -231,7 +231,7 @@ def compare_models(expected: GraphModel, actual: GraphModel, tol: float) -> List
     return diffs
 
 
-def verify_one_graph(graph_name: str, graph_data: dict, enable_copy: bool, tol: float) -> List[str]:
+def verify_one_graph(graph_name: str, graph_data: dict, enable_copy: bool, tol: float, *, workspace_path: Path) -> List[str]:
     settings.DATA_NODE_CROSS_BLOCK_COPY = bool(enable_copy)
     model_for_layout = GraphModel.deserialize(graph_data)
     layout_result = LayoutService.compute_layout(
@@ -239,6 +239,7 @@ def verify_one_graph(graph_name: str, graph_data: dict, enable_copy: bool, tol: 
         include_augmented_model=True,
         clone_model=True,
         write_back_to_input_model=False,
+        workspace_path=workspace_path,
     )
     augmented_model = layout_result.augmented_model
     if augmented_model is None:
@@ -264,7 +265,7 @@ def run_verification(tol: float, max_files: int, root: Path) -> int:
         print("=" * 72)
         print(f"[MODE] DATA_NODE_CROSS_BLOCK_COPY = {enable_copy}")
         for graph_name, graph_data in entries:
-            diffs = verify_one_graph(graph_name, graph_data, enable_copy, tol)
+            diffs = verify_one_graph(graph_name, graph_data, enable_copy, tol, workspace_path=root)
             if diffs:
                 failures += 1
                 print(f"[DIFF] {graph_name} 差异 {len(diffs)} 项")

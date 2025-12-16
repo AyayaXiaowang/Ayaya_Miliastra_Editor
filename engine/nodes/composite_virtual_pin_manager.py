@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Set, Tuple
 
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig, MappedPort
+from engine.nodes.port_type_system import ANY_PORT_TYPE, GENERIC_PORT_TYPE
 from engine.utils.logging.logger import log_info, log_error
 
 
@@ -77,18 +78,34 @@ class CompositeVirtualPinManager:
         
         # 类型一致性检查（如果提供了端口类型）
         if port_type:
+            declared_port_type = str(port_type).strip()
+            declared_pin_type = str(getattr(virtual_pin, "pin_type", "") or "").strip()
+
+            def _assert_not_legacy_any(where: str, type_name: str) -> None:
+                normalized = str(type_name or "").strip()
+                if normalized in ("any", "Any", "ANY"):
+                    raise ValueError(f"检测到旧类型别名 '{normalized}'（{where}），请改为 '{GENERIC_PORT_TYPE}'")
+
+            _assert_not_legacy_any("virtual_pin.pin_type", declared_pin_type)
+            _assert_not_legacy_any("port_type", declared_port_type)
+
+            def _is_generic_type(type_name: str) -> bool:
+                normalized = str(type_name or "").strip()
+                return normalized in (ANY_PORT_TYPE, GENERIC_PORT_TYPE)
+
             # 如果虚拟引脚已有映射，检查类型是否一致
             if virtual_pin.mapped_ports:
-                # 虚拟引脚的类型应该与第一个映射的类型一致
-                if virtual_pin.pin_type != port_type:
-                    # 检查是否兼容（any类型可以与任何类型连接）
-                    if virtual_pin.pin_type != "any" and port_type != "any":
-                        log_error(f"端口类型不匹配：虚拟引脚类型为 {virtual_pin.pin_type}，端口类型为 {port_type}")
+                # 虚拟引脚的类型应该与既有类型声明一致；泛型允许与任意具体类型兼容
+                if declared_pin_type and declared_pin_type != declared_port_type:
+                    if (not _is_generic_type(declared_pin_type)) and (not _is_generic_type(declared_port_type)):
+                        log_error(f"端口类型不匹配：虚拟引脚类型为 {declared_pin_type}，端口类型为 {declared_port_type}")
                         return False
             else:
                 # 如果是第一个映射，更新虚拟引脚的类型
-                if virtual_pin.pin_type == "any" or not virtual_pin.pin_type:
-                    virtual_pin.pin_type = port_type
+                # 仅当虚拟引脚类型为“泛型/空”且端口类型为具体类型时，才收敛虚拟引脚类型
+                if (not declared_pin_type) or _is_generic_type(declared_pin_type):
+                    if declared_port_type and (not _is_generic_type(declared_port_type)):
+                        virtual_pin.pin_type = declared_port_type
         
         # 添加映射
         mapped_port = MappedPort(node_id=node_id, port_name=port_name, is_input=is_input, is_flow=is_flow)

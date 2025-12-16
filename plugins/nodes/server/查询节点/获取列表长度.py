@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="获取列表长度",
     category="查询节点",
-    inputs=[("列表", "泛型")],
+    inputs=[("列表", "泛型列表")],
     outputs=[("长度", "整数")],
     description="获取列表长度（列表中的元素个数）",
     doc_reference="服务器节点/查询节点/查询节点.md"

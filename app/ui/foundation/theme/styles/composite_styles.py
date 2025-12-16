@@ -2,8 +2,8 @@
 
 from collections.abc import Iterable
 
-from ui.foundation.theme.styles import component_styles
-from ui.foundation.theme.tokens import Colors, Sizes
+from app.ui.foundation.theme.styles import component_styles
+from app.ui.foundation.theme.tokens import Colors, Sizes
 
 
 def _merge_segments(segments: Iterable[str]) -> str:

@@ -198,7 +198,7 @@ class PresetPointSection(BaseManagementSection):
         unit_tags_edit.setPlaceholderText("每行一个单位标签ID，可留空")
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             if not name_edit.text().strip():
                 dialog_utils.show_warning_dialog(

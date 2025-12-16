@@ -2,7 +2,7 @@
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.theme.tokens import Colors
+from app.ui.foundation.theme.tokens import Colors
 
 
 class ComboArrowProxyStyle(QtWidgets.QProxyStyle):

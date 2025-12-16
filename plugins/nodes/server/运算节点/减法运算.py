@@ -9,7 +9,14 @@ from engine.utils.logging.logger import log_info
     inputs=[("左值", "泛型"), ("右值", "泛型")],
     outputs=[("结果", "泛型")],
     description="计算两个浮点数或整数的减法",
-    doc_reference="服务器节点/运算节点/运算节点.md"
+    doc_reference="服务器节点/运算节点/运算节点.md",
+    input_generic_constraints={
+        "左值": ["整数", "浮点数"],
+        "右值": ["整数", "浮点数"],
+    },
+    output_generic_constraints={
+        "结果": ["整数", "浮点数"],
+    },
 )
 def 减法运算(game, 左值, 右值):
     """计算两个浮点数或整数的减法"""

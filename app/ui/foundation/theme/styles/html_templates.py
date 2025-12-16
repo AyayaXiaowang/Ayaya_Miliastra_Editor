@@ -1,6 +1,6 @@
 """HTML style templates reused across panels."""
 
-from ui.foundation.theme.tokens import Colors, Sizes
+from app.ui.foundation.theme.tokens import Colors, Sizes
 
 
 class HTMLStyles:

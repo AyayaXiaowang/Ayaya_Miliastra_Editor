@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Optional, Callable, Tuple
 from PIL import Image
 
-from app.automation.core.executor_protocol import EditorExecutorProtocol
+from app.automation.editor.executor_protocol import EditorExecutorProtocol
 from app.automation import capture as editor_capture
 from app.automation.vision import list_nodes as vision_list_nodes
 

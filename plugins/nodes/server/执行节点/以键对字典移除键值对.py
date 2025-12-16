@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="以键对字典移除键值对",
     category="执行节点",
-    inputs=[("流程入", "流程"), ("字典", "泛型"), ("键", "泛型")],
+    inputs=[("流程入", "流程"), ("字典", "泛型字典"), ("键", "泛型")],
     outputs=[("流程出", "流程")],
     description="以键移除指定字典中的键值对",
     doc_reference="服务器节点/执行节点/执行节点.md",

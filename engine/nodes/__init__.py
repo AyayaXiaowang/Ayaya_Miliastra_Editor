@@ -68,6 +68,7 @@ __all__ = [
     'convert_composite_to_node_def',
     # 延迟加载
     'CompositeNodeManager',
+    'clear_global_composite_node_manager_for_tests',
 ]
 
 
@@ -75,4 +76,7 @@ def __getattr__(name: str):
     if name == 'CompositeNodeManager':
         from .composite_node_manager import CompositeNodeManager  # 延迟导入以避免循环依赖
         return CompositeNodeManager
+    if name == 'clear_global_composite_node_manager_for_tests':
+        from .composite_node_manager import clear_global_composite_node_manager_for_tests  # 延迟导入以避免循环依赖
+        return clear_global_composite_node_manager_for_tests
     raise AttributeError(name)

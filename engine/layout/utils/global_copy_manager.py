@@ -1,27 +1,37 @@
 """
-全局跨块数据节点复制管理器
+全局跨块数据节点复制管理器（确定性）
 
-负责在所有块识别完成后，统一分析跨块共享的数据节点，
-批量创建副本并重定向边，取代原有的"边识别边复制"逻辑。
+负责在所有块识别完成后，统一分析跨块共享的数据节点，批量创建副本并重定向边。
 
-调用时机：所有块的流程节点识别完成后、数据节点放置前
+重要约束：
+- 可复现：同一输入图在同一配置下重复执行得到相同结果（不使用 uuid 生成边 ID）。
+- 幂等：在已存在副本节点/已重定向边的图上重复执行不会无限膨胀，优先复用现有副本。
 
-复制规则：
-1. 同一个块里的数据节点不需要复制
-2. 复制后，原始节点到非owner块的边要断开，改为副本连接
-3. 同一个块内的多个消费者共用一个副本
+调用时机：所有块的流程节点识别完成后、数据节点放置前。
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field, replace
-from typing import Dict, List, Set, Optional, Tuple, TYPE_CHECKING
-import uuid
 
-from engine.graph.models import GraphModel, NodeModel, EdgeModel, PortModel
+from collections import deque
+from dataclasses import dataclass, field
+import hashlib
+from typing import Dict, List, Set, Optional, Tuple, TYPE_CHECKING, Iterable
+
+from engine.graph.models import GraphModel, NodeModel, EdgeModel
+from .node_copy_utils import create_data_node_copy
+from .graph_query_utils import build_edge_indices, is_data_edge, is_pure_data_node
+from .copy_identity_utils import (
+    ORDER_MAX_FALLBACK,
+    infer_copy_block_id_from_node_id,
+    is_data_node_copy,
+    parse_copy_counter,
+    resolve_canonical_original_id,
+    resolve_copy_block_id,
+)
 
 if TYPE_CHECKING:
-    from ..core.layout_models import LayoutBlock
-    from ..core.layout_context import LayoutContext
+    from ..internal.layout_models import LayoutBlock
+    from ..internal.layout_context import LayoutContext
 
 
 @dataclass
@@ -45,6 +55,45 @@ class CopyPlan:
     owner_block_index: int
     # 需要创建副本的块列表（块ID -> 副本ID）
     copy_targets: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class CopyNodeSpec:
+    """描述一个需要存在的副本节点（纯数据）。"""
+
+    canonical_original_id: str
+    block_id: str
+    copy_node_id: str
+    copy_counter: int
+
+
+@dataclass(frozen=True)
+class EdgeMutation:
+    """对一条既有边进行原地重定向（保持 edge.id 不变）。"""
+
+    edge_id: str
+    new_src_node: str
+    new_dst_node: str
+
+
+@dataclass(frozen=True)
+class NewEdgeSpec:
+    """需要新增的一条数据边。"""
+
+    edge_id: str
+    src_node: str
+    src_port: str
+    dst_node: str
+    dst_port: str
+
+
+@dataclass(frozen=True)
+class GlobalCopyApplicationPlan:
+    """全局复制的“纯计划”输出：不包含 GraphModel 对象引用。"""
+
+    copy_nodes: Tuple[CopyNodeSpec, ...]
+    edge_mutations: Tuple[EdgeMutation, ...]
+    new_edges: Tuple[NewEdgeSpec, ...]
 
 
 class GlobalCopyManager:
@@ -78,66 +127,119 @@ class GlobalCopyManager:
         self.data_node_consumers: Dict[str, List[str]] = {}
         # 复制计划
         self.copy_plans: Dict[str, CopyPlan] = {}
-        # 已创建的副本映射：(原始ID, 块ID) -> 副本ID
+        # 已存在或创建的副本映射：(canonical_original_id, block_id) -> copy_id
         self.created_copies: Dict[Tuple[str, str], str] = {}
         # 流程节点所属块的映射：流程节点ID -> 块ID
         self._flow_to_block: Dict[str, str] = {}
-        
-        # 边索引（用于高效查询）
-        self._data_in_edges_by_dst: Dict[str, List] = {}
-        self._data_out_edges_by_src: Dict[str, List] = {}
-        self._build_edge_indices()
+
+        # 既有副本索引：(canonical_original_id, block_id) -> node_id
+        self._existing_copy_by_original_and_block: Dict[Tuple[str, str], str] = {}
+        self._build_existing_copy_index()
+
+        # 物理数据边索引（只读快照，用于计划构建，按 edge.id 固定排序）
+        self._data_in_edges_by_dst: Dict[str, List[EdgeModel]] = {}
+        self._data_out_edges_by_src: Dict[str, List[EdgeModel]] = {}
+        self._build_data_edge_indices_snapshot()
+
+        # 逻辑数据依赖索引（canonical 视图）：dst_canonical -> {src_canonical,...}
+        self._logical_upstream_by_data_dst: Dict[str, Set[str]] = {}
+        # 逻辑入边模板（用于为副本补齐输入）：dst_canonical -> {(src_id_or_canonical, src_port, dst_port, src_is_pure_data)}
+        self._incoming_edge_templates_by_canonical_dst: Dict[str, Set[Tuple[str, str, str, bool]]] = {}
+        self._build_logical_dependency_views()
+
+        # 最近一次生成的“纯计划”
+        self._application_plan: Optional[GlobalCopyApplicationPlan] = None
     
-    def _build_edge_indices(self) -> None:
-        """构建边索引"""
-        if self.layout_context is not None:
-            # 复制索引（避免修改原始数据）
-            for key, edges in self.layout_context.dataInByNode.items():
-                self._data_in_edges_by_dst[key] = list(edges)
-            for key, edges in self.layout_context.dataOutByNode.items():
-                self._data_out_edges_by_src[key] = list(edges)
-            return
-        
-        # 回退：手动构建索引
-        for edge in self.model.edges.values():
-            src_node = self.model.nodes.get(edge.src_node)
-            dst_node = self.model.nodes.get(edge.dst_node)
-            if not src_node or not dst_node:
+    def _build_existing_copy_index(self) -> None:
+        """扫描现有副本节点，构建 (canonical_original_id, block_id) -> copy_node_id 映射。"""
+        existing: Dict[Tuple[str, str], str] = {}
+        for node in self.model.nodes.values():
+            if not is_data_node_copy(node):
                 continue
-            
-            # 判断是否为数据边（非流程边）
-            if self._is_data_edge(edge, src_node, dst_node):
-                self._data_in_edges_by_dst.setdefault(edge.dst_node, []).append(edge)
-                self._data_out_edges_by_src.setdefault(edge.src_node, []).append(edge)
-    
-    def _is_data_edge(self, edge: EdgeModel, src_node: NodeModel, dst_node: NodeModel) -> bool:
-        """判断边是否为数据边"""
-        from engine.utils.graph.graph_utils import is_flow_port_name
-        
-        # 源端口或目标端口是流程端口则为流程边
-        if is_flow_port_name(edge.src_port) or is_flow_port_name(edge.dst_port):
-            return False
-        return True
-    
+            canonical_original = self._resolve_canonical_original_id(node.id)
+            if not canonical_original:
+                continue
+            block_id = resolve_copy_block_id(node)
+            if not block_id:
+                continue
+            existing.setdefault((canonical_original, block_id), node.id)
+        self._existing_copy_by_original_and_block = existing
+
+    def _build_data_edge_indices_snapshot(self) -> None:
+        """构建物理数据边索引快照（用于计划构建，按 edge.id 排序确保可复现）。"""
+        if self.layout_context is not None:
+            data_in = self.layout_context.dataInByNode
+            data_out = self.layout_context.dataOutByNode
+            self._data_in_edges_by_dst = {
+                node_id: sorted(list(edges or []), key=lambda edge: getattr(edge, "id", ""))
+                for node_id, edges in (data_in or {}).items()
+            }
+            self._data_out_edges_by_src = {
+                node_id: sorted(list(edges or []), key=lambda edge: getattr(edge, "id", ""))
+                for node_id, edges in (data_out or {}).items()
+            }
+            return
+
+        _, _, data_out, data_in = build_edge_indices(self.model)
+        self._data_in_edges_by_dst = {
+            node_id: sorted(list(edges or []), key=lambda edge: getattr(edge, "id", ""))
+            for node_id, edges in (data_in or {}).items()
+        }
+        self._data_out_edges_by_src = {
+            node_id: sorted(list(edges or []), key=lambda edge: getattr(edge, "id", ""))
+            for node_id, edges in (data_out or {}).items()
+        }
+
+    def _build_logical_dependency_views(self) -> None:
+        """构建 canonical 视图的依赖与入边模板，兼容图中已存在副本与已重定向边。"""
+        upstream_by_dst: Dict[str, Set[str]] = {}
+        templates_by_dst: Dict[str, Set[Tuple[str, str, str, bool]]] = {}
+
+        for edge in sorted(self.model.edges.values(), key=lambda item: getattr(item, "id", "")):
+            if not is_data_edge(self.model, edge):
+                continue
+            if not edge.dst_node or not edge.src_node:
+                continue
+            dst_node_obj = self.model.nodes.get(edge.dst_node)
+            if dst_node_obj is None:
+                continue
+
+            dst_is_pure = self._is_pure_data_node(edge.dst_node)
+            if not dst_is_pure:
+                continue
+
+            dst_canonical = self._resolve_canonical_original_id(edge.dst_node)
+            if not dst_canonical:
+                continue
+
+            src_is_pure = self._is_pure_data_node(edge.src_node)
+            src_template_id = self._resolve_canonical_original_id(edge.src_node) if src_is_pure else edge.src_node
+            if not src_template_id:
+                continue
+
+            templates_by_dst.setdefault(dst_canonical, set()).add(
+                (str(src_template_id), str(edge.src_port), str(edge.dst_port), bool(src_is_pure))
+            )
+
+            # 逻辑闭包只沿纯数据上游扩展（遇到流程/非纯数据即终止）
+            if not src_is_pure:
+                continue
+            src_canonical = self._resolve_canonical_original_id(edge.src_node)
+            if not src_canonical:
+                continue
+            upstream_by_dst.setdefault(dst_canonical, set()).add(src_canonical)
+
+        self._logical_upstream_by_data_dst = upstream_by_dst
+        self._incoming_edge_templates_by_canonical_dst = templates_by_dst
+
     def _is_pure_data_node(self, node_id: str) -> bool:
-        """判断是否为纯数据节点"""
         if self.layout_context is not None:
             return self.layout_context.is_pure_data_node(node_id)
-        
-        node = self.model.nodes.get(node_id)
-        if not node:
-            return False
-        
-        from engine.utils.graph.graph_utils import is_flow_port_name
-        
-        # 检查是否有流程端口
-        for port in node.inputs:
-            if is_flow_port_name(port.name):
-                return False
-        for port in node.outputs:
-            if is_flow_port_name(port.name):
-                return False
-        return True
+        return is_pure_data_node(node_id, self.model)
+
+    def _resolve_canonical_original_id(self, node_id: str) -> str:
+        """将任意数据节点（含副本）归一到其 canonical original id。"""
+        return resolve_canonical_original_id(node_id, model=self.model)
     
     def analyze_dependencies(self) -> None:
         """分析所有块的数据依赖"""
@@ -176,12 +278,14 @@ class GlobalCopyManager:
             )
             
             # 遍历流程节点的输入边，找到直接消费的数据节点
-            for flow_id in flow_ids:
+            for flow_id in sorted(flow_ids):
                 in_edges = self._data_in_edges_by_dst.get(flow_id, [])
                 for edge in in_edges:
-                    src_id = edge.src_node
+                    src_id = getattr(edge, "src_node", None)
+                    if not isinstance(src_id, str) or not src_id:
+                        continue
                     if self._is_pure_data_node(src_id):
-                        dependency.direct_data_consumers.add(src_id)
+                        dependency.direct_data_consumers.add(self._resolve_canonical_original_id(src_id))
             
             self.block_dependencies[block_id] = dependency
     
@@ -189,25 +293,22 @@ class GlobalCopyManager:
         """将直接消费扩展到完整的上游闭包"""
         for block_id, dependency in self.block_dependencies.items():
             visited: Set[str] = set()
-            queue = list(dependency.direct_data_consumers)
-            
-            while queue:
-                current_id = queue.pop(0)
-                if current_id in visited:
+            traversal_queue: deque[str] = deque(sorted(dependency.direct_data_consumers))
+
+            while traversal_queue:
+                current_canonical_id = traversal_queue.popleft()
+                if current_canonical_id in visited:
                     continue
-                visited.add(current_id)
-                
-                if not self._is_pure_data_node(current_id):
+                visited.add(current_canonical_id)
+
+                if not current_canonical_id:
                     continue
-                
-                dependency.full_data_closure.add(current_id)
-                
-                # 添加上游数据节点
-                in_edges = self._data_in_edges_by_dst.get(current_id, [])
-                for edge in in_edges:
-                    src_id = edge.src_node
-                    if self._is_pure_data_node(src_id) and src_id not in visited:
-                        queue.append(src_id)
+                dependency.full_data_closure.add(current_canonical_id)
+
+                upstream_candidates = self._logical_upstream_by_data_dst.get(current_canonical_id, set())
+                for upstream_canonical in sorted(upstream_candidates):
+                    if upstream_canonical and upstream_canonical not in visited:
+                        traversal_queue.append(upstream_canonical)
     
     def _identify_shared_nodes(self) -> None:
         """识别被多个块使用的数据节点"""
@@ -240,10 +341,13 @@ class GlobalCopyManager:
                 owner_block_index=owner_index,
             )
             
-            # 其他块需要创建副本（每个块只创建一个副本）
+            # 其他块需要创建/复用副本（每个块只创建一个副本）
             for block_id in block_ids[1:]:
-                copy_id = f"{data_id}_copy_{block_id}_1"
-                plan.copy_targets[block_id] = copy_id
+                existing_copy_id = self._existing_copy_by_original_and_block.get((data_id, block_id))
+                if existing_copy_id:
+                    plan.copy_targets[block_id] = existing_copy_id
+                else:
+                    plan.copy_targets[block_id] = f"{data_id}_copy_{block_id}_1"
             
             self.copy_plans[data_id] = plan
     
@@ -251,157 +355,231 @@ class GlobalCopyManager:
         """执行复制计划：创建副本并重定向边"""
         if not self.copy_plans:
             return
-        
-        # 步骤1：批量创建所有副本
-        self._create_all_copies()
-        
-        # 步骤2：重定向边（断开旧边，创建新边）
-        self._redirect_all_edges()
-        
-        # 步骤3：去重边（防止重复边）
-        self._dedupe_edges()
+
+        plan = self.build_application_plan()
+        self.apply_application_plan(plan)
     
-    def _create_all_copies(self) -> None:
-        """批量创建所有副本节点"""
-        for original_id, plan in self.copy_plans.items():
-            source_node = self.model.nodes.get(original_id)
-            if not source_node:
+    def build_application_plan(self) -> GlobalCopyApplicationPlan:
+        """基于当前 copy_plans 构建纯计划（不修改 model）。"""
+        owner_block_by_canonical: Dict[str, str] = {}
+        for canonical_id, block_ids in self.data_node_consumers.items():
+            if not block_ids:
                 continue
-            
-            for block_id, copy_id in plan.copy_targets.items():
-                copy_node = self._create_copy_node(source_node, copy_id, block_id)
-                self.model.nodes[copy_id] = copy_node
-                self.created_copies[(original_id, block_id)] = copy_id
-    
-    def _create_copy_node(
-        self,
-        source_node: NodeModel,
-        copy_id: str,
-        block_id: str,
-    ) -> NodeModel:
-        """创建副本节点"""
-        # 解析根原始节点ID
-        original_id = source_node.original_node_id if source_node.original_node_id else source_node.id
-        
-        copy_node = replace(
-            source_node,
-            id=copy_id,
-            is_data_node_copy=True,
-            original_node_id=original_id,
-            copy_block_id=block_id,
-            # 深拷贝端口列表
-            inputs=[PortModel(name=port.name, is_input=True) for port in source_node.inputs],
-            outputs=[PortModel(name=port.name, is_input=False) for port in source_node.outputs],
-            # 深拷贝常量
-            input_constants=dict(source_node.input_constants) if source_node.input_constants else {},
+            owner_block_by_canonical[canonical_id] = block_ids[0]
+
+        copy_nodes: List[CopyNodeSpec] = []
+        for canonical_id in sorted(self.copy_plans.keys()):
+            plan = self.copy_plans[canonical_id]
+            for block_id in sorted(plan.copy_targets.keys()):
+                copy_id = plan.copy_targets[block_id]
+                copy_counter = self._parse_copy_counter(copy_id)
+                copy_nodes.append(
+                    CopyNodeSpec(
+                        canonical_original_id=canonical_id,
+                        block_id=block_id,
+                        copy_node_id=copy_id,
+                        copy_counter=copy_counter,
+                    )
+                )
+
+        # 边重定向计划：针对现有数据边，按“目标实例所属块”把 src/dst 归一到同一块内的实例。
+        edge_mutations: List[EdgeMutation] = []
+        for edge in sorted(self.model.edges.values(), key=lambda item: getattr(item, "id", "")):
+            if not is_data_edge(self.model, edge):
+                continue
+
+            dst_id = getattr(edge, "dst_node", "") or ""
+            src_id = getattr(edge, "src_node", "") or ""
+            if not dst_id or not src_id:
+                continue
+
+            edge_block_id = self._resolve_edge_block_id(dst_id, owner_block_by_canonical)
+            if not edge_block_id:
+                continue
+
+            desired_src = src_id
+            if self._is_pure_data_node(src_id):
+                src_canonical = self._resolve_canonical_original_id(src_id)
+                desired_src = self._resolve_data_instance_id_for_block(src_canonical, edge_block_id, owner_block_by_canonical)
+
+            desired_dst = dst_id
+            if self._is_pure_data_node(dst_id):
+                dst_canonical = self._resolve_canonical_original_id(dst_id)
+                desired_dst = self._resolve_data_instance_id_for_block(dst_canonical, edge_block_id, owner_block_by_canonical)
+
+            if desired_src != src_id or desired_dst != dst_id:
+                edge_mutations.append(
+                    EdgeMutation(
+                        edge_id=str(edge.id),
+                        new_src_node=str(desired_src),
+                        new_dst_node=str(desired_dst),
+                    )
+                )
+
+        # 为每个副本补齐输入边：使用 canonical 入边模板，按块解析 src 实例
+        new_edges: List[NewEdgeSpec] = []
+        for spec in sorted(copy_nodes, key=lambda item: (item.canonical_original_id, item.block_id, item.copy_node_id)):
+            templates = self._incoming_edge_templates_by_canonical_dst.get(spec.canonical_original_id, set())
+            for template_src, src_port, dst_port, src_is_pure in sorted(templates):
+                resolved_src = template_src
+                if src_is_pure:
+                    resolved_src = self._resolve_data_instance_id_for_block(
+                        template_src,
+                        spec.block_id,
+                        owner_block_by_canonical,
+                    )
+                edge_id = self._make_deterministic_edge_id(
+                    resolved_src,
+                    src_port,
+                    spec.copy_node_id,
+                    dst_port,
+                )
+                new_edges.append(
+                    NewEdgeSpec(
+                        edge_id=edge_id,
+                        src_node=resolved_src,
+                        src_port=src_port,
+                        dst_node=spec.copy_node_id,
+                        dst_port=dst_port,
+                    )
+                )
+
+        planned = GlobalCopyApplicationPlan(
+            copy_nodes=tuple(copy_nodes),
+            edge_mutations=tuple(sorted(edge_mutations, key=lambda item: item.edge_id)),
+            new_edges=tuple(sorted(new_edges, key=lambda item: item.edge_id)),
         )
-        copy_node._rebuild_port_maps()
-        return copy_node
-    
-    def _redirect_all_edges(self) -> None:
-        """重定向所有边：断开旧边，创建新边"""
-        edges_to_remove: List[str] = []
-        edges_to_create: List[EdgeModel] = []
-        
-        for original_id, plan in self.copy_plans.items():
-            # 获取原始节点的所有输出边
-            out_edges = self._data_out_edges_by_src.get(original_id, [])
-            
-            for edge in out_edges:
-                dst_id = edge.dst_node
-                
-                # 判断目标节点所属的块
-                dst_block_id = self._get_node_block(dst_id)
-                if not dst_block_id:
-                    continue
-                
-                # 如果目标在owner块，保留原始边
-                if dst_block_id == plan.owner_block_id:
-                    continue
-                
-                # 如果目标在需要副本的块，断开旧边，创建新边
-                if dst_block_id in plan.copy_targets:
-                    copy_id = plan.copy_targets[dst_block_id]
-                    
-                    # 标记旧边待删除
-                    edges_to_remove.append(edge.id)
-                    
-                    # 检查目标是否也有副本
-                    dst_copy_id = self.created_copies.get((dst_id, dst_block_id))
-                    actual_dst = dst_copy_id if dst_copy_id else dst_id
-                    
-                    # 创建新边：副本 -> 目标
-                    new_edge = EdgeModel(
-                        id=f"edge_{uuid.uuid4().hex[:8]}",
-                        src_node=copy_id,
-                        src_port=edge.src_port,
-                        dst_node=actual_dst,
-                        dst_port=edge.dst_port,
-                    )
-                    edges_to_create.append(new_edge)
-            
-            # 处理副本的输入边
-            in_edges = self._data_in_edges_by_dst.get(original_id, [])
-            for block_id, copy_id in plan.copy_targets.items():
-                for edge in in_edges:
-                    # 检查源节点是否也有副本在这个块
-                    src_copy_id = self.created_copies.get((edge.src_node, block_id))
-                    actual_src = src_copy_id if src_copy_id else edge.src_node
-                    
-                    # 为副本创建输入边
-                    new_edge = EdgeModel(
-                        id=f"edge_{uuid.uuid4().hex[:8]}",
-                        src_node=actual_src,
-                        src_port=edge.src_port,
-                        dst_node=copy_id,
-                        dst_port=edge.dst_port,
-                    )
-                    edges_to_create.append(new_edge)
-        
-        # 删除旧边
-        for edge_id in edges_to_remove:
-            if edge_id in self.model.edges:
-                del self.model.edges[edge_id]
-        
-        # 添加新边
-        for edge in edges_to_create:
-            self.model.edges[edge.id] = edge
-    
-    def _get_node_block(self, node_id: str) -> Optional[str]:
-        """获取节点所属的块ID"""
-        # 流程节点
-        if node_id in self._flow_to_block:
-            return self._flow_to_block[node_id]
-        
-        # 数据节点：检查它被哪个块消费
-        # 这里需要根据消费者来判断
-        out_edges = self._data_out_edges_by_src.get(node_id, [])
-        for edge in out_edges:
-            dst_id = edge.dst_node
-            if dst_id in self._flow_to_block:
-                return self._flow_to_block[dst_id]
-        
-        # 如果没有直接消费者，检查它属于哪个块的闭包
-        for block_id, dependency in self.block_dependencies.items():
-            if node_id in dependency.full_data_closure:
-                return block_id
-        
-        return None
-    
-    def _dedupe_edges(self) -> None:
-        """去除重复边"""
-        seen_edges: Dict[Tuple[str, str, str, str], str] = {}
-        edges_to_remove: List[str] = []
-        
-        for edge_id, edge in self.model.edges.items():
-            key = (edge.src_node, edge.src_port, edge.dst_node, edge.dst_port)
-            if key in seen_edges:
-                edges_to_remove.append(edge_id)
+        self._application_plan = planned
+        return planned
+
+    def apply_application_plan(self, plan: GlobalCopyApplicationPlan) -> None:
+        """执行纯计划：创建缺失副本、原地重定向边、补齐输入边，并去重。"""
+        self._ensure_copy_nodes(plan.copy_nodes)
+        self._apply_edge_mutations(plan.edge_mutations)
+        self._ensure_new_edges(plan.new_edges)
+        self._dedupe_edges_after_application()
+
+    def _ensure_copy_nodes(self, copy_nodes: Iterable[CopyNodeSpec]) -> None:
+        """确保副本节点存在（优先复用已有副本）。"""
+        for spec in copy_nodes:
+            key = (spec.canonical_original_id, spec.block_id)
+            existing = self._existing_copy_by_original_and_block.get(key)
+            if existing and existing in self.model.nodes:
+                self.created_copies[key] = existing
+                continue
+            if spec.copy_node_id in self.model.nodes:
+                self.created_copies[key] = spec.copy_node_id
+                continue
+            source_node = self.model.nodes.get(spec.canonical_original_id)
+            if source_node is None:
+                continue
+            created = create_data_node_copy(
+                original_node=source_node,
+                model=self.model,
+                block_id=spec.block_id,
+                copy_counter=max(spec.copy_counter, 1),
+            )
+            self.created_copies[key] = created.id
+
+    def _apply_edge_mutations(self, edge_mutations: Iterable[EdgeMutation]) -> None:
+        """原地重定向既有数据边（保持 edge.id 不变）。"""
+        for mutation in edge_mutations:
+            edge = self.model.edges.get(mutation.edge_id)
+            if edge is None:
+                continue
+            edge.src_node = mutation.new_src_node
+            edge.dst_node = mutation.new_dst_node
+
+    def _ensure_new_edges(self, new_edges: Iterable[NewEdgeSpec]) -> None:
+        """新增副本输入边（若同构边已存在则跳过）。"""
+        existing_keys: Set[Tuple[str, str, str, str]] = set()
+        for edge in self.model.edges.values():
+            existing_keys.add((edge.src_node, edge.src_port, edge.dst_node, edge.dst_port))
+
+        for spec in new_edges:
+            key = (spec.src_node, spec.src_port, spec.dst_node, spec.dst_port)
+            if key in existing_keys:
+                continue
+            if spec.edge_id in self.model.edges:
+                # 若 ID 已存在但内容不同，仍然保持确定性：生成基于 key 的替代 ID
+                fallback_id = self._make_deterministic_edge_id(
+                    spec.src_node,
+                    spec.src_port,
+                    spec.dst_node,
+                    spec.dst_port,
+                )
+                edge_id = fallback_id
             else:
-                seen_edges[key] = edge_id
-        
-        for edge_id in edges_to_remove:
-            del self.model.edges[edge_id]
+                edge_id = spec.edge_id
+            self.model.edges[edge_id] = EdgeModel(
+                id=edge_id,
+                src_node=spec.src_node,
+                src_port=spec.src_port,
+                dst_node=spec.dst_node,
+                dst_port=spec.dst_port,
+            )
+            existing_keys.add(key)
+
+    def _dedupe_edges_after_application(self) -> None:
+        """去重（防止既有边与新边形成重复）。"""
+        from .node_copy_utils import _dedupe_edges  # type: ignore
+
+        _dedupe_edges(self.model)
+
+    def _resolve_edge_block_id(
+        self,
+        dst_node_id: str,
+        owner_block_by_canonical: Dict[str, str],
+    ) -> str:
+        """确定一条数据边应归属的块：优先使用目标节点实例的块语义。"""
+        if dst_node_id in self._flow_to_block:
+            return self._flow_to_block[dst_node_id]
+        dst_node = self.model.nodes.get(dst_node_id)
+        if dst_node is None:
+            return ""
+        if is_data_node_copy(dst_node):
+            block_id = resolve_copy_block_id(dst_node)
+            if block_id:
+                return str(block_id)
+            return infer_copy_block_id_from_node_id(dst_node_id)
+        if self._is_pure_data_node(dst_node_id):
+            canonical = self._resolve_canonical_original_id(dst_node_id)
+            return owner_block_by_canonical.get(canonical, "")
+        return ""
+
+    def _resolve_data_instance_id_for_block(
+        self,
+        canonical_original_id: str,
+        block_id: str,
+        owner_block_by_canonical: Dict[str, str],
+    ) -> str:
+        """解析“某 canonical 数据节点在某块内应使用哪个实例 ID”。"""
+        if not canonical_original_id or not block_id:
+            return canonical_original_id
+        owner_block = owner_block_by_canonical.get(canonical_original_id, "")
+        if not owner_block or owner_block == block_id:
+            return canonical_original_id
+        plan = self.copy_plans.get(canonical_original_id)
+        if plan is None:
+            # 该节点未被识别为共享节点，不应在非 owner 块引用；保持原值让后续校验发现问题
+            return canonical_original_id
+        copy_id = plan.copy_targets.get(block_id)
+        if not copy_id:
+            # 计划缺失时保持原值，避免抛异常污染布局；调用方可通过断言检查发现
+            return canonical_original_id
+        return copy_id
+
+    @staticmethod
+    def _parse_copy_counter(node_id: str) -> int:
+        parsed = parse_copy_counter(node_id)
+        return int(parsed) if parsed < ORDER_MAX_FALLBACK else 1
+
+    @staticmethod
+    def _make_deterministic_edge_id(src_node: str, src_port: str, dst_node: str, dst_port: str) -> str:
+        """基于边语义生成确定性的 edge id。"""
+        payload = f"{src_node}|{src_port}|{dst_node}|{dst_port}".encode("utf-8")
+        digest = hashlib.sha1(payload).hexdigest()[:12]
+        return f"edge_copy_{digest}"
     
     def get_block_copy_mapping(self, block_id: str) -> Dict[str, str]:
         """获取指定块的副本映射：原始ID -> 副本ID"""

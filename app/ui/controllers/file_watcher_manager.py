@@ -2,18 +2,72 @@
 
 from __future__ import annotations
 
+from collections import deque
 import time
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Deque, Iterable
 
 from PyQt6 import QtCore, QtWidgets
 
+from engine.configs.settings import settings
 from engine.resources.resource_manager import ResourceManager, ResourceType
 from engine.resources.definition_schema_view import (
     invalidate_default_struct_cache,
     invalidate_default_signal_cache,
 )
 from engine.graph.models.graph_config import GraphConfig
+
+
+class _ResourceWatchDirScanner(QtCore.QObject):
+    """后台线程：扫描资源库目录树，生成需要被监控的目录列表。
+
+    设计目标：
+    - 避免在主线程内执行 `Path.rglob()` 等可能耗时的 IO 扫描；
+    - 仅负责“收集路径”，不触碰 `QFileSystemWatcher`（后者必须在主线程操作）。
+    """
+
+    scan_finished = QtCore.pyqtSignal(list)  # list[str]，每项为目录路径字符串
+
+    def __init__(self, resource_root: Path) -> None:
+        super().__init__()
+        self._resource_root = resource_root
+
+    @QtCore.pyqtSlot()
+    def run(self) -> None:
+        resource_root = self._resource_root
+        if not resource_root.exists():
+            self.scan_finished.emit([])
+            return
+
+        # 需要递归监控的根目录列表
+        root_dirs_to_watch: list[Path] = [
+            resource_root,
+            resource_root / "实例",
+            resource_root / "元件库",
+            resource_root / "管理配置",
+            resource_root / "战斗预设",
+            resource_root / "节点图",
+            resource_root / "复合节点库",
+            resource_root / "功能包索引",
+        ]
+
+        ignored_dir_names = {"__pycache__", ".git", ".vscode", "__MACOSX"}
+
+        candidate_dirs: list[str] = []
+        for root_dir in root_dirs_to_watch:
+            if not root_dir.exists() or not root_dir.is_dir():
+                continue
+            candidate_dirs.append(str(root_dir))
+            for sub_dir in root_dir.rglob("*"):
+                if not sub_dir.is_dir():
+                    continue
+                if sub_dir.name in ignored_dir_names:
+                    continue
+                candidate_dirs.append(str(sub_dir))
+
+        # 去重（保持大致顺序即可）
+        unique_dirs: list[str] = list(dict.fromkeys(candidate_dirs))
+        self.scan_finished.emit(unique_dirs)
 
 
 class FileWatcherManager(QtCore.QObject):
@@ -39,6 +93,7 @@ class FileWatcherManager(QtCore.QObject):
         self.file_watcher = QtCore.QFileSystemWatcher()
         self.file_watcher.fileChanged.connect(self._on_graph_file_changed)
         self.file_watcher.directoryChanged.connect(self._on_resource_directory_changed)
+        self._watcher_signals_connected: bool = True
         
         # 状态
         self.current_graph_file_path: Optional[Path] = None
@@ -46,6 +101,7 @@ class FileWatcherManager(QtCore.QObject):
         self._watched_graph_id: Optional[str] = None
         self._last_save_time: float = 0  # 记录最后保存时间，用于防抖
         self._is_cleaning_up = False  # 标记是否正在清理（避免重复清理）
+        self._has_cleaned_up: bool = False  # 标记是否已完成清理（确保 cleanup 幂等）
         
         # 用于获取当前图ID和场景（由主窗口设置）
         self.get_current_graph_id = None
@@ -62,9 +118,22 @@ class FileWatcherManager(QtCore.QObject):
         self._resource_watch_dirs: list[Path] = []
         # 最近一次记录的资源库指纹
         self._resource_library_fingerprint: str = self.resource_manager.get_resource_library_fingerprint()
+        # 是否启用资源库自动刷新（由全局设置控制，可在运行时切换）
+        self._resource_auto_refresh_enabled: bool = bool(
+            getattr(settings, "RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED", True)
+        )
 
-        # 启动时为资源库 JSON 目录建立监控
-        self._setup_resource_watchers()
+        # 资源库目录监控初始化：延后到事件循环启动后再进行，
+        # 避免在主线程构造阶段（窗口尚未显示）执行递归扫描导致启动卡顿。
+        self._resource_watch_setup_scheduled: bool = False
+        self._resource_watch_scan_thread: Optional[QtCore.QThread] = None
+        self._resource_watch_scanner: Optional[_ResourceWatchDirScanner] = None
+        self._pending_resource_watch_dirs: Deque[Path] = deque()
+        self._resource_watch_setup_started_at: float = 0.0
+        self._resource_watch_added_count: int = 0
+
+        if self._resource_auto_refresh_enabled:
+            self._schedule_resource_watchers_setup()
     
     def setup_file_watcher(self, graph_id: str) -> None:
         """设置文件监控（带资源清理）"""
@@ -95,55 +164,92 @@ class FileWatcherManager(QtCore.QObject):
                     print(f"[文件监控] 监控添加失败: {file_path}")
                     self.current_graph_file_path = None
 
-    def _setup_resource_watchers(self) -> None:
-        """为资源库目录（含子目录）添加文件系统监控。
-        
-        QFileSystemWatcher.directoryChanged 只有在被监控的目录本身发生变化时才会触发，
-        修改子目录中的文件不会触发上级目录的变更信号，因此需要递归监控所有子目录。
-        """
-        self._resource_watch_dirs.clear()
-        resource_root = self.resource_manager.resource_library_dir
-        if not resource_root.exists():
+    def _schedule_resource_watchers_setup(self) -> None:
+        """延后初始化资源库目录监控（非阻塞 UI）。"""
+        if not self._resource_auto_refresh_enabled:
+            return
+        if self._resource_watch_setup_scheduled:
+            return
+        self._resource_watch_setup_scheduled = True
+        QtCore.QTimer.singleShot(0, self._start_resource_watchers_setup)
+
+    def _start_resource_watchers_setup(self) -> None:
+        """启动后台扫描线程，扫描完成后在主线程分批添加 watcher。"""
+        if not self._resource_auto_refresh_enabled:
+            return
+        if self._resource_watch_scan_thread is not None:
             return
 
-        # 需要递归监控的根目录列表
-        root_dirs_to_watch = [
-            resource_root / "实例",
-            resource_root / "元件库",
-            resource_root / "管理配置",
-            resource_root / "战斗预设",
-            resource_root / "节点图",
-            resource_root / "复合节点库",
-            resource_root / "地图索引",
-        ]
-        
-        # 应该忽略的目录名（如 __pycache__）
-        ignored_dir_names = {"__pycache__", ".git", ".vscode", "__MACOSX"}
-        
-        # 收集所有需要监控的目录（包括根目录及其子目录）
-        candidate_dirs = [resource_root]
-        for root_dir in root_dirs_to_watch:
-            if not root_dir.exists() or not root_dir.is_dir():
-                continue
-            candidate_dirs.append(root_dir)
-            # 递归收集所有子目录
-            for sub_dir in root_dir.rglob("*"):
-                if sub_dir.is_dir() and sub_dir.name not in ignored_dir_names:
-                    candidate_dirs.append(sub_dir)
-        
-        existing_dirs = set(self.file_watcher.directories())
+        self._resource_watch_setup_started_at = time.monotonic()
+        self._resource_watch_added_count = 0
+        self._resource_watch_dirs.clear()
 
-        for directory in candidate_dirs:
-            if not directory.exists() or not directory.is_dir():
+        resource_root = self.resource_manager.resource_library_dir
+        scan_thread = QtCore.QThread(self)
+        scanner = _ResourceWatchDirScanner(resource_root)
+        scanner.moveToThread(scan_thread)
+
+        scan_thread.started.connect(scanner.run)
+        scanner.scan_finished.connect(self._on_resource_watch_dirs_scanned)
+        scanner.scan_finished.connect(scan_thread.quit)
+        scan_thread.finished.connect(scanner.deleteLater)
+        scan_thread.finished.connect(scan_thread.deleteLater)
+
+        self._resource_watch_scan_thread = scan_thread
+        self._resource_watch_scanner = scanner
+        scan_thread.start()
+
+    def _on_resource_watch_dirs_scanned(self, dir_paths: list) -> None:
+        """后台扫描完成：将目录队列交给主线程分批添加。"""
+        # 这里使用 list（来自 Qt 信号），元素为 str
+        pending_dirs: Deque[Path] = deque()
+        for path_value in dir_paths:
+            if not isinstance(path_value, str) or not path_value:
                 continue
-            path_str = str(directory)
+            pending_dirs.append(Path(path_value))
+
+        self._pending_resource_watch_dirs = pending_dirs
+        self._add_resource_watchers_in_batches()
+
+    def _add_resource_watchers_in_batches(self) -> None:
+        """在主线程分批添加 watcher，避免一次性 addPath 卡住 UI。"""
+        if not self._resource_auto_refresh_enabled:
+            self._pending_resource_watch_dirs.clear()
+            return
+
+        existing_dirs = set(self.file_watcher.directories())
+        batch_limit = 120  # 每帧最多添加多少个目录 watcher
+        added_in_batch = 0
+
+        while self._pending_resource_watch_dirs and added_in_batch < batch_limit:
+            directory_path = self._pending_resource_watch_dirs.popleft()
+            if not directory_path.exists() or not directory_path.is_dir():
+                continue
+            path_str = str(directory_path)
             if path_str in existing_dirs:
-                self._resource_watch_dirs.append(directory)
+                self._resource_watch_dirs.append(directory_path)
                 continue
             success = self.file_watcher.addPath(path_str)
             if success:
-                self._resource_watch_dirs.append(directory)
-                print(f"[文件监控] 开始监控资源库目录: {directory}")
+                self._resource_watch_dirs.append(directory_path)
+                self._resource_watch_added_count += 1
+                existing_dirs.add(path_str)
+            added_in_batch += 1
+
+        if self._pending_resource_watch_dirs:
+            QtCore.QTimer.singleShot(0, self._add_resource_watchers_in_batches)
+            return
+
+        elapsed_seconds = time.monotonic() - self._resource_watch_setup_started_at
+        print(
+            "[文件监控] 资源库目录监控已建立："
+            f"watched_dirs={len(self._resource_watch_dirs)}, "
+            f"added_new={self._resource_watch_added_count}, "
+            f"elapsed={elapsed_seconds:.2f}s"
+        )
+
+        self._resource_watch_scan_thread = None
+        self._resource_watch_scanner = None
     
     def _get_graph_file_path(self, graph_id: str) -> Optional[Path]:
         """获取节点图的文件路径"""
@@ -160,18 +266,31 @@ class FileWatcherManager(QtCore.QObject):
             return
         
         print(f"[文件监控] 检测到文件变化: {file_path}")
-        
-        # 检查文件是否还存在
-        file_path_obj = Path(file_path)
-        if not file_path_obj.exists():
-            self.show_toast.emit("节点图文件已被删除", "error")
-            return
-        
-        # 延迟一小段时间再处理（Windows文件系统延迟）
-        QtCore.QTimer.singleShot(200, self._handle_file_change)
+
+        # 延迟一小段时间再处理（Windows 文件系统 + 编辑器原子写入/重命名会造成短暂抖动）
+        # 使用可取消的单次计时器合并多次 fileChanged 事件，避免重复重载。
+        if self._change_timer is None:
+            self._change_timer = QtCore.QTimer(self)
+            self._change_timer.setSingleShot(True)
+            self._change_timer.timeout.connect(self._handle_file_change)
+        self._change_timer.start(200)
     
     def _handle_file_change(self) -> None:
         """实际处理文件变化（延迟执行）"""
+        # 某些编辑器会用“删除旧文件→写新文件→重命名覆盖”的方式保存，
+        # 这会导致 QFileSystemWatcher 在一次变更中短暂失去监控或看到文件不存在。
+        # 这里统一在延迟后检查一次当前监控目标，并尽量恢复对该路径的 watcher。
+        graph_file_path = self.current_graph_file_path
+        if graph_file_path is None or not graph_file_path.exists():
+            self.show_toast.emit("节点图文件已被删除", "error")
+            return
+
+        watched_files = set(self.file_watcher.files())
+        graph_file_path_text = str(graph_file_path)
+        if graph_file_path_text not in watched_files:
+            self.file_watcher.addPath(graph_file_path_text)
+            print(f"[文件监控] 已恢复监控: {graph_file_path}")
+
         # 检测是否有本地未保存的修改（仅当当前编辑的图与监控目标相同时才认为有冲突）
         has_local_changes = False
         active_graph_id: Optional[str] = None
@@ -195,6 +314,8 @@ class FileWatcherManager(QtCore.QObject):
     
     def _on_resource_directory_changed(self, directory_path: str) -> None:
         """资源库目录发生变化（新增/删除/重命名 JSON 等）。"""
+        if not self._resource_auto_refresh_enabled:
+            return
         if not directory_path:
             return
         if self._resource_change_timer is None:
@@ -285,7 +406,7 @@ class FileWatcherManager(QtCore.QObject):
     
     def _show_conflict_dialog(self) -> None:
         """显示冲突解决对话框"""
-        from ui.dialogs.conflict_resolution_dialog import ConflictResolutionDialog
+        from app.ui.dialogs.conflict_resolution_dialog import ConflictResolutionDialog
         from datetime import datetime
         
         # 获取节点图名称
@@ -327,7 +448,7 @@ class FileWatcherManager(QtCore.QObject):
     
     def cleanup(self) -> None:
         """清理文件监控（防止资源泄露）"""
-        if self._is_cleaning_up:
+        if self._is_cleaning_up or self._has_cleaned_up:
             return  # 避免重复清理
         
         self._is_cleaning_up = True
@@ -357,18 +478,44 @@ class FileWatcherManager(QtCore.QObject):
         self.current_graph_file_path = None
         
         # 断开信号连接（防止内存泄露）
-        self.file_watcher.fileChanged.disconnect()
-        self.file_watcher.directoryChanged.disconnect()
+        if self._watcher_signals_connected:
+            self.file_watcher.fileChanged.disconnect(self._on_graph_file_changed)
+            self.file_watcher.directoryChanged.disconnect(self._on_resource_directory_changed)
+            self._watcher_signals_connected = False
         
         print(f"[文件监控] 资源清理完成")
+        self._has_cleaned_up = True
         self._is_cleaning_up = False
+    
+    def set_resource_auto_refresh_enabled(self, enabled: bool) -> None:
+        """启用或关闭资源库自动刷新（仅影响资源库目录监控，不影响当前图文件监控）。
+
+        Args:
+            enabled: True 启用自动刷新；False 关闭自动刷新，仅保留手动“更新”入口。
+        """
+        normalized_enabled = bool(enabled)
+        if normalized_enabled == self._resource_auto_refresh_enabled:
+            return
+        
+        self._resource_auto_refresh_enabled = normalized_enabled
+        
+        if not normalized_enabled:
+            # 关闭自动刷新：移除所有资源库目录监控，保留当前图文件监控。
+            if self._resource_watch_dirs:
+                watched_directories = set(self.file_watcher.directories())
+                for directory in self._resource_watch_dirs:
+                    path_str = str(directory)
+                    if path_str in watched_directories:
+                        self.file_watcher.removePath(path_str)
+                self._resource_watch_dirs.clear()
+            self._pending_resource_watch_dirs.clear()
+            self._resource_watch_setup_scheduled = False
+            return
+        
+        # 启用自动刷新：根据当前资源库目录结构重新建立监控。
+        self._schedule_resource_watchers_setup()
     
     def get_watched_files_count(self) -> int:
         """获取当前监控的文件数量（用于调试）"""
         return len(self.file_watcher.files())
     
-    def __del__(self):
-        """析构函数 - 确保资源被释放"""
-        if not self._is_cleaning_up:
-            self.cleanup()
-

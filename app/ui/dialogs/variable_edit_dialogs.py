@@ -8,9 +8,9 @@ from PyQt6 import QtWidgets
 
 from engine.graph.models.entity_templates import get_all_variable_types
 from engine.graph.models.package_model import GraphVariableConfig, VariableConfig
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import Colors, ThemeManager
-from ui.foundation import dialog_utils
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import Colors, ThemeManager
+from app.ui.foundation import dialog_utils
 
 
 class _BaseVariableDialog(BaseDialog):

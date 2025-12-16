@@ -231,4 +231,85 @@ class UiNavigationRequest:
             payload=dict(detail),
         )
 
+    @staticmethod
+    def for_property_panel_entity(
+        *,
+        entity_type: str,
+        entity_id: str,
+        package_id: str,
+        origin: Optional[str] = None,
+    ) -> "UiNavigationRequest":
+        """从各类“跳到实体”请求构造导航请求（右侧属性面板聚焦）。"""
+        return UiNavigationRequest(
+            resource_kind=entity_type,
+            resource_id=entity_id,
+            package_id=package_id,
+            desired_focus="property_panel",
+            origin=origin,
+        )
+
+    @staticmethod
+    def for_open_player_editor(*, origin: Optional[str] = None) -> "UiNavigationRequest":
+        """打开战斗预设的玩家编辑器页面。"""
+        return UiNavigationRequest(
+            resource_kind="combat",
+            resource_id=None,
+            desired_focus="player_editor",
+            origin=origin,
+        )
+
+    @staticmethod
+    def for_todo_task(
+        detail_info: Dict[str, object],
+        *,
+        origin: Optional[str] = None,
+    ) -> "UiNavigationRequest":
+        """从 Todo 的 detail_info 构造“跳到任务相关节点图”的导航请求。"""
+        graph_id = str(detail_info.get("graph_id") or "")
+        return UiNavigationRequest(
+            resource_kind="graph_task",
+            resource_id=graph_id,
+            graph_id=graph_id or None,
+            desired_focus="graph_task",
+            origin=origin,
+            payload=dict(detail_info),
+        )
+
+    @staticmethod
+    def for_todo_preview_jump(
+        jump_info: Dict[str, object],
+        *,
+        origin: Optional[str] = None,
+    ) -> Optional["UiNavigationRequest"]:
+        """从 Todo 预览跳转信息构造导航请求。
+
+        约定：jump_info["type"] in {"node", "edge"}。
+        """
+        jump_type = str(jump_info.get("type") or "")
+        if jump_type == "node":
+            node_id = jump_info.get("node_id")
+            return UiNavigationRequest(
+                resource_kind="graph_preview",
+                resource_id=None,
+                desired_focus="graph_node",
+                origin=origin,
+                node_id=str(node_id) if node_id else None,
+                payload=dict(jump_info),
+            )
+        if jump_type == "edge":
+            edge_id = jump_info.get("edge_id")
+            source_node_id = jump_info.get("src_node")
+            target_node_id = jump_info.get("dst_node")
+            return UiNavigationRequest(
+                resource_kind="graph_preview",
+                resource_id=None,
+                desired_focus="graph_edge",
+                origin=origin,
+                edge_id=str(edge_id) if edge_id else None,
+                source_node_id=str(source_node_id) if source_node_id else None,
+                target_node_id=str(target_node_id) if target_node_id else None,
+                payload=dict(jump_info),
+            )
+        return None
+
 

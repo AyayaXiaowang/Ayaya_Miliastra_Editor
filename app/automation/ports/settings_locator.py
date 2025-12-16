@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional, Tuple, Any
 
-from app.automation.core import executor_utils as _exec_utils
+from app.automation.editor import executor_utils as _exec_utils
 from app.automation.ports._ports import (
     normalize_kind_text,
     get_port_category,

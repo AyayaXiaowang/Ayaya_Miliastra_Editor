@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set,
 
 from engine.configs.rules import COMPONENT_DEFINITIONS
 from engine.graph.models import InstanceConfig, TemplateConfig
+from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.resource_manager import ResourceManager
 
 from app.models import TodoItem
@@ -23,20 +24,30 @@ if TYPE_CHECKING:
 
 
 _TYPE_HELPER_CACHE: Dict[str, NodeTypeHelper] = {}
-_PACKAGE_LOADER_CACHE: Dict[Tuple[int, int], PackageLoader] = {}
+_PACKAGE_LOADER_CACHE: Dict[Tuple[str, str, int], PackageLoader] = {}
 
 
 class TodoGenerator:
     """任务生成器（仅 orchestrator，不关心 UI）"""
 
-    def __init__(self, package: "PackageLike", resource_manager: Optional[ResourceManager] = None):
+    def __init__(
+        self,
+        package: "PackageLike",
+        resource_manager: Optional[ResourceManager] = None,
+        *,
+        package_index_manager: Optional[PackageIndexManager] = None,
+    ):
         self.package = package
         self.resource_manager = resource_manager
         self.todos: List[TodoItem] = []
         self.todo_map: Dict[str, TodoItem] = {}
 
         self.type_helper = _get_or_create_type_helper(resource_manager)
-        self.package_loader = PackageLoader(package, resource_manager)
+        self.package_loader = PackageLoader(
+            package,
+            resource_manager,
+            package_index_manager=package_index_manager,
+        )
         self.graph_coordinator = GraphTaskCoordinator(
             type_helper=self.type_helper,
             resource_manager=resource_manager,
@@ -154,6 +165,7 @@ class TodoGenerator:
         *,
         package: "PackageLike",
         resource_manager: ResourceManager,
+        package_index_manager: Optional[PackageIndexManager] = None,
         parent_id: str,
         graph_id: str,
         graph_name: str,
@@ -180,7 +192,11 @@ class TodoGenerator:
             resource_manager=resource_manager,
             add_todo=_add,
             todo_map=todo_map,
-            package_loader=_get_or_create_package_loader(package, resource_manager),
+            package_loader=_get_or_create_package_loader(
+                package,
+                resource_manager,
+                package_index_manager=package_index_manager,
+            ),
         )
         coordinator.generate_graph_tasks(
             parent_id=parent_id,
@@ -654,12 +670,22 @@ def _get_or_create_type_helper(resource_manager: Optional[ResourceManager]) -> N
     return cached
 
 
-def _get_or_create_package_loader(package: "PackageLike", resource_manager: ResourceManager) -> PackageLoader:
+def _get_or_create_package_loader(
+    package: "PackageLike",
+    resource_manager: ResourceManager,
+    *,
+    package_index_manager: Optional[PackageIndexManager] = None,
+) -> PackageLoader:
     package_id = getattr(package, "package_id", "") or str(id(package))
     workspace_key = getattr(resource_manager, "workspace_path", None)
-    cache_key = (package_id, str(workspace_key or "__none__"))
+    pim_key = id(package_index_manager) if package_index_manager is not None else 0
+    cache_key = (str(package_id), str(workspace_key or "__none__"), int(pim_key))
     cached = _PACKAGE_LOADER_CACHE.get(cache_key)
     if cached is None:
-        cached = PackageLoader(package, resource_manager)
+        cached = PackageLoader(
+            package,
+            resource_manager,
+            package_index_manager=package_index_manager,
+        )
         _PACKAGE_LOADER_CACHE[cache_key] = cached
     return cached

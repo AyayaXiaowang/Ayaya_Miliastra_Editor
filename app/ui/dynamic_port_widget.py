@@ -10,12 +10,12 @@ from engine.nodes.port_name_rules import (
     map_index_to_range_instance,
     parse_range_definition,
 )
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.dialog_utils import show_warning_dialog
-from ui.foundation.theme_manager import Colors, ThemeManager
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation.theme_manager import Colors, ThemeManager
 
 if TYPE_CHECKING:
-    from ui.graph.graph_scene import NodeGraphicsItem, GraphScene
+    from app.ui.graph.graph_scene import NodeGraphicsItem, GraphScene
 
 
 class AddPortButton(QtWidgets.QGraphicsItem):
@@ -140,8 +140,8 @@ class AddPortButton(QtWidgets.QGraphicsItem):
         self._add_port_via_command(scene, port_name, is_input=False)
 
     def _add_port_via_command(self, scene: QtWidgets.QGraphicsScene, port_name: str, is_input: bool) -> None:
-        from ui.graph.graph_undo import AddPortCommand
-        from ui.graph.graph_scene import GraphScene
+        from app.ui.graph.graph_undo import AddPortCommand
+        from app.ui.graph.graph_scene import GraphScene
 
         if not isinstance(scene, GraphScene) or not scene.undo_manager:
             return

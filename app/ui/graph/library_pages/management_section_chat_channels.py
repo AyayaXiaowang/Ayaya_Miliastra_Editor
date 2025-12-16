@@ -124,7 +124,7 @@ class ChatChannelsSection(BaseManagementSection):
         )
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             channel_id_text = channel_id_widget.text().strip()
             if not channel_id_text:

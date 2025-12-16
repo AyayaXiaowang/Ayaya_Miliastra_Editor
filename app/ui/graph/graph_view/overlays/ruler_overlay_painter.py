@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6 import QtCore, QtGui
 
-from ui.foundation.theme_manager import Colors
+from app.ui.foundation.theme_manager import Colors
 
 if TYPE_CHECKING:
     from PyQt6 import QtWidgets

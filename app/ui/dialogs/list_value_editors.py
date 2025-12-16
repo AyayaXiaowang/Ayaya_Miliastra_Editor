@@ -4,13 +4,13 @@ from typing import List, Optional, Sequence
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.dialogs.table_edit_helpers import (
+from app.ui.dialogs.table_edit_helpers import (
     wrap_click_to_edit_line_edit_for_table_cell,
 )
-from ui.dialogs.value_editor_common_widgets import ClickToEditLineEdit
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Sizes, ThemeManager, Icons as ThemeIcons
+from app.ui.dialogs.value_editor_common_widgets import ClickToEditLineEdit
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.theme_manager import Sizes, ThemeManager, Icons as ThemeIcons
 
 
 class _ListTableEditorWidget(QtWidgets.QWidget):

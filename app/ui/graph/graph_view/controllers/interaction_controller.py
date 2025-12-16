@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Optional
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 if TYPE_CHECKING:
-    from ui.graph.graph_view import GraphView
+    from app.ui.graph.graph_view import GraphView
 
 
 class GraphViewInteractionController:
@@ -81,7 +81,7 @@ class GraphViewInteractionController:
                     event.accept()
                     return True
         
-        from ui.foundation.interaction_helpers import handle_wheel_zoom_for_view
+        from app.ui.foundation.interaction_helpers import handle_wheel_zoom_for_view
         handle_wheel_zoom_for_view(self.view, event, base_factor_per_step=1.15, min_scale=0.02, max_scale=5.0)
         # 失效背景层以保持网格与缩放后一致
         self.invalidate_background()
@@ -191,7 +191,7 @@ class GraphViewInteractionController:
             self.begin_pan_frame_settings()
             return True  # 已处理，需要伪造左键事件
         
-        # 左键普通交互（节点拖拽/框选/端口连线预览）：根据命中类型决定是否临时提升更新模式
+        # 左键普通交互（节点拖拽/框选/端口连线预览）：根据命中类型动态切换拖拽模式，并在交互期间统一提升更新模式
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             # 记录按下位置，用于后续判断是否为“点击”而非拖拽
             self._last_left_press_pos = event.pos()
@@ -200,8 +200,8 @@ class GraphViewInteractionController:
             item = self.view.scene().itemAt(scene_pos, QtGui.QTransform()) if self.view.scene() else None
             
             # 导入需要在运行时进行
-            from ui.graph.items.node_item import NodeGraphicsItem
-            from ui.graph.items.port_item import PortGraphicsItem
+            from app.ui.graph.items.node_item import NodeGraphicsItem
+            from app.ui.graph.items.port_item import PortGraphicsItem
             
             # 点击到节点或端口：使用 NoDrag 允许拖拽节点/连线
             hit_node_or_port = isinstance(item, (NodeGraphicsItem, PortGraphicsItem)) or (
@@ -209,10 +209,11 @@ class GraphViewInteractionController:
             )
             if hit_node_or_port:
                 self.view.setDragMode(QtWidgets.QGraphicsView.DragMode.NoDrag)
-                self.begin_interaction_frame_settings()
             else:
                 # 点击空白处：启用框选
                 self.view.setDragMode(QtWidgets.QGraphicsView.DragMode.RubberBandDrag)
+            # 对所有左键交互（包括节点拖拽与框选）启用高刷新模式，避免残影
+            self.begin_interaction_frame_settings()
         
         return False  # 未拦截，继续传递
     
@@ -254,7 +255,7 @@ class GraphViewInteractionController:
                         scene_pos = self.view.mapToScene(event.pos())
                         item = scene.itemAt(scene_pos, QtGui.QTransform())
 
-                        from ui.graph.graph_scene import NodeGraphicsItem, EdgeGraphicsItem
+                        from app.ui.graph.graph_scene import NodeGraphicsItem, EdgeGraphicsItem
 
                         if isinstance(item, NodeGraphicsItem):
                             node_id = getattr(item.node, "id", "")
@@ -287,7 +288,7 @@ class GraphViewInteractionController:
         Returns:
             True 表示事件已处理
         """
-        from ui.graph.graph_scene import NodeGraphicsItem, EdgeGraphicsItem
+        from app.ui.graph.graph_scene import NodeGraphicsItem, EdgeGraphicsItem
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             scene_pos = self.view.mapToScene(event.pos())
             item = self.view.scene().itemAt(scene_pos, QtGui.QTransform())
@@ -406,7 +407,7 @@ class GraphViewInteractionController:
         if self._panning:
             run_followups = self._should_run_pan_followups()
         if self.view.mini_map and (run_followups or not self._panning):
-            from ui.graph.graph_view.assembly.view_assembly import ViewAssembly
+            from app.ui.graph.graph_view.assembly.view_assembly import ViewAssembly
             ViewAssembly.update_mini_map_position(self.view)
             self.view.mini_map.raise_()
             self.view.mini_map.update_viewport_rect()
@@ -519,7 +520,7 @@ class GraphViewInteractionController:
 
     def _run_pan_followups_immediately(self) -> None:
         if self.view.mini_map:
-            from ui.graph.graph_view.assembly.view_assembly import ViewAssembly
+            from app.ui.graph.graph_view.assembly.view_assembly import ViewAssembly
             ViewAssembly.update_mini_map_position(self.view)
             self.view.mini_map.raise_()
             self.view.mini_map.update_viewport_rect()

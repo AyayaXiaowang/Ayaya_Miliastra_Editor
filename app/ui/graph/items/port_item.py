@@ -8,17 +8,17 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import TYPE_CHECKING, Optional, Tuple, Dict
 
 from engine.utils.logging.logger import log_info
-from ui.graph.virtual_pin_ui_service import (
+from app.ui.graph.virtual_pin_ui_service import (
     get_composite_edit_context,
     find_virtual_pin_for_port,
     build_port_context_menu as build_port_context_menu_from_service,
 )
-from ui.foundation import dialog_utils
-from ui.graph.graph_palette import GraphPalette
+from app.ui.foundation import dialog_utils
+from app.ui.graph.graph_palette import GraphPalette
 
 if TYPE_CHECKING:
-    from ui.graph.graph_scene import GraphScene, NodeGraphicsItem
-    from ui.foundation.context_menu_builder import ContextMenuBuilder
+    from app.ui.graph.graph_scene import GraphScene, NodeGraphicsItem
+    from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 
 
 PORT_RADIUS = 7
@@ -289,7 +289,7 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
             super().contextMenuEvent(event)
             return
 
-        from ui.foundation.context_menu_builder import ContextMenuBuilder
+        from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 
         builder = build_port_context_menu_from_service(self, scene, builder_cls=ContextMenuBuilder)
         if builder is not None:
@@ -309,7 +309,7 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
         port_type = self._get_port_type(scene)
         
         # 弹出对话框
-        from ui.dialogs.virtual_pin_dialog import CreateVirtualPinDialog
+        from app.ui.dialogs.virtual_pin_dialog import CreateVirtualPinDialog
         dialog = CreateVirtualPinDialog(
             self.node_item.node.id,
             self.name,
@@ -383,7 +383,7 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
         port_type = self._get_port_type(scene)
         
         # 弹出对话框
-        from ui.dialogs.virtual_pin_dialog import AddToVirtualPinDialog
+        from app.ui.dialogs.virtual_pin_dialog import AddToVirtualPinDialog
         dialog = AddToVirtualPinDialog(
             available_pins,
             self.node_item.node.id,
@@ -492,7 +492,7 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
         if not isinstance(scene, QtWidgets.QGraphicsScene):
             return
         
-        from ui.graph.graph_undo import RemovePortCommand
+        from app.ui.graph.graph_undo import RemovePortCommand
         
         if hasattr(scene, 'undo_manager') and scene.undo_manager:
             command = RemovePortCommand(
@@ -591,7 +591,7 @@ class BranchPortValueEdit(QtWidgets.QGraphicsTextItem):
         node = self.node_item.node
         old_name = self.port_name
         
-        from ui.graph.graph_undo import RenamePortCommand
+        from app.ui.graph.graph_undo import RenamePortCommand
 
         if hasattr(scene, 'undo_manager') and scene.undo_manager:
             command = RenamePortCommand(

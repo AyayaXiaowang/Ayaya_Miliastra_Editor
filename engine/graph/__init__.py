@@ -53,13 +53,11 @@ __all__ = [
 
 from .graph_code_parser import GraphCodeParser, GraphParseError, validate_graph
 from .composite_code_parser import CompositeCodeParser
-from .executable_code_generator import ExecutableCodeGenerator
 
 __all__ += [
     "GraphCodeParser",
     "GraphParseError",
     "CompositeCodeParser",
-    "ExecutableCodeGenerator",
     "validate_graph",
 ]
 

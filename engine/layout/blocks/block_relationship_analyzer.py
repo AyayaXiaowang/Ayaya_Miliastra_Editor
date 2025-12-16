@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Set, List, Tuple, Optional, TYPE_CHECKING
 
-from ..core.layout_models import LayoutBlock
+from ..internal.layout_models import LayoutBlock
 from ..utils.graph_query_utils import is_jump_out_edge
 
 if TYPE_CHECKING:

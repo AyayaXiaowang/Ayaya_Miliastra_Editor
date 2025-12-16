@@ -17,7 +17,7 @@ from typing import Dict, Optional
 
 from engine.graph.models.graph_model import GraphModel, NodeModel
 
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport
 from app.automation.ports._type_utils import infer_type_from_value
 from app.automation.ports.port_type_inference import (
     build_port_type_overrides,
@@ -77,7 +77,7 @@ def infer_effective_input_type(
     3. 回退声明：若仍无结果且显式声明为非泛型类型，则采用声明类型；
     4. 连线推断：结合图模型与入边推断类型，必要时覆盖“字符串/字符串列表”这类低可信结果；
     5. 动态类型：节点定义提供了非泛型的 `dynamic_port_type` 时采用之；
-    6. 最终兜底：若以上路径均失败，则回退为“字符串”。
+    6. 无法推断：若以上路径均失败，则返回空字符串，由调用方决定是否跳过该端口的类型设置。
     """
     parameter_value_text = param_values_by_name.get(mapped_name, "")
     effective_input_type: Optional[str] = None
@@ -144,7 +144,7 @@ def infer_effective_input_type(
         if dynamic_input_type_text and not is_generic_type_name(dynamic_input_type_text):
             effective_input_type = dynamic_input_type_text
     if not effective_input_type:
-        effective_input_type = "字符串"
+        effective_input_type = ""
 
     executor.log(
         f"[端口类型/输入] 端口 '{mapped_name}' 显式='{declared_input_type}' → 选择='{effective_input_type}'",
@@ -169,7 +169,8 @@ def infer_effective_output_type(
     0. GraphModel.metadata 覆盖：优先读取 `metadata['port_type_overrides']` 中的端口类型；
     1. 本节点输入常量：通过 `infer_output_type_from_self_inputs` 从本节点输入推导输出类型；
     2. 出边推断：结合图变量规则与出边信息，按 `infer_output_type_from_edges` 计算类型；
-    3. 回退声明/动态/默认：无结果时优先声明类型，其次 `dynamic_port_type`，最终退化为“字符串”。
+    3. 回退声明/动态：无结果时优先声明类型，其次 `dynamic_port_type`；
+    4. 无法推断：若仍无结果则返回空字符串，由调用方决定是否跳过该端口的类型设置。
     """
     target_type: Optional[str] = None
 
@@ -210,7 +211,7 @@ def infer_effective_output_type(
         if inferred_text:
             target_type = inferred_text
 
-    # 3) 回退：定义/动态/默认字符串
+    # 3) 回退：定义/动态（不再默认回退为“字符串”）
     if not get_non_empty_str(target_type):
         declared_output_text = get_non_empty_str(declared_output_type)
         if declared_output_text and not is_generic_type_name(declared_output_text):
@@ -220,13 +221,19 @@ def infer_effective_output_type(
             if dynamic_output_type_text and not is_generic_type_name(dynamic_output_type_text):
                 target_type = dynamic_output_type_text
             else:
-                target_type = "字符串"
+                target_type = ""
         else:
-            target_type = "字符串"
-        executor.log(
-            f"[端口类型] 输出端口 '{mapped_name}' 使用回退类型 '{target_type}'",
-            log_callback,
-        )
+            target_type = ""
+        if get_non_empty_str(target_type):
+            executor.log(
+                f"[端口类型] 输出端口 '{mapped_name}' 使用回退类型 '{target_type}'",
+                log_callback,
+            )
+        else:
+            executor.log(
+                f"[端口类型] 输出端口 '{mapped_name}' 无法推断具体类型：跳过该端口类型设置",
+                log_callback,
+            )
 
     return target_type
 

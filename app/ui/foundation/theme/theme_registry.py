@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Mapping
 
-from ui.foundation.theme.tokens import Colors, Sizes, Icons, Gradients
+from app.ui.foundation.theme.tokens import Colors, Sizes, Icons, Gradients
 
 
 TokenKind = Literal["colors", "sizes", "icons", "gradients"]

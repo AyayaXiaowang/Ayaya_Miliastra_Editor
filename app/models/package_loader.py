@@ -20,11 +20,18 @@ class PackageLoader:
     - 本类仅读取包的只读字段（package_id/level_entity 等），索引读写交给 `PackageIndexManager`。
     """
 
-    def __init__(self, package: "PackageLike", resource_manager: Optional[ResourceManager]) -> None:
+    def __init__(
+        self,
+        package: "PackageLike",
+        resource_manager: Optional[ResourceManager],
+        *,
+        package_index_manager: Optional[PackageIndexManager] = None,
+    ) -> None:
         self.package = package
         self.resource_manager = resource_manager
         self._graph_name_cache: Dict[str, str] = {}
-        self._package_index_manager: Optional[PackageIndexManager] = None
+        # 优先使用调用方注入的单例，避免在模型层重复 new PackageIndexManager 导致索引/清单状态分叉
+        self._package_index_manager: Optional[PackageIndexManager] = package_index_manager
 
     def resolve_graph_name(self, graph_id: str) -> str:
         if not graph_id:

@@ -9,6 +9,7 @@ from typing import Dict, Set, List, Optional, Tuple
 import hashlib
 from engine.graph.models import GraphModel
 from engine.utils.graph.graph_utils import is_flow_port_name
+from .layout_registry_context import LayoutRegistryContext
 from ..utils.graph_query_utils import (
     estimate_node_height_ui_exact_for_model,
     is_pure_data_node as graph_query_is_pure_data_node,
@@ -22,9 +23,10 @@ class LayoutContext:
     不改变 GraphModel；所有集合/映射均视为只读视图。
     """
 
-    def __init__(self, model: GraphModel):
+    def __init__(self, model: GraphModel, *, registry_context: Optional[LayoutRegistryContext] = None):
         self.model: GraphModel = model
         self.graph_signature = self._compute_graph_signature(model)
+        self.registry_context: Optional[LayoutRegistryContext] = registry_context
 
         # 节点级别缓存
         self.virtualPinNodeIds: Set[str] = {
@@ -137,6 +139,7 @@ class LayoutContext:
         cloned = object.__new__(LayoutContext)
         cloned.model = model
         cloned.graph_signature = self._compute_graph_signature(model)
+        cloned.registry_context = self.registry_context
 
         existing_node_ids = set(model.nodes.keys())
 
@@ -222,9 +225,41 @@ class LayoutContext:
         )
 
     @classmethod
-    def compute_signature_for_model(cls, model: GraphModel) -> Tuple[Optional[int], Optional[int], int, int]:
+    def compute_signature_for_model(cls, model: GraphModel) -> Tuple[Optional[int], Optional[int], str, str]:
         """对外暴露的签名计算入口，便于无需实例化即可比较。"""
         return cls._compute_graph_signature(model)
+
+
+def get_or_build_layout_context_for_model(
+    model: GraphModel,
+    *,
+    registry_context: Optional[LayoutRegistryContext] = None,
+) -> LayoutContext:
+    """
+    获取或构建与 model 当前结构一致的 LayoutContext（带签名校验的缓存复用）。
+
+    背景：
+    - LayoutContext 被多个子系统复用（布局/流程树/块内布局等）；
+    - 但 GraphModel 可能在“自动排版/跨块复制/外部刷新”过程中发生节点或连线集合变更，
+      若仅按“对象是否同一个”复用旧 LayoutContext，会导致索引缓存与真实结构脱节，产生幽灵 Bug。
+
+    规则：
+    - 仅当缓存中的 LayoutContext.graph_signature 与当前模型签名一致时才复用；
+    - 若调用方提供 registry_context，则优先注入并覆盖到模型缓存（作为单一真源）。
+    """
+    target_signature = LayoutContext.compute_signature_for_model(model)
+    cached = getattr(model, "_layout_context_cache", None)
+    if isinstance(cached, LayoutContext):
+        if getattr(cached, "model", None) is model and getattr(cached, "graph_signature", None) == target_signature:
+            if registry_context is not None and getattr(cached, "registry_context", None) is None:
+                cached.registry_context = registry_context
+            setattr(model, "_layout_cache_signature", target_signature)
+            return cached
+
+    ctx = LayoutContext(model, registry_context=registry_context)
+    setattr(model, "_layout_context_cache", ctx)
+    setattr(model, "_layout_cache_signature", ctx.graph_signature)
+    return ctx
 
 
 

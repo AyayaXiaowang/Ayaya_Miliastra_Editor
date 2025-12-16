@@ -21,6 +21,7 @@ from .edge_router import (
     is_flow_node,
     is_event_node,
     create_data_edges_for_node_enhanced,
+    is_flow_port_ctx,
 )
 
 
@@ -148,39 +149,101 @@ def create_dual_branch_node(
     branch_node.source_end_lineno = getattr(stmt, 'end_lineno', getattr(stmt, 'lineno', 0))
 
     # 条件输入连接
-    if condition_var:
-        source = env.get_variable(condition_var)
-        if source:
-            src_node_id, src_port = source
-            branch_edges.append(EdgeModel(
+    def _pick_first_data_output_port(node: NodeModel) -> Optional[str]:
+        for output_port in node.outputs:
+            if not is_flow_port_ctx(node, output_port.name, True):
+                return output_port.name
+        return None
+
+    def _connect_condition_source_to_branch(src_node_id: str, src_port: str) -> None:
+        branch_edges.append(
+            EdgeModel(
                 id=str(uuid.uuid4()),
                 src_node=src_node_id,
                 src_port=src_port,
                 dst_node=branch_node_id,
                 dst_port="条件",
-            ))
-    elif isinstance(stmt.test, ast.Call):
-        nested_nodes, nested_edges, param_node_map = extract_nested_nodes(stmt.test, ctx, validators, env)
-        branch_nodes.extend(nested_nodes)
-        branch_edges.extend(nested_edges)
-        cond_node = create_node_from_call(stmt.test, ctx, validators)
-        if cond_node:
+            )
+        )
+
+    def _materialize_boolean_expr(expr: ast.expr) -> Tuple[Optional[str], Optional[str]]:
+        """将布尔表达式建模为节点/变量输出，并返回 (src_node_id, src_port_name)。"""
+        if isinstance(expr, ast.Name):
+            source = env.get_variable(expr.id)
+            if source:
+                return source[0], source[1]
+            return None, None
+        if isinstance(expr, ast.Call):
+            nested_nodes, nested_edges, param_node_map = extract_nested_nodes(
+                expr, ctx, validators, env
+            )
+            branch_nodes.extend(nested_nodes)
+            branch_edges.extend(nested_edges)
+            cond_node = create_node_from_call(expr, ctx, validators, env=env)
+            if not cond_node:
+                return None, None
             branch_nodes.append(cond_node)
-            data_edges = create_data_edges_for_node_enhanced(cond_node, stmt.test, param_node_map, ctx.node_library, ctx.node_name_index, env)
+            data_edges = create_data_edges_for_node_enhanced(
+                cond_node,
+                expr,
+                param_node_map,
+                ctx.node_library,
+                ctx.node_name_index,
+                env,
+            )
             branch_edges.extend(data_edges)
-            cond_out: Optional[str] = None
-            for p in cond_node.outputs:
-                if p.name.find('流程') == -1:
-                    cond_out = p.name
-                    break
+            cond_out = _pick_first_data_output_port(cond_node)
             if cond_out:
-                branch_edges.append(EdgeModel(
+                return cond_node.id, cond_out
+            return None, None
+        return None, None
+
+    if isinstance(stmt.test, ast.UnaryOp) and isinstance(stmt.test.op, ast.Not):
+        operand_expr = stmt.test.operand
+        operand_src_node_id, operand_src_port = _materialize_boolean_expr(operand_expr)
+
+        logic_not_call = ast.Call(
+            func=ast.Name(id="逻辑非运算", ctx=ast.Load()),
+            args=[],
+            keywords=[ast.keyword(arg="输入", value=ast.Name(id="_条件", ctx=ast.Load()))],
+        )
+        logic_not_call.lineno = getattr(stmt.test, "lineno", 0)
+        logic_not_call.end_lineno = getattr(stmt.test, "end_lineno", getattr(stmt.test, "lineno", 0))
+        not_node = create_node_from_call(logic_not_call, ctx, validators, env=env)
+        if not_node:
+            # 确保源码行号可追踪到 if 条件
+            not_node.source_lineno = getattr(stmt.test, "lineno", 0)
+            not_node.source_end_lineno = getattr(stmt.test, "end_lineno", getattr(stmt.test, "lineno", 0))
+            branch_nodes.append(not_node)
+
+            not_input_port: Optional[str] = None
+            for input_port in not_node.inputs:
+                if not is_flow_port_ctx(not_node, input_port.name, False):
+                    not_input_port = input_port.name
+                    break
+            not_output_port = _pick_first_data_output_port(not_node)
+
+            if operand_src_node_id and operand_src_port and not_input_port:
+                branch_edges.append(
+                    EdgeModel(
                     id=str(uuid.uuid4()),
-                    src_node=cond_node.id,
-                    src_port=cond_out,
-                    dst_node=branch_node_id,
-                    dst_port="条件",
-                ))
+                        src_node=operand_src_node_id,
+                        src_port=operand_src_port,
+                        dst_node=not_node.id,
+                        dst_port=not_input_port,
+                    )
+                )
+            if not_output_port:
+                _connect_condition_source_to_branch(not_node.id, not_output_port)
+    else:
+        if condition_var:
+            source = env.get_variable(condition_var)
+            if source:
+                _connect_condition_source_to_branch(source[0], source[1])
+        elif isinstance(stmt.test, ast.Call):
+            cond_src_node_id, cond_src_port = _materialize_boolean_expr(stmt.test)
+            if cond_src_node_id and cond_src_port:
+                _connect_condition_source_to_branch(cond_src_node_id, cond_src_port)
 
     # 是分支体
     if stmt.body:
@@ -213,6 +276,14 @@ def create_dual_branch_node(
             if last_flow and (not has_ret):
                 branch_last_nodes.append(last_flow)
             elif (not last_flow) and (not has_ret) and (not has_break_true):
+                branch_last_nodes.append((branch_node, "是"))
+        else:
+            # 分支体语法上非空，但未生成任何节点：
+            # - 常见于 `if 条件: pass` 这类显式空体写法；
+            # - 或者分支内只有纯类型标注等被解析器跳过的语句。
+            # 若该分支不包含 return，则允许从对应端口继续接续后续流程，
+            # 避免把后续语句错误地提升为“新的事件入口分叉”。
+            if is_pass_only_block(stmt.body) and (not block_has_return(stmt.body)) and (not has_break_true):
                 branch_last_nodes.append((branch_node, "是"))
         env.restore(snapshot)
     else:
@@ -252,6 +323,10 @@ def create_dual_branch_node(
             if last_flow and (not has_ret2):
                 branch_last_nodes.append(last_flow)
             elif (not last_flow) and (not has_ret2) and (not has_break_false):
+                branch_last_nodes.append((branch_node, "否"))
+        else:
+            # else 分支语法上非空但未生成任何节点（常见于 `else: pass`）。
+            if is_pass_only_block(stmt.orelse) and (not block_has_return(stmt.orelse)) and (not has_break_false):
                 branch_last_nodes.append((branch_node, "否"))
         env.restore(snapshot)
     else:

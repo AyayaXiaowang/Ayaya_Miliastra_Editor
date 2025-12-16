@@ -83,7 +83,7 @@ class StructDefinitionSection(BaseManagementSection):
         parent_widget: QtWidgets.QWidget,
         package: ManagementPackage,
     ) -> bool:
-        from ui.foundation import dialog_utils
+        from app.ui.foundation import dialog_utils
 
         dialog_utils.show_warning_dialog(
             parent_widget,
@@ -98,7 +98,7 @@ class StructDefinitionSection(BaseManagementSection):
         package: ManagementPackage,
         item_id: str,
     ) -> bool:
-        from ui.foundation import dialog_utils
+        from app.ui.foundation import dialog_utils
 
         dialog_utils.show_warning_dialog(
             parent_widget,
@@ -108,7 +108,7 @@ class StructDefinitionSection(BaseManagementSection):
         return False
 
     def delete_item(self, package: ManagementPackage, item_id: str) -> bool:
-        from ui.foundation import dialog_utils
+        from app.ui.foundation import dialog_utils
 
         dialog_utils.show_warning_dialog(
             None,

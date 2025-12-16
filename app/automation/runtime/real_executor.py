@@ -31,13 +31,13 @@ from app.automation.vision import (
     list_ports,
 )
 from app.automation.ports.port_picker import pick_port_center_for_node
-from app.automation.core.view_alignment import run_pan_loop, PanEvaluation
-from app.automation.core.view_mapping import (
+from app.automation.editor.view_alignment import run_pan_loop, PanEvaluation
+from app.automation.editor.view_mapping import (
     compute_segmented_pan_unit,
     generate_spiral_deltas,
     perform_drag_with_motion_estimation,
 )
-from app.automation.core.connection_drag import perform_connection_drag, mean_abs_diff_in_region
+from app.automation.editor.connection_drag import perform_connection_drag, mean_abs_diff_in_region
 from app.automation.input.win_input import (
     get_client_rect,
     client_to_screen,

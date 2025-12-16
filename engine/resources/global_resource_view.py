@@ -205,23 +205,8 @@ class GlobalResourceView:
           `IngameSaveTemplateSchemaView` 聚合为 {template_id: payload} 视图；
         - 模板 payload 中的可选字段 `is_default_template` 用于表达“当前工程默认/主模板”，
           当任意模板的该字段为 True 时，视图层认为局内存档整体处于启用状态；
-        - 旧版的全局元配置仍存放在 ID 为 'global_view_save_points' 的 SAVE_POINT 资源中
-          （enabled/active_template_id/updated_at），仅作为缺省回退与兼容来源。
         """
-        aggregator_id = "global_view_save_points"
-
-        # 1. 读取旧版全局元配置（仅作为缺省回退）
-        meta_payload: dict = {}
-        if self.resource_manager.resource_exists(ResourceType.SAVE_POINT, aggregator_id):
-            candidate = self.resource_manager.load_resource(ResourceType.SAVE_POINT, aggregator_id)
-            if isinstance(candidate, dict):
-                meta_payload = {
-                    "enabled": bool(candidate.get("enabled", False)),
-                    "active_template_id": str(candidate.get("active_template_id", "")).strip(),
-                    "updated_at": str(candidate.get("updated_at", "")),
-                }
-
-        # 2. 收集代码级模板资源
+        # 1. 收集代码级模板资源
         schema_view = get_default_ingame_save_template_schema_view()
         all_templates = schema_view.get_all_templates()
 
@@ -252,7 +237,7 @@ class GlobalResourceView:
 
         templates.sort(key=_template_sort_key)
 
-        # 4. 依据模板状态与旧版元配置综合计算启用状态与当前模板 ID
+        # 2. 依据模板状态计算启用状态与当前模板 ID（以 is_default_template 为单一真源）
         default_template_id_from_templates = ""
         for template_payload in templates:
             is_default = bool(template_payload.get("is_default_template", False))
@@ -265,31 +250,14 @@ class GlobalResourceView:
             default_template_id_from_templates = template_id_text
             break
 
-        enabled_flag = False
-        active_template_id = ""
-        updated_at_text = str(meta_payload.get("updated_at", "")).strip()
-        if default_template_id_from_templates:
-            enabled_flag = True
-            active_template_id = default_template_id_from_templates
-        else:
-            enabled_flag = bool(meta_payload.get("enabled", False))
-            active_template_id = str(meta_payload.get("active_template_id", "")).strip()
-
-        # 若激活模板 ID 已不在模板列表中，则在读取视图时回退为“未启用”
-        if enabled_flag and active_template_id:
-            if not any(
-                str(t.get("template_id", "")).strip() == active_template_id for t in templates
-            ):
-                enabled_flag = False
-                active_template_id = ""
+        enabled_flag = bool(default_template_id_from_templates)
+        active_template_id = default_template_id_from_templates if enabled_flag else ""
 
         result: dict[str, object] = {
             "templates": templates,
             "enabled": enabled_flag,
             "active_template_id": active_template_id,
         }
-        if updated_at_text:
-            result["updated_at"] = updated_at_text
         return result
     
     @property

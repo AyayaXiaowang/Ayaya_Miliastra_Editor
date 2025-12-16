@@ -1,0 +1,24 @@
+# Cursor file-tree ignore rules (visual-only).
+# Goal: hide runtime artifacts / local state that are already in .gitignore,
+# so the workspace looks clean and newcomers don't误解为“需要维护的项目文件”。
+
+# Python bytecode / caches
+**/__pycache__/
+**/*.py[cod]
+**/.mypy_cache/
+**/.pytest_cache/
+**/.ruff_cache/
+
+# Project runtime caches / local state
+runtime/cache/
+app/runtime/cache/
+engine/app/runtime/cache/
+
+# Legacy root-level user settings (migrated into app/runtime/cache)
+user_settings.json
+
+# Local notebooks / scratch
+*.ipynb
+__dummy__.ipynb
+
+

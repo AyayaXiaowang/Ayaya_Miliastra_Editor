@@ -4,10 +4,14 @@ import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Protocol, Any
 
 from engine.graph.models.graph_model import GraphModel
 from engine.nodes.node_definition_loader import NodeDef
+
+
+class GraphCodeGenerator(Protocol):
+    def generate_code(self, graph_model: GraphModel, metadata: Optional[Dict[str, Any]] = None) -> str: ...
 
 
 @dataclass
@@ -30,10 +34,16 @@ class RoundtripValidator:
     4. 检查解析后的GraphModel是否有效
     """
     
-    def __init__(self, workspace_path: Path, node_library: Dict[str, NodeDef]):
+    def __init__(
+        self,
+        workspace_path: Path,
+        node_library: Dict[str, NodeDef],
+        *,
+        code_generator: GraphCodeGenerator,
+    ):
         self.workspace_path = workspace_path
         self.node_library = node_library
-        self._code_generator = None
+        self._code_generator = code_generator
         self._parser = None
     
     def validate(self, graph_model: GraphModel, metadata: Optional[Dict] = None) -> RoundtripValidationResult:
@@ -82,8 +92,7 @@ class RoundtripValidator:
     
     def _generate_code(self, graph_model: GraphModel, metadata: Optional[Dict]) -> str:
         """生成可执行的类结构 Python 代码"""
-        generator = self._get_code_generator()
-        return generator.generate_code(graph_model, metadata)
+        return self._code_generator.generate_code(graph_model, metadata)
     
     def _check_syntax(self, generated_code: str) -> RoundtripValidationResult:
         """检查代码的 Python 语法"""
@@ -124,16 +133,6 @@ class RoundtripValidator:
                     error_details=repr(exc),
                 )
         return ParseResult(success=True, parsed_model=graph_model)
-
-    def _get_code_generator(self):
-        if self._code_generator is None:
-            from engine.graph import ExecutableCodeGenerator
-
-            self._code_generator = ExecutableCodeGenerator(
-                self.workspace_path,
-                node_library=self.node_library,
-            )
-        return self._code_generator
 
     def _get_parser(self):
         if self._parser is None:

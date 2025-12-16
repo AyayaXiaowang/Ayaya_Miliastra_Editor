@@ -12,7 +12,7 @@ from typing import Optional, Set, List, Union, Callable, Dict, Tuple, TYPE_CHECK
 from engine.graph.models import GraphModel, NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
 from engine.configs.settings import settings
-from ..core.constants import (
+from ..internal.constants import (
     NODE_HEIGHT_DEFAULT,
     UI_NODE_HEADER_HEIGHT,
     UI_ROW_HEIGHT,
@@ -25,7 +25,7 @@ from ..core.constants import (
     PORT_EXIT_LOOP,
     ORDER_MAX_FALLBACK,
 )
-from engine.nodes.node_registry import get_node_registry
+from ..internal.layout_registry_context import LayoutRegistryContext
 DEFAULT_MAX_CHAINS_PER_NODE = 64
 DEFAULT_MAX_CHAINS_PER_START = 256
 DEFAULT_MAX_CHAINS_PER_BLOCK = 800
@@ -66,7 +66,7 @@ def get_chain_traversal_budget() -> ChainTraversalBudget:
 
 
 if TYPE_CHECKING:
-    from ..core.layout_context import LayoutContext
+    from ..internal.layout_context import LayoutContext
 
 
 def _make_pure_data_checker(model: GraphModel) -> Callable[[str], bool]:
@@ -532,56 +532,14 @@ def get_node_order_key(node: NodeModel) -> Tuple[int, str]:
 
 
 # ==================== 与 UI 完全一致的高度估算（统一真源） ====================
-_LAYOUT_WORKSPACE_ROOT: Optional[Path] = None
-_NODE_REGISTRY = None
-_ENTITY_INPUTS_BY_NAME: Optional[Dict[str, Set[str]]] = None
-_VARIADIC_MIN_ARGS: Optional[Dict[str, int]] = None
-
-
-def set_layout_workspace_root(workspace_path: Path) -> None:
-    """
-    注入布局工具可用的 workspace 根目录，并在路径变化时重置相关缓存。
-    """
-    if not isinstance(workspace_path, Path):
-        raise TypeError("workspace_path 必须是 pathlib.Path 实例")
-    resolved = workspace_path.resolve()
-    global _LAYOUT_WORKSPACE_ROOT, _NODE_REGISTRY, _ENTITY_INPUTS_BY_NAME, _VARIADIC_MIN_ARGS
-    if _LAYOUT_WORKSPACE_ROOT == resolved and _NODE_REGISTRY is not None:
-        return
-    _LAYOUT_WORKSPACE_ROOT = resolved
-    _NODE_REGISTRY = None
-    _ENTITY_INPUTS_BY_NAME = None
-    _VARIADIC_MIN_ARGS = None
-
-
-def _resolve_workspace_root() -> Path:
-    if _LAYOUT_WORKSPACE_ROOT is not None:
-        return _LAYOUT_WORKSPACE_ROOT
-    return Path(__file__).resolve().parents[3]
-
-
-def _ensure_node_registry() -> None:
-    global _NODE_REGISTRY, _ENTITY_INPUTS_BY_NAME, _VARIADIC_MIN_ARGS
-    if _NODE_REGISTRY is not None and _ENTITY_INPUTS_BY_NAME is not None and _VARIADIC_MIN_ARGS is not None:
-        return
-    workspace_root = _resolve_workspace_root()
-    _NODE_REGISTRY = get_node_registry(workspace_root, include_composite=True)
-    _ENTITY_INPUTS_BY_NAME = _NODE_REGISTRY.get_entity_input_params_by_func()
-    _VARIADIC_MIN_ARGS = _NODE_REGISTRY.get_variadic_min_args()
-
-
-def _is_variadic_input_node(node_obj: NodeModel) -> bool:
-    _ensure_node_registry()
-    assert _VARIADIC_MIN_ARGS is not None
+def _is_variadic_input_node(node_obj: NodeModel, registry_context: LayoutRegistryContext) -> bool:
     node_name = getattr(node_obj, "title", "") or ""
-    return node_name in _VARIADIC_MIN_ARGS
+    return node_name in (registry_context.variadic_min_args or {})
 
 
-def _is_entity_input_port(node_obj: NodeModel, port_name: str) -> bool:
-    _ensure_node_registry()
-    assert _ENTITY_INPUTS_BY_NAME is not None
+def _is_entity_input_port(node_obj: NodeModel, port_name: str, registry_context: LayoutRegistryContext) -> bool:
     node_name = getattr(node_obj, "title", "") or ""
-    ports = _ENTITY_INPUTS_BY_NAME.get(node_name)
+    ports = (registry_context.entity_inputs_by_name or {}).get(node_name)
     if ports is None:
         return False
     return str(port_name) in ports
@@ -609,10 +567,22 @@ def estimate_node_height_ui_exact_with_context(context, node_id: str) -> float:
         if edge.dst_port:
             connected_input_ports.add(str(edge.dst_port))
 
-    return _estimate_node_height_from_structure(node_obj, connected_input_ports)
+    registry_context = getattr(context, "registry_context", None)
+    if not isinstance(registry_context, LayoutRegistryContext):
+        raise ValueError(
+            "estimate_node_height_ui_exact_with_context 需要 LayoutRegistryContext。"
+            "请通过 LayoutService.compute_layout(workspace_path=...) 或 settings.set_config_path(...) 初始化，"
+            "并确保 LayoutContext/BlockLayoutContext 携带 registry_context。"
+        )
+    return _estimate_node_height_from_structure(node_obj, connected_input_ports, registry_context=registry_context)
 
 
-def estimate_node_height_ui_exact_for_model(model: GraphModel, node_or_obj: Union[NodeModel, str]) -> float:
+def estimate_node_height_ui_exact_for_model(
+    model: GraphModel,
+    node_or_obj: Union[NodeModel, str],
+    *,
+    registry_context: LayoutRegistryContext,
+) -> float:
     """
     与 UI 完全一致的高度估算（仅依赖 GraphModel，不依赖布局上下文）。
     用于纯数据图布局等无法提供 BlockLayoutContext 的场景。
@@ -631,7 +601,7 @@ def estimate_node_height_ui_exact_for_model(model: GraphModel, node_or_obj: Unio
         if edge.dst_node == node_obj.id and edge.dst_port:
             connected_input_ports.add(str(edge.dst_port))
 
-    return _estimate_node_height_from_structure(node_obj, connected_input_ports)
+    return _estimate_node_height_from_structure(node_obj, connected_input_ports, registry_context=registry_context)
 
 
 @dataclass(frozen=True)
@@ -650,6 +620,8 @@ class InputPortLayoutPlan:
 def build_input_port_layout_plan(
     node_obj: NodeModel,
     connected_input_ports: Set[str],
+    *,
+    registry_context: LayoutRegistryContext,
 ) -> InputPortLayoutPlan:
     """
     计算输入端口的渲染顺序与行索引布局计划（与 UI/布局共用）。
@@ -657,7 +629,9 @@ def build_input_port_layout_plan(
     if not node_obj:
         return InputPortLayoutPlan([], {}, {}, 0, 0)
 
-    is_variadic = _is_variadic_input_node(node_obj)
+    if not isinstance(registry_context, LayoutRegistryContext):
+        raise TypeError("registry_context 必须是 LayoutRegistryContext 实例")
+    is_variadic = _is_variadic_input_node(node_obj, registry_context)
     render_input_names: List[str] = []
     for port in node_obj.inputs:
         port_name = str(port.name)
@@ -677,7 +651,7 @@ def build_input_port_layout_plan(
         needs_control_row = (
             not is_flow_port_name(port_name)
             and port_name not in connected_input_ports
-            and not _is_entity_input_port(node_obj, port_name)
+            and not _is_entity_input_port(node_obj, port_name, registry_context)
         )
         if needs_control_row:
             control_row_index_by_port[port_name] = current_row
@@ -698,6 +672,8 @@ def build_input_port_layout_plan(
 def _estimate_node_height_from_structure(
     node_obj: NodeModel,
     connected_input_ports: Set[str],
+    *,
+    registry_context: LayoutRegistryContext,
 ) -> float:
     """
     共享的节点高度估算实现：输入节点对象和已连接的输入端口集合。
@@ -705,7 +681,7 @@ def _estimate_node_height_from_structure(
     if not node_obj:
         return NODE_HEIGHT_DEFAULT
 
-    plan = build_input_port_layout_plan(node_obj, connected_input_ports)
+    plan = build_input_port_layout_plan(node_obj, connected_input_ports, registry_context=registry_context)
     total_output_rows = len(node_obj.outputs)
 
     output_plus_rows = 1 if getattr(node_obj, "title", "") == TITLE_MULTI_BRANCH else 0

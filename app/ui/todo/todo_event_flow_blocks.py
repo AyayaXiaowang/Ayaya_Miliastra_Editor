@@ -11,7 +11,7 @@ from app.models.todo_block_index_helper import (
     build_node_block_index as build_node_block_index_for_model,
     resolve_block_index_for_todo as resolve_block_index_for_todo_item,
 )
-from ui.foundation.theme_manager import Colors as ThemeColors
+from app.ui.foundation.theme_manager import Colors as ThemeColors
 
 
 @dataclass

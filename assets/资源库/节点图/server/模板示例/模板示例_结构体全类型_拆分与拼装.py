@@ -76,7 +76,7 @@ class 模板示例_结构体全类型_拆分与拼装:
         self.game = game
         self.owner_entity = owner_entity
 
-        from runtime.engine.node_graph_validator import validate_node_graph
+        from app.runtime.engine.node_graph_validator import validate_node_graph
 
         validate_node_graph(self.__class__)
 
@@ -151,11 +151,15 @@ class 模板示例_结构体全类型_拆分与拼装:
             枚举1=变量名值,
             枚举2="示例_请求递增整数字段",
         )
-        if 逻辑非运算(self.game, 输入=是递增请求):
+        if 是递增请求:
+            pass
+        else:
             return
 
         请求值: "布尔值" = 变化后值
-        if 逻辑非运算(self.game, 输入=请求值):
+        if 请求值:
+            pass
+        else:
             # 仅在 False -> True 翻转时处理
             return
 
@@ -166,11 +170,13 @@ class 模板示例_结构体全类型_拆分与拼装:
             变量名="示例_全类型结构体",
         )
 
-        当前整数字段值: "整数" = 以键查询字典值(
+        # 在真实节点图中，这一步应通过【拆分结构体】节点读取字段值，而不是把结构体当作字典用【以键查询字典值】读取。
+        实体字段_修改前, GUID字段_修改前, 整数字段_修改前, 布尔值字段_修改前, 浮点数字段_修改前, 字符串字段_修改前 = 拆分结构体(
             self.game,
-            字典=当前结构体实例,
-            键="整数字段",
+            结构体名="struct_all_supported_types_example",
+            结构体实例=当前结构体实例,
         )
+        当前整数字段值: "整数" = 整数字段_修改前
         新整数字段值: "整数" = 加法运算(
             self.game,
             左值=当前整数字段值,
@@ -201,11 +207,12 @@ class 模板示例_结构体全类型_拆分与拼装:
             是否触发事件=False,
         )
 
-        最新整数字段值: "整数" = 以键查询字典值(
+        实体字段_修改后, GUID字段_修改后, 整数字段_修改后, 布尔值字段_修改后, 浮点数字段_修改后, 字符串字段_修改后 = 拆分结构体(
             self.game,
-            字典=当前结构体实例,
-            键="整数字段",
+            结构体名="struct_all_supported_types_example",
+            结构体实例=当前结构体实例,
         )
+        最新整数字段值: "整数" = 整数字段_修改后
         设置节点图变量(self.game, 变量名="调试_整数字段镜像", 变量值=最新整数字段值, 是否触发事件=False)
 
     # ---------------------------- 注册事件处理器 ----------------------------
@@ -223,7 +230,7 @@ class 模板示例_结构体全类型_拆分与拼装:
 
 
 if __name__ == "__main__":
-    from runtime.engine.node_graph_validator import validate_file
+    from app.runtime.engine.node_graph_validator import validate_file
 
     自身文件路径 = pathlib.Path(__file__).resolve()
     是否通过, 错误列表, 警告列表 = validate_file(自身文件路径)

@@ -5,22 +5,20 @@ from typing import Any, Dict, List, Optional, Tuple
 from PyQt6 import QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 
-from app.common.graph_data_cache import resolve_graph_data, store_graph_data
 from app.models import TodoItem
 from app.models.todo_node_type_helper import NodeTypeHelper
 from engine.graph.models.graph_model import GraphModel
-from engine.graph.models.graph_config import GraphConfig
-from engine.resources.resource_manager import ResourceType
 from app.automation.ports.port_type_inference import infer_dict_key_value_types_for_input
 
-from ui.todo.graph_model_cache_service import get_or_build_graph_model
-from ui.todo.port_type_inference_adapter import (
+from app.runtime.services.graph_data_service import get_shared_graph_data_service
+from app.runtime.services.graph_model_cache import GraphModelCacheEntry, get_or_build_graph_model
+from app.ui.todo.port_type_inference_adapter import (
     PortTypeExecutorAdapter,
     infer_concrete_port_type_for_step,
 )
-from ui.todo.todo_config import TodoStyles, StepTypeColors, StepTypeRules
-from ui.todo.todo_rich_text_renderer import build_rich_tokens_for_todo
-from ui.foundation.theme_manager import Colors as ThemeColors
+from app.ui.todo.todo_config import TodoStyles, StepTypeColors, StepTypeRules
+from app.ui.todo.todo_rich_text_renderer import build_rich_tokens_for_todo
+from app.ui.foundation.theme_manager import Colors as ThemeColors
 
 
 class TodoTreeGraphSupport:
@@ -39,7 +37,7 @@ class TodoTreeGraphSupport:
     ) -> None:
         self._tree = tree
         self._rich_segments_role = rich_segments_role
-        self._graph_model_cache: Dict[str, GraphModel] = {}
+        self._graph_model_cache: Dict[str, GraphModelCacheEntry] = {}
         self._type_helper = NodeTypeHelper()
         self._type_helper_executor = PortTypeExecutorAdapter(self._type_helper)
 
@@ -390,7 +388,12 @@ class TodoTreeGraphSupport:
             return (None, "")
         root_info = root_todo.detail_info or {}
         graph_identifier = str(root_info.get("graph_id", "") or "")
-        graph_data = resolve_graph_data(root_info)
+        graph_data_service = self._resolve_graph_data_service()
+        graph_data = (
+            graph_data_service.resolve_payload_graph_data(root_info)
+            if graph_data_service is not None
+            else None
+        )
         if graph_data is None:
             graph_data = self.load_graph_data_for_root(root_todo)
         if not graph_identifier or not isinstance(graph_data, dict):
@@ -404,32 +407,34 @@ class TodoTreeGraphSupport:
 
     def load_graph_data_for_root(self, root_todo: TodoItem) -> Optional[dict]:
         info = root_todo.detail_info or {}
-        cached = resolve_graph_data(info)
-        if isinstance(cached, dict) and ("nodes" in cached or "edges" in cached):
-            return cached
+        graph_data_service = self._resolve_graph_data_service()
+        if graph_data_service is not None:
+            cached = graph_data_service.resolve_payload_graph_data(info)
+            if isinstance(cached, dict) and ("nodes" in cached or "edges" in cached):
+                return cached
         graph_id = str(info.get("graph_id", "") or "")
         if not graph_id:
             return None
-        resource_manager = self._resolve_resource_manager()
-        if resource_manager is None:
+
+        if graph_data_service is None:
             return None
-        data = resource_manager.load_resource(ResourceType.GRAPH, graph_id)
-        if not data:
+        graph_data = graph_data_service.load_graph_data(graph_id)
+        if not isinstance(graph_data, dict):
             return None
-        graph_config = GraphConfig.deserialize(data)
-        graph_data = graph_config.data
         new_info = dict(info)
-        cache_key = store_graph_data(root_todo.todo_id, graph_id, graph_data)
+        cache_key = graph_data_service.store_payload_graph_data(root_todo.todo_id, graph_id, graph_data)
         new_info["graph_data_key"] = cache_key
         new_info.pop("graph_data", None)
         root_todo.detail_info = new_info
         return graph_data
 
-    def _resolve_resource_manager(self):
+    def _resolve_graph_data_service(self):
         top_widget = self._tree.window()
         if top_widget is None:
             return None
-        return getattr(top_widget, "resource_manager", None)
+        resource_manager = getattr(top_widget, "resource_manager", None)
+        package_index_manager = getattr(top_widget, "package_index_manager", None)
+        return get_shared_graph_data_service(resource_manager, package_index_manager)
 
     # === 图根定位 ===
 

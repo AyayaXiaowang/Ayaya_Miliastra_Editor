@@ -20,7 +20,7 @@ from collections import deque
 from engine.graph.models import GraphModel, NodeModel
 from engine.configs.settings import settings
 
-from ..core.constants import (
+from .constants import (
     NODE_WIDTH_DEFAULT,
     NODE_HEIGHT_DEFAULT,
     BLOCK_PADDING_DEFAULT,
@@ -37,7 +37,8 @@ from ..utils.graph_query_utils import (
     resolve_event_title,
 )
 from ..flow.event_flow_analyzer import find_event_roots
-from ..core.layout_context import LayoutContext
+from .layout_context import LayoutContext, get_or_build_layout_context_for_model
+from .layout_registry_context import ensure_layout_registry_context_for_model
 from ..blocks.block_relationship_analyzer import (
     BlockRelationshipAnalyzer,
     build_block_relationship_snapshot,
@@ -45,7 +46,7 @@ from ..blocks.block_relationship_analyzer import (
 from ..blocks.block_positioning_engine import BlockPositioningEngine
 from ..utils.position_applicator import PositionApplicator
 from ..blocks.block_identification_coordinator import BlockIdentificationCoordinator
-from ..core.layout_models import LayoutBlock
+from .layout_models import LayoutBlock
 
 
 class LayoutOrchestrator:
@@ -77,11 +78,12 @@ class LayoutOrchestrator:
         self.block_colors = BLOCK_COLORS_DEFAULT
 
         # 全局只读布局上下文（索引缓存），避免每个块重复构建边索引
-        cached_context = getattr(self.model, "_layout_context_cache", None)
-        if isinstance(cached_context, LayoutContext):
-            self.global_layout_context = cached_context
-        else:
-            self.global_layout_context = LayoutContext(self.model)
+        # 同时显式注入 LayoutRegistryContext，彻底移除 graph_query_utils 的隐式 workspace_root 回退。
+        registry_context = ensure_layout_registry_context_for_model(self.model)
+        self.global_layout_context = get_or_build_layout_context_for_model(
+            self.model,
+            registry_context=registry_context,
+        )
         self._cached_block_relationships: Optional[Dict[str, object]] = None
         self._event_metadata_lookup: Dict[str, Tuple[Optional[str], Optional[str]]] = {}
         self._event_title_lookup: Optional[Dict[str, Optional[str]]] = None
@@ -127,7 +129,7 @@ class LayoutOrchestrator:
 
     def _layout_pure_data_graph(self) -> None:
         """纯数据图布局"""
-        from ..core.data_graph_layout import layout_pure_data_graph
+        from .data_graph_layout import layout_pure_data_graph
 
         layout_pure_data_graph(
             self.model,
@@ -200,6 +202,21 @@ class LayoutOrchestrator:
         enable_copy = getattr(settings, "DATA_NODE_CROSS_BLOCK_COPY", True)
         if enable_copy:
             self._global_copy_manager.execute_copy_plan()
+            # 复制阶段会修改 model.nodes / model.edges，需要刷新 LayoutContext 的索引缓存；
+            # 同时阶段1缓存的 BlockLayoutContext 也需要切换到新的全局索引视图，避免后续阶段读取过期边索引。
+            self._refresh_global_layout_context_after_model_mutation()
+
+    def _refresh_global_layout_context_after_model_mutation(self) -> None:
+        registry_context = getattr(self.global_layout_context, "registry_context", None)
+        if registry_context is None:
+            registry_context = ensure_layout_registry_context_for_model(self.model)
+        refreshed = get_or_build_layout_context_for_model(
+            self.model,
+            registry_context=registry_context,
+        )
+        self.global_layout_context = refreshed
+        if self._coordinator is not None:
+            self._coordinator.refresh_global_layout_context(refreshed)
 
     def _place_all_blocks_data_nodes(self) -> None:
         """为每个块放置数据节点并计算坐标（阶段2）"""
@@ -354,6 +371,7 @@ class LayoutOrchestrator:
         setattr(self.model, "_layout_block_relationships", snapshot)
         setattr(self.model, "_layout_blocks_cache", list(self.layout_blocks))
         setattr(self.model, "_layout_context_cache", self.global_layout_context)
+        setattr(self.model, "_layout_cache_signature", LayoutContext.compute_signature_for_model(self.model))
 
     def _build_event_start_block_lookup(self) -> Dict[str, LayoutBlock]:
         """预先记录事件ID对应的起始块，避免重复遍历事件子图。"""
@@ -381,6 +399,8 @@ def layout_by_event_regions(model: GraphModel) -> None:
     """
     if not model.nodes:
         return
+    # 确保 registry_context 已注入（来自显式 workspace_path 或 settings 单一真源）
+    ensure_layout_registry_context_for_model(model)
 
     orchestrator = LayoutOrchestrator(model)
     orchestrator.execute_layout()

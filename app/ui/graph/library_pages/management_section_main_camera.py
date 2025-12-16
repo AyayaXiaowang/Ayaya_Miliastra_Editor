@@ -137,7 +137,7 @@ class MainCameraSection(BaseManagementSection):
                 normalized_existing_ids.add(str(value))
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             camera_id_text = id_edit.text().strip()
             if not camera_id_text:

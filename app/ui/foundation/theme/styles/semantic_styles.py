@@ -1,6 +1,6 @@
 """Inline text style helpers."""
 
-from ui.foundation.theme.tokens import Colors, Sizes
+from app.ui.foundation.theme.tokens import Colors, Sizes
 
 
 def heading(level: int = 3) -> str:

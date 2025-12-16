@@ -12,10 +12,10 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import ThemeManager, Sizes
-from ui.foundation import dialog_utils
-from ui.dialogs.struct_definition_types import param_type_to_canonical, format_field_pairs_summary
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager, Sizes
+from app.ui.foundation import dialog_utils
+from app.ui.dialogs.struct_definition_types import param_type_to_canonical, format_field_pairs_summary
 
 
 class StructBindingDialog(BaseDialog):

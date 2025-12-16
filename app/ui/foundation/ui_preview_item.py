@@ -4,7 +4,7 @@ from typing import Optional
 
 from PyQt6 import QtCore, QtWidgets, QtGui
 
-from ui.foundation.theme_manager import Colors
+from app.ui.foundation.theme_manager import Colors
 
 
 class UIWidgetPreviewItem(QtWidgets.QGraphicsItem):

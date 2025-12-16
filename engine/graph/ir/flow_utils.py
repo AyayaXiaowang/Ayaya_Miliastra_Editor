@@ -7,11 +7,12 @@ from __future__ import annotations
 import ast
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from engine.graph.models import NodeModel, EdgeModel
+from engine.graph.models import GraphModel, NodeModel, EdgeModel
 from engine.graph.common import STRUCT_SPLIT_NODE_TITLE
 from .var_env import VarEnv
 from .validators import Validators
 from .node_factory import FactoryContext, create_node_from_call, extract_nested_nodes
+from .semantic_inference import apply_call_semantics
 from .edge_router import (
     is_flow_node,
     is_event_node,
@@ -114,6 +115,7 @@ def materialize_call_node(
     stmt: ast.stmt,
     prev_flow_node: Optional[Union[NodeModel, List[Union[NodeModel, Tuple[NodeModel, str]]]]],
     need_suppress_once: bool,
+    graph_model: GraphModel,
     ctx: FactoryContext,
     env: VarEnv,
     validators: Validators,
@@ -182,7 +184,7 @@ def materialize_call_node(
         return result
     
     # 2. 预判：纯数据节点的未使用检查
-    preview = create_node_from_call(call_expr, ctx, validators)
+    preview = create_node_from_call(call_expr, ctx, validators, env=env)
     if preview and check_unused and assigned_names and later_stmts is not None:
         if (not is_flow_node(preview)) and (not is_event_node(preview)):
             # 检查赋值变量是否被后续使用
@@ -202,12 +204,20 @@ def materialize_call_node(
     result.edges.extend(nested_edges)
     
     # 5. 创建节点
-    node = preview or create_node_from_call(call_expr, ctx, validators)
+    node = preview or create_node_from_call(call_expr, ctx, validators, env=env)
     if not node:
         result.should_skip = True
         return result
     
     result.node = node
+    # 下沉语义推导：节点已确定要保留后，推导并写入 GraphModel.metadata 绑定信息
+    apply_call_semantics(
+        node=node,
+        call_expr=call_expr,
+        graph_model=graph_model,
+        ctx=ctx,
+        assigned_names=assigned_names,
+    )
     
     # 6. 流程连接
     if is_flow_node(node):

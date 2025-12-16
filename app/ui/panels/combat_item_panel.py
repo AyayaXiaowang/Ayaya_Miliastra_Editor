@@ -31,12 +31,12 @@ from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.package_view import PackageView
 from engine.resources.resource_manager import ResourceManager
-from ui.dialogs.graph_selection_dialog import GraphSelectionDialog
-from ui.foundation import dialog_utils
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Colors, Sizes
-from ui.foundation.toggle_switch import ToggleSwitch
-from ui.panels.panel_scaffold import PanelScaffold
+from app.ui.dialogs.graph_selection_dialog import GraphSelectionDialog
+from app.ui.foundation import dialog_utils
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.theme_manager import Colors, Sizes
+from app.ui.foundation.toggle_switch import ToggleSwitch
+from app.ui.panels.panel_scaffold import PanelScaffold
 
 
 PresetPackage = Union[PackageView, GlobalResourceView]

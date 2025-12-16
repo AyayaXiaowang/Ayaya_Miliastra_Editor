@@ -1,6 +1,6 @@
 """界面控件配置面板入口，负责暴露面板类与工厂函数。"""
 
-from ui.panels.widget_configs import (
+from app.ui.panels.widget_configs import (
     BaseWidgetConfigPanel,
     CardSelectorConfigPanel,
     InteractionButtonConfigPanel,

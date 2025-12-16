@@ -89,7 +89,7 @@ class UnitTagSection(BaseManagementSection):
         )
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             if not tag_name_edit.text().strip():
                 dialog_utils.show_warning_dialog(

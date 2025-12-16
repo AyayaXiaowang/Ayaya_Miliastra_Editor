@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from engine.graph.models.graph_model import GraphModel
-from ui.graph.graph_scene import GraphScene
+from app.ui.graph.graph_scene import GraphScene
 
 
 def populate_scene_from_model(
@@ -33,6 +33,10 @@ def populate_scene_from_model(
         scene.add_edge_item(edge)
 
     if enable_batch_mode:
+        # 批量装配时：连线创建会延迟“目标节点端口重排”，这里统一 flush 一次，
+        # 避免每条边都触发 _layout_ports() 造成 O(E) 的重排开销。
+        if hasattr(scene, "flush_deferred_port_layouts"):
+            scene.flush_deferred_port_layouts()
         scene.is_bulk_adding_items = previous_bulk_flag
 
     # 统一刷新场景矩形与小地图缓存，确保视图加载后立即可用

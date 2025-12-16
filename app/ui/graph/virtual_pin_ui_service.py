@@ -16,9 +16,9 @@ from PyQt6 import QtWidgets
 from engine.utils.logging.logger import log_info
 
 if TYPE_CHECKING:
-    from ui.graph.graph_scene import GraphScene
-    from ui.graph.items.port_item import PortGraphicsItem
-    from ui.foundation.context_menu_builder import ContextMenuBuilder
+    from app.ui.graph.graph_scene import GraphScene
+    from app.ui.graph.items.port_item import PortGraphicsItem
+    from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 
 
 def get_composite_edit_context(scene: QtWidgets.QGraphicsScene) -> Optional[Dict[str, object]]:
@@ -122,7 +122,7 @@ def build_port_context_menu(
             builder.add_separator()
 
         def _delete_all_edges() -> None:
-            from ui.graph.graph_undo import DeleteEdgeCommand
+            from app.ui.graph.graph_undo import DeleteEdgeCommand
 
             log_info("[端口菜单] 删除 {} 条连线", len(connected_edges))
             for edge_id, _edge_item in connected_edges:

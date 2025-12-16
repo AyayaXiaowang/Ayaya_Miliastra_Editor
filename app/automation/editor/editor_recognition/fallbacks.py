@@ -13,7 +13,7 @@ from typing import Callable, Optional
 
 from PIL import Image
 
-from app.automation.core.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
+from app.automation.editor.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
 from engine.graph.models.graph_model import NodeModel
 
 from .constants import (

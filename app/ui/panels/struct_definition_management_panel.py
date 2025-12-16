@@ -7,14 +7,14 @@ from PyQt6 import QtCore, QtWidgets
 from engine.configs.specialized.node_graph_configs import (
     StructDefinition as NodeGraphStructDefinition,
 )
-from ui.dialogs.struct_definition_dialog import StructDefinitionEditorWidget
-from ui.dialogs.struct_definition_types import normalize_canonical_type_name
-from ui.foundation.theme_manager import Sizes
-from ui.panels.package_membership_selector import (
+from app.ui.dialogs.struct_definition_dialog import StructDefinitionEditorWidget
+from app.ui.dialogs.struct_definition_types import normalize_canonical_type_name
+from app.ui.foundation.theme_manager import Sizes
+from app.ui.panels.package_membership_selector import (
     PackageMembershipSelector,
     build_package_membership_row,
 )
-from ui.panels.panel_scaffold import PanelScaffold
+from app.ui.panels.panel_scaffold import PanelScaffold
 
 
 class StructDefinitionManagementPanel(PanelScaffold):

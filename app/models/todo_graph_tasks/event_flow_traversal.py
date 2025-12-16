@@ -44,33 +44,61 @@ class EventFlowTraversal:
         queue: deque[str] = deque([start_id])
         connected_edge_ids: Set[str] = set()
 
+        def _expand_data_dependencies_from_target(*, target_node_id: str) -> None:
+            """从给定目标节点开始，沿数据边反向扩展整条数据依赖链。
+
+            人类模式下“反向拖线创建数据节点”需要先有目标节点，再逐层向上游创建。
+            因此这里按“发现即创建（下游在前，上游在后）”的队列顺序生成步骤。
+            """
+            pending_target_ids: deque[str] = deque([target_node_id])
+            expanded_target_ids: Set[str] = set()
+
+            while pending_target_ids:
+                current_target_id = pending_target_ids.popleft()
+                if current_target_id in expanded_target_ids:
+                    continue
+                expanded_target_ids.add(current_target_id)
+
+                current_target_node = model.nodes.get(current_target_id)
+                if not current_target_node:
+                    continue
+
+                for input_port in current_target_node.inputs:
+                    if is_flow_port_name(input_port.name):
+                        continue
+
+                    edges_for_input = input_edges_map.get((current_target_id, input_port.name), [])
+                    for edge in edges_for_input:
+                        data_node_id = edge.src_node
+                        if data_node_id in visited:
+                            continue
+
+                        visited.add(data_node_id)
+                        data_node = model.nodes.get(data_node_id)
+                        if not data_node:
+                            continue
+
+                        self.emitters.create_data_node_step(
+                            flow_root=flow_root,
+                            flow_root_id=flow_root_id,
+                            current_node=current_target_node,
+                            data_node=data_node,
+                            edge=edge,
+                            model=model,
+                            graph_id=graph_id,
+                            template_ctx_id=template_ctx_id,
+                            instance_ctx_id=instance_ctx_id,
+                            suppress_auto_jump=suppress_auto_jump,
+                            task_type=task_type,
+                        )
+                        pending_target_ids.append(data_node_id)
+
         while queue:
             current = queue.popleft()
             current_node = model.nodes.get(current)
 
             if current_node:
-                for input_port in current_node.inputs:
-                    if is_flow_port_name(input_port.name):
-                        continue
-                    edges_for_input = input_edges_map.get((current, input_port.name), [])
-                    for edge in edges_for_input:
-                        data_node_id = edge.src_node
-                        if data_node_id not in visited:
-                            visited.add(data_node_id)
-                            data_node = model.nodes.get(data_node_id)
-                            if data_node:
-                                self.emitters.create_data_node_step(
-                                    flow_root=flow_root,
-                                    flow_root_id=flow_root_id,
-                                    current_node=current_node,
-                                    data_node=data_node,
-                                    edge=edge,
-                                    graph_id=graph_id,
-                                    template_ctx_id=template_ctx_id,
-                                    instance_ctx_id=instance_ctx_id,
-                                    suppress_auto_jump=suppress_auto_jump,
-                    task_type=task_type,
-                                )
+                _expand_data_dependencies_from_target(target_node_id=current)
 
             branch_dyn_done: Set[str] = set()
 
@@ -101,7 +129,7 @@ class EventFlowTraversal:
                         instance_ctx_id=instance_ctx_id,
                         suppress_auto_jump=suppress_auto_jump,
                         allow_branch_outputs=True,
-                    task_type=task_type,
+                        task_type=task_type,
                     )
                     branch_dyn_done.add(prev_node.id)
 

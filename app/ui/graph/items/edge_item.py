@@ -5,9 +5,9 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, TYPE_CHECKING
 
-from ui.graph.graph_palette import GraphPalette
+from app.ui.graph.graph_palette import GraphPalette
 if TYPE_CHECKING:
-    from ui.graph.items.port_item import PortGraphicsItem
+    from app.ui.graph.items.port_item import PortGraphicsItem
 
 
 class EdgeGraphicsItem(QtWidgets.QGraphicsPathItem):

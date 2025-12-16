@@ -54,15 +54,15 @@ from engine.resources.package_view import PackageView
 from engine.resources.resource_manager import ResourceManager
 from engine.resources.unclassified_resource_view import UnclassifiedResourceView
 from engine.validate.comprehensive_rules.helpers import iter_all_package_graphs
-from ui.dialogs.signal_edit_dialog import SignalEditDialog
-from ui.dialogs.struct_definition_dialog import (
+from app.ui.dialogs.signal_edit_dialog import SignalEditDialog
+from app.ui.dialogs.struct_definition_dialog import (
     StructDefinitionDialog,
     normalize_canonical_type_name,
     param_type_to_canonical,
 )
-from ui.foundation.id_generator import generate_prefixed_id
-from ui.foundation.theme_manager import ThemeManager
-from ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.foundation.id_generator import generate_prefixed_id
+from app.ui.foundation.theme_manager import ThemeManager
+from app.ui.forms.schema_dialog import FormDialogBuilder
 
 
 ManagementPackage = Union[PackageView, GlobalResourceView, UnclassifiedResourceView]

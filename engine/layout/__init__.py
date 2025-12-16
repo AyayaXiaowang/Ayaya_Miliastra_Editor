@@ -4,12 +4,12 @@
 对外暴露少量稳定 API，核心实现位于 engine.layout 的子包中。
 """
 
-from .core.layout_service import LayoutResult, LayoutService
-from .core.layout_algorithm import layout_by_event_regions
+from .internal.layout_service import LayoutResult, LayoutService
 from .flow.flow_tree_generator import generate_flow_tree
-from .core import constants as _constants
-from .core.layout_context import LayoutContext
+from .internal import constants as _constants
+from .internal.layout_context import LayoutContext
 from .flow.event_flow_analyzer import find_event_roots
+from .cache_invalidation import invalidate_layout_caches
 
 _CONSTANT_EXPORTS = (
     "NODE_WIDTH_DEFAULT",
@@ -41,10 +41,10 @@ _CONSTANT_EXPORTS = (
 globals().update({name: getattr(_constants, name) for name in _CONSTANT_EXPORTS})
 
 __all__ = [
-    "layout_by_event_regions",
     "generate_flow_tree",
     "LayoutService",
     "LayoutResult",
     "LayoutContext",
     "find_event_roots",
+    "invalidate_layout_caches",
 ] + list(_CONSTANT_EXPORTS)

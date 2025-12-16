@@ -12,7 +12,7 @@ from __future__ import annotations
   - `port_type_steps_output`：输出侧端口类型设置流程。
 """
 
-from app.automation.core.executor_protocol import EditorExecutorProtocol
+from app.automation.editor.executor_protocol import EditorExecutorProtocol
 from app.automation.ports.port_type_effective import (
     infer_effective_input_type,
     infer_effective_output_type,

@@ -10,21 +10,23 @@ editor_connect: 将 EditorExecutor 中的连线与端口/变参相关的大块�
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional, Tuple, Dict, Any, Callable
 import re
 import time
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
-from app.automation.core import executor_utils as _exec_utils
-from app.automation.core import editor_nodes
-from app.automation.core.ui_constants import (
+from app.automation.input.common import build_graph_region_overlay
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport
+from app.automation.editor import executor_utils as _exec_utils
+from app.automation.editor import editor_nodes
+from app.automation.editor.ui_constants import (
     NODE_VIEW_WIDTH_PX,
     NODE_VIEW_HEIGHT_PX,
     VIEW_SAFE_MARGIN_RATIO_DEFAULT,
 )
-from app.automation.core.port_matching import ConnectionFrameState, PortMatchingService
+from app.automation.editor.port_matching import ConnectionFrameState, PortMatchingService
 from app.automation.ports._ports import (
     normalize_kind_text,
     is_data_input_port,
@@ -47,10 +49,24 @@ from app.automation.ports._type_utils import infer_type_from_value
 from engine.graph.models.graph_model import GraphModel, NodeModel
 from engine.nodes.port_index_mapper import get_and_clear_last_mappings as _get_port_mapping_logs
 from app.automation.vision import get_and_clear_title_mapping_logs as _get_title_mapping_logs
-from app.automation.core.connection_drag import perform_connection_drag
-from app.automation.core.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
+from app.automation.editor.connection_drag import mean_abs_diff_in_region, perform_connection_drag
+from app.automation.editor.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
 
 MAX_PAIR_ALIGN_ATTEMPTS = 2
+
+
+@dataclass(frozen=True)
+class _ConnectDragVerifySpec:
+    """拖拽后校验策略：用截图差分确认“画面确实发生了连线变化”。"""
+
+    half_window_px: int
+    min_mean_abs_diff: float
+
+
+_CONNECT_DRAG_VERIFY_SPECS: tuple[_ConnectDragVerifySpec, ...] = (
+    _ConnectDragVerifySpec(half_window_px=24, min_mean_abs_diff=1.2),
+    _ConnectDragVerifySpec(half_window_px=40, min_mean_abs_diff=1.0),
+)
 
 
 def execute_add_variadic_inputs(
@@ -425,7 +441,7 @@ def _connect_nodes(
             { 'center': (int(src_center[0]), int(src_center[1])), 'radius': 6, 'color': (255, 200, 0), 'label': '输出端口' },
             { 'center': (int(dst_center[0]), int(dst_center[1])), 'radius': 6, 'color': (0, 200, 255), 'label': '输入端口' },
         ]
-        visual_callback(screenshot, { 'rects': rects, 'circles': circles })
+        executor.emit_visual(screenshot, {"rects": rects, "circles": circles}, visual_callback)
     src_screen = executor.convert_editor_to_screen_coords(src_center[0], src_center[1])
     dst_screen = executor.convert_editor_to_screen_coords(dst_center[0], dst_center[1])
 
@@ -442,6 +458,57 @@ def _connect_nodes(
             post_release_sleep=post_release_sleep,
         )
 
+    def _verify_drag_effect() -> bool:
+        if not _exec_utils.is_fast_chain_runtime_enabled(executor):
+            executor.wait_with_hooks(
+                total_seconds=0.08,
+                pause_hook=pause_hook,
+                allow_continue=allow_continue,
+                interval_seconds=0.08,
+                log_callback=log_callback,
+            )
+        after_image = executor.capture_and_emit(
+            label="连接-拖拽后",
+            overlays_builder=build_graph_region_overlay,
+            visual_callback=visual_callback,
+            use_strict_window_capture=True,
+        )
+        if not after_image:
+            executor.log("✗ 拖拽后截图失败，无法校验连线结果", log_callback)
+            return False
+
+        src_pt = (int(src_center[0]), int(src_center[1]))
+        dst_pt = (int(dst_center[0]), int(dst_center[1]))
+        mid_pt = (
+            int((int(src_center[0]) + int(dst_center[0])) * 0.5),
+            int((int(src_center[1]) + int(dst_center[1])) * 0.5),
+        )
+        points = (src_pt, mid_pt, dst_pt)
+
+        best_score = 0.0
+        for spec in _CONNECT_DRAG_VERIFY_SPECS:
+            for pt in points:
+                score = mean_abs_diff_in_region(
+                    screenshot,
+                    after_image,
+                    pt,
+                    half=int(spec.half_window_px),
+                )
+                if score > best_score:
+                    best_score = float(score)
+            if best_score >= float(spec.min_mean_abs_diff):
+                executor.log(
+                    f"[连接] 拖拽后画面变化校验通过：best_diff={best_score:.3f} >= {float(spec.min_mean_abs_diff):.3f}（half={int(spec.half_window_px)}）",
+                    log_callback,
+                )
+                return True
+
+        executor.log(
+            f"✗ [连接] 拖拽后画面变化校验失败：best_diff={best_score:.3f}（可能未形成有效连线）",
+            log_callback,
+        )
+        return False
+
     description = f"{src_node.title}.{src_port_name or '?'} → {dst_node.title}.{dst_port_name or '?'}"
     return perform_connection_drag(
         drag_callable=_drag_callable,
@@ -451,6 +518,7 @@ def _connect_nodes(
         description=description,
         pause_hook=pause_hook,
         allow_continue=allow_continue,
+        verify_callable=_verify_drag_effect,
     )
 
 

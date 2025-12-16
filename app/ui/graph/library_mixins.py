@@ -2,8 +2,8 @@ from typing import Any, Callable, Optional
 
 from PyQt6 import QtCore, QtWidgets
 
-from ui.foundation.toolbar_utils import apply_standard_toolbar
-from ui.foundation import dialog_utils
+from app.ui.foundation.toolbar_utils import apply_standard_toolbar
+from app.ui.foundation import dialog_utils
 
 
 class SearchFilterMixin:

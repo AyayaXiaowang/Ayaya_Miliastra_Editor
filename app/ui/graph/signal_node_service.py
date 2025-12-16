@@ -28,14 +28,15 @@ from engine.graph.common import (
     SIGNAL_NAME_PORT_NAME,
 )
 from engine.signal import get_default_signal_binding_service, compute_signal_schema_hash
-from ui.graph.core.signal_logic import (
+from app.ui.graph.logic.signal_logic import (
     build_signal_node_def_proxy,
     plan_signal_port_sync,
     resolve_signal_binding,
 )
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 
 if TYPE_CHECKING:
-    from ui.graph.graph_scene import GraphScene
+    from app.ui.graph.graph_scene import GraphScene
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +108,57 @@ def get_effective_node_def_for_scene(
     return base_def
 
 
+def prepare_node_model_for_scene(node: NodeModel) -> None:
+    """在创建 NodeGraphicsItem 之前，对“监听信号”节点做一次 UI 侧模型预处理。
+
+    说明：
+    - 监听信号节点在模型层默认没有输入端口，但 UI 需要一个“信号名”选择行；
+    - 若缺失则为当前场景中的节点副本补充一个输入端口，后续由绑定逻辑写入常量。
+    """
+    if getattr(node, "title", "") != SIGNAL_LISTEN_NODE_TITLE:
+        return
+
+    has_signal_name_input = any(
+        getattr(port, "name", "") == SIGNAL_NAME_PORT_NAME
+        for port in getattr(node, "inputs", []) or []
+    )
+    if has_signal_name_input:
+        return
+
+    node.add_input_port(SIGNAL_NAME_PORT_NAME)
+
+
+def contribute_context_menu_for_node(
+    scene: "GraphScene",
+    menu_builder: ContextMenuBuilder,
+    *,
+    node_id: str,
+    node_title: str,
+    add_separator_before: bool,
+) -> bool:
+    """为节点注入“信号相关”的右键菜单项。
+
+    返回:
+        bool: 若注入了至少一个菜单项，则返回 True。
+    """
+    if node_title not in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE):
+        return False
+
+    if add_separator_before:
+        menu_builder.add_separator()
+
+    def _bind_signal() -> None:
+        bind_signal_for_node(scene, node_id)
+
+    def _open_manager() -> None:
+        open_signal_manager(scene)
+
+    menu_builder.add_action("选择信号…", _bind_signal)
+    menu_builder.add_separator()
+    menu_builder.add_action("打开信号管理器…", _open_manager)
+    return True
+
+
 def bind_signal_for_node(scene: "GraphScene", node_id: str) -> None:
     """为指定节点弹出信号选择对话框并写入绑定信息。"""
     node = scene.model.nodes.get(node_id)
@@ -123,7 +175,7 @@ def bind_signal_for_node(scene: "GraphScene", node_id: str) -> None:
     binding_service = get_default_signal_binding_service()
     current_signal_id = binding_service.get_node_signal_id(scene.model, node_id) or ""
 
-    from ui.dialogs.signal_picker_dialog import SignalPickerDialog
+    from app.ui.dialogs.signal_picker_dialog import SignalPickerDialog
 
     parent_widget: Optional[QtWidgets.QWidget] = None
     views = scene.views()
@@ -171,7 +223,7 @@ def open_signal_manager(scene: "GraphScene") -> None:
     if signals_dict is None:
         return
 
-    from ui.dialogs.signal_manager_dialog import SignalManagerDialog
+    from app.ui.dialogs.signal_manager_dialog import SignalManagerDialog
 
     parent_widget: Optional[QtWidgets.QWidget] = None
     views = scene.views()
@@ -278,6 +330,8 @@ __all__ = [
     "get_current_package_signals",
     "build_signal_node_def_proxy_for_scene",
     "get_effective_node_def_for_scene",
+    "prepare_node_model_for_scene",
+    "contribute_context_menu_for_node",
     "bind_signal_for_node",
     "open_signal_manager",
     "on_signals_updated_from_manager",

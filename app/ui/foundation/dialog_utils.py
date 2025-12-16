@@ -76,7 +76,7 @@ def prompt_text(
     - 样式与行为由 `ui.foundation.input_dialogs.prompt_text` 决定；
     - 推荐新代码从 `ui.foundation` 顶层导入 `prompt_text` / `prompt_item` / `prompt_int`。
     """
-    from ui.foundation.input_dialogs import prompt_text as _prompt_text
+    from app.ui.foundation.input_dialogs import prompt_text as _prompt_text
 
     return _prompt_text(
         parent,

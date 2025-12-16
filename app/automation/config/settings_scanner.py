@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, Callable, List
 from PIL import Image
 
 from engine.graph.models.graph_model import GraphModel
-from app.automation.core.node_snapshot import capture_node_ports_snapshot
+from app.automation.editor.node_snapshot import capture_node_ports_snapshot
 from engine.nodes.port_index_mapper import map_port_index_to_name
 from app.automation.ports.settings_locator import collect_settings_rows
 

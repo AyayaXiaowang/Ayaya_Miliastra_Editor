@@ -1,13 +1,14 @@
 """控制器设置与信号连接 Mixin"""
 from __future__ import annotations
 
-from ui.controllers import (
+from app.ui.controllers import (
     PackageController,
     GraphEditorController,
     NavigationCoordinator,
     FileWatcherManager,
 )
 from app.models.view_modes import ViewMode
+from app.runtime.services.graph_data_service import get_shared_graph_data_service
 
 
 class ControllerSetupMixin:
@@ -63,6 +64,9 @@ class ControllerSetupMixin:
         )
         self.nav_coordinator.get_current_package_id = (
             lambda: self.package_controller.current_package_id
+        )
+        self.nav_coordinator.get_graph_data_service = (
+            lambda: get_shared_graph_data_service(self.resource_manager, self.package_index_manager)
         )
 
         # 文件监控管理器

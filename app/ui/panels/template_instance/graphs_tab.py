@@ -15,20 +15,20 @@ from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.package_view import PackageView
 from engine.resources.resource_manager import ResourceManager, ResourceType
-from ui.dialogs.graph_selection_dialog import GraphSelectionDialog
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.dialog_utils import (
+from app.ui.dialogs.graph_selection_dialog import GraphSelectionDialog
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.dialog_utils import (
     ask_yes_no_dialog,
     show_info_dialog,
     show_warning_dialog,
 )
-from ui.foundation.toast_notification import ToastNotification
-from ui.foundation.theme_manager import Colors, Sizes
-from ui.panels.template_instance.tab_base import TemplateInstanceTabBase
-from ui.panels.template_instance_service import TemplateInstanceService
-from ui.panels.graph_data_provider import GraphDataProvider, GraphLoadPayload
-from ui.panels.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
-from ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.foundation.theme_manager import Colors, Sizes
+from app.ui.panels.template_instance.tab_base import TemplateInstanceTabBase
+from app.ui.panels.template_instance_service import TemplateInstanceService
+from app.runtime.services.graph_data_service import GraphDataService, GraphLoadPayload
+from app.ui.panels.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
+from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ class GraphsTab(TemplateInstanceTabBase):
         self,
         parent: Optional[QtWidgets.QWidget] = None,
         *,
-        graph_data_provider: Optional[GraphDataProvider] = None,
+        graph_data_provider: Optional[GraphDataService] = None,
     ):
         super().__init__(parent)
         self.graph_data_provider = graph_data_provider

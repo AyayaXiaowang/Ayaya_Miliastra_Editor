@@ -4,9 +4,9 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, List, Dict, Set
 
-from ui.foundation.theme_manager import ThemeManager, Sizes
-from ui.foundation.style_mixins import StyleMixin
-from ui.panels.package_membership_selector import build_package_membership_row
+from app.ui.foundation.theme_manager import ThemeManager, Sizes
+from app.ui.foundation.style_mixins import StyleMixin
+from app.ui.panels.package_membership_selector import build_package_membership_row
 from engine.nodes.advanced_node_features import CompositeNodeConfig
 from engine.resources.package_index_manager import PackageIndexManager
 

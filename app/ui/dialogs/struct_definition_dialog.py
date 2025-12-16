@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from ui.dialogs.struct_definition_dialog_impl import (
+from app.ui.dialogs.struct_definition_dialog_impl import (
     StructDefinitionDialog,
     StructDefinitionEditorWidget,
 )
-from ui.dialogs.struct_definition_types import (
+from app.ui.dialogs.struct_definition_types import (
     canonical_to_param_type,
     format_field_pairs_summary,
     is_dict_type,
@@ -13,7 +13,7 @@ from ui.dialogs.struct_definition_types import (
     normalize_canonical_type_name,
     param_type_to_canonical,
 )
-from ui.dialogs.struct_definition_value_editors import (
+from app.ui.dialogs.struct_definition_value_editors import (
     DictEditDialog,
     DictValueEditor,
     ListEditDialog,

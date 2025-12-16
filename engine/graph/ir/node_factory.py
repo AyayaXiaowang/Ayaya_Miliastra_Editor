@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Iterator
+from typing import Any, Dict, List, Optional, Tuple, Iterator, Mapping
 
 from engine.graph.models import NodeModel, PortModel, EdgeModel
 from engine.graph.utils.ast_utils import NOT_EXTRACTABLE, extract_constant_value
@@ -19,6 +19,10 @@ class FactoryContext:
     node_library: Dict[str, NodeDef]
     node_name_index: Dict[str, str]
     verbose: bool = False
+    # 结构体/信号等语义推导所需的“只读索引”，由上层编排器按需填充。
+    struct_name_to_id: Optional[Dict[str, str]] = None
+    struct_fields_by_id: Optional[Dict[str, List[str]]] = None
+    signal_repo: Optional[Any] = None  # SignalRepository-like
 
 
 def create_event_node(event_name: str, method: ast.FunctionDef, ctx: FactoryContext) -> NodeModel:
@@ -26,6 +30,14 @@ def create_event_node(event_name: str, method: ast.FunctionDef, ctx: FactoryCont
     node_def = ctx.node_library.get(full_key) if full_key else None
 
     node_id = f"event_{event_name}_{uuid.uuid4().hex[:8]}"
+
+    input_ports: List[PortModel] = []
+    # 若事件名在节点库中有定义（例如【监听信号】这类带输入端口的事件节点），
+    # 则补齐输入端口，保证 UI 中能够正确显示并编辑对应选择端口（如“信号名”）。
+    if node_def is not None:
+        for pname in getattr(node_def, "inputs", []) or []:
+            if isinstance(pname, str) and pname and "~" not in pname:
+                input_ports.append(PortModel(name=pname, is_input=True))
 
     output_ports: List[PortModel] = []
     # 流程出
@@ -39,8 +51,12 @@ def create_event_node(event_name: str, method: ast.FunctionDef, ctx: FactoryCont
         title=event_name,
         category="事件节点",
         pos=(100.0, 100.0),
+        inputs=input_ports,
         outputs=output_ports,
     )
+    # 源码行号：用于 UI 定位与错误提示（事件节点对应 handler 方法定义范围）
+    node.source_lineno = getattr(method, "lineno", 0) or 0
+    node.source_end_lineno = getattr(method, "end_lineno", node.source_lineno) or node.source_lineno
     return node
 
 
@@ -51,7 +67,39 @@ def register_event_outputs(event_node: NodeModel, method: ast.FunctionDef, env: 
             env.set_variable(arg.arg, event_node.id, event_node.outputs[port_index].name)
 
 
-def create_node_from_call(call_node: ast.Call, ctx: FactoryContext, validators: Validators) -> Optional[NodeModel]:
+def _resolve_local_constant(expr: ast.AST, env: Optional[VarEnv]) -> Any:
+    """在 extract_constant_value 无法静态提取时，补充解析“方法体内命名常量”。
+
+    约定：
+    - 仅支持 `变量名`（ast.Name）引用；
+    - 值来源于 `VarEnv.local_const_values`（由 flow_builder 在解析方法体前预扫描得到）。
+    """
+    if env is None:
+        return NOT_EXTRACTABLE
+    if not isinstance(expr, ast.Name):
+        return NOT_EXTRACTABLE
+    name_text = str(expr.id or "").strip()
+    if not name_text:
+        return NOT_EXTRACTABLE
+    if env.has_local_constant(name_text):
+        return env.get_local_constant(name_text)
+    return NOT_EXTRACTABLE
+
+
+def _extract_constant_value_with_env(expr: ast.AST, env: Optional[VarEnv]) -> Any:
+    value = extract_constant_value(expr)  # type: ignore[arg-type]
+    if value is not NOT_EXTRACTABLE:
+        return value
+    return _resolve_local_constant(expr, env)
+
+
+def create_node_from_call(
+    call_node: ast.Call,
+    ctx: FactoryContext,
+    validators: Validators,
+    *,
+    env: Optional[VarEnv] = None,
+) -> Optional[NodeModel]:
     if isinstance(call_node.func, ast.Name):
         func_name = call_node.func.id
     elif isinstance(call_node.func, ast.Attribute):
@@ -78,12 +126,12 @@ def create_node_from_call(call_node: ast.Call, ctx: FactoryContext, validators: 
         for dst_port, expr in norm.positional:
             if not any(p.name == dst_port for p in input_ports):
                 input_ports.append(PortModel(name=dst_port, is_input=True))
-            val = extract_constant_value(expr)
+            val = _extract_constant_value_with_env(expr, env)
             if val is not NOT_EXTRACTABLE:
                 input_constants[dst_port] = str(val)
         # 为关键字参数创建命名端口并写入常量（若可静态提取）
         for pname, expr in norm.keywords.items():
-            val = extract_constant_value(expr)
+            val = _extract_constant_value_with_env(expr, env)
             if val is not NOT_EXTRACTABLE:
                 input_constants[pname] = str(val)
                 if not any(p.name == pname for p in input_ports):
@@ -124,12 +172,12 @@ def create_node_from_call(call_node: ast.Call, ctx: FactoryContext, validators: 
         
         # 位置参数回填
         for dst_port, expr in norm.positional:
-            val = extract_constant_value(expr)
+            val = _extract_constant_value_with_env(expr, env)
             if val is not NOT_EXTRACTABLE:
                 input_constants[dst_port] = str(val)
         # 关键字参数回填（覆盖同名）；对于动态端口节点，同时创建对应的输入端口
         for pname, expr in norm.keywords.items():
-            val = extract_constant_value(expr)
+            val = _extract_constant_value_with_env(expr, env)
             if val is not NOT_EXTRACTABLE:
                 input_constants[pname] = str(val)
             # 动态端口节点：为不在静态定义中的关键字参数创建输入端口
@@ -188,7 +236,7 @@ def extract_nested_nodes(
     for keyword in call_node.keywords:
         param_name = keyword.arg
         if isinstance(keyword.value, ast.Call):
-            nested_node = create_node_from_call(keyword.value, ctx, validators)
+            nested_node = create_node_from_call(keyword.value, ctx, validators, env=env)
             if nested_node:
                 nodes.append(nested_node)
                 if param_name is not None:
@@ -233,7 +281,7 @@ def extract_nested_nodes(
                 continue
 
             if isinstance(argument_expr, ast.Call):
-                nested_node = create_node_from_call(argument_expr, ctx, validators)
+                nested_node = create_node_from_call(argument_expr, ctx, validators, env=env)
                 if nested_node:
                     nodes.append(nested_node)
                     param_node_map[target_port] = nested_node

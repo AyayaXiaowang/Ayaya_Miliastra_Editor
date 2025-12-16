@@ -10,8 +10,8 @@ from typing import List, Tuple, Dict, Set, Optional
 from engine.graph.models import GraphModel, NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
 from ..utils.graph_query_utils import has_flow_edges, is_flow_output_port, get_node_order_key
-from ..core.constants import CATEGORY_EVENT, ORDER_MAX_FALLBACK
-from ..core.layout_context import LayoutContext
+from ..internal.constants import CATEGORY_EVENT, ORDER_MAX_FALLBACK
+from ..internal.layout_context import LayoutContext
 
 
 def find_event_roots(

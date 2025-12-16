@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from PyQt6 import QtGui
 
 if TYPE_CHECKING:
-    from ui.graph.graph_view import GraphView
+    from app.ui.graph.graph_view import GraphView
 
 
 class ViewAssembly:
@@ -36,7 +36,7 @@ class ViewAssembly:
                 scene.setSceneRect(-10000, -10000, 20000, 20000)
             
             # 初始化overlay管理器
-            from ui.overlays.node_detail_overlay import NodeDetailOverlayManager
+            from app.ui.overlays.node_detail_overlay import NodeDetailOverlayManager
             if not view.overlay_manager:
                 view.overlay_manager = NodeDetailOverlayManager(view)
         
@@ -46,7 +46,7 @@ class ViewAssembly:
                 view.mini_map.setParent(None)
                 view.mini_map.deleteLater()
             
-            from ui.graph.graph_view.overlays.minimap_widget import MiniMapWidget
+            from app.ui.graph.graph_view.overlays.minimap_widget import MiniMapWidget
             view.mini_map = MiniMapWidget(view, scene)
             view.mini_map.show()
             # 确保小地图位于顶层并正确定位
@@ -62,7 +62,7 @@ class ViewAssembly:
             view.mini_map.raise_()
         if view.overlay_manager:
             view.overlay_manager.update_on_resize()
-        from ui.graph.graph_view.top_right.controls_manager import TopRightControlsManager
+        from app.ui.graph.graph_view.top_right.controls_manager import TopRightControlsManager
         TopRightControlsManager.update_position(view)
         scene = view.scene()
         if scene and hasattr(scene, "_reposition_ydebug_tooltip"):

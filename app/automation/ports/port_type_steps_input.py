@@ -21,12 +21,12 @@ from PIL import Image
 from engine.graph.models.graph_model import GraphModel, NodeModel
 from engine.nodes.port_index_mapper import map_port_index_to_name
 
-from app.automation.core.executor_protocol import (
+from app.automation.editor.executor_protocol import (
     EditorExecutorProtocol,
     EditorExecutorWithViewport,
     AutomationStepContext,
 )
-from app.automation.core.node_snapshot import NodePortsSnapshotCache
+from app.automation.editor.node_snapshot import NodePortsSnapshotCache
 from app.automation.ports._ports import is_data_input_port
 from app.automation.ports.port_type_effective import infer_effective_input_type
 from app.automation.ports.port_type_inference import (
@@ -200,6 +200,12 @@ def process_input_ports_type_setting(
             edge_lookup,
             log_callback,
         )
+        if not isinstance(effective_in_type, str) or effective_in_type.strip() == "":
+            executor.log(
+                f"[端口类型/输入] 端口 '{mapped_name}' 无法推断具体类型：跳过该端口类型设置",
+                log_callback,
+            )
+            continue
 
         def apply_input_type(
             screenshot_inner: Image.Image,

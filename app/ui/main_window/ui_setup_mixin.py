@@ -8,36 +8,36 @@ from typing import Callable, Iterable
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from app.models import UiNavigationRequest
-from ui.foundation.theme_manager import ThemeManager, Colors
-from ui.graph.graph_scene import GraphScene
-from ui.graph.graph_view import GraphView
-from ui.execution.monitor import ExecutionMonitorPanel
-from ui.foundation.navigation_bar import NavigationBar
-from ui.graph.library_pages.template_library_widget import TemplateLibraryWidget
-from ui.graph.library_pages.entity_placement_widget import EntityPlacementWidget
-from ui.graph.library_pages.combat_presets_widget import CombatPresetsWidget
-from ui.graph.library_pages.management_library_widget import ManagementLibraryWidget
-from ui.panels.template_instance_panel import TemplateInstancePanel
-from ui.panels.management_property_panel import ManagementPropertyPanel
-from ui.panels.signal_management_panel import SignalManagementPanel
-from ui.panels.struct_definition_management_panel import StructDefinitionManagementPanel
-from ui.panels.main_camera_panel import MainCameraManagementPanel
-from ui.panels.peripheral_system_panel import PeripheralSystemManagementPanel
-from ui.todo.todo_list_widget import TodoListWidget
-from ui.panels.validation_panel import ValidationPanel
-from ui.panels.validation_detail_panel import ValidationDetailPanel
-from ui.composite.composite_node_property_panel import CompositeNodePropertyPanel
-from ui.composite.composite_node_pin_panel import CompositeNodePinPanel
-from ui.graph.library_pages.graph_library_widget import GraphLibraryWidget
-from ui.panels.graph_property_panel import GraphPropertyPanel
-from ui.panels.ui_control_settings_panel import UIControlSettingsPanel
-from ui.graph.library_pages.package_library_widget import PackageLibraryWidget
-from ui.panels.combat_player_panel import CombatPlayerEditorPanel
-from ui.panels.combat_class_panel import CombatPlayerClassPanel
-from ui.panels.combat_skill_panel import CombatSkillPanel
-from ui.panels.combat_item_panel import CombatItemPanel
-from ui.management.section_registry import MANAGEMENT_SECTIONS, ManagementSectionSpec
+from app.models.view_modes import ViewMode
+from app.ui.foundation.theme_manager import ThemeManager, Colors
+from app.ui.graph.graph_scene import GraphScene
+from app.ui.graph.graph_view import GraphView
+from app.ui.foundation.navigation_bar import NavigationBar
+from app.ui.graph.library_pages.template_library_widget import TemplateLibraryWidget
+from app.ui.graph.library_pages.entity_placement_widget import EntityPlacementWidget
+from app.ui.graph.library_pages.combat_presets_widget import CombatPresetsWidget
+from app.ui.graph.library_pages.management_library_widget import ManagementLibraryWidget
+from app.ui.panels.template_instance_panel import TemplateInstancePanel
+from app.ui.panels.management_property_panel import ManagementPropertyPanel
+from app.ui.panels.signal_management_panel import SignalManagementPanel
+from app.ui.panels.struct_definition_management_panel import StructDefinitionManagementPanel
+from app.ui.panels.main_camera_panel import MainCameraManagementPanel
+from app.ui.panels.peripheral_system_panel import PeripheralSystemManagementPanel
+from app.ui.todo.todo_list_widget import TodoListWidget
+from app.ui.panels.validation_panel import ValidationPanel
+from app.ui.panels.validation_detail_panel import ValidationDetailPanel
+from app.ui.composite.composite_node_property_panel import CompositeNodePropertyPanel
+from app.ui.composite.composite_node_pin_panel import CompositeNodePinPanel
+from app.ui.graph.library_pages.graph_library_widget import GraphLibraryWidget
+from app.ui.panels.graph_property_panel import GraphPropertyPanel
+from app.ui.panels.ui_control_settings_panel import UIControlSettingsPanel
+from app.ui.graph.library_pages.package_library_widget import PackageLibraryWidget
+from app.ui.panels.combat_player_panel import CombatPlayerEditorPanel
+from app.ui.panels.combat_class_panel import CombatPlayerClassPanel
+from app.ui.panels.combat_skill_panel import CombatSkillPanel
+from app.ui.panels.combat_item_panel import CombatItemPanel
+from app.ui.management.section_registry import MANAGEMENT_SECTIONS, ManagementSectionSpec
+from app.ui.main_window.right_panel_registry import RightPanelRegistry
 
 
 @dataclass
@@ -98,8 +98,6 @@ class UISetupMixin:
 
         main_layout.addWidget(self.main_splitter)
 
-        self._create_execution_monitor_panel()
-
     def _setup_nav_bar(self, main_layout: QtWidgets.QHBoxLayout) -> None:
         """创建左侧导航栏并挂载到主布局。"""
         self.nav_bar = NavigationBar()
@@ -134,100 +132,26 @@ class UISetupMixin:
     def _create_template_page(self) -> TemplateLibraryWidget:
         """元件库页面（ViewMode.TEMPLATE）。"""
         template_widget = TemplateLibraryWidget()
-        template_widget.template_selected.connect(self._on_template_selected)
-        self._connect_optional_signal(template_widget, "data_changed", self._on_library_page_data_changed)
         return template_widget
 
     def _create_placement_page(self) -> EntityPlacementWidget:
         """实体摆放页面（ViewMode.PLACEMENT）。"""
         placement_widget = EntityPlacementWidget()
-        placement_widget.instance_selected.connect(self._on_instance_selected)
-        placement_widget.level_entity_selected.connect(self._on_level_entity_selected)
-        self._connect_optional_signal(placement_widget, "data_changed", self._on_library_page_data_changed)
         return placement_widget
 
     def _create_combat_page(self) -> CombatPresetsWidget:
         """战斗预设页面（ViewMode.COMBAT）。"""
         combat_widget = CombatPresetsWidget()
-        self._connect_optional_signal(combat_widget, "player_template_selected", self._on_player_template_selected)
-        self._connect_optional_signal(combat_widget, "player_class_selected", self._on_player_class_selected)
-        self._connect_optional_signal(combat_widget, "skill_selected", self._on_skill_selected)
-        self._connect_optional_signal(combat_widget, "item_selected", self._on_item_selected)
-        self._connect_optional_signal(combat_widget, "data_changed", self._on_library_page_data_changed)
         return combat_widget
 
     def _create_management_page(self) -> ManagementLibraryWidget:
         """管理面板页面（ViewMode.MANAGEMENT）。"""
         management_widget = ManagementLibraryWidget()
-        self._connect_optional_signal(management_widget, "data_changed", self._on_library_page_data_changed)
-        self._connect_optional_signal(management_widget, "active_section_changed", self._on_management_section_changed)
-        if hasattr(management_widget, "ui_control_group_manager"):
-
-            def _on_open_player_editor_requested() -> None:
-                request = UiNavigationRequest(
-                    resource_kind="combat",
-                    resource_id=None,
-                    desired_focus="player_editor",
-                    origin="ui_control_groups",
-                )
-                self.nav_coordinator.handle_request(request)
-
-            management_widget.ui_control_group_manager.open_player_editor_requested.connect(
-                _on_open_player_editor_requested
-            )
         return management_widget
 
     def _create_todo_page(self) -> TodoListWidget:
         """任务清单页面（ViewMode.TODO）。"""
         todo_widget = TodoListWidget()
-        todo_widget.main_window = self
-        if hasattr(self, "resource_manager"):
-            todo_widget.resource_manager = self.resource_manager
-        todo_widget.todo_checked.connect(self._on_todo_checked)
-
-        def _on_todo_jump_to_task(detail_info: dict) -> None:
-            graph_id = str(detail_info.get("graph_id") or "")
-            request = UiNavigationRequest(
-                resource_kind="graph_task",
-                resource_id=graph_id,
-                graph_id=graph_id or None,
-                desired_focus="graph_task",
-                origin="todo",
-                payload=dict(detail_info),
-            )
-            self.nav_coordinator.handle_request(request)
-
-        def _on_todo_preview_jump(jump_info: dict) -> None:
-            jump_type = jump_info.get("type", "")
-            if jump_type == "node":
-                node_id = jump_info.get("node_id")
-                request = UiNavigationRequest(
-                    resource_kind="graph_preview",
-                    resource_id=None,
-                    desired_focus="graph_node",
-                    origin="todo_preview",
-                    node_id=str(node_id) if node_id else None,
-                    payload=dict(jump_info),
-                )
-                self.nav_coordinator.handle_request(request)
-            elif jump_type == "edge":
-                edge_id = jump_info.get("edge_id")
-                source_node_id = jump_info.get("src_node")
-                target_node_id = jump_info.get("dst_node")
-                request = UiNavigationRequest(
-                    resource_kind="graph_preview",
-                    resource_id=None,
-                    desired_focus="graph_edge",
-                    origin="todo_preview",
-                    edge_id=str(edge_id) if edge_id else None,
-                    source_node_id=str(source_node_id) if source_node_id else None,
-                    target_node_id=str(target_node_id) if target_node_id else None,
-                    payload=dict(jump_info),
-                )
-                self.nav_coordinator.handle_request(request)
-
-        todo_widget.jump_to_task.connect(_on_todo_jump_to_task)
-        todo_widget.preview_view.jump_to_graph_element.connect(_on_todo_preview_jump)
         return todo_widget
 
     def _create_composite_placeholder_page(self) -> QtWidgets.QWidget:
@@ -239,31 +163,11 @@ class UISetupMixin:
     def _create_graph_library_page(self) -> GraphLibraryWidget:
         """节点图库页面（ViewMode.GRAPH_LIBRARY）。"""
         graph_library_widget = GraphLibraryWidget(self.resource_manager, self.package_index_manager)
-        graph_library_widget.graph_selected.connect(self._on_graph_library_selected)
-        graph_library_widget.graph_double_clicked.connect(self._on_graph_library_double_clicked)
-
-        def _on_graph_library_jump(entity_type: str, entity_id: str, package_id: str) -> None:
-            request = UiNavigationRequest(
-                resource_kind=entity_type,
-                resource_id=entity_id,
-                package_id=package_id,
-                desired_focus="property_panel",
-                origin="graph_library",
-            )
-            self.nav_coordinator.handle_request(request)
-
-        graph_library_widget.jump_to_entity_requested.connect(_on_graph_library_jump)
         return graph_library_widget
 
     def _create_validation_page(self) -> ValidationPanel:
         """验证面板页面（ViewMode.VALIDATION）。"""
         validation_panel = ValidationPanel()
-
-        def _on_validation_jump_to_issue(detail: dict) -> None:
-            request = UiNavigationRequest.for_validation_issue(detail)
-            self.nav_coordinator.handle_request(request)
-
-        validation_panel.jump_to_issue.connect(_on_validation_jump_to_issue)
         validation_panel.setMinimumWidth(600)
         return validation_panel
 
@@ -297,7 +201,7 @@ class UISetupMixin:
             }}
             """
         )
-        self.graph_editor_todo_button.setToolTip("返回任务清单并定位到当前图对应的步骤")
+        self.graph_editor_todo_button.setToolTip("前往任务清单并定位/生成当前图对应的执行步骤")
         self.graph_editor_todo_button.setVisible(False)
         self.graph_editor_todo_button.clicked.connect(self._on_graph_editor_execute_from_todo)
         self.view.set_extra_top_right_button(self.graph_editor_todo_button)
@@ -306,34 +210,6 @@ class UISetupMixin:
     def _create_package_library_page(self) -> PackageLibraryWidget:
         """存档页面（ViewMode.PACKAGES）。"""
         package_library_widget = PackageLibraryWidget(self.resource_manager, self.package_index_manager)
-        package_library_widget.packages_changed.connect(self._refresh_package_list)
-        self._connect_optional_signal(
-            package_library_widget, "resource_activated", self._on_package_resource_activated
-        )
-        self._connect_optional_signal(
-            package_library_widget,
-            "management_resource_activated",
-            self._on_package_management_resource_activated,
-        )
-        if hasattr(self, "nav_coordinator"):
-
-            def _on_package_library_jump(entity_type: str, entity_id: str, package_id: str) -> None:
-                request = UiNavigationRequest(
-                    resource_kind=entity_type,
-                    resource_id=entity_id,
-                    package_id=package_id,
-                    desired_focus="property_panel",
-                    origin="package_library",
-                )
-                self.nav_coordinator.handle_request(request)
-
-            package_library_widget.jump_to_entity_requested.connect(_on_package_library_jump)
-        self._connect_optional_signal(
-            package_library_widget, "management_item_requested", self._on_package_management_item_requested
-        )
-        self._connect_optional_signal(
-            package_library_widget, "graph_double_clicked", self._on_graph_library_double_clicked
-        )
         return package_library_widget
 
     def _create_right_panel_container(self) -> None:
@@ -354,29 +230,37 @@ class UISetupMixin:
 
         self.ui_control_settings_panel = UIControlSettingsPanel()
 
+        # 右侧标签注册表：集中管理 tab_id -> widget/标题/模式约束
+        self.right_panel_registry = RightPanelRegistry(
+            side_tab=self.side_tab,
+            right_panel_container=self.right_panel_container,
+        )
+
+        # 安装主窗口 Feature（渐进迁移的单点扩展口）
+        self._install_main_window_features()
+
         self.right_panel_container.setMinimumWidth(350)
         self.right_panel_container.setMaximumWidth(800)
 
+    def _install_main_window_features(self) -> None:
+        """安装默认主窗口 Feature 集合。
+
+        约定：在 `side_tab` 与 `right_panel_registry` 初始化完成后调用，
+        让 Feature 可以创建自己的控件并注册到右侧标签注册表中。
+        """
+        from app.ui.main_window.features import install_default_main_window_features
+
+        self.main_window_features = install_default_main_window_features(main_window=self)
+
     def _create_property_panels(self) -> None:
         """创建右侧属性类面板（元件/图/复合节点/虚拟引脚/管理配置等）。"""
-        from ui.panels.equipment_data_management_panel import (
+        from app.ui.panels.equipment_data_management_panel import (
             EquipmentEntryManagementPanel,
             EquipmentTagManagementPanel,
             EquipmentTypeManagementPanel,
         )
         self.property_panel = TemplateInstancePanel(self.resource_manager, self.package_index_manager)
-        self.property_panel.data_updated.connect(self._on_data_updated)
-        self.property_panel.graph_selected.connect(self._on_graph_selected)
-        self.property_panel.template_package_membership_changed.connect(
-            self._on_template_package_membership_changed
-        )
-        self.property_panel.instance_package_membership_changed.connect(
-            self._on_instance_package_membership_changed
-        )
         self.property_panel.setMinimumWidth(300)
-        # 在保存存档前，通过 PackageController 回调刷新基础信息页中尚未通过去抖写回的编辑内容。
-        if hasattr(self, "package_controller"):
-            self.package_controller.flush_current_resource_panel = self.property_panel.flush_pending_changes
 
         # 玩家模板详情面板（战斗预设专用，具体挂载到 side_tab 由模式切换逻辑控制）
         self.player_editor_panel = CombatPlayerEditorPanel(
@@ -384,31 +268,12 @@ class UISetupMixin:
             self.package_index_manager,
             self.right_panel_container,
         )
-        # 玩家模板详情只负责更新地图与索引，与模板/实例属性面板的刷新逻辑解耦
-        self.player_editor_panel.data_changed.connect(
-            lambda: self._on_immediate_persist_requested(
-                combat_dirty=True,
-                index_dirty=True,
-            )
-        )
-        self._connect_optional_signal(
-            self.player_editor_panel, "graph_selected", self._on_player_editor_graph_selected
-        )
 
         # 职业详情面板（战斗预设-职业）
         self.player_class_panel = CombatPlayerClassPanel(
             self.resource_manager,
             self.package_index_manager,
             self.right_panel_container,
-        )
-        self.player_class_panel.data_changed.connect(
-            lambda: self._on_immediate_persist_requested(
-                combat_dirty=True,
-                index_dirty=True,
-            )
-        )
-        self._connect_optional_signal(
-            self.player_class_panel, "graph_selected", self._on_player_editor_graph_selected
         )
 
         # 技能详情面板（战斗预设-技能）
@@ -418,13 +283,6 @@ class UISetupMixin:
             self.right_panel_container,
         )
         self.skill_panel.setMinimumWidth(360)
-        self.skill_panel.data_changed.connect(
-            lambda: self._on_immediate_persist_requested(
-                combat_dirty=True,
-                index_dirty=True,
-            )
-        )
-        self._connect_optional_signal(self.skill_panel, "graph_selected", self._on_player_editor_graph_selected)
 
         # 道具详情面板（战斗预设-道具）
         self.item_panel = CombatItemPanel(
@@ -433,38 +291,12 @@ class UISetupMixin:
             self.right_panel_container,
         )
         self.item_panel.setMinimumWidth(360)
-        self.item_panel.data_changed.connect(
-            lambda: self._on_immediate_persist_requested(
-                combat_dirty=True,
-                index_dirty=True,
-            )
-        )
 
         self.graph_property_panel = GraphPropertyPanel(self.resource_manager, self.package_index_manager)
-
-        def _on_graph_property_jump(entity_type: str, entity_id: str, package_id: str) -> None:
-            request = UiNavigationRequest(
-                resource_kind=entity_type,
-                resource_id=entity_id,
-                package_id=package_id,
-                desired_focus="property_panel",
-                origin="graph_property",
-            )
-            self.nav_coordinator.handle_request(request)
-
-        self.graph_property_panel.jump_to_reference.connect(_on_graph_property_jump)
-        self.graph_property_panel.graph_updated.connect(self._on_graph_updated_from_property)
-        self.graph_property_panel.package_membership_changed.connect(
-            self._on_graph_package_membership_changed
-        )
         self.graph_property_panel.setMinimumWidth(300)
-        self.graph_property_panel.graph_editor_controller = self.graph_controller
 
         self.composite_property_panel = CompositeNodePropertyPanel(self.package_index_manager)
         self.composite_property_panel.setMinimumWidth(300)
-        self.composite_property_panel.package_membership_changed.connect(
-            self._on_composite_package_membership_changed
-        )
 
         self.composite_pin_panel = CompositeNodePinPanel()
         self.composite_pin_panel.setMinimumWidth(300)
@@ -472,82 +304,32 @@ class UISetupMixin:
         # 管理配置通用属性面板（管理模式下复用主窗口右侧“属性”标签）
         self.management_property_panel = ManagementPropertyPanel(self.right_panel_container)
         self.management_property_panel.setMinimumWidth(300)
-        self._connect_optional_signal(
-            self.management_property_panel,
-            "management_package_membership_changed",
-            self._on_management_property_panel_membership_changed,
-        )
 
         # 装备数据管理专用编辑面板（词条 / 标签 / 类型）
         self.equipment_entry_panel = EquipmentEntryManagementPanel(self.right_panel_container)
         self.equipment_entry_panel.setMinimumWidth(380)
-        self.equipment_entry_panel.data_updated.connect(self._on_management_edit_page_data_updated)
-        self._connect_optional_signal(
-            self.equipment_entry_panel,
-            "package_membership_changed",
-            self._on_equipment_entry_package_membership_changed,
-        )
 
         self.equipment_tag_panel = EquipmentTagManagementPanel(self.right_panel_container)
         self.equipment_tag_panel.setMinimumWidth(360)
-        self.equipment_tag_panel.data_updated.connect(self._on_management_edit_page_data_updated)
-        self._connect_optional_signal(
-            self.equipment_tag_panel,
-            "package_membership_changed",
-            self._on_equipment_tag_package_membership_changed,
-        )
 
         self.equipment_type_panel = EquipmentTypeManagementPanel(self.right_panel_container)
         self.equipment_type_panel.setMinimumWidth(380)
-        self.equipment_type_panel.data_updated.connect(self._on_management_edit_page_data_updated)
-        self._connect_optional_signal(
-            self.equipment_type_panel,
-            "package_membership_changed",
-            self._on_equipment_type_package_membership_changed,
-        )
 
         # 外围系统管理专用编辑面板（管理模式下“外围系统管理” Section 使用）
         self.peripheral_system_panel = PeripheralSystemManagementPanel(self.right_panel_container)
         self.peripheral_system_panel.setMinimumWidth(360)
-        self.peripheral_system_panel.data_updated.connect(self._on_management_edit_page_data_updated)
-        self._connect_optional_signal(
-            self.peripheral_system_panel,
-            "system_package_membership_changed",
-            self._on_peripheral_system_panel_package_membership_changed,
-        )
 
         # 主镜头管理专用编辑面板（管理模式下“主镜头管理” Section 使用）
         self.main_camera_panel = MainCameraManagementPanel(self.right_panel_container)
         self.main_camera_panel.setMinimumWidth(360)
-        self.main_camera_panel.data_updated.connect(self._on_management_edit_page_data_updated)
-        self._connect_optional_signal(
-            self.main_camera_panel,
-            "camera_package_membership_changed",
-            self._on_main_camera_panel_package_membership_changed,
-        )
 
         # 信号管理专用编辑面板（管理模式下“信号管理” Section 使用）
         self.signal_management_panel = SignalManagementPanel(self.right_panel_container)
         self.signal_management_panel.setMinimumWidth(360)
-        if hasattr(self.signal_management_panel, "editor"):
-            self.signal_management_panel.editor.signal_changed.connect(
-                self._on_signal_property_panel_changed  # type: ignore[attr-defined]
-            )
-        self._connect_optional_signal(
-            self.signal_management_panel,
-            "signal_package_membership_changed",
-            self._on_signal_property_panel_package_membership_changed,
-        )
 
         # 结构体定义专用编辑面板（管理模式下“结构体定义” Section 使用）
         self.struct_definition_panel = StructDefinitionManagementPanel(self.right_panel_container)
         self.struct_definition_panel.setMinimumWidth(360)
-        self.struct_definition_panel.editor.struct_changed.connect(  # type: ignore[attr-defined]
-            self._on_struct_property_panel_struct_changed  # type: ignore[attr-defined]
-        )
-        self.struct_definition_panel.struct_package_membership_changed.connect(  # type: ignore[attr-defined]
-            self._on_struct_property_panel_membership_changed  # type: ignore[attr-defined]
-        )
 
         # 管理编辑页逻辑统一使用：
         # - `ManagementPropertyPanel` 构建只读或可编辑表单；
@@ -564,19 +346,6 @@ class UISetupMixin:
 
         # 验证问题详情面板（验证模式下右侧“详细信息”标签使用）
         self.validation_detail_panel = ValidationDetailPanel(self.right_panel_container)
-        if hasattr(self, "validation_panel"):
-            self.validation_panel.issue_selected.connect(self.validation_detail_panel.set_issue)
-
-    def _create_execution_monitor_panel(self) -> None:
-        """创建执行监控面板并注入上下文。"""
-        self.execution_monitor_panel = ExecutionMonitorPanel(self.side_tab)
-        self.execution_monitor_panel.hide()
-        if hasattr(self.execution_monitor_panel, "graph_view"):
-            self.execution_monitor_panel.graph_view = self.view
-        if hasattr(self.execution_monitor_panel, "current_workspace_path"):
-            self.execution_monitor_panel.current_workspace_path = self.workspace_path
-        if hasattr(self.execution_monitor_panel, "get_current_graph_model"):
-            self.execution_monitor_panel.get_current_graph_model = self.graph_controller.get_current_model
 
     def _setup_menubar(self) -> None:
         """设置菜单栏"""
@@ -621,11 +390,20 @@ class UISetupMixin:
 
         toolbar.addSeparator()
 
-        # 设置与重启按钮组
+        # 设置 / 更新 / 重启按钮组
         settings_action = QtGui.QAction("⚙️ 设置", self)
         settings_action.setToolTip("打开程序设置")
         settings_action.triggered.connect(self._open_settings_dialog)
         toolbar.addAction(settings_action)
+
+        update_action = QtGui.QAction("更新", self)
+        update_action.setToolTip("刷新资源库（当外部工具修改节点图、管理配置等资源时手动触发）")
+        if hasattr(self, "_on_manual_refresh_resource_library"):
+            update_action.triggered.connect(self._on_manual_refresh_resource_library)
+        else:
+            # 回退：直接调用主窗口统一的资源库刷新入口（若存在）
+            update_action.triggered.connect(getattr(self, "refresh_resource_library", lambda: None))
+        toolbar.addAction(update_action)
 
         restart_action = QtGui.QAction("重启", self)
         restart_action.setToolTip("重启程序以应用需要启动阶段生效的设置")

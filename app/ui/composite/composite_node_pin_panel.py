@@ -4,9 +4,9 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtWidgets
 from typing import Optional
 
-from ui.foundation.theme_manager import ThemeManager, Colors
+from app.ui.foundation.theme_manager import ThemeManager, Colors
 from engine.nodes.advanced_node_features import CompositeNodeConfig
-from ui.composite.composite_node_preview_widget import CompositeNodePreviewWidget
+from app.ui.composite.composite_node_preview_widget import CompositeNodePreviewWidget
 
 
 class CompositeNodePinPanel(QtWidgets.QWidget):

@@ -3,8 +3,8 @@ from __future__ import annotations
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import Qt
 
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.todo.todo_config import StepTypeRules
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.todo.todo_config import StepTypeRules
 
 
 class TodoContextMenu:

@@ -8,7 +8,7 @@
     - 在连续执行/单步执行等模式下统一返回跳过决策与原因
 """
 
-from app.automation.core.executor_protocol import ViewportController
+from app.automation.editor.executor_protocol import ViewportController
 
 # 单步执行模式下，用于标记“仅作为上下文参与规划、实际不执行”的跳过原因。
 # UI 层可以据此选择是否在任务树中高亮为“跳过”。

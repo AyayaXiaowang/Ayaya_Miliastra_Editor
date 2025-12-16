@@ -9,7 +9,7 @@ from PyQt6 import QtCore, QtWidgets
 from engine.graph.models.package_model import InstanceConfig, TemplateConfig
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from ui.panels.template_instance_service import TemplateInstanceService
+from app.ui.panels.template_instance_service import TemplateInstanceService
 
 
 PackageType = Union[PackageView, GlobalResourceView]

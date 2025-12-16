@@ -14,8 +14,8 @@ from typing import Optional, Dict, Any, Callable, List
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.core import executor_utils as _exec_utils
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
+from app.automation.editor import executor_utils as _exec_utils
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport
 from app.automation.input import win_input
 from app.automation.ports.port_picker import pick_port_center_for_node
 from app.automation.vision import invalidate_cache, list_ports as list_ports_for_bbox

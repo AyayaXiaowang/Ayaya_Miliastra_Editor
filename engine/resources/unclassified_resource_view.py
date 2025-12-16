@@ -311,21 +311,7 @@ class UnclassifiedResourceView:
 
         - 模板来源：所有代码级局内存档模板中未被任何包引用的记录；
         - 启用状态：优先根据模板 payload 中的 `is_default_template` 计算当前启用模板；
-          旧版仍可从 `global_view_save_points` 资源中读取 enabled/active_template_id 作为回退。
         """
-        aggregator_id = "global_view_save_points"
-
-        # 读取旧版全局元配置（与 GlobalResourceView 共用，仅作回退）
-        meta_payload: dict = {}
-        if self.resource_manager.resource_exists(ResourceType.SAVE_POINT, aggregator_id):
-            candidate = self.resource_manager.load_resource(ResourceType.SAVE_POINT, aggregator_id)
-            if isinstance(candidate, dict):
-                meta_payload = {
-                    "enabled": bool(candidate.get("enabled", False)),
-                    "active_template_id": str(candidate.get("active_template_id", "")).strip(),
-                    "updated_at": str(candidate.get("updated_at", "")),
-                }
-
         # 从代码级模板中筛选出“未被任何包引用”的模板
         schema_view = get_default_ingame_save_template_schema_view()
         all_templates = schema_view.get_all_templates()
@@ -358,7 +344,7 @@ class UnclassifiedResourceView:
 
         templates.sort(key=_template_sort_key)
 
-        # 依据模板状态与旧版元配置综合计算启用状态与当前模板 ID
+        # 依据模板状态计算启用状态与当前模板 ID（以 is_default_template 为单一真源）
         default_template_id_from_templates = ""
         for template_payload in templates:
             is_default = bool(template_payload.get("is_default_template", False))
@@ -371,31 +357,14 @@ class UnclassifiedResourceView:
             default_template_id_from_templates = template_id_text
             break
 
-        enabled_flag = False
-        active_template_id = ""
-        updated_at_text = str(meta_payload.get("updated_at", "")).strip()
-        if default_template_id_from_templates:
-            enabled_flag = True
-            active_template_id = default_template_id_from_templates
-        else:
-            enabled_flag = bool(meta_payload.get("enabled", False))
-            active_template_id = str(meta_payload.get("active_template_id", "")).strip()
-
-        # active_template_id 不在当前未分类集合中时，仅在视图层关闭启用状态
-        if enabled_flag and active_template_id:
-            if not any(
-                str(t.get("template_id", "")).strip() == active_template_id for t in templates
-            ):
-                enabled_flag = False
-                active_template_id = ""
+        enabled_flag = bool(default_template_id_from_templates)
+        active_template_id = default_template_id_from_templates if enabled_flag else ""
 
         result: dict[str, object] = {
             "templates": templates,
             "enabled": enabled_flag,
             "active_template_id": active_template_id,
         }
-        if updated_at_text:
-            result["updated_at"] = updated_at_text
         return result
 
     @property

@@ -11,34 +11,21 @@ from PIL import Image
 
 from app.automation.input.common import log_start, log_ok, log_fail
 from app.automation.vision import invalidate_cache
-from app.automation.core import editor_connect, editor_nodes
+from app.automation.editor import editor_connect, editor_nodes
 from app.automation import capture as editor_capture
 from app.automation.input import win_input
 from app.automation.config.signal_config import execute_bind_signal
-from app.automation.core.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
-from app.automation.core import executor_utils as _exec_utils
+from app.automation.editor.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
+from app.automation.editor import executor_utils as _exec_utils
 from engine.configs.settings import settings
 from engine.graph.models.graph_model import GraphModel
 from . import editor_recognition as _rec
 
-
-GRAPH_STEP_CREATE_NODE = "graph_create_node"
-GRAPH_STEP_CONNECT = "graph_connect"
-GRAPH_STEP_CREATE_AND_CONNECT = "graph_create_and_connect"
-GRAPH_STEP_CONNECT_MERGED = "graph_connect_merged"
-GRAPH_STEP_CONFIG_NODE_MERGED = "graph_config_node_merged"
-GRAPH_STEP_SET_PORT_TYPES_MERGED = "graph_set_port_types_merged"
-GRAPH_STEP_ADD_VARIADIC_INPUTS = "graph_add_variadic_inputs"
-GRAPH_STEP_ADD_DICT_PAIRS = "graph_add_dict_pairs"
-GRAPH_STEP_ADD_BRANCH_OUTPUTS = "graph_add_branch_outputs"
-GRAPH_STEP_CONFIG_BRANCH_OUTPUTS = "graph_config_branch_outputs"
-GRAPH_STEP_BIND_SIGNAL = "graph_bind_signal"
-
-# 标记为“快速链可参与类型”的步骤集合：在 EditorExecutor 中用于决定是否跳过等待。
-FAST_CHAIN_ELIGIBLE_STEP_TYPES: tuple[str, ...] = (
+from .automation_step_types import (
+    GRAPH_STEP_CREATE_NODE,
     GRAPH_STEP_CONNECT,
-    GRAPH_STEP_CONNECT_MERGED,
     GRAPH_STEP_CREATE_AND_CONNECT,
+    GRAPH_STEP_CONNECT_MERGED,
     GRAPH_STEP_CONFIG_NODE_MERGED,
     GRAPH_STEP_SET_PORT_TYPES_MERGED,
     GRAPH_STEP_ADD_VARIADIC_INPUTS,
@@ -46,6 +33,7 @@ FAST_CHAIN_ELIGIBLE_STEP_TYPES: tuple[str, ...] = (
     GRAPH_STEP_ADD_BRANCH_OUTPUTS,
     GRAPH_STEP_CONFIG_BRANCH_OUTPUTS,
     GRAPH_STEP_BIND_SIGNAL,
+    FAST_CHAIN_ELIGIBLE_STEP_TYPES,
 )
 
 
@@ -85,11 +73,9 @@ class _StepExecutionPlan:
 
 
 def _prepare_for_connect_if_needed(executor, log_callback) -> None:
-    last_token = getattr(executor, "_last_connect_prepare_token", -1)
-    current_token = getattr(executor, "_view_state_token", 0)
-    if last_token != current_token:
+    if executor.should_prepare_for_connect():
         _rec.prepare_for_connect(executor, log_callback)
-        setattr(executor, "_last_connect_prepare_token", current_token)
+        executor.mark_connect_prepared()
     else:
         executor.log("· 连线预热：视口未变化，跳过识别缓存刷新", log_callback)
 
@@ -473,15 +459,13 @@ def _sync_view_if_needed(
     - fast_chain_mode=False 时，当视口 token 发生变化才调用同步函数。
     """
     if not bool(getattr(executor, "fast_chain_mode", False)) and bool(step_plan.requires_view_sync):
-        last_synced_token = getattr(executor, "_last_synced_view_state_token", -1)
-        current_token = getattr(executor, "_view_state_token", 0)
-        if last_synced_token != current_token:
+        if executor.should_sync_visible_nodes_positions():
             synced_count = executor.sync_visible_nodes_positions(
                 graph_model,
                 threshold_px=60.0,
                 log_callback=log_callback,
             )
-            setattr(executor, "_last_synced_view_state_token", current_token)
+            executor.mark_visible_nodes_positions_synced()
             if synced_count > 0:
                 executor.log(
                     f"· 单步：同步可见节点坐标 {synced_count} 个，避免使用过期位置",
@@ -650,7 +634,7 @@ def _click_canvas_blank_after_step(
     )
 
 
-def execute_step(
+def _execute_step_impl(
     executor,
     todo_item: Dict[str, Any],
     graph_model: GraphModel,
@@ -658,7 +642,13 @@ def execute_step(
     pause_hook: Optional[Callable[[], None]] = None,
     allow_continue: Optional[Callable[[], bool]] = None,
     visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
+    *,
+    step_planner: "AutomationStepPlanner | None" = None,
+    recognizer: "AutomationRecognizer | None" = None,
 ) -> bool:
+    step_planner = step_planner if step_planner is not None else AutomationStepPlanner()
+    recognizer = recognizer if recognizer is not None else AutomationRecognizer()
+
     # 1. 统一保证缩放为 50%（连续执行时通常已在外层完成，仅在标记未确认时触发一次性检查）
     if not _ensure_zoom_ready(
         executor,
@@ -672,7 +662,7 @@ def execute_step(
 
     # 2. 解析步骤类型并处理“未校准首创建”场景
     raw_step_type = todo_item.get("type")
-    step_type, plan = _resolve_step_plan(raw_step_type, executor, log_callback)
+    step_type, plan = step_planner.resolve_step_plan(raw_step_type, executor, log_callback)
     if executor.scale_ratio is None:
         if step_type == GRAPH_STEP_CREATE_NODE or step_type == GRAPH_STEP_CREATE_AND_CONNECT:
             # 在尚未建立坐标映射时，允许首个创建步骤在画布中心放置节点，
@@ -737,7 +727,7 @@ def execute_step(
                 if step_type == GRAPH_STEP_CREATE_AND_CONNECT:
                     if plan is None:
                         return False
-                    _sync_view_if_needed(
+                    recognizer.sync_view_if_needed(
                         executor,
                         graph_model,
                         plan,
@@ -797,7 +787,7 @@ def execute_step(
         return False
 
     # 3. 在非快速链模式下，根据当前视口 token 决定是否需要同步可见节点坐标
-    _sync_view_if_needed(
+    recognizer.sync_view_if_needed(
         executor,
         graph_model,
         plan,
@@ -828,3 +818,79 @@ def execute_step(
             visual_callback=visual_callback,
         )
     return bool(result_step)
+
+
+class AutomationStepPlanner:
+    """planner：把 todo_item 解析为 (step_type, step_plan) 的纯规划阶段。"""
+
+    def resolve_step_plan(self, step_type_raw: object, executor, log_callback) -> tuple[str, Optional[_StepExecutionPlan]]:
+        return _resolve_step_plan(step_type_raw, executor, log_callback)
+
+
+class AutomationRecognizer:
+    """recognizer：统一封装“视口同步 / 连线前预热”等识别侧前置步骤。"""
+
+    def sync_view_if_needed(
+        self,
+        executor,
+        graph_model: GraphModel,
+        step_plan: _StepExecutionPlan,
+        log_callback,
+    ) -> None:
+        _sync_view_if_needed(executor, graph_model, step_plan, log_callback)
+
+
+class AutomationStepRunner:
+    """step runner：执行单个 todo 步骤的编排入口（planner → recognizer → handler）。"""
+
+    def __init__(
+        self,
+        *,
+        step_planner: AutomationStepPlanner | None = None,
+        recognizer: AutomationRecognizer | None = None,
+    ) -> None:
+        self._step_planner = step_planner if step_planner is not None else AutomationStepPlanner()
+        self._recognizer = recognizer if recognizer is not None else AutomationRecognizer()
+
+    def run_step(
+        self,
+        executor,
+        todo_item: Dict[str, Any],
+        graph_model: GraphModel,
+        log_callback=None,
+        pause_hook: Optional[Callable[[], None]] = None,
+        allow_continue: Optional[Callable[[], bool]] = None,
+        visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
+    ) -> bool:
+        return _execute_step_impl(
+            executor,
+            todo_item,
+            graph_model,
+            log_callback=log_callback,
+            pause_hook=pause_hook,
+            allow_continue=allow_continue,
+            visual_callback=visual_callback,
+            step_planner=self._step_planner,
+            recognizer=self._recognizer,
+        )
+
+
+def execute_step(
+    executor,
+    todo_item: Dict[str, Any],
+    graph_model: GraphModel,
+    log_callback=None,
+    pause_hook: Optional[Callable[[], None]] = None,
+    allow_continue: Optional[Callable[[], bool]] = None,
+    visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
+) -> bool:
+    """兼容入口：保持对外 API 不变，但内部收敛为 planner → step runner → recognizer。"""
+    return AutomationStepRunner().run_step(
+        executor,
+        todo_item,
+        graph_model,
+        log_callback=log_callback,
+        pause_hook=pause_hook,
+        allow_continue=allow_continue,
+        visual_callback=visual_callback,
+    )

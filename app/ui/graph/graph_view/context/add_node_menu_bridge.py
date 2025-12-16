@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from PyQt6 import QtCore
 
 if TYPE_CHECKING:
-    from ui.graph.graph_view import GraphView
+    from app.ui.graph.graph_view import GraphView
 
 
 class AddNodeMenuBridge:
@@ -42,7 +42,7 @@ class AddNodeMenuBridge:
         if hasattr(view, '_add_node_popup') and view._add_node_popup:
             view._add_node_popup.close()
         
-        from ui.graph.graph_view.popups.add_node_popup import AddNodePopup
+        from app.ui.graph.graph_view.popups.add_node_popup import AddNodePopup
         
         # 创建非模态浮动菜单，传入auto_connect_callback用于自动连接
         def on_node_added(node_def, pos):

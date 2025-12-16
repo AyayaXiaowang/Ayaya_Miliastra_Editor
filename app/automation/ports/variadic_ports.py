@@ -13,8 +13,8 @@ from typing import Optional, Dict, Any, Callable, List, Tuple
 import re
 from PIL import Image
 
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
-from app.automation.core.node_snapshot import NodePortsSnapshotCache
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport
+from app.automation.editor.node_snapshot import NodePortsSnapshotCache
 from app.automation.ports._add_ports_common import execute_add_ports_generic
 from app.automation.ports._ports import is_data_input_port
 from engine.graph.models.graph_model import GraphModel

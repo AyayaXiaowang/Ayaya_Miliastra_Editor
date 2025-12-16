@@ -39,6 +39,9 @@ app/runtime/cache/
 app/runtime/todo_states/
 user_settings.json
 
+# 防止误把 workspace_path 指到 engine/ 导致缓存跑到 engine/app/runtime/cache
+engine/app/runtime/cache/
+
 # Local per-directory docs (do not version)
 **/claude.md
 
@@ -64,6 +67,12 @@ assets/资源库/**
 # 允许：以“示例_”或“模板示例_”开头的资源文件（任意子目录、任意后缀）
 !assets/资源库/**/示例_*
 !assets/资源库/**/模板示例_*
+
+# 但即使被白名单放行，也必须继续忽略编译产物与缓存目录/文件（否则会把 .pyc 等带进仓库）
+assets/资源库/**/__pycache__/
+assets/资源库/**/*.py[cod]
+assets/资源库/**/*.pyo
+assets/资源库/**/*.pyd
 
 # 明确白名单：官方内置“信号/结构体全类型示例”及其功能包
 !assets/资源库/管理配置/结构体定义/struct_all_supported_types_example.py

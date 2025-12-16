@@ -16,9 +16,9 @@ from PyQt6 import QtCore, QtWidgets
 
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from ui.foundation.theme_manager import Sizes
-from ui.panels.panel_scaffold import PanelScaffold
-from ui.panels.package_membership_selector import (
+from app.ui.foundation.theme_manager import Sizes
+from app.ui.panels.panel_scaffold import PanelScaffold
+from app.ui.panels.package_membership_selector import (
     PackageMembershipSelector,
     build_package_membership_row,
 )

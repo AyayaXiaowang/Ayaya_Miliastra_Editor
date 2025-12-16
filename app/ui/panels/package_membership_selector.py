@@ -4,7 +4,7 @@ from typing import Callable, Iterable, List, Optional, Sequence, Set, Tuple
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.theme_manager import Sizes
+from app.ui.foundation.theme_manager import Sizes
 
 
 class PackageMembershipSelector(QtWidgets.QComboBox):

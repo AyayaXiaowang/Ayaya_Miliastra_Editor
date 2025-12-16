@@ -1,7 +1,7 @@
 """检查所有实现函数是否声明了 @node_spec。
 
 用法：
-    python tools/check_impl_node_specs.py
+    python -m tools.check_impl_node_specs
 
 返回非零码请直接抛错（本脚本不吞异常）。
 """
@@ -10,14 +10,17 @@ from __future__ import annotations
 
 import inspect
 import importlib
-from pathlib import Path
 import sys
 
 
 def main() -> None:
-    # 确保可从项目根导入实现包
-    workspace = Path(__file__).parent.parent
-    sys.path.insert(0, str(workspace))
+    # 允许 `python tools/check_impl_node_specs.py` 与 `python -m tools.check_impl_node_specs`
+    if __package__:
+        from ._bootstrap import ensure_workspace_root_on_sys_path
+    else:
+        from _bootstrap import ensure_workspace_root_on_sys_path
+
+    ensure_workspace_root_on_sys_path()
     pkg = importlib.import_module("node_implementations")
     missing = []
 

@@ -7,12 +7,13 @@ from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import Qt
 
 from engine.graph.models.graph_model import GraphModel
-from ui.graph.graph_scene import GraphScene
-from ui.graph.graph_view import GraphView
-from ui.composite.composite_node_preview_widget import CompositeNodePreviewWidget
-from ui.todo.todo_config import TodoStyles, LayoutConstants, StepTypeRules
-from ui.todo.todo_preview_controller import TodoPreviewController
-from ui.todo.todo_widgets import create_execute_button
+from app.ui.graph.graph_scene import GraphScene
+from app.ui.graph.graph_view import GraphView
+from app.ui.composite.composite_node_preview_widget import CompositeNodePreviewWidget
+from app.ui.todo.todo_config import TodoStyles, LayoutConstants, StepTypeRules
+from app.ui.todo.todo_preview_controller import TodoPreviewController
+from app.ui.todo.preview_graph_context_resolver import resolve_graph_preview_context
+from app.ui.todo.todo_widgets import create_execute_button
 from engine.configs.settings import settings
 
 
@@ -157,7 +158,14 @@ class TodoPreviewPanel(QtWidgets.QWidget):
 
     # === 预览加载 ===
 
-    def handle_graph_preview(self, todo, todo_map: dict[str, object], main_window) -> bool:
+    def handle_graph_preview(
+        self,
+        todo,
+        todo_map: dict[str, object],
+        main_window,
+        *,
+        tree_manager=None,
+    ) -> bool:
         """根据 todo 切换/加载预览并聚焦。
         返回是否显示预览（True → 应切换到预览页）。
         """
@@ -180,11 +188,14 @@ class TodoPreviewPanel(QtWidgets.QWidget):
 
         # 父级：事件流/图根也应进入预览（事件流 → 聚焦相关节点组；图根 → 适应全图）
         if StepTypeRules.is_graph_root(detail_type):
-            graph_data, graph_id, template_or_instance = self.preview_controller.get_graph_data_id_and_container(
+            resolved_tree_manager = tree_manager
+            if resolved_tree_manager is None and main_window is not None:
+                resolved_tree_manager = getattr(main_window, "todo_tree_manager", None)
+            graph_data, graph_id, template_or_instance = resolve_graph_preview_context(
                 todo,
-                todo_map,
-                main_window,
-                getattr(main_window, "todo_tree_manager", None) if main_window is not None else None,
+                todo_map,  # type: ignore[arg-type]
+                tree_manager=resolved_tree_manager,
+                main_window=main_window,
             )
             if graph_data:
                 previous_graph_id = self.current_graph_id
@@ -226,11 +237,14 @@ class TodoPreviewPanel(QtWidgets.QWidget):
             return False
 
         if StepTypeRules.should_preview_graph(detail_type):
-            graph_data, graph_id, template_or_instance = self.preview_controller.get_graph_data_id_and_container(
+            resolved_tree_manager = tree_manager
+            if resolved_tree_manager is None and main_window is not None:
+                resolved_tree_manager = getattr(main_window, "todo_tree_manager", None)
+            graph_data, graph_id, template_or_instance = resolve_graph_preview_context(
                 todo,
-                todo_map,
-                main_window,
-                getattr(main_window, "todo_tree_manager", None) if main_window is not None else None,
+                todo_map,  # type: ignore[arg-type]
+                tree_manager=resolved_tree_manager,
+                main_window=main_window,
             )
             # 放宽条件：只要有 graph_data 即可展示预览；graph_id 可为空
             if graph_data:
@@ -321,7 +335,7 @@ class TodoPreviewPanel(QtWidgets.QWidget):
             self.preview_scene.signal_edit_context = signal_edit_context  # type: ignore[attr-defined]
 
         # 根据信号定义为当前图中的信号节点补全参数端口，仅新增缺失端口，不主动删除。
-        from ui.graph.signal_node_service import on_signals_updated_from_manager
+        from app.ui.graph.signal_node_service import on_signals_updated_from_manager
 
         on_signals_updated_from_manager(self.preview_scene)
 
@@ -330,7 +344,11 @@ class TodoPreviewPanel(QtWidgets.QWidget):
         if StepTypeRules.is_event_flow_root(detail_type):
             # 极少用到：此处仅保留逻辑完整
             node_ids = self._collect_nodes_from_subtasks(todo, getattr(self, 'todo_map', {}))
-            todo.detail_info["_flow_node_ids"] = node_ids
+            self.preview_controller.focus_and_highlight_task(
+                todo,
+                event_flow_node_ids=node_ids,
+            )
+            return
         self.preview_controller.focus_and_highlight_task(todo)
 
     def _collect_nodes_from_subtasks(self, todo, todo_map: dict) -> list[str]:

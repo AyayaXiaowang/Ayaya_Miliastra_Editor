@@ -11,7 +11,7 @@ from typing import Optional
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.theme_manager import ThemeManager, Sizes
+from app.ui.foundation.theme_manager import ThemeManager, Sizes
 
 
 class ToggleSwitch(QtWidgets.QCheckBox):

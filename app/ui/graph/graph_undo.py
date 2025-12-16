@@ -20,7 +20,7 @@ from engine.utils.undo.undo_redo_core import (
 )
 
 if TYPE_CHECKING:
-    from ui.graph.graph_scene import GraphScene
+    from app.ui.graph.graph_scene import GraphScene
 
 
 UndoRedoManager = CoreUndoRedoManager

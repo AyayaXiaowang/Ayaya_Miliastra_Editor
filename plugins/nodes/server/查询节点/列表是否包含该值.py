@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="列表是否包含该值",
     category="查询节点",
-    inputs=[("列表", "泛型"), ("值", "泛型")],
+    inputs=[("列表", "泛型列表"), ("值", "泛型")],
     outputs=[("是否包含", "布尔值")],
     description="返回列表中是否包含指定值",
     doc_reference="服务器节点/查询节点/查询节点.md"

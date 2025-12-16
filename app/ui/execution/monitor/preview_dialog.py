@@ -7,7 +7,7 @@
 from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtCore import Qt
 
-from ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.base_widgets import BaseDialog
 
 
 class _ImageHistoryPreviewDialog(BaseDialog):
@@ -244,7 +244,7 @@ class _ImageHistoryPreviewDialog(BaseDialog):
         return super().eventFilter(obj, event)
 
     def _handle_wheel_zoom(self, event: QtGui.QWheelEvent) -> None:
-        from ui.foundation.interaction_helpers import handle_wheel_zoom_for_scroll_area
+        from app.ui.foundation.interaction_helpers import handle_wheel_zoom_for_scroll_area
         handle_wheel_zoom_for_scroll_area(
             self.scroll_area,
             self.image_label,

@@ -7,7 +7,7 @@
 from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtCore import Qt
 
-from ui.foundation.theme_manager import Colors, ThemeManager
+from app.ui.foundation.theme_manager import Colors, ThemeManager
 
 
 def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:

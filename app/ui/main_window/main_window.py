@@ -1,32 +1,29 @@
-"""主窗口 - 使用 Mixin 架构"""
+"""主窗口 - 使用 Mixin 架构。
+
+约定：
+- 主窗口尽量保持为“壳/装配层”，不在此文件中堆叠业务与缓存编排；
+- 启动期装配结果集中在 `MainWindowAppState`；
+- “资源库刷新”由 `ResourceRefreshService` 负责失效与重建，UI 只订阅结果并刷新页面。
+"""
 from __future__ import annotations
 
 from pathlib import Path
 
-from PyQt6 import QtWidgets
+from PyQt6 import QtCore, QtWidgets
 
-from engine.nodes.node_registry import get_node_registry
-from engine.graph.models.graph_model import GraphModel
-from engine.configs.settings import settings
-from engine.resources.resource_manager import ResourceManager
-from engine.resources.package_index_manager import PackageIndexManager
-from engine.resources.definition_schema_view import (
-    invalidate_default_struct_cache,
-    invalidate_default_signal_cache,
-)
 from engine.utils.logging.logger import log_info
-from ui.graph.graph_scene import GraphScene
-from ui.graph.graph_view import GraphView
-from ui.devtools.view_inspector import WidgetHoverInspector
-from ui.graph.library_pages.management_section_struct_definitions import (
-    StructDefinitionSection,
-)
+from app.ui.devtools.view_inspector import WidgetHoverInspector
 
 # 导入所有Mixin
 from .controller_setup_mixin import ControllerSetupMixin
 from .ui_setup_mixin import UISetupMixin
 from .mode_switch_mixin import ModeSwitchMixin
 from .event_handler_mixin import EventHandlerMixin
+from .app_state import MainWindowAppState, build_main_window_app_state
+from .resource_refresh_service import ResourceRefreshService
+from .view_state import MainWindowViewState
+from .mode_presenters import ModeEnterRequest, ModePresenterCoordinator
+from .mode_transition_service import ModeTransitionService
 
 
 APP_TITLE = "小王千星工坊"
@@ -56,41 +53,27 @@ class MainWindowV2(
         self.resize(1800, 1000)
         log_info("[BOOT][MainWindow] QMainWindow 基类初始化完成，窗口大小={}x{}", self.width(), self.height())
 
-        # 保存工作空间路径
-        self.workspace_path = workspace
-        log_info("[BOOT][MainWindow] workspace_path 已保存")
+        # 启动期装配结果（单一真源）：workspace / settings / 节点库 / 资源索引 / 图编辑器基础对象
+        self.app_state: MainWindowAppState = build_main_window_app_state(workspace)
+        # 向后兼容：Mixin 体系仍通过 self.* 访问这些属性
+        self.workspace_path = self.app_state.workspace_path
+        self.library = self.app_state.node_library
+        self.resource_manager = self.app_state.resource_manager
+        self.package_index_manager = self.app_state.package_index_manager
+        self.model = self.app_state.graph_model
+        self.scene = self.app_state.graph_scene
+        self.view = self.app_state.graph_view
 
-        # 初始化全局设置
-        log_info("[BOOT][MainWindow] 准备在主窗口内再次设置与加载 settings")
-        settings.set_config_path(workspace)
-        settings.load()  # 加载用户设置
-        log_info("[BOOT][MainWindow] settings 加载完成（UI_THEME_MODE={}）", getattr(settings, "UI_THEME_MODE", "unknown"))
+        # 资源刷新服务（只负责失效与重建）
+        self.resource_refresh_service = ResourceRefreshService()
 
-        # 加载节点定义（集中式注册表）
-        log_info("[BOOT][MainWindow] 准备获取节点注册表（include_composite=True）")
-        registry = get_node_registry(workspace, include_composite=True)
-        log_info("[BOOT][MainWindow] NodeRegistry 实例获取完成，开始加载节点库")
-        self.library = registry.get_library()
-        log_info("[BOOT][MainWindow] 节点库加载完成，当前节点定义数量={}", len(self.library))
+        # UI/View 单一真源（逐步替代散落的隐式状态）
+        self.view_state = MainWindowViewState()
 
-        # 资源管理器和存档索引管理器
-        log_info("[BOOT][MainWindow] 准备创建 ResourceManager")
-        self.resource_manager = ResourceManager(workspace)
-        log_info("[BOOT][MainWindow] ResourceManager 初始化完成")
-
-        log_info("[BOOT][MainWindow] 准备创建 PackageIndexManager")
-        self.package_index_manager = PackageIndexManager(workspace, self.resource_manager)
-        log_info("[BOOT][MainWindow] PackageIndexManager 初始化完成")
-
-        # 节点图编辑相关
-        log_info("[BOOT][MainWindow] 准备创建空 GraphModel/GraphScene/GraphView")
-        self.model = GraphModel()
-        log_info("[BOOT][MainWindow] GraphModel 创建完成")
-        self.scene = GraphScene(self.model, node_library=self.library)
-        log_info("[BOOT][MainWindow] GraphScene 创建完成")
-        self.view = GraphView(self.scene)
-        self.view.node_library = self.library
-        log_info("[BOOT][MainWindow] GraphView 创建完成并绑定 node_library")
+        # 模式 presenter 协调器（进入模式副作用）
+        self.mode_presenter_coordinator = ModePresenterCoordinator(self)
+        # 模式切换公共流程（服务化，降低 mixin 冲突面）
+        self.mode_transition_service = ModeTransitionService()
         # 任务清单 → 节点图编辑器联动上下文
         self._graph_editor_todo_context = None
         self.graph_editor_todo_button = None
@@ -135,8 +118,9 @@ class MainWindowV2(
         # 在初始存档与视图装配完成后，尝试恢复上一次会话的 UI 状态
         if hasattr(self, "_restore_ui_session_state"):
             log_info("[BOOT][MainWindow] 检测到 UI 会话状态恢复入口，准备尝试恢复")
-            self._restore_ui_session_state()
-            log_info("[BOOT][MainWindow] UI 会话状态恢复调用完成")
+            # 延后到事件循环启动后执行，避免在主窗口构造期同步打开上次会话中的大图导致 UI 延迟显示。
+            QtCore.QTimer.singleShot(0, self._restore_ui_session_state)
+            log_info("[BOOT][MainWindow] UI 会话状态恢复已排队（将延后执行）")
 
         log_info("[BOOT][MainWindow] __init__ 完成")
 
@@ -146,44 +130,24 @@ class MainWindowV2(
         self._widget_hover_inspector.set_enabled(enabled)
     
     def refresh_resource_library(self) -> None:
-        """重建资源索引并刷新当前视图绑定的资源数据。
+        """刷新资源库：服务负责失效与重建，主窗口仅根据结果刷新 UI 上下文。"""
+        refresh_outcome = self.resource_refresh_service.refresh(
+            app_state=self.app_state,
+            package_controller=self.package_controller,
+            global_resource_view=getattr(self, "_global_resource_view", None),
+        )
 
-        设计意图：
-        - 当 `assets/资源库` 下的 JSON 资源被外部工具修改时，立即让 ResourceManager 与
-          各视图模型/库页面基于磁盘最新内容重建视图，而无需重启应用；
-        - 保持当前存档/视图模式不变，仅刷新其内部数据来源。
-        """
-        # 0. 刷新结构体和信号定义的全局缓存（这些是代码级资源）
-        invalidate_default_struct_cache()
-        invalidate_default_signal_cache()
-        # 同步失效管理页面内基于 ResourceManager 的结构体记录快照，
-        # 确保“基础结构体定义”和“局内存档结构体定义”在刷新列表时使用最新的 Schema 数据。
-        StructDefinitionSection._invalidate_struct_records_cache(self.resource_manager)
+        # 1) 复用现有包加载完成逻辑：保持模板库/实体摆放/战斗预设/管理库/节点图库一致刷新。
+        did_refresh_package_context = False
+        if refresh_outcome.current_package_id:
+            self._on_package_loaded(refresh_outcome.current_package_id)
+            did_refresh_package_context = True
 
-        # 1. 重建资源索引并清空内存缓存
-        self.resource_manager.rebuild_index()
-        self.resource_manager.clear_cache()
-
-        # 2. 清理当前 PackageView / GlobalResourceView / UnclassifiedResourceView 的懒加载缓存
-        current_package = getattr(self.package_controller, "current_package", None)
-        if hasattr(current_package, "clear_cache"):
-            current_package.clear_cache()
-
-        # 懒加载的全局资源视图在部分页面中作为只读数据源使用，同样需要失效其缓存。
-        if hasattr(self, "_global_resource_view"):
-            global_view = getattr(self, "_global_resource_view", None)
-            if hasattr(global_view, "clear_cache"):
-                global_view.clear_cache()
-
-        # 3. 让与“当前视图”绑定的各库页面重新从视图模型加载数据
-        current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id:
-            # 复用现有的包加载完成逻辑，保持模板库/实体摆放/战斗预设/管理库/节点图库一致刷新。
-            self._on_package_loaded(current_package_id)
-
-        # 4. 节点图库与存档库依赖 ResourceManager / PackageIndexManager 的聚合结果，
+        # 2) 节点图库与存档库依赖 ResourceManager / PackageIndexManager 的聚合结果
         #    在资源索引变化后也需要刷新以反映最新落盘状态。
-        if hasattr(self, "graph_library_widget"):
+        #    注意：当 did_refresh_package_context=True 时，_on_package_loaded 已调用
+        #    graph_library_widget.set_package(...) 并触发其内部刷新，无需再次重复 refresh。
+        if (not did_refresh_package_context) and hasattr(self, "graph_library_widget"):
             self.graph_library_widget.refresh()
         if hasattr(self, "package_library_widget"):
             self.package_library_widget.refresh()

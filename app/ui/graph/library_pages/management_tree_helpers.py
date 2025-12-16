@@ -5,7 +5,7 @@ from typing import Callable, Mapping, Optional, Sequence, Tuple
 from PyQt6 import QtCore, QtWidgets
 
 from engine.resources.resource_manager import ResourceManager, ResourceType
-from ui.management.section_registry import MANAGEMENT_RESOURCE_TITLES
+from app.ui.management.section_registry import MANAGEMENT_RESOURCE_TITLES
 
 
 SingleConfigKey = str

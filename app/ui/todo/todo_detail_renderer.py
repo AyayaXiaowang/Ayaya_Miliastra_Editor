@@ -16,8 +16,8 @@ from typing import Callable, Dict, List
 
 from app.models.todo_item import TodoItem
 from engine.configs.rules import COMPONENT_DEFINITIONS
-from ui.todo.todo_config import CombatTypeNames, ManagementTypeNames
-from ui.todo.todo_detail_model import (
+from app.ui.todo.todo_config import CombatTypeNames, ManagementTypeNames
+from app.ui.todo.todo_detail_model import (
     DetailDocument,
     DetailSection,
     ParagraphBlock,

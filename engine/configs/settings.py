@@ -19,9 +19,11 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from engine.utils.logging.logger import log_info, log_warn
+
+DEFAULT_USER_SETTINGS_RELATIVE_PATH = Path("app/runtime/cache/user_settings.json")
 
 
 class Settings:
@@ -99,6 +101,19 @@ class Settings:
     # - "light"：始终使用浅色主题
     # - "dark"：始终使用深色主题
     UI_THEME_MODE: str = "auto"
+
+    # 资源库自动刷新开关：
+    # True：当 `assets/资源库` 下的资源被外部工具修改时，文件监控会自动检测并刷新资源索引与相关视图；
+    # False：关闭自动刷新，仅在用户点击主窗口工具栏的“更新”按钮或通过其它入口显式触发时才刷新资源库。
+    RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED: bool = True
+
+    # 运行时缓存根目录（相对于 workspace 的路径，或绝对路径）。
+    # 默认 "app/runtime/cache"。
+    #
+    # 说明：
+    # - 引擎层通过 `engine.utils.cache.cache_paths.get_runtime_cache_root()` 统一派生各类缓存路径；
+    # - 当需要将缓存挪出仓库目录（例如放到更快的磁盘/临时目录）时，可修改该值。
+    RUNTIME_CACHE_ROOT: str = "app/runtime/cache"
     
     # ========== 布局增强（默认关闭/中性） ==========
     # 纯数据图：层内排序策略
@@ -114,6 +129,24 @@ class Settings:
     # 块间紧凑排列：在列内堆叠阶段满足端口/碰撞约束后，是否继续向左贴近上游块
     # True：尽量把块往左移动（默认行为）；False：保留列左边界，不额外左移
     LAYOUT_TIGHT_BLOCK_PACKING: bool = True
+
+    # 块内数据节点Y紧凑偏好：
+    # 背景：块内数据节点的 Y 位置除了受“端口Y下界/列底不重叠/多父合流区间”等硬约束影响，
+    # 还会在 `DataYRelaxationEngine` 中被“邻居居中/分叉居中”目标拉扯，极端情况下会形成较大的垂直空洞。
+    #
+    # 本开关用于在满足硬约束的前提下，引入“向上压紧”的偏好：
+    # - 当某节点相对其硬下界（端口/流程底部）存在较大可上移余量时，会把松弛目标向下界方向拉近；
+    # - 这会让可调整的父级链条整体更靠近上方区域，从而让合流子节点也更紧凑。
+    #
+    # True：启用（默认）；False：关闭，保持更“居中”的旧观感。
+    LAYOUT_COMPACT_DATA_Y_IN_BLOCK: bool = True
+    # 紧凑拉近系数（0~1）：
+    # - 0：强制尽量贴近下界（更紧凑，但更可能牺牲“居中”观感）
+    # - 1：不做紧凑拉近（等价于关闭紧凑偏好）
+    LAYOUT_DATA_Y_COMPACT_PULL: float = 0.6
+    # 触发紧凑拉近的“可上移余量阈值”（像素）：
+    # 只有当 (preferred_top_y - lower_bound_top_y) 大于该值时才会拉近，避免对本来就很紧凑的列产生抖动。
+    LAYOUT_DATA_Y_COMPACT_SLACK_THRESHOLD: float = 200.0
     
     # 数据节点跨块复制：当数据节点被多个块共享时，是否为每个块创建真实副本
     # True：启用复制，每个块拥有独立的数据节点副本（副本真实存在，参与布局和执行）
@@ -123,7 +156,7 @@ class Settings:
 
     # 布局算法版本号：当跨块复制或块归属等布局语义发生不兼容变更时递增，
     # 用于让旧的 graph_cache 在加载节点图时失效并触发重新解析与自动布局。
-    LAYOUT_ALGO_VERSION: int = 1
+    LAYOUT_ALGO_VERSION: int = 2
     
     # ========== 布局性能优化（方案C + D）==========
     
@@ -227,7 +260,9 @@ class Settings:
     UNIQUE_NODE_FALLBACK_DEFAULT_SCALE: float = 1.0
     
     # 配置文件路径（相对于workspace）
-    _config_file: Path = None
+    _config_file: Optional[Path] = None
+    # 工作区根目录（由 set_config_path(workspace_root) 显式注入）
+    _workspace_root: Optional[Path] = None
     
     def __repr__(self) -> str:
         """返回所有设置的字符串表示"""
@@ -244,9 +279,18 @@ class Settings:
         Args:
             workspace_path: 工作空间根目录
         """
-        config_file = workspace_path / "user_settings.json"
-        log_info("[BOOT][Settings] set_config_path: workspace_path={} -> {}", workspace_path, config_file)
+        config_file = workspace_path / DEFAULT_USER_SETTINGS_RELATIVE_PATH
+
+        # 约定：设置文件仅存放在运行期缓存目录（默认 app/runtime/cache/user_settings.json）。
+        # 说明：这里不做任何“判空式容错”，文件系统错误应直接抛错暴露环境问题。
+
+        log_info(
+            "[BOOT][Settings] set_config_path: workspace_path={} -> config_file={}",
+            workspace_path,
+            config_file,
+        )
         cls._config_file = config_file
+        cls._workspace_root = workspace_path.resolve()
     
     def _get_all_settings(self) -> Dict[str, Any]:
         """获取所有设置项的字典
@@ -323,6 +367,7 @@ class Settings:
         cls.GRAPH_PARSER_VERBOSE = False
         cls.GRAPH_GENERATOR_VERBOSE = False
         cls.SAFETY_NOTICE_SUPPRESSED = False
+        cls.RUNTIME_CACHE_ROOT = "app/runtime/cache"
         cls.LAYOUT_DATA_LAYER_SORT = "none"
         cls.LAYOUT_ENABLE_GEOMETRIC_SLOT = True
         cls.LAYOUT_STRICT_NODE_KIND = False

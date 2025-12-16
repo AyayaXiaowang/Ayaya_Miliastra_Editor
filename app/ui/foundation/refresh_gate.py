@@ -2,7 +2,7 @@
 from PyQt6 import QtCore
 from typing import Callable
 
-from ui.foundation.debounce import Debouncer
+from app.ui.foundation.debounce import Debouncer
 
 
 class RefreshGate(QtCore.QObject):

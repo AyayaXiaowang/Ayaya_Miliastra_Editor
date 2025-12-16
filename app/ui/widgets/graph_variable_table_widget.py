@@ -10,13 +10,13 @@ from engine.graph.models.graph_model import GraphModel
 from engine.graph.models.entity_templates import get_all_variable_types
 from engine.graph.models.package_model import GraphVariableConfig
 from engine.utils.name_utils import generate_unique_name
-from ui.dialogs.struct_definition_value_editors import DictValueEditor, ListValueEditor
-from ui.dialogs.variable_edit_dialogs import GraphVariableEditDialog
-from ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
-from ui.foundation.theme_manager import ThemeManager
-from ui.foundation.toast_notification import ToastNotification
-from ui.widgets.base_table_manager import BaseCrudTableWidget
-from ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
+from app.ui.dialogs.struct_definition_value_editors import DictValueEditor, ListValueEditor
+from app.ui.dialogs.variable_edit_dialogs import GraphVariableEditDialog
+from app.ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
+from app.ui.foundation.theme_manager import ThemeManager
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.widgets.base_table_manager import BaseCrudTableWidget
+from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
 
 
 class GraphVariableTableWidget(BaseCrudTableWidget):
@@ -73,9 +73,11 @@ class GraphVariableTableWidget(BaseCrudTableWidget):
             self._filter_variables,
         )
         
-        # 使用通用的两行结构字段表格组件
+        # 使用通用的两行结构字段表格组件（节点图变量额外展示“对外暴露”勾选列）
         self.fields_table_widget = TwoRowFieldTableWidget(
-            get_all_variable_types(), parent=self
+            get_all_variable_types(),
+            parent=self,
+            column_headers=["序号", "名字", "数据类型", "数据值", "对外暴露"],
         )
         # 为字典变量提供键/值类型解析回调，便于在 UI 中展示更准确的类型信息
         self.fields_table_widget.set_dict_type_resolver(
@@ -85,6 +87,39 @@ class GraphVariableTableWidget(BaseCrudTableWidget):
         
         # 连接信号
         self.fields_table_widget.field_changed.connect(self._on_variables_changed)
+
+    def _set_is_exposed_cell(self, main_row_index: int, *, checked: bool) -> None:
+        """在指定变量主行写入“对外暴露”勾选框（第 4 列）。"""
+        table = self.fields_table_widget.table
+
+        container = QtWidgets.QWidget(table)
+        layout = QtWidgets.QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addStretch(1)
+
+        exposed_checkbox = QtWidgets.QCheckBox(container)
+        exposed_checkbox.setChecked(bool(checked))
+        exposed_checkbox.setEnabled(not self._read_only_mode)
+        layout.addWidget(exposed_checkbox, 0, QtCore.Qt.AlignmentFlag.AlignCenter)
+        layout.addStretch(1)
+
+        # 仅在设置初始勾选状态之后再连接信号，避免 _load_variables 阶段触发写回
+        exposed_checkbox.stateChanged.connect(
+            lambda _state: self._on_variables_changed()
+        )
+        table.setCellWidget(main_row_index, 4, container)
+
+    def _get_is_exposed_for_row(self, main_row_index: int) -> bool:
+        """读取指定变量主行的“对外暴露”勾选状态。"""
+        table = self.fields_table_widget.table
+        widget = table.cellWidget(main_row_index, 4)
+        if widget is None:
+            return False
+        checkbox = widget.findChild(QtWidgets.QCheckBox)
+        if checkbox is None:
+            return False
+        return bool(checkbox.isChecked())
 
     # --- 外部模式控制 ---
     def set_read_only_mode(self, read_only: bool) -> None:
@@ -128,6 +163,16 @@ class GraphVariableTableWidget(BaseCrudTableWidget):
             })
 
         self.fields_table_widget.load_fields(fields)
+
+        # 写入“对外暴露”列：每个变量占 2 行，勾选框放在主行第 4 列
+        table = self.fields_table_widget.table
+        for variable_index, var_data in enumerate(self._graph_model.graph_variables):
+            main_row_index = variable_index * 2
+            if main_row_index >= table.rowCount():
+                break
+            var_config = GraphVariableConfig.deserialize(var_data)
+            self._set_is_exposed_cell(main_row_index, checked=var_config.is_exposed)
+
         if self._read_only_mode:
             # 重新加载字段后重新应用只读视图，确保新建/切换图时控制生效
             self._apply_read_only_view()
@@ -227,6 +272,13 @@ class GraphVariableTableWidget(BaseCrudTableWidget):
             detail_widget = table.cellWidget(detail_row, 3)
             if detail_widget is None:
                 detail_widget = table.cellWidget(detail_row, 1)
+
+            # 对外暴露列：禁用勾选
+            exposed_widget = table.cellWidget(main_row, 4)
+            if exposed_widget is not None:
+                exposed_checkbox = exposed_widget.findChild(QtWidgets.QCheckBox)
+                if exposed_checkbox is not None:
+                    exposed_checkbox.setEnabled(False)
 
             # 列表变量：禁用增删与元素编辑，但保留折叠按钮可点击
             if isinstance(detail_widget, ListValueEditor):
@@ -341,31 +393,63 @@ class GraphVariableTableWidget(BaseCrudTableWidget):
         if self._read_only_mode:
             return
 
+        # 旧数据快照：尽量保留 UI 未展示的字段（如 description / dict_key_type / dict_value_type）
+        old_by_name: dict[str, GraphVariableConfig] = {}
+        for raw_entry in getattr(self._graph_model, "graph_variables", []) or []:
+            if not isinstance(raw_entry, dict):
+                continue
+            old_config = GraphVariableConfig.deserialize(raw_entry)
+            if old_config.name:
+                old_by_name[old_config.name] = old_config
+
         # 从通用组件获取所有字段
         fields = self.fields_table_widget.get_all_fields()
         
         # 转换回 GraphVariableConfig 格式
         new_variables = []
-        for field in fields:
+        table = self.fields_table_widget.table
+        for field_index, field in enumerate(fields):
             name = field.get("name", "").strip()
             type_name = field.get("type_name", "").strip()
             value = field.get("value")
             
             if not name or not type_name:
                 continue
+
+            main_row_index = field_index * 2
+            is_exposed = self._get_is_exposed_for_row(main_row_index)
+
+            old_config = old_by_name.get(name)
+            description = old_config.description if old_config is not None else ""
+
+            dict_key_type = ""
+            dict_value_type = ""
+            if type_name == "字典":
+                detail_row_index = main_row_index + 1
+                dict_editor = table.cellWidget(detail_row_index, 1)
+                if isinstance(dict_editor, DictValueEditor):
+                    dict_key_type = str(dict_editor.key_type_combo.currentText()).strip()
+                    dict_value_type = str(dict_editor.value_type_combo.currentText()).strip()
+                if not dict_key_type and old_config is not None:
+                    dict_key_type = str(old_config.dict_key_type or "").strip()
+                if not dict_value_type and old_config is not None:
+                    dict_value_type = str(old_config.dict_value_type or "").strip()
             
             # 创建新的变量配置
             var_config = GraphVariableConfig(
                 name=name,
                 variable_type=type_name,
                 default_value=value,
-                is_exposed=False,  # 暂时隐藏对外暴露字段
-                description="",  # 暂时隐藏描述字段
+                is_exposed=is_exposed,
+                description=description,
+                dict_key_type=dict_key_type,
+                dict_value_type=dict_value_type,
             )
             new_variables.append(var_config.serialize())
         
         # 更新模型
         self._graph_model.graph_variables = new_variables
+        self._rebuild_dict_type_index()
         self.variables_changed.emit()
 
     def _filter_variables(self, text: str) -> None:

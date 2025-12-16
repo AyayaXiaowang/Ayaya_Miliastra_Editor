@@ -43,12 +43,6 @@ class ManagementSectionSpec:
     group: str = "general"
     group_title: Optional[str] = None
 
-    @property
-    def section_key(self) -> str:
-        """向后兼容字段，等价于 key。"""
-        return self.key
-
-
 MANAGEMENT_SECTIONS: Tuple[ManagementSectionSpec, ...] = (
     ManagementSectionSpec(
         key="signals",

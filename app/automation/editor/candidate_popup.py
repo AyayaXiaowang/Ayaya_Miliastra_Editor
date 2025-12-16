@@ -11,9 +11,9 @@ from PIL import Image
 from app.automation import capture as editor_capture
 from app.automation.capture.overlay_helpers import build_overlay_for_text_region
 from app.automation.capture.reference_panels import build_reference_panel_payload
-from app.automation.core import executor_utils as _exec_utils
-from app.automation.core.structured_logging import StructuredLogger
-from app.automation.core.ui_constants import (
+from app.automation.editor import executor_utils as _exec_utils
+from app.automation.editor.structured_logging import StructuredLogger
+from app.automation.editor.ui_constants import (
     CONTEXT_MENU_APPEAR_WAIT_SECONDS,
     POST_INPUT_STABILIZE_SECONDS_DEFAULT,
 )

@@ -10,8 +10,8 @@ from typing import Optional, Sequence
 
 from PyQt6 import QtWidgets
 
-from ui.foundation.base_widgets import FormDialog
-from ui.foundation.theme_manager import ThemeManager
+from app.ui.foundation.base_widgets import FormDialog
+from app.ui.foundation.theme_manager import ThemeManager
 
 
 def prompt_text(

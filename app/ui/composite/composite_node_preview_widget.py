@@ -5,11 +5,11 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtWidgets
 
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig
-from ui.composite.composite_node_preview_controller import CompositeNodePreviewController
-from ui.composite.pin_list_panel import PinListPanel
-from ui.composite.preview_scene import CompositeNodePreviewGraphics
-from ui.foundation.theme_manager import Colors, ThemeManager
-from ui.foundation import dialog_utils
+from app.ui.composite.composite_node_preview_controller import CompositeNodePreviewController
+from app.ui.composite.pin_list_panel import PinListPanel
+from app.ui.composite.preview_scene import CompositeNodePreviewGraphics
+from app.ui.foundation.theme_manager import Colors, ThemeManager
+from app.ui.foundation import dialog_utils
 
 
 class CompositeNodePreviewWidget(QtWidgets.QWidget):

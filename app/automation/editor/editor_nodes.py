@@ -10,16 +10,16 @@ from __future__ import annotations
 from typing import Optional, Tuple, Dict, Any, Callable
 
 from app.automation import capture as editor_capture
-from app.automation.core.executor_protocol import (
+from app.automation.editor.executor_protocol import (
     EditorExecutorProtocol,
     EditorExecutorWithViewport,
 )
-from app.automation.core.candidate_popup import (
+from app.automation.editor.candidate_popup import (
     NODE_LIST_CONTEXT_LINGER_SECONDS,
     click_type_search_and_choose,
     select_from_search_popup,
 )
-from app.automation.core.ui_constants import (
+from app.automation.editor.ui_constants import (
     NODE_VIEW_WIDTH_PX,
     NODE_VIEW_HEIGHT_PX,
     VIEW_SAFE_MARGIN_RATIO_DEFAULT,

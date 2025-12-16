@@ -8,22 +8,22 @@ from engine.configs.components.ui_control_group_model import (
     UIControlGroupTemplate,
     UILayout,
 )
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.dialog_utils import show_info_dialog, show_warning_dialog
-from ui.foundation.theme_manager import Colors, ThemeManager, Sizes
-from ui.foundation.toast_notification import ToastNotification
-from ui.foundation.toolbar_utils import apply_standard_toolbar
-from ui.panels.ui_control_group_crud import (
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.dialog_utils import show_info_dialog, show_warning_dialog
+from app.ui.foundation.theme_manager import Colors, ThemeManager, Sizes
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.foundation.toolbar_utils import apply_standard_toolbar
+from app.ui.panels.ui_control_group_crud import (
     confirm_entity_delete,
     prompt_entity_name,
     validate_unique_entity_name,
 )
-from ui.panels.ui_control_panel_base import UIControlPanelBase
-from ui.panels.ui_control_group_preview_helpers import render_template_on_preview
-from ui.panels.ui_control_group_store import UIControlGroupStore
-from ui.panels.ui_control_group_template_tree import TemplateTreeWidget
-from ui.panels.panel_search_support import SidebarSearchController
+from app.ui.panels.ui_control_panel_base import UIControlPanelBase
+from app.ui.panels.ui_control_group_preview_helpers import render_template_on_preview
+from app.ui.panels.ui_control_group_store import UIControlGroupStore
+from app.ui.panels.ui_control_group_template_tree import TemplateTreeWidget
+from app.ui.panels.panel_search_support import SidebarSearchController
 
 from .ui_control_group_collapsible_section import CollapsibleSection
 from .ui_control_group_template_helpers import resize_widget_in_store, translate_widget_in_store

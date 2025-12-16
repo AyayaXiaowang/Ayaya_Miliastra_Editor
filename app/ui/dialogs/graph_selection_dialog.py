@@ -3,10 +3,10 @@
 from PyQt6 import QtWidgets
 from typing import Optional
 
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import ThemeManager
-from ui.foundation import dialog_utils
-from ui.graph.library_pages.graph_library_widget import GraphLibraryWidget
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager
+from app.ui.foundation import dialog_utils
+from app.ui.graph.library_pages.graph_library_widget import GraphLibraryWidget
 from engine.resources.resource_manager import ResourceManager
 from engine.resources.package_index_manager import PackageIndexManager
 

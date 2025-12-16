@@ -14,7 +14,7 @@ from typing import Any, Dict, List
 from engine.resources.resource_manager import ResourceType
 
 from app.models.todo_item import TodoItem
-from ui.todo.todo_config import StepTypeRules
+from app.ui.todo.todo_config import StepTypeRules
 
 
 class TodoDetailAdapter:

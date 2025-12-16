@@ -10,10 +10,10 @@ from dataclasses import dataclass
 
 from engine.graph.models import GraphModel, NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
-from ..core.layout_context import LayoutContext
+from ..internal.layout_context import LayoutContext, get_or_build_layout_context_for_model
 from ..utils.data_graph_utils import compute_data_components_layers
 from ..utils.graph_query_utils import has_flow_edges, is_flow_output_port, get_ordered_flow_out_edges
-from ..core.constants import ORDER_MAX_FALLBACK
+from ..internal.constants import ORDER_MAX_FALLBACK
 from .event_flow_analyzer import find_event_roots
 
 
@@ -25,12 +25,8 @@ class FlowTreeRenderContext:
 
 
 def _build_flow_tree_context(model: GraphModel) -> FlowTreeRenderContext:
-    cached_context: Optional[LayoutContext] = getattr(model, "_layout_context_cache", None)
-    layout_context = (
-        cached_context if isinstance(cached_context, LayoutContext) and cached_context.model is model else None
-    )
-    if layout_context is None:
-        layout_context = LayoutContext(model)
+    # 仅在缓存签名与当前节点/边集合一致时才复用，避免流程树展示旧结构。
+    layout_context = get_or_build_layout_context_for_model(model, registry_context=None)
     block_relations = _get_cached_block_relationships(model) if has_flow_edges(model) else None
     return FlowTreeRenderContext(model=model, layout_context=layout_context, block_relations=block_relations)
 
@@ -350,6 +346,10 @@ def _get_cached_block_relationships(model: GraphModel) -> Optional[dict]:
     """
     仅复用模型中已缓存的块关系，避免为生成树重复运行完整布局。
     """
+    cached_sig = getattr(model, "_layout_cache_signature", None)
+    current_sig = LayoutContext.compute_signature_for_model(model)
+    if cached_sig != current_sig:
+        return None
     snapshot = getattr(model, "_layout_block_relationships", None)
     if snapshot:
         return snapshot
@@ -360,6 +360,10 @@ def _sort_event_nodes_with_blocks(event_nodes: List[NodeModel], model: GraphMode
     """
     若模型已经缓存块顺序，则按块序号稳定排序事件节点，保持与布局展示一致。
     """
+    cached_sig = getattr(model, "_layout_cache_signature", None)
+    current_sig = LayoutContext.compute_signature_for_model(model)
+    if cached_sig != current_sig:
+        return event_nodes
     cached_blocks = getattr(model, "_layout_blocks_cache", None)
     if not isinstance(cached_blocks, list) or not cached_blocks:
         return event_nodes

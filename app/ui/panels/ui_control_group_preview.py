@@ -4,7 +4,7 @@ from typing import Iterable, Optional
 
 from PyQt6 import QtCore, QtWidgets
 
-from ui.foundation.ui_preview_canvas import UIPreviewCanvas
+from app.ui.foundation.ui_preview_canvas import UIPreviewCanvas
 
 
 class UIPreviewSection(QtWidgets.QWidget):

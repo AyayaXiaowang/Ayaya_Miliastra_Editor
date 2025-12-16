@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .management_sections_base import *
-from ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.forms.schema_dialog import FormDialogBuilder
 
 
 class ShopTemplatesSection(BaseManagementSection):
@@ -125,7 +125,7 @@ class ShopTemplatesSection(BaseManagementSection):
         )
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             shop_identifier_value = shop_identifier_line_edit.text().strip()
             if not shop_identifier_value:

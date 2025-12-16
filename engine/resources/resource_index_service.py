@@ -14,6 +14,7 @@ from engine.utils.logging.logger import log_info
 from engine.utils.cache.cache_paths import get_name_sync_state_file
 from .resource_file_ops import ResourceFileOps
 from .resource_state import ResourceIndexState
+from .atomic_json import atomic_write_json
 
 
 class ResourceIndexService:
@@ -51,9 +52,7 @@ class ResourceIndexService:
     def _save_name_sync_state(self) -> None:
         """保存文件名同步提示的去重状态。"""
         state_file = self._name_sync_state_file
-        state_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(state_file, "w", encoding="utf-8") as f:
-            json.dump(self._name_sync_state, f, ensure_ascii=False, indent=2)
+        atomic_write_json(state_file, self._name_sync_state, ensure_ascii=False, indent=2)
 
     def _check_and_sync_name(
         self,

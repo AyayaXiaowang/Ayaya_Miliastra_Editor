@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from engine.configs.ingame_save_data_cost import (
+    DATA_COST_LIMIT,
+    calculate_struct_cost,
+    calculate_template_total_cost,
+)
 from engine.configs.specialized.node_graph_configs import STRUCT_TYPE_INGAME_SAVE
 from engine.resources.definition_schema_view import (
     get_default_definition_schema_view,
@@ -9,9 +14,9 @@ from engine.resources.package_view import PackageView
 from PyQt6 import QtGui, QtWidgets
 
 from .management_sections_base import *
-from ui.forms.schema_dialog import FormDialogBuilder
-from ui.foundation.theme_manager import Sizes
-from ui.widgets.inline_table_editor_widget import (
+from app.ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.foundation.theme_manager import Sizes
+from app.ui.widgets.inline_table_editor_widget import (
     InlineTableColumnSpec,
     InlineTableEditorWidget,
 )
@@ -54,8 +59,7 @@ class SavePointsSection(BaseManagementSection):
       引用这些模板 ID，充当“索引/标签”，不会改变模板本身的生命周期；
     - 在 `<全部资源>` (`GlobalResourceView`) 与 `<未分类资源>` (`UnclassifiedResourceView`) 中，
       `management.save_points` 提供的是“全局聚合视图”：组合所有代码级模板与
-      模板内的 `is_default_template` 状态；旧版仍可通过 `global_view_save_points`
-      资源中的 enabled/active_template_id/updated_at 字段作为兼容回退；
+      模板内的 `is_default_template` 状态；
     - 在具体存档视图 (`PackageView`) 下，本 Section 仅使用上述全局聚合配置按
       `PackageIndex.resources.management["save_points"]` 过滤后的结果进行展示，
       不直接写回模板定义本体；包级“所属存档”关系仍通过管理属性面板顶部的多选行
@@ -167,6 +171,24 @@ class SavePointsSection(BaseManagementSection):
         return result
 
     @staticmethod
+    def _load_ingame_struct_definitions() -> Dict[str, Dict[str, Any]]:
+        """加载所有局内存档结构体定义，返回 {struct_id: payload}。"""
+        result: Dict[str, Dict[str, Any]] = {}
+        schema_view = get_default_definition_schema_view()
+        all_structs = schema_view.get_all_struct_definitions()
+
+        for struct_id, payload in all_structs.items():
+            if not isinstance(payload, Mapping):
+                continue
+            struct_type_value = payload.get("struct_ype")
+            if not isinstance(struct_type_value, str):
+                continue
+            if struct_type_value.strip() != STRUCT_TYPE_INGAME_SAVE:
+                continue
+            result[str(struct_id)] = dict(payload)
+        return result
+
+    @staticmethod
     def _find_template_by_id(config_data: Dict[str, Any], template_id: str) -> Optional[Dict[str, Any]]:
         templates_value = config_data.get("templates", [])
         if not isinstance(templates_value, list):
@@ -243,7 +265,7 @@ class SavePointsSection(BaseManagementSection):
         `assets/资源库/管理配置/局内存档管理/` 下的一份 Python 模块，
         管理页面不再直接创建或修改模板本体，仅用于浏览与维护“所属存档”关系。
         """
-        from ui.foundation import dialog_utils
+        from app.ui.foundation import dialog_utils
 
         dialog_utils.show_info_dialog(
             parent_widget,
@@ -268,7 +290,7 @@ class SavePointsSection(BaseManagementSection):
         模板名称、描述与条目结构均由代码模块中的 `SAVE_POINT_PAYLOAD` 维护，
         管理页面不再直接修改这些字段，仅允许在内联表单中调整全局启用状态。
         """
-        from ui.foundation import dialog_utils
+        from app.ui.foundation import dialog_utils
 
         dialog_utils.show_info_dialog(
             parent_widget,
@@ -287,7 +309,7 @@ class SavePointsSection(BaseManagementSection):
         在具体存档视图下，删除模板应通过全局/未分类视图完成，这里仅支持在聚合视图中
         删除模板本体；对单个存档移除某模板的引用应通过“所属存档”多选行完成。
         """
-        from ui.foundation import dialog_utils
+        from app.ui.foundation import dialog_utils
 
         dialog_utils.show_info_dialog(
             None,
@@ -326,6 +348,17 @@ class SavePointsSection(BaseManagementSection):
 
         # 预先解析与当前模板条目关联的局内存档结构体名称映射，方便在表格中展示。
         struct_choices = self._load_ingame_struct_choices(package)
+
+        # 加载所有局内存档结构体定义，用于数据量计算。
+        struct_definitions = self._load_ingame_struct_definitions()
+
+        # 计算模板总数据量
+        entries_for_cost = template_payload.get("entries", [])
+        if not isinstance(entries_for_cost, list):
+            entries_for_cost = []
+        total_data_cost, entry_costs_map, _ = calculate_template_total_cost(
+            entries_for_cost, struct_definitions
+        )
 
         # 仅在非 PackageView 视图下允许修改启用状态。
         can_toggle_enabled = not isinstance(package, PackageView)
@@ -427,18 +460,16 @@ class SavePointsSection(BaseManagementSection):
                     else:
                         struct_name_text = "（未指定结构体）"
 
-                    # 最大条目数与当前数据量（如存在）。
+                    # 最大条目数与当前数据量（实时计算）。
                     max_length_value = entry_payload.get("max_length")
                     if isinstance(max_length_value, (int, float)):
                         max_length_text = str(int(max_length_value))
                     else:
                         max_length_text = ""
 
-                    data_amount_value = entry_payload.get("data_amount")
-                    if isinstance(data_amount_value, (int, float)):
-                        data_amount_text = str(int(data_amount_value))
-                    else:
-                        data_amount_text = ""
+                    # 使用计算的数据量（基于 index_text 作为 key）
+                    calculated_cost = entry_costs_map.get(index_text, 0)
+                    data_amount_text = str(int(calculated_cost)) if calculated_cost > 0 else ""
 
                     display_rows.append(
                         (index_text, struct_id_text, struct_name_text, max_length_text, data_amount_text)
@@ -495,6 +526,76 @@ class SavePointsSection(BaseManagementSection):
             entries_label = QtWidgets.QLabel("条目列表")
             entries_label.setContentsMargins(0, 0, 0, 0)
 
+            # --- 数据量统计区域（总数据量 + 进度条） ---------------------------------
+            data_cost_percentage = (total_data_cost / DATA_COST_LIMIT * 100) if DATA_COST_LIMIT > 0 else 0
+            is_over_limit = total_data_cost > DATA_COST_LIMIT
+
+            # 总数据量显示
+            data_cost_text = f"{int(total_data_cost)} / {DATA_COST_LIMIT} ({data_cost_percentage:.1f}%)"
+            if is_over_limit:
+                data_cost_text += " ⚠️ 超出上限"
+            data_cost_label = QtWidgets.QLabel(data_cost_text)
+            if is_over_limit:
+                data_cost_label.setStyleSheet("color: #ff4444; font-weight: bold;")
+
+            # 进度条
+            progress_bar = QtWidgets.QProgressBar()
+            progress_bar.setMinimum(0)
+            progress_bar.setMaximum(DATA_COST_LIMIT)
+            progress_bar.setValue(min(int(total_data_cost), DATA_COST_LIMIT))
+            progress_bar.setFormat(f"{data_cost_percentage:.1f}%")
+            progress_bar.setTextVisible(True)
+            progress_bar.setFixedHeight(20)
+
+            # 根据占用比例设置进度条颜色
+            if is_over_limit:
+                progress_bar.setStyleSheet("""
+                    QProgressBar {
+                        border: 1px solid #555;
+                        border-radius: 3px;
+                        text-align: center;
+                        background-color: #2d2d2d;
+                    }
+                    QProgressBar::chunk {
+                        background-color: #ff4444;
+                        border-radius: 2px;
+                    }
+                """)
+            elif data_cost_percentage > 80:
+                progress_bar.setStyleSheet("""
+                    QProgressBar {
+                        border: 1px solid #555;
+                        border-radius: 3px;
+                        text-align: center;
+                        background-color: #2d2d2d;
+                    }
+                    QProgressBar::chunk {
+                        background-color: #ff9944;
+                        border-radius: 2px;
+                    }
+                """)
+            else:
+                progress_bar.setStyleSheet("""
+                    QProgressBar {
+                        border: 1px solid #555;
+                        border-radius: 3px;
+                        text-align: center;
+                        background-color: #2d2d2d;
+                    }
+                    QProgressBar::chunk {
+                        background-color: #44aa44;
+                        border-radius: 2px;
+                    }
+                """)
+
+            # 数据量统计块
+            data_cost_block = QtWidgets.QWidget()
+            data_cost_layout = QtWidgets.QVBoxLayout(data_cost_block)
+            data_cost_layout.setContentsMargins(0, 0, 0, 0)
+            data_cost_layout.setSpacing(Sizes.SPACING_SMALL)
+            data_cost_layout.addWidget(data_cost_label)
+            data_cost_layout.addWidget(progress_bar)
+
             entries_block = QtWidgets.QWidget()
             entries_block_layout = QtWidgets.QVBoxLayout(entries_block)
             entries_block_layout.setContentsMargins(0, 0, 0, 0)
@@ -508,6 +609,7 @@ class SavePointsSection(BaseManagementSection):
             form_layout.addRow("描述", description_label)
             form_layout.addRow("是否启用局内存档", enabled_checkbox)
             form_layout.addRow("概要", summary_label)
+            form_layout.addRow("数据量", data_cost_block)
             form_layout.addRow(entries_block)
 
             def apply_changes() -> None:

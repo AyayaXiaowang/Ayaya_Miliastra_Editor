@@ -20,7 +20,7 @@ from engine.configs.resource_types import ResourceType
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
 from engine.resources.unclassified_resource_view import UnclassifiedResourceView
-from ui.graph.library_pages.combat_presets.dialogs import (
+from app.ui.graph.library_pages.combat_presets.dialogs import (
     NewItemDialog,
     NewPlayerClassDialog,
     NewPlayerTemplateDialog,
@@ -29,7 +29,7 @@ from ui.graph.library_pages.combat_presets.dialogs import (
     NewSkillDialog,
     NewUnitStatusDialog,
 )
-from ui.foundation.id_generator import generate_prefixed_id
+from app.ui.foundation.id_generator import generate_prefixed_id
 
 PresetPackage = Union[PackageView, GlobalResourceView, UnclassifiedResourceView]
 

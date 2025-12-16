@@ -1,6 +1,6 @@
 """Gradient helpers represented as qlineargradient strings."""
 
-from ui.foundation.theme.tokens.colors import Colors
+from app.ui.foundation.theme.tokens.colors import Colors
 
 
 class Gradients:

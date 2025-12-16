@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="清空字典",
     category="执行节点",
-    inputs=[("流程入", "流程"), ("字典", "泛型")],
+    inputs=[("流程入", "流程"), ("字典", "泛型字典")],
     outputs=[("流程出", "流程")],
     description="清空指定字典的键值对",
     doc_reference="服务器节点/执行节点/执行节点.md"

@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 from PyQt6 import QtWidgets
 
 from engine.configs.components.ui_control_group_model import DEVICE_PRESETS
-from ui.panels.ui_control_group_preview import UIPreviewSection
+from app.ui.panels.ui_control_group_preview import UIPreviewSection
 
 __all__ = ["UIControlPanelBase"]
 

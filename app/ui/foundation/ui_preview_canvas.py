@@ -5,8 +5,8 @@ UI预览画布 - 实时可视化界面控件
 from PyQt6 import QtCore, QtWidgets, QtGui
 from typing import Dict, Optional
 
-from ui.foundation.theme_manager import Colors, ThemeManager
-from ui.foundation.ui_preview_item import UIWidgetPreviewItem
+from app.ui.foundation.theme_manager import Colors, ThemeManager
+from app.ui.foundation.ui_preview_item import UIWidgetPreviewItem
 
 
 class UIPreviewCanvas(QtWidgets.QGraphicsView):
@@ -213,7 +213,7 @@ class UIPreviewCanvas(QtWidgets.QGraphicsView):
     
     def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
         """鼠标滚轮事件 - 用于缩放"""
-        from ui.foundation.interaction_helpers import handle_wheel_zoom_for_view
+        from app.ui.foundation.interaction_helpers import handle_wheel_zoom_for_view
         handle_wheel_zoom_for_view(self, event, base_factor_per_step=1.15, min_scale=0.2, max_scale=5.0)
     
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:

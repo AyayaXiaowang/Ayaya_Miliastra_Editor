@@ -5,8 +5,8 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtWidgets
 
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig
-from ui.composite.pin_card_widget import PinCardWidget
-from ui.foundation.theme_manager import Colors, ThemeManager
+from app.ui.composite.pin_card_widget import PinCardWidget
+from app.ui.foundation.theme_manager import Colors, ThemeManager
 
 
 class PinListPanel(QtWidgets.QWidget):

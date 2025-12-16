@@ -7,7 +7,7 @@ from engine.utils.logging.logger import log_info
     name="建立字典",
     category="运算节点",
     inputs=[("键列表", "泛型"), ("值列表", "泛型")],
-    outputs=[("字典", "泛型")],
+    outputs=[("字典", "泛型字典")],
     description="根据输入的键和值列表的顺序依次建立键值对。 此节点会按照键和值列表中较短的一个进行字典创建，多余的部分会被截断 如果键列表中存在重复值，则会创建失败，返回空字典",
     doc_reference="服务器节点/运算节点/运算节点.md",
     input_generic_constraints={

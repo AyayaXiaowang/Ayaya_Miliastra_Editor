@@ -57,7 +57,7 @@ class 模板示例_多分支_复合节点用法:
         # 实例化多分支示例复合节点，供后续事件中调用
         self.多分支示例复合节点 = 多分支_示例_类格式(game, owner_entity)
 
-        from runtime.engine.node_graph_validator import validate_node_graph
+        from app.runtime.engine.node_graph_validator import validate_node_graph
 
         validate_node_graph(self.__class__)
 
@@ -109,7 +109,7 @@ class 模板示例_多分支_复合节点用法:
 
 
 if __name__ == "__main__":
-    from runtime.engine.node_graph_validator import validate_file
+    from app.runtime.engine.node_graph_validator import validate_file
 
     自身文件路径 = pathlib.Path(__file__).resolve()
     是否通过, 错误列表, 警告列表 = validate_file(自身文件路径)

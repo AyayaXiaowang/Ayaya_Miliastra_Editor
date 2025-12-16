@@ -6,7 +6,7 @@
 “积分榜_排序控制终端”等大图的 Y 排序问题。
 
 用法（项目根目录）：
-    python -X utf8 tools/compare_layout_positions.py server_scoreboard_controller_01 [tol]
+    python -X utf8 -m tools.compare_layout_positions server_scoreboard_controller_01 [tol]
 """
 
 from __future__ import annotations
@@ -22,9 +22,12 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")  # type: ignore[attr-defined]
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")  # type: ignore[attr-defined]
 
-WORKSPACE = Path(__file__).resolve().parents[1]
-if str(WORKSPACE) not in sys.path:
-    sys.path.insert(0, str(WORKSPACE))
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
+WORKSPACE = ensure_workspace_root_on_sys_path()
 
 from engine.graph.models import GraphModel  # noqa: E402
 from engine.layout import LayoutService  # noqa: E402
@@ -76,7 +79,7 @@ def main() -> int:
     print(f"[INFO] 节点总数：{len(model.nodes)}")
 
     # 运行布局（包含增强模型以便识别副本节点）
-    result = LayoutService.compute_layout(model, include_augmented_model=True)
+    result = LayoutService.compute_layout(model, include_augmented_model=True, workspace_path=WORKSPACE)
     augmented = getattr(result, "augmented_model", None)
     if augmented is None:
         print("[ERROR] 布局结果缺少 augmented_model（无法判断副本节点）")

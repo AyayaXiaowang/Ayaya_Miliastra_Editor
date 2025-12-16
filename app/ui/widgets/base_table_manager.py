@@ -6,7 +6,7 @@ from typing import Callable, Dict, Optional, Sequence
 
 from PyQt6 import QtWidgets
 
-from ui.graph.library_mixins import SearchFilterMixin, ToolbarMixin
+from app.ui.graph.library_mixins import SearchFilterMixin, ToolbarMixin
 
 
 class BaseCrudTableWidget(QtWidgets.QWidget, SearchFilterMixin, ToolbarMixin):

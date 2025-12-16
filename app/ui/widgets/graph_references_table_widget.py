@@ -10,7 +10,7 @@ from typing import List, Tuple, Optional, Mapping
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
+from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 
 
 class GraphReferencesTableWidget(QtWidgets.QWidget):

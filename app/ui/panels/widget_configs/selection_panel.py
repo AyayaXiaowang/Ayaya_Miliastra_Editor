@@ -4,9 +4,9 @@ from typing import Optional
 
 from PyQt6 import QtWidgets
 
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation import dialog_utils
-from ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation import dialog_utils
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 from .base import BaseWidgetConfigPanel, WidgetConfigForm
 
 

@@ -138,6 +138,20 @@ def _extract_constant_from_ast(value_node: ast.expr) -> Any:
     if isinstance(value_node, ast.Constant):
         return value_node.value
 
+    # 处理一元 +/- 数值常量（例如 -1 / +1.0 / -(1.5)）
+    # 注意：在 AST 中，-1.0 并不是 ast.Constant(-1.0)，而是 ast.UnaryOp(USub, Constant(1.0))
+    if isinstance(value_node, ast.UnaryOp):
+        if isinstance(value_node.op, ast.USub):
+            inner_value = _extract_constant_from_ast(value_node.operand)
+            if isinstance(inner_value, (int, float)) and not isinstance(inner_value, bool):
+                return -inner_value
+            return None
+        if isinstance(value_node.op, ast.UAdd):
+            inner_value = _extract_constant_from_ast(value_node.operand)
+            if isinstance(inner_value, (int, float)) and not isinstance(inner_value, bool):
+                return +inner_value
+            return None
+
     if isinstance(value_node, ast.List):
         return [_extract_constant_from_ast(element) for element in value_node.elts]
 

@@ -10,11 +10,11 @@ from engine.configs.specialized.struct_definitions_data import (
     list_struct_ids,
 )
 from engine.graph.models.entity_templates import get_all_variable_types
-from ui.dialogs.struct_definition_types import param_type_to_canonical
-from ui.foundation import dialog_utils
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import ThemeManager, Sizes
-from ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
+from app.ui.dialogs.struct_definition_types import param_type_to_canonical
+from app.ui.foundation import dialog_utils
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager, Sizes
+from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
 
 
 class StructListItemEditDialog(BaseDialog):

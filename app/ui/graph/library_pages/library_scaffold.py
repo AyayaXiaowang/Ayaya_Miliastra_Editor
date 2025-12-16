@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from PyQt6 import QtCore, QtWidgets
 
-from ui.panels.panel_scaffold import PanelScaffold, SectionCard
+from app.ui.panels.panel_scaffold import PanelScaffold, SectionCard
 
 
 @dataclass(frozen=True)

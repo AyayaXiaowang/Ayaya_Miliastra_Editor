@@ -14,19 +14,19 @@ from engine.resources.level_variable_schema_view import (
     get_default_level_variable_schema_view,
 )
 from engine.utils.name_utils import generate_unique_name
-from ui.dialogs.struct_definition_types import (
+from app.ui.dialogs.struct_definition_types import (
     is_struct_type,
     normalize_canonical_type_name,
     param_type_to_canonical,
 )
-from ui.dialogs.struct_list_item_dialog import StructListItemEditDialog
-from ui.dialogs.variable_edit_dialogs import EntityVariableEditDialog
-from ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
-from ui.foundation.theme_manager import Sizes, ThemeManager, Colors
-from ui.foundation.toast_notification import ToastNotification
-from ui.foundation.toolbar_utils import apply_standard_toolbar
-from ui.panels.template_instance.tab_base import TemplateInstanceTabBase
-from ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
+from app.ui.dialogs.struct_list_item_dialog import StructListItemEditDialog
+from app.ui.dialogs.variable_edit_dialogs import EntityVariableEditDialog
+from app.ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
+from app.ui.foundation.theme_manager import Sizes, ThemeManager, Colors
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.foundation.toolbar_utils import apply_standard_toolbar
+from app.ui.panels.template_instance.tab_base import TemplateInstanceTabBase
+from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
 
 
 @dataclass(frozen=True)

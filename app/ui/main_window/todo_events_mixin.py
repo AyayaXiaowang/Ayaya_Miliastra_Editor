@@ -5,11 +5,15 @@ from typing import Any, Dict, Optional
 
 from PyQt6 import QtCore, QtWidgets
 
-from ui.graph.graph_view.top_right.controls_manager import TopRightControlsManager
+from app.ui.graph.graph_view.top_right.controls_manager import TopRightControlsManager
 from app.models.todo_generator import TodoGenerator
 from app.models import TodoItem
 from app.models.view_modes import ViewMode
-from app.ui.todo.current_todo_resolver import build_context_from_host
+from app.ui.todo.current_todo_resolver import (
+    CurrentTodoContext,
+    build_context_from_host,
+    resolve_current_todo_for_leaf,
+)
 
 
 class TodoEventsMixin:
@@ -40,23 +44,45 @@ class TodoEventsMixin:
         self._update_graph_editor_todo_button_visibility()
 
     def _on_graph_editor_execute_from_todo(self) -> None:
-        """编辑器右上角按钮：跳回任务清单并定位关联步骤。"""
+        """编辑器右上角按钮：前往任务清单并尽量定位当前图对应的步骤（必要时先生成 Todo）。"""
+        current_graph_id = ""
+        if hasattr(self, "graph_controller"):
+            current_graph_id = str(getattr(self.graph_controller, "current_graph_id", "") or "")
+
         context: Optional[Dict[str, Any]] = getattr(self, "_graph_editor_todo_context", None)
-        if not context:
-            return
+        todo_id = ""
+        detail_info: Dict[str, Any] = {}
+        if context and isinstance(context, dict):
+            todo_id = str(context.get("todo_id") or "")
+            detail_info = dict(context.get("detail_info") or {})
 
-        todo_id = context.get("todo_id")
-        if not todo_id:
-            return
-
-        detail_info = context.get("detail_info") or {}
         self._navigate_to_mode("todo")
 
-        def _jump_back() -> None:
-            if hasattr(self, "todo_widget") and self.todo_widget:
-                self.todo_widget.focus_task_from_external(todo_id, detail_info)
+        def _jump_and_resolve() -> None:
+            if not hasattr(self, "todo_widget") or not self.todo_widget:
+                return
 
-        QtCore.QTimer.singleShot(160, _jump_back)
+            # 进入 Todo 模式后，确保任务数据已加载（若尚未生成，则生成一次）
+            self._ensure_todo_data_loaded()
+
+            # 优先跳回已有上下文的 todo_id
+            if todo_id:
+                self.todo_widget.focus_task_from_external(todo_id, detail_info)
+                return
+
+            # 若没有上下文，则尝试按当前图 ID 自动匹配一个步骤并定位
+            if current_graph_id:
+                candidate = self.todo_widget.find_first_todo_for_graph(current_graph_id)
+                if candidate is None:
+                    return
+                self.register_graph_editor_todo_context(
+                    candidate.todo_id,
+                    candidate.detail_info,
+                    candidate.title,
+                )
+                self.todo_widget.focus_task_from_external(candidate.todo_id, candidate.detail_info)
+
+        QtCore.QTimer.singleShot(220, _jump_and_resolve)
 
     def _update_graph_editor_todo_button_visibility(self) -> None:
         """根据上下文与当前图状态，更新编辑器执行按钮的可见性和文案。"""
@@ -64,17 +90,12 @@ class TodoEventsMixin:
         if button is None or not hasattr(self, "graph_controller"):
             return
 
-        context: Optional[Dict[str, Any]] = getattr(self, "_graph_editor_todo_context", None)
-        should_show = False
         button_label = "前往执行"
+        current_mode = None
+        if hasattr(self, "central_stack"):
+            current_mode = ViewMode.from_index(self.central_stack.currentIndex())
 
-        if context and isinstance(context, dict):
-            detail_info = context.get("detail_info") or {}
-            context_graph_id = str(detail_info.get("graph_id") or "")
-            current_graph_id = str(self.graph_controller.current_graph_id or "")
-            should_show = bool(
-                context_graph_id and current_graph_id and context_graph_id == current_graph_id
-            )
+        should_show = current_mode is ViewMode.GRAPH_EDITOR
 
         button.setText(button_label)
         button.setVisible(should_show)
@@ -134,7 +155,6 @@ class TodoEventsMixin:
         previous_selected_id: str = ""
         previous_current_id: str = ""
         previous_detail_info: Dict[str, Any] | None = None
-        previous_graph_id: str = ""
 
         todo_widget = getattr(self, "todo_widget", None)
         if todo_widget is not None and getattr(todo_widget, "has_loaded_todos", None):
@@ -144,9 +164,6 @@ class TodoEventsMixin:
                 previous_current_id = context.current_todo_id or ""
                 if context.current_detail_info:
                     previous_detail_info = dict(context.current_detail_info)
-                    graph_identifier = previous_detail_info.get("graph_id")
-                    if graph_identifier is not None:
-                        previous_graph_id = str(graph_identifier)
 
         package = self.package_controller.current_package
         package_id = getattr(self.package_controller, "current_package_id", "")
@@ -160,58 +177,45 @@ class TodoEventsMixin:
             print("[TODO-REFRESH] 当前没有可用的存档（current_package 为空），跳过任务生成")
             return
 
-        generator = TodoGenerator(package, self.resource_manager)
+        generator = TodoGenerator(
+            package,
+            self.resource_manager,
+            package_index_manager=self.package_index_manager,
+        )
         todos = generator.generate_todos()
         print(f"[TODO-REFRESH] 任务生成完成，本次共生成 {len(todos)} 条 TodoItem")
 
         self.todo_widget.load_todos(todos, package.todo_states)
 
         # 刷新后尝试恢复到刷新前最接近的任务上下文：
-        # 1) 优先尝试使用原选中项 / current_todo_id 的 todo_id；
-        # 2) 退回到 detail_info 全量匹配；
-        # 3) 最后按 graph_id 在新列表中择优选取一个 Todo（通常为叶子步骤）。
+        # 统一使用 current_todo_resolver 的优先级规则：
+        # 1) 树选中项 2) current_todo_id 3) detail_info 4) graph_id（从 detail_info 推导）
         if todo_widget is None:
             return
 
-        has_previous_context = bool(
-            previous_selected_id or previous_current_id or previous_detail_info or previous_graph_id
-        )
+        has_previous_context = bool(previous_selected_id or previous_current_id or previous_detail_info)
         if not has_previous_context:
             return
 
         refreshed_context = build_context_from_host(todo_widget)
-        todo_map_after = refreshed_context.todo_map
-        todos_after = refreshed_context.todos
-
-        resolved_todo: Optional[TodoItem] = None
-
-        # 1) todo_id 直接命中（选中项优先，其次 current_todo_id）
-        for candidate_id in (previous_selected_id, previous_current_id):
-            if candidate_id and candidate_id in todo_map_after:
-                resolved_todo = todo_map_after[candidate_id]
-                break
-
-        # 2) detail_info 全量匹配
-        if resolved_todo is None and previous_detail_info is not None:
-            for candidate in todos_after:
-                if candidate.detail_info == previous_detail_info:
-                    resolved_todo = candidate
-                    break
-
-        # 3) 根据 graph_id 查找该图下一个合理的 Todo（通常为叶子步骤）
-        if resolved_todo is None and previous_graph_id:
-            find_first = getattr(todo_widget, "find_first_todo_for_graph", None)
-            if callable(find_first):
-                fallback = find_first(previous_graph_id)
-                if fallback is not None:
-                    resolved_todo = fallback
+        restore_context = CurrentTodoContext(
+            selected_todo_id=previous_selected_id,
+            current_todo_id=previous_current_id,
+            current_detail_info=previous_detail_info,
+            todo_map=refreshed_context.todo_map,
+            todos=refreshed_context.todos,
+            find_first_todo_for_graph=refreshed_context.find_first_todo_for_graph,
+            get_item_by_id=refreshed_context.get_item_by_id,
+        )
+        resolved_todo = resolve_current_todo_for_leaf(restore_context)
 
         # 找到合适的 Todo 后，通过 TodoListWidget 提供的外部入口恢复选中与右侧详情/预览。
-        if resolved_todo is not None and hasattr(todo_widget, "focus_task_from_external"):
-            todo_widget.focus_task_from_external(
-                resolved_todo.todo_id,
-                resolved_todo.detail_info,
-            )
+        if resolved_todo is None or not hasattr(todo_widget, "focus_task_from_external"):
+            return
+        todo_widget.focus_task_from_external(
+            resolved_todo.todo_id,
+            resolved_todo.detail_info,
+        )
 
     def _on_todo_checked(self, todo_id: str, checked: bool) -> None:
         """任务勾选状态改变"""
@@ -237,6 +241,15 @@ class TodoEventsMixin:
         """
         if not todo or not getattr(self, "package_controller", None):
             return
+
+        # 同步到 ViewState（单一真源）
+        view_state = getattr(self, "view_state", None)
+        todo_state = getattr(view_state, "todo", None)
+        if todo_state is not None:
+            setattr(todo_state, "todo_id", str(getattr(todo, "todo_id", "") or ""))
+            setattr(todo_state, "task_type", str(getattr(todo, "task_type", "") or ""))
+            detail_info_any = getattr(todo, "detail_info", None) or {}
+            setattr(todo_state, "detail_info", dict(detail_info_any) if isinstance(detail_info_any, dict) else {})
 
         # 优先根据步骤类型控制“执行监控”标签的显示：仅在节点图相关步骤下展示
         self._update_execution_monitor_tab_for_todo(todo)
@@ -288,11 +301,6 @@ class TodoEventsMixin:
           - 节点图叶子步骤: 以 \"graph\" 开头，且排除图根/变量总表
         - 其他步骤（如纯模板属性、实例属性、管理类任务）不显示执行监控标签。
         """
-        if not hasattr(self, "side_tab") or not hasattr(self, "execution_monitor_panel"):
-            return
-        side_tab = self.side_tab
-        monitor_panel = self.execution_monitor_panel
-
         detail_info = todo.detail_info or {}
         detail_type = str(detail_info.get("type", ""))
 
@@ -312,21 +320,5 @@ class TodoEventsMixin:
             or is_leaf_graph_step
         )
 
-        current_index = side_tab.indexOf(monitor_panel)
-
-        if should_show_monitor:
-            if current_index == -1:
-                tab_title = "执行监控"
-                if hasattr(self, "_tab_title_for_id"):
-                    tab_title = self._tab_title_for_id("execution_monitor")
-                side_tab.addTab(monitor_panel, tab_title)
-            if hasattr(self, "_update_right_panel_visibility"):
-                self._update_right_panel_visibility()
-            return
-
-        if current_index != -1:
-            if side_tab.currentWidget() is monitor_panel and side_tab.count() > 1:
-                side_tab.setCurrentIndex(0)
-            side_tab.removeTab(current_index)
-            if hasattr(self, "_update_right_panel_visibility"):
-                self._update_right_panel_visibility()
+        if hasattr(self, "ensure_execution_monitor_panel_visible"):
+            self.ensure_execution_monitor_panel_visible(visible=should_show_monitor)

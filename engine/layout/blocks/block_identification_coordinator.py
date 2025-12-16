@@ -15,8 +15,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from engine.graph.models import GraphModel
 from engine.configs.settings import settings
-from ..core.layout_context import LayoutContext
-from ..core.layout_models import LayoutBlock
+from ..internal.layout_context import LayoutContext
+from ..internal.layout_models import LayoutBlock
 from ..utils.edge_index_proxies import CopyOnWriteEdgeIndex
 from ..utils.graph_query_utils import (
     count_outgoing_data_edges,
@@ -24,7 +24,7 @@ from ..utils.graph_query_utils import (
     resolve_event_title,
     get_ordered_flow_out_edges,
 )
-from ..core.constants import (
+from ..internal.constants import (
     DATA_BASE_EXTRA_MARGIN,
     DATA_STACK_GAP_DEFAULT,
     FLOW_TO_DATA_GAP_DEFAULT,
@@ -101,6 +101,17 @@ class BlockLayoutExecutor:
         
         # 缓存每个块的上下文，用于阶段2
         self._block_context_cache: Dict[int, BlockContextCache] = {}
+
+    def refresh_global_layout_context(self, global_layout_ctx: LayoutContext) -> None:
+        """当图模型在全局复制阶段被修改后，刷新块上下文对全局索引的引用。"""
+        self.global_layout_ctx = global_layout_ctx
+        for cached in self._block_context_cache.values():
+            context = cached.context
+            # BlockLayoutContext 内部会优先复用 _global_layout_context 的索引
+            context._global_layout_context = global_layout_ctx  # noqa: SLF001
+            context.registry_context = getattr(global_layout_ctx, "registry_context", None)
+            context._node_height_cache.clear()  # noqa: SLF001
+            context._build_edge_indices()  # noqa: SLF001
 
     def _get_cached_scalars(self) -> _BlockLayoutScalars:
         if self._scalars_cache is None:
@@ -438,6 +449,11 @@ class BlockIdentificationCoordinator:
             block_data_nodes: 该块应放置的数据节点ID集合
         """
         self._layout_executor.layout_data_phase(block, block_data_nodes)
+
+    def refresh_global_layout_context(self, global_layout_ctx: LayoutContext) -> None:
+        """在全局复制阶段修改图之后，刷新后续阶段所使用的全局 LayoutContext。"""
+        self.global_layout_ctx = global_layout_ctx
+        self._layout_executor.refresh_global_layout_context(global_layout_ctx)
 
     def _resolve_event_metadata(self, flow_node_ids: List[str]) -> Tuple[Optional[str], Optional[str]]:
         """获取块所属事件流的 ID 与标题，优先使用缓存避免重复回溯。"""

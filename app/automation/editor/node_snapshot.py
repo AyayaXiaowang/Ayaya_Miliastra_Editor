@@ -5,8 +5,8 @@ import math
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.core.executor_protocol import EditorExecutorProtocol
-from app.automation.core.ui_constants import (
+from app.automation.editor.executor_protocol import EditorExecutorProtocol
+from app.automation.editor.ui_constants import (
     NODE_DRAG_UPDATE_MIN_SCREEN_PX,
     NODE_DRAG_UPDATE_MIN_PROGRAM_UNITS,
 )

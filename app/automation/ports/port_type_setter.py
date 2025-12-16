@@ -10,8 +10,8 @@ from typing import Optional, Dict, Any, Callable, Tuple
 from dataclasses import dataclass
 from PIL import Image
 
-from app.automation.core.executor_protocol import EditorExecutorWithViewport
-from app.automation.core.node_snapshot import NodePortsSnapshotCache
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport
+from app.automation.editor.node_snapshot import NodePortsSnapshotCache
 from engine.graph.models.graph_model import GraphModel, NodeModel
 from app.automation.input.common import compute_position_thresholds
 
@@ -21,7 +21,7 @@ from app.automation.ports.port_type_steps import (
     process_input_ports_type_setting,
     process_output_ports_type_setting,
 )
-from app.automation.core.visualization_helpers import emit_node_and_port_overlays
+from app.automation.editor.visualization_helpers import emit_node_and_port_overlays
 
 
 @dataclass

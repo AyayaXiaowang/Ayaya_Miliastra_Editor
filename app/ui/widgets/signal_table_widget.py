@@ -7,12 +7,12 @@ from typing import Dict, Optional
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.graph.models.package_model import SignalConfig
-from ui.dialogs.signal_edit_dialog import SignalEditDialog
-from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
-from ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
-from ui.foundation.id_generator import generate_prefixed_id
-from ui.foundation.toast_notification import ToastNotification
-from ui.widgets.base_table_manager import BaseCrudTableWidget
+from app.ui.dialogs.signal_edit_dialog import SignalEditDialog
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
+from app.ui.foundation.id_generator import generate_prefixed_id
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.widgets.base_table_manager import BaseCrudTableWidget
 
 
 class SignalTableWidget(BaseCrudTableWidget):

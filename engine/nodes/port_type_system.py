@@ -19,6 +19,24 @@ GENERIC_PORT_TYPE = "泛型"
 BOOLEAN_TYPE_KEYWORDS = ("布尔", "布尔值")
 
 
+def _is_dict_type(port_type: str) -> bool:
+    """判断是否为字典类型（包括别名字典：以“字典”结尾的类型名）。"""
+    text = str(port_type or "").strip()
+    if not text:
+        return False
+    if text == "字典":
+        return True
+    return text.endswith("字典")
+
+
+def _is_list_type(port_type: str) -> bool:
+    """判断是否为列表类型（任何以“列表”结尾的类型名）。"""
+    text = str(port_type or "").strip()
+    if not text:
+        return False
+    return text.endswith("列表")
+
+
 def can_connect_ports(src_type: str, dst_type: str) -> bool:
     """判断两个端口是否可以连接
     
@@ -35,18 +53,32 @@ def can_connect_ports(src_type: str, dst_type: str) -> bool:
     Returns:
         是否可以连接
     """
+    # 规范化为字符串并去除首尾空白，避免 None 或空字符串带来的干扰
+    src = str(src_type or "").strip()
+    dst = str(dst_type or "").strip()
+
     # 流程端口只能连接流程端口
-    if src_type == FLOW_PORT_TYPE or dst_type == FLOW_PORT_TYPE:
-        return src_type == dst_type
-    
+    if src == FLOW_PORT_TYPE or dst == FLOW_PORT_TYPE:
+        return src == dst
+
+    # 泛型字典：只接受任意“字典类型”（包括别名字典）
+    if src == "泛型字典" or dst == "泛型字典":
+        other = dst if src == "泛型字典" else src
+        return _is_dict_type(other)
+
+    # 泛型列表：只接受任意“列表类型”
+    if src == "泛型列表" or dst == "泛型列表":
+        other = dst if src == "泛型列表" else src
+        return _is_list_type(other)
+
     # 泛型类型可以接受任何类型
-    if src_type in (ANY_PORT_TYPE, GENERIC_PORT_TYPE) or dst_type in (ANY_PORT_TYPE, GENERIC_PORT_TYPE):
+    if src in (ANY_PORT_TYPE, GENERIC_PORT_TYPE) or dst in (ANY_PORT_TYPE, GENERIC_PORT_TYPE):
         return True
-    
+
     # 完全匹配
-    if src_type == dst_type:
+    if src == dst:
         return True
-    
+
     # ❌ 不允许任何隐式类型转换
     # 所有类型转换必须通过专门的转换节点显式实现
     # TYPE_CONVERSIONS 定义的转换规则仅用于转换节点，不用于直接连接

@@ -1,6 +1,6 @@
 """Atomic QSS snippets for reusable widgets."""
 
-from ui.foundation.theme.tokens import Colors, Sizes, Gradients
+from app.ui.foundation.theme.tokens import Colors, Sizes, Gradients
 
 
 def card_style(border_radius: int | None = None) -> str:

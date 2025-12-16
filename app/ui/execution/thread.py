@@ -22,7 +22,7 @@ from .strategies import (
     StepSkipChecker,
     RetryHandler,
 )
-from app.automation.core.executor_protocol import EditorExecutorProtocol
+from app.automation.editor.executor_protocol import EditorExecutorProtocol
 from engine.graph.models.graph_model import GraphModel
 from engine.configs.settings import settings
 from app.automation import capture as editor_capture

@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PyQt6 import QtWidgets
-from ui.foundation.toast_notification import ToastNotification
+from app.ui.foundation.toast_notification import ToastNotification
 
 from engine.graph import validate_graph
 from engine.validate import validate_files
 
 if TYPE_CHECKING:
-    from ui.graph.graph_view import GraphView
+    from app.ui.graph.graph_view import GraphView
 
 
 class AutoLayoutController:
@@ -90,7 +90,12 @@ class AutoLayoutController:
         model_edge_ids_before = set(view.scene().model.edges.keys())
         scene_obj = view.scene()
         node_lib = getattr(scene_obj, "node_library", None) if scene_obj is not None else None
-        result = LayoutService.compute_layout(view.scene().model, node_library=node_lib, include_augmented_model=True)
+        result = LayoutService.compute_layout(
+            view.scene().model,
+            node_library=node_lib,
+            include_augmented_model=True,
+            workspace_path=cls._workspace_path,
+        )
         _augmented = getattr(result, "augmented_model", None)
         if _augmented is None:
             return

@@ -10,8 +10,8 @@ from typing import Optional, Dict, Any, Callable, List
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.core.executor_protocol import EditorExecutorWithViewport, AutomationStepContext
-from app.automation.core import executor_utils as _exec_utils
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport, AutomationStepContext
+from app.automation.editor import executor_utils as _exec_utils
 from app.automation.input.common import sleep_seconds
 from app.automation.ports._type_utils import infer_type_from_value
 from engine.graph.models.graph_model import GraphModel
@@ -27,7 +27,7 @@ from app.automation.config.config_node_steps import (
     handle_regular_param_fallback,
 )
 from app.automation.ports.vector3_input_handler import input_vector3_by_geometry
-from app.automation.core.node_snapshot import NodePortsSnapshotCache
+from app.automation.editor.node_snapshot import NodePortsSnapshotCache
 
 
 def execute_config_node_merged(

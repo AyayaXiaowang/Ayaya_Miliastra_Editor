@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import math
 
 from ..blocks.block_layout_context import BlockLayoutContext
-from ..core.constants import UI_NODE_PADDING
+from ..internal.constants import UI_NODE_PADDING
 from ..utils.graph_query_utils import InputPortLayoutPlan, build_input_port_layout_plan
 
 
@@ -480,7 +480,11 @@ class DataCoordinatePlanner:
                 if not ports_with_edges:
                     self._target_connected_ports_cache[target_node_id] = []
                     continue
-                port_plan = build_input_port_layout_plan(target_node_obj, ports_with_edges)
+                port_plan = build_input_port_layout_plan(
+                    target_node_obj,
+                    ports_with_edges,
+                    registry_context=self.context.registry_context,
+                )
                 connected_ports_ordered = [
                     port_name for port_name in port_plan.render_inputs if port_name in ports_with_edges
                 ]
@@ -566,7 +570,11 @@ class DataCoordinatePlanner:
         for edge in self.context.get_in_data_edges(flow_node_id):
             if edge.dst_port:
                 connected_input_ports.add(str(edge.dst_port))
-        plan = build_input_port_layout_plan(flow_node_obj, connected_input_ports)
+        plan = build_input_port_layout_plan(
+            flow_node_obj,
+            connected_input_ports,
+            registry_context=self.context.registry_context,
+        )
         self._input_port_plan_cache[flow_node_id] = plan
         return plan
 

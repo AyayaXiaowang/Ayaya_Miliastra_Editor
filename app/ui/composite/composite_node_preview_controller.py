@@ -7,8 +7,8 @@ from typing import List, Optional, Tuple
 from PyQt6 import QtCore
 
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig
-from ui.composite.pin_list_panel import PinListPanel
-from ui.composite.preview_scene import CompositeNodePreviewGraphics
+from app.ui.composite.pin_list_panel import PinListPanel
+from app.ui.composite.preview_scene import CompositeNodePreviewGraphics
 
 
 class CompositeNodePreviewController(QtCore.QObject):

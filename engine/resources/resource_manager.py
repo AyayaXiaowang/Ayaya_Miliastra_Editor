@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 import json
 
 from engine.configs.resource_types import ResourceType
-from engine.resources.graph_cache_manager import GraphCacheManager
+from engine.resources.persistent_graph_cache_manager import PersistentGraphCacheManager
 from engine.resources.management_naming_rules import (
     get_display_name_field_for_type,
     get_id_field_for_type,
@@ -20,6 +20,7 @@ from .graph_resource_service import GraphResourceService
 from .resource_cache_service import ResourceCacheService
 from .resource_file_ops import ResourceFileOps
 from .resource_index_service import ResourceIndexService
+from .resource_metadata_service import ResourceMetadataService
 from .resource_state import ResourceIndexState, ResourceReferenceIndex
 from .resource_store import JsonResourceStore
 
@@ -36,10 +37,11 @@ class ResourceManager:
         cache_service: Optional[ResourceCacheService] = None,
         file_ops: Optional[ResourceFileOps] = None,
         index_builder: Optional[ResourceIndexBuilder] = None,
-        graph_cache_manager: Optional[GraphCacheManager] = None,
+        persistent_graph_cache_manager: Optional[PersistentGraphCacheManager] = None,
         resource_store: Optional[JsonResourceStore] = None,
         index_service: Optional[ResourceIndexService] = None,
         graph_service: Optional[GraphResourceService] = None,
+        graph_code_generator: Optional[object] = None,
         max_cache_size: int = 500,
     ):
         """初始化资源管理器。
@@ -51,10 +53,11 @@ class ResourceManager:
             cache_service: 自定义缓存服务（便于测试或注入空实现）
             file_ops: 自定义文件操作实现
             index_builder: 自定义索引构建器
-            graph_cache_manager: 自定义图缓存管理器
+            persistent_graph_cache_manager: 自定义节点图持久化缓存管理器（磁盘）
             resource_store: JSON资源存储实现
             index_service: 自定义索引服务
             graph_service: 自定义图资源服务
+            graph_code_generator: 可注入的“节点图源码生成器”（应用层实现），仅 GraphResourceService.save_graph 使用
             max_cache_size: 资源缓存最大尺寸
         """
         self.workspace_path = workspace_path
@@ -73,7 +76,10 @@ class ResourceManager:
         self._resource_index_builder = index_builder or ResourceIndexBuilder(
             self.workspace_path, self.resource_library_dir
         )
-        self._graph_cache_manager = graph_cache_manager or GraphCacheManager(self.workspace_path)
+        self._persistent_graph_cache_manager = (
+            persistent_graph_cache_manager
+            or PersistentGraphCacheManager(self.workspace_path)
+        )
 
         self._cache_service = cache_service or ResourceCacheService(
             max_cache_size=self._max_cache_size
@@ -94,9 +100,11 @@ class ResourceManager:
             self.workspace_path,
             self._file_ops,
             self._cache_service,
-            self._graph_cache_manager,
+            self._persistent_graph_cache_manager,
             self._state,
+            graph_code_generator=graph_code_generator,
         )
+        self._metadata_service = ResourceMetadataService()
         self._resource_library_fingerprint: str = ""
         # 指纹脏标记：当资源被保存时设为 True，延迟到下次需要时再重新计算
         self._fingerprint_invalidated: bool = False
@@ -153,7 +161,7 @@ class ResourceManager:
             recursive=True,
         )
 
-        package_index_dir = self.resource_library_dir / "地图索引"
+        package_index_dir = self.resource_library_dir / "功能包索引"
         package_index_fingerprint = self._compute_directory_fingerprint(
             package_index_dir,
             "*.json",
@@ -258,7 +266,7 @@ class ResourceManager:
         Returns:
             被删除的缓存文件数量
         """
-        return self._graph_cache_manager.clear_all_persistent_graph_cache()
+        return self._persistent_graph_cache_manager.clear_all_persistent_graph_cache()
     
     def clear_persistent_resource_index_cache(self) -> int:
         """清空磁盘上的资源索引缓存（app/runtime/cache/resource_cache/resource_index.json）。"""
@@ -270,7 +278,7 @@ class ResourceManager:
         Returns:
             被删除的缓存文件数量（0或1）
         """
-        return self._graph_cache_manager.clear_persistent_graph_cache_for(graph_id)
+        return self._persistent_graph_cache_manager.clear_persistent_graph_cache_for(graph_id)
     
     def clear_persistent_node_cache(self) -> int:
         """清空磁盘上的节点库持久化缓存（app/runtime/cache/node_cache）。"""
@@ -595,10 +603,10 @@ class ResourceManager:
         """判断给定模板 ID 是否仍被任何功能包引用。
 
         约定：
-        - 功能包索引位于 `assets/资源库/地图索引/pkg_*.json`。
+        - 功能包索引位于 `assets/资源库/功能包索引/pkg_*.json`。
         - 每个索引文件的 `resources.templates` 字段为模板 ID 列表。
         """
-        index_dir = self.resource_library_dir / "地图索引"
+        index_dir = self.resource_library_dir / "功能包索引"
         if not index_dir.exists():
             return False
 
@@ -673,185 +681,16 @@ class ResourceManager:
             self.clear_cache(ResourceType.TEMPLATE, stale_id)
     
     def get_resource_metadata(self, resource_type: ResourceType, resource_id: str) -> Optional[dict]:
-        """获取资源的元数据（不加载完整数据）
-        
-        Args:
-            resource_type: 资源类型
-            resource_id: 资源ID
-        
-        Returns:
-            资源元数据（名称、描述等基本信息）
+        """获取用于 UI 展示与搜索的资源元数据（统一格式）。
+
+        说明：
+        - 对多数资源类型，该方法会读取资源 payload（节点图会触发解析与布局，因此不适合在“列表页”高频调用）。
+        - 节点图的列表展示应优先走 `load_graph_metadata()` 的轻量路径。
         """
-        data = self.load_resource(resource_type, resource_id)
-        if not data:
+        payload = self.load_resource(resource_type, resource_id)
+        if not payload:
             return None
-
-        # 计算用于 UI 展示与搜索的友好名称：
-        # - 对战斗预设与管理配置，优先使用各自的 *_name 字段；
-        # - 其次回退到通用的 "name" 字段；
-        # - 再次回退到资源 ID。
-        friendly_name = self._resolve_display_name(resource_type, resource_id, data)
-
-        # 提取关键元数据
-        metadata = {
-            "resource_id": resource_id,
-            "resource_type": resource_type.value,
-            "name": friendly_name,
-            "description": data.get("description", ""),
-            "updated_at": data.get("updated_at", ""),
-            "created_at": data.get("created_at", ""),
-        }
-
-        # 补充：从通用 metadata 或顶层字段中提取 GUID（若存在）
-        guid_value = None
-        raw_metadata = data.get("metadata")
-        if isinstance(raw_metadata, dict):
-            raw_guid = raw_metadata.get("guid")
-            if raw_guid is not None:
-                guid_value = str(raw_guid)
-        if guid_value is None and "guid" in data:
-            raw_guid = data.get("guid")
-            if raw_guid is not None:
-                guid_value = str(raw_guid)
-        metadata["guid"] = guid_value or ""
-
-        # 补充：收集挂载的节点图 ID（模板 default_graphs / 实例 additional_graphs 等）
-        graph_ids: list[str] = []
-
-        def _append_graph_id(value: object) -> None:
-            if isinstance(value, str) and value and value not in graph_ids:
-                graph_ids.append(value)
-
-        default_graphs = data.get("default_graphs")
-        if isinstance(default_graphs, list):
-            for graph_id in default_graphs:
-                _append_graph_id(graph_id)
-
-        additional_graphs = data.get("additional_graphs")
-        if isinstance(additional_graphs, list):
-            for graph_id in additional_graphs:
-                _append_graph_id(graph_id)
-
-        # PlayerTemplate 专用：从 metadata.player_editor 中收集玩家/角色层级挂载的节点图
-        if resource_type == ResourceType.PLAYER_TEMPLATE:
-            raw_player_editor = {}
-            if isinstance(raw_metadata, dict):
-                candidate = raw_metadata.get("player_editor")
-                if isinstance(candidate, dict):
-                    raw_player_editor = candidate
-
-            def _collect_from_section(section: object) -> None:
-                if not isinstance(section, dict):
-                    return
-                section_graphs = section.get("graphs")
-                if isinstance(section_graphs, list):
-                    for graph_id in section_graphs:
-                        _append_graph_id(graph_id)
-
-            # 兼容当前实现的 player / role 结构
-            _collect_from_section(raw_player_editor.get("player"))
-            _collect_from_section(raw_player_editor.get("role"))
-
-            # 也兼容未来可能出现的 roles 列表结构
-            roles_value = raw_player_editor.get("roles")
-            if isinstance(roles_value, list):
-                for role_entry in roles_value:
-                    _collect_from_section(role_entry)
-
-        metadata["graph_ids"] = graph_ids
-
-        return metadata
-
-    def _resolve_display_name(
-        self,
-        resource_type: ResourceType,
-        resource_id: str,
-        payload: dict,
-    ) -> str:
-        """根据资源类型解析友好的显示名称。
-        
-        约定：
-        - 战斗预设系列优先读取 *_name 字段：
-          - PLAYER_TEMPLATE.template_name
-          - PLAYER_CLASS.class_name
-          - UNIT_STATUS.status_name
-          - SKILL.skill_name
-          - PROJECTILE.projectile_name
-          - ITEM.item_name
-        - 管理配置优先读取各自的数据模型中约定的 *_name 字段：
-          - UI 布局: layout_name
-          - UI 控件模板: template_name
-          - 单位标签: tag_name
-          - 护盾: shield_name
-          - 扫描标签: scan_tag_name
-          - 局内存档管理: save_point_name
-          - 计时器: timer_name
-          - 关卡变量: variable_name
-          - 聊天频道: channel_name
-          - 光源: light_name
-          - 外围系统: system_name
-          - 背景音乐: music_name
-          - 关卡设置: level_name
-        - 其余资源优先读取通用的 "name" 字段。
-        - 若上述字段均不存在或为空，则回退到资源 ID。
-        """
-        # 通用候选列表，按优先级从高到低排列。
-        preferred_keys: list[str] = []
-
-        # 战斗预设系列
-        if resource_type == ResourceType.PLAYER_TEMPLATE:
-            preferred_keys.append("template_name")
-        elif resource_type == ResourceType.PLAYER_CLASS:
-            preferred_keys.append("class_name")
-        elif resource_type == ResourceType.UNIT_STATUS:
-            preferred_keys.append("status_name")
-        elif resource_type == ResourceType.SKILL:
-            preferred_keys.append("skill_name")
-        elif resource_type == ResourceType.PROJECTILE:
-            preferred_keys.append("projectile_name")
-        elif resource_type == ResourceType.ITEM:
-            preferred_keys.append("item_name")
-
-        # 管理配置系列
-        if resource_type == ResourceType.UI_LAYOUT:
-            preferred_keys.append("layout_name")
-        elif resource_type == ResourceType.UI_WIDGET_TEMPLATE:
-            preferred_keys.append("template_name")
-        elif resource_type == ResourceType.UNIT_TAG:
-            preferred_keys.append("tag_name")
-        elif resource_type == ResourceType.SHIELD:
-            preferred_keys.append("shield_name")
-        elif resource_type == ResourceType.SCAN_TAG:
-            preferred_keys.append("scan_tag_name")
-        elif resource_type == ResourceType.SAVE_POINT:
-            # 局内存档管理资源（局内存档管理）：默认以 save_point_name 作为显示名
-            preferred_keys.append("save_point_name")
-        elif resource_type == ResourceType.TIMER:
-            preferred_keys.append("timer_name")
-        elif resource_type == ResourceType.LEVEL_VARIABLE:
-            preferred_keys.append("variable_name")
-        elif resource_type == ResourceType.CHAT_CHANNEL:
-            preferred_keys.append("channel_name")
-        elif resource_type == ResourceType.LIGHT_SOURCE:
-            preferred_keys.append("light_name")
-        elif resource_type == ResourceType.PERIPHERAL_SYSTEM:
-            preferred_keys.append("system_name")
-        elif resource_type == ResourceType.BACKGROUND_MUSIC:
-            preferred_keys.append("music_name")
-        elif resource_type == ResourceType.LEVEL_SETTINGS:
-            preferred_keys.append("level_name")
-
-        # 最后统一补充通用字段
-        preferred_keys.append("name")
-
-        for key in preferred_keys:
-            raw_value = payload.get(key)
-            if isinstance(raw_value, str):
-                striped = raw_value.strip()
-                if striped:
-                    return striped
-
-        return resource_id
+        return self._metadata_service.build_resource_metadata(resource_type, resource_id, payload)
     
     def search_resources(self, keyword: str, resource_type: Optional[ResourceType] = None) -> List[dict]:
         """搜索资源（按名称或描述）
@@ -898,22 +737,21 @@ class ResourceManager:
         graphs = []
         
         for graph_id in graph_ids:
-            graph_data = self.load_resource(ResourceType.GRAPH, graph_id)
-            if not graph_data:
+            graph_meta = self.load_graph_metadata(graph_id)
+            if not graph_meta:
                 continue
-            data_graph_type = graph_data.get("graph_type", "server")
-            folder_path = graph_data.get("folder_path", "")
+            data_graph_type = graph_meta.get("graph_type", "server")
+            folder_path = graph_meta.get("folder_path", "")
             if not folder_path:
                 folder_path = self._infer_graph_folder_path(graph_id, data_graph_type)
             folder_path = self.sanitize_folder_path(folder_path) if folder_path else ""
-            graph_data["folder_path"] = folder_path
             if graph_type == "all" or data_graph_type == graph_type:
                 graphs.append({
                     "graph_id": graph_id,
-                    "name": graph_data.get("name", "未命名"),
+                    "name": graph_meta.get("name", "未命名"),
                     "graph_type": data_graph_type,
                     "folder_path": folder_path,
-                    "description": graph_data.get("description", "")
+                    "description": graph_meta.get("description", "")
                 })
         
         return graphs
@@ -932,23 +770,22 @@ class ResourceManager:
         graphs = []
         
         for graph_id in graph_ids:
-            graph_data = self.load_resource(ResourceType.GRAPH, graph_id)
-            if not graph_data:
+            graph_meta = self.load_graph_metadata(graph_id)
+            if not graph_meta:
                 continue
-            data_graph_type = graph_data.get("graph_type", "server")
-            graph_folder = graph_data.get("folder_path", "")
+            data_graph_type = graph_meta.get("graph_type", "server")
+            graph_folder = graph_meta.get("folder_path", "")
             if not graph_folder:
                 graph_folder = self._infer_graph_folder_path(graph_id, data_graph_type)
             graph_folder = self.sanitize_folder_path(graph_folder) if graph_folder else ""
-            graph_data["folder_path"] = graph_folder
             if graph_folder != target_folder:
                 continue
             graphs.append({
                 "graph_id": graph_id,
-                "name": graph_data.get("name", "未命名"),
+                "name": graph_meta.get("name", "未命名"),
                 "graph_type": data_graph_type,
                 "folder_path": target_folder,
-                "description": graph_data.get("description", "")
+                "description": graph_meta.get("description", "")
             })
         
         return graphs
@@ -977,13 +814,15 @@ class ResourceManager:
         """
         folders = {"server": set(), "client": set()}
         
-        # 1. 从节点图数据中收集文件夹路径
+        # 1. 从节点图轻量元数据中收集文件夹路径（避免触发完整解析与自动布局）
         graph_ids = self.list_resources(ResourceType.GRAPH)
         for graph_id in graph_ids:
-            graph_data = self.load_resource(ResourceType.GRAPH, graph_id)
-            if graph_data:
-                graph_type = graph_data.get("graph_type", "server")
-                folder_path = graph_data.get("folder_path", "") or self._infer_graph_folder_path(graph_id, graph_type)
+            graph_meta = self.load_graph_metadata(graph_id)
+            if graph_meta:
+                graph_type = graph_meta.get("graph_type", "server")
+                folder_path = graph_meta.get("folder_path", "") or self._infer_graph_folder_path(
+                    graph_id, graph_type
+                )
                 folder_path = self.sanitize_folder_path(folder_path) if folder_path else ""
                 
                 if folder_path and graph_type in folders:

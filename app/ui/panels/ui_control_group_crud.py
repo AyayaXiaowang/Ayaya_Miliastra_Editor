@@ -4,8 +4,8 @@ from typing import Optional
 
 from PyQt6 import QtWidgets
 
-from ui.foundation.dialog_utils import prompt_text
-from ui.foundation import dialog_utils
+from app.ui.foundation.dialog_utils import prompt_text
+from app.ui.foundation import dialog_utils
 
 __all__ = ["prompt_entity_name", "confirm_entity_delete", "validate_unique_entity_name"]
 

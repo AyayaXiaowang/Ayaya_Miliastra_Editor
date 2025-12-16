@@ -8,8 +8,8 @@
 - 主题与样式管理：ThemeManager 及 Colors/Sizes/Icons/Gradients/HTMLStyles
 """
 
-from ui.foundation.base_widgets import BaseDialog, FormDialog
-from ui.foundation.dialog_utils import (
+from app.ui.foundation.base_widgets import BaseDialog, FormDialog
+from app.ui.foundation.dialog_utils import (
     apply_standard_button_box_labels,
     ask_acknowledge_or_suppress_dialog,
     ask_yes_no_dialog,
@@ -17,12 +17,12 @@ from ui.foundation.dialog_utils import (
     show_info_dialog,
     show_warning_dialog,
 )
-from ui.foundation.input_dialogs import (
+from app.ui.foundation.input_dialogs import (
     prompt_int,
     prompt_item,
     prompt_text as _form_prompt_text,
 )
-from ui.foundation.theme_manager import ThemeManager
+from app.ui.foundation.theme_manager import ThemeManager
 
 prompt_text = _form_prompt_text
 prompt_form_text = _form_prompt_text

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from PyQt6 import QtCore, QtWidgets
 
-from ui.scene.highlight_manager import YDebugHighlightManager
-from ui.scene.interaction_state import YDebugInteractionState
-from ui.scene.tooltip_overlay import YDebugTooltipOverlay
+from app.ui.scene.highlight_manager import YDebugHighlightManager
+from app.ui.scene.interaction_state import YDebugInteractionState
+from app.ui.scene.tooltip_overlay import YDebugTooltipOverlay
 
 
 class YDebugInteractionMixin:

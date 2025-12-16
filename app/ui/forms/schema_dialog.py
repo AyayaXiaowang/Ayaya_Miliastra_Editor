@@ -4,8 +4,8 @@ from typing import Optional, Sequence, Tuple
 
 from PyQt6 import QtGui, QtWidgets
 
-from ui.foundation.base_widgets import FormDialog
-from ui.foundation.theme_manager import Colors, ThemeManager
+from app.ui.foundation.base_widgets import FormDialog
+from app.ui.foundation.theme_manager import Colors, ThemeManager
 
 
 class FormDialogBuilder:

@@ -2,8 +2,8 @@
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from datetime import datetime
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 
 
 class ConflictResolutionDialog(BaseDialog):

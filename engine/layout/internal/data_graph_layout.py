@@ -12,9 +12,10 @@ from typing import Dict, List, Optional, Callable
 from engine.graph.models import GraphModel, NodeModel
 
 from ..utils.data_graph_utils import compute_data_components_layers
-from ..core.layout_context import LayoutContext
+from .layout_context import LayoutContext
+from .layout_registry_context import ensure_layout_registry_context_for_model
 from ..utils.graph_query_utils import estimate_node_height_ui_exact_with_context
-from ..core.constants import SLOT_WIDTH_MULTIPLIER
+from .constants import SLOT_WIDTH_MULTIPLIER
 from ..utils.basic_block_utils import build_basic_block
 
 
@@ -55,7 +56,8 @@ def layout_pure_data_graph(
         return
 
     if layout_context is None:
-        layout_context = LayoutContext(model)
+        registry_context = ensure_layout_registry_context_for_model(model)
+        layout_context = LayoutContext(model, registry_context=registry_context)
 
     # 参数
     node_width = node_width_default
@@ -122,6 +124,8 @@ def layout_pure_data_graph(
     # 将基本块信息存储到模型
     model.basic_blocks = basic_blocks
     setattr(model, "_layout_context_cache", layout_context)
+    if layout_context is not None:
+        setattr(model, "_layout_cache_signature", getattr(layout_context, "graph_signature", None))
 
 
 

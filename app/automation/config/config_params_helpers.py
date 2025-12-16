@@ -10,7 +10,7 @@ from typing import Optional, Tuple, List, Dict, Any
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.core import executor_utils as _exec_utils
+from app.automation.editor import executor_utils as _exec_utils
 from app.automation.ports._ports import normalize_kind_text, is_non_connectable_kind
 from app.automation.ports.port_picker import filter_screen_port_candidates as _filter_port_candidates
 from engine.utils.graph.graph_utils import is_flow_port_name

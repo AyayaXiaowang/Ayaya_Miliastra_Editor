@@ -13,11 +13,11 @@
 from PyQt6 import QtCore, QtWidgets
 from typing import Optional, Tuple, Any
 
-from ui.foundation.theme_manager import Sizes, ThemeManager
-from ui.panels.ui_control_group_store import UIControlGroupStore
-from ui.panels.panel_scaffold import PanelScaffold, SectionCard
-from ui.panels.ui_widget_config_panels import BaseWidgetConfigPanel, create_config_panel
-from ui.panels.ui_control_group_manager import PreviewSource
+from app.ui.foundation.theme_manager import Sizes, ThemeManager
+from app.ui.panels.ui_control_group_store import UIControlGroupStore
+from app.ui.panels.panel_scaffold import PanelScaffold, SectionCard
+from app.ui.panels.ui_widget_config_panels import BaseWidgetConfigPanel, create_config_panel
+from app.ui.panels.ui_control_group_manager import PreviewSource
 
 
 class UIControlSettingsPanel(PanelScaffold):

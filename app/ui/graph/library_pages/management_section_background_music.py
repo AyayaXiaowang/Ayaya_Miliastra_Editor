@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .management_sections_base import *
-from ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.forms.schema_dialog import FormDialogBuilder
 
 
 class BackgroundMusicSection(BaseManagementSection):
@@ -130,7 +130,7 @@ class BackgroundMusicSection(BaseManagementSection):
         )
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             music_id_text = music_id_edit.text().strip()
             if not music_id_text:

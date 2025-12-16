@@ -9,12 +9,12 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, TYPE_CHECKING
 from engine.nodes.port_type_system import can_connect_ports
-from ui.foundation.theme_manager import Colors
+from app.ui.foundation.theme_manager import Colors
 
 if TYPE_CHECKING:
-    from ui.graph.items.port_item import PortGraphicsItem
-    from ui.graph.items.node_item import NodeGraphicsItem
-    from ui.graph.items.edge_item import EdgeGraphicsItem
+    from app.ui.graph.items.port_item import PortGraphicsItem
+    from app.ui.graph.items.node_item import NodeGraphicsItem
+    from app.ui.graph.items.edge_item import EdgeGraphicsItem
 
 
 class SceneInteractionMixin:
@@ -61,7 +61,7 @@ class SceneInteractionMixin:
         """
         item = self.itemAt(event.scenePos(), QtGui.QTransform())
         # 导入需要在运行时进行, 避免循环依赖
-        from ui.graph.items.port_item import PortGraphicsItem
+        from app.ui.graph.items.port_item import PortGraphicsItem
 
         if not isinstance(item, PortGraphicsItem):
             return False
@@ -107,7 +107,7 @@ class SceneInteractionMixin:
         返回:
             bool: 若本方法已完整处理事件（包括 accept），返回 True；否则返回 False。
         """
-        from ui.graph.items.port_item import PortGraphicsItem
+        from app.ui.graph.items.port_item import PortGraphicsItem
 
         # 若当前没有处于“拖拽连线”状态，交由后续逻辑处理
         if self.temp_connection_start is None:
@@ -144,7 +144,7 @@ class SceneInteractionMixin:
         target_port: "PortGraphicsItem",
     ) -> None:
         """在两个端口之间尝试创建连线（包含显式类型检查与命令入撤销栈）。"""
-        from ui.graph.graph_undo import AddEdgeCommand
+        from app.ui.graph.graph_undo import AddEdgeCommand
         from engine.configs.settings import settings as _settings_ui
 
         if getattr(_settings_ui, "GRAPH_UI_VERBOSE", False):
@@ -253,7 +253,7 @@ class SceneInteractionMixin:
 
     def _finalize_node_move_commands(self) -> None:
         """根据 node_move_tracking 生成 MoveNodeCommand，并清理移动标记。"""
-        from ui.graph.graph_undo import MoveNodeCommand
+        from app.ui.graph.graph_undo import MoveNodeCommand
 
         tracking = getattr(self, "node_move_tracking", None)
         if not tracking:
@@ -300,7 +300,7 @@ class SceneInteractionMixin:
     
     def auto_connect_new_node(self, new_node_id: str = None) -> None:
         """自动连接新创建的节点到待连接的端口"""
-        from ui.graph.graph_undo import AddEdgeCommand
+        from app.ui.graph.graph_undo import AddEdgeCommand
 
         if not self.pending_src_node_id or not self.pending_connection_scene_pos:
             self._clear_pending_connection()

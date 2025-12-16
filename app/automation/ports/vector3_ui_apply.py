@@ -14,7 +14,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from PIL import Image
 
-from app.automation.core import executor_utils as _exec_utils
+from app.automation.editor import executor_utils as _exec_utils
 
 
 AxisLabel = str

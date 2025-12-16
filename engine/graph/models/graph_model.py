@@ -200,6 +200,10 @@ class GraphModel:
         self.description = description
         self.nodes: Dict[str, NodeModel] = {}
         self.edges: Dict[str, EdgeModel] = {}
+        # 连线版本号：用于让依赖 edges 的缓存具备可靠失效条件。
+        # 注意：若外部直接原地修改 EdgeModel 字段（而非通过 GraphModel API），
+        # 需要调用 `touch_edges_revision()` 主动触发失效。
+        self._edges_revision: int = 0
         self.graph_variables: List[dict] = []  # 节点图变量列表（存储序列化后的GraphVariableConfig）
         # 元数据（所属模板、实例、信号绑定、结构体绑定等）
         self.metadata: Dict[str, Any] = {}
@@ -225,6 +229,23 @@ class GraphModel:
         new_id = f"{prefix}_{self._next_id}"
         self._next_id += 1
         return new_id
+
+    # -------- 变更版本号（用于缓存失效）--------
+    def _touch_edges_revision(self) -> None:
+        self._edges_revision += 1
+
+    def touch_edges_revision(self) -> None:
+        """显式触发“连线已变更”的版本号递增。
+
+        用途：
+        - 当外部代码直接原地修改 EdgeModel 字段或直接操作 `self.edges` 字典时，
+          需要主动调用本方法，避免 `engine.graph.common` 等模块复用旧缓存。
+        """
+        self._touch_edges_revision()
+
+    def get_edges_revision(self) -> int:
+        """获取当前连线版本号（用于调试与缓存策略）。"""
+        return int(self._edges_revision)
     
     def add_node(self, title: str, category: str, input_names: List[str], output_names: List[str], pos=(0.0, 0.0)) -> NodeModel:
         node_id = self.gen_id("node")
@@ -239,6 +260,7 @@ class GraphModel:
         edge_id = self.gen_id("edge")
         edge = EdgeModel(id=edge_id, src_node=src_node, src_port=src_port, dst_node=dst_node, dst_port=dst_port)
         self.edges[edge_id] = edge
+        self._touch_edges_revision()
         return edge
     
     def add_edge_if_absent(self, src_node: str, src_port: str, dst_node: str, dst_port: str) -> Optional[EdgeModel]:
@@ -332,6 +354,8 @@ class GraphModel:
         for eid in to_del:
             self.edges.pop(eid, None)
         self.nodes.pop(node_id, None)
+        if to_del:
+            self._touch_edges_revision()
     
     def has_port_connections(self, node_id: str, port_name: str, is_input: bool) -> bool:
         """检查指定端口是否有连线
@@ -378,7 +402,8 @@ class GraphModel:
         for edge_id in to_del:
             self.edges.pop(edge_id, None)
             removed_edges.append(edge_id)
-        
+        if removed_edges:
+            self._touch_edges_revision()
         return removed_edges
     
     def sync_composite_nodes_from_library(self, node_library: Dict) -> int:

@@ -11,12 +11,9 @@ from engine.configs.management.tag_shield_configs import ShieldConfig
 from engine.configs.management.ingame_save_config import InGameSaveConfig, SaveScope
 from engine.configs.entities.profession_config import ProfessionConfig, ProfessionType
 
-# 为了向后兼容，创建别名
-AdvancedShieldConfig = ShieldConfig
-
 
 # ============== 护盾配置（护盾.md）==============
-# 注意：AdvancedShieldConfig 已从 management.tag_shield_configs 导入（使用 ShieldConfig 并创建别名），避免重复定义
+# 注意：护盾配置权威定义位于 management.tag_shield_configs.ShieldConfig，避免在 specialized 下重复定义
 
 
 # ============== 单位状态配置（单位状态.md）==============

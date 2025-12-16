@@ -12,8 +12,8 @@ from typing import Optional, Tuple, Callable, Dict
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.core import executor_utils as _exec_utils
-from app.automation.core.executor_protocol import EditorExecutorProtocol, AutomationStepContext
+from app.automation.editor import executor_utils as _exec_utils
+from app.automation.editor.executor_protocol import EditorExecutorProtocol, AutomationStepContext
 from app.automation.ports.port_type_inference import (
     is_generic_type_name,
     is_non_empty_str,

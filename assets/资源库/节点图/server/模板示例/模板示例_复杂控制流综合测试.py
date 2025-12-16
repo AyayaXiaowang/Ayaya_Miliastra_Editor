@@ -55,7 +55,7 @@ class 模板示例_复杂控制流综合测试:
         self.owner_entity = owner_entity
 
         # 自动验证节点图代码规范
-        from runtime.engine.node_graph_validator import validate_node_graph
+        from app.runtime.engine.node_graph_validator import validate_node_graph
         validate_node_graph(self.__class__)
 
     def on_实体创建时(self, 事件源实体, 事件源GUID):
@@ -122,7 +122,7 @@ class 模板示例_复杂控制流综合测试:
 if __name__ == "__main__":
     # 允许“直接运行该脚本”触发对自身的节点图规范自检
     # 输出：通过/未通过 + 错误/警告明细
-    from runtime.engine.node_graph_validator import validate_file
+    from app.runtime.engine.node_graph_validator import validate_file
 
     自身文件路径 = pathlib.Path(__file__).resolve()
     是否通过, 错误列表, 警告列表 = validate_file(自身文件路径)

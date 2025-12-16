@@ -4,8 +4,8 @@ from PyQt6 import QtCore, QtWidgets, QtGui
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
-from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
-from ui.controllers.graph_error_tracker import get_instance as get_error_tracker
+from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
+from app.ui.controllers.graph_error_tracker import get_instance as get_error_tracker
 
 
 class GraphCardWidget(QtWidgets.QWidget):
@@ -150,9 +150,7 @@ class GraphCardWidget(QtWidgets.QWidget):
         stats_layout.addStretch()
         layout.addLayout(stats_layout)
         
-        # 第三行：修改时间（优先使用文件修改时间）
-        time_str = self._get_modification_time()
-        
+        # 第三行：修改时间
         self.time_label = QtWidgets.QLabel()
         self.time_label.setFont(QtGui.QFont("Microsoft YaHei UI", 8))
         layout.addWidget(self.time_label)
@@ -189,7 +187,8 @@ class GraphCardWidget(QtWidgets.QWidget):
         self.nodes_label.setText(f"📦 节点: {node_count}")
         self.edges_label.setText(f"🔗 连线: {edge_count}")
 
-        self.time_label.setText(f"🕒 修改: {self._get_modification_time()}")
+        modification_time = self._get_modification_time()
+        self.time_label.setText(f"🕒 修改: {modification_time}")
 
         description = self.graph_data.get("description", "")
         if description:
@@ -236,44 +235,27 @@ class GraphCardWidget(QtWidgets.QWidget):
         self._apply_graph_data_to_widgets()
     
     def _get_modification_time(self) -> str:
-        """获取节点图的修改时间（优先使用文件修改时间，回退到JSON时间戳）"""
-        # 方法1：如果有 resource_manager，尝试获取文件的实际修改时间
-        if self.resource_manager:
-            from engine.resources.resource_manager import ResourceType
-            
-            # 获取节点图文件路径
-            graph_type = self.graph_data.get("graph_type", "server")
-            folder_path = self.graph_data.get("folder_path", "")
-            graph_name = self.graph_data.get("name", self.graph_id)
-            
-            # 构建文件路径
-            resource_dir = self.resource_manager.resource_library_dir / "节点图" / graph_type
-            if folder_path:
-                resource_dir = resource_dir / folder_path
-            
-            # 查找匹配的文件（可能是name.py或graph_id.py）
-            graph_files = []
-            if resource_dir.exists():
-                sanitized_name = self.resource_manager.sanitize_filename(graph_name)
-                graph_files = list(resource_dir.glob(f"{sanitized_name}.py"))
-                if not graph_files:
-                    graph_files = list(resource_dir.glob(f"{self.graph_id}.py"))
-            
-            if graph_files:
-                file_path = graph_files[0]
-                file_mtime = file_path.stat().st_mtime
-                dt = datetime.fromtimestamp(file_mtime)
-                return dt.strftime("%Y-%m-%d %H:%M")
-        
-        # 方法2：回退到JSON中的时间戳
-        timestamp_value = self.graph_data.get("last_modified", self.graph_data.get("created_at", ""))
-        if timestamp_value:
-            try:
-                dt = datetime.fromisoformat(timestamp_value)
-            except ValueError:
-                return str(timestamp_value)
+        """获取节点图的修改时间。
+
+        优先级：
+        1) 列表轻量元数据提供的 `last_modified_ts`（file mtime）
+        2) 兼容旧字段 `last_modified/created_at`（ISO 字符串或展示字符串）
+        3) 无法解析时回退为“未知”
+        """
+        timestamp_value = self.graph_data.get("last_modified_ts")
+        if isinstance(timestamp_value, (int, float)) and timestamp_value:
+            dt = datetime.fromtimestamp(float(timestamp_value))
             return dt.strftime("%Y-%m-%d %H:%M")
-        
+
+        fallback_value = self.graph_data.get("last_modified", self.graph_data.get("created_at", ""))
+        if isinstance(fallback_value, str) and fallback_value:
+            try:
+                dt = datetime.fromisoformat(fallback_value)
+            except ValueError:
+                # 已经是可读字符串（例如 "2025-12-15 10:20:30"）时，直接展示
+                return fallback_value
+            return dt.strftime("%Y-%m-%d %H:%M")
+
         return "未知"
     
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:

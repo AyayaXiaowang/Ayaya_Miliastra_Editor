@@ -4,13 +4,13 @@ from typing import List, Optional, Sequence, Tuple
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.dialogs.table_edit_helpers import wrap_click_to_edit_line_edit_for_table_cell
-from ui.dialogs.value_editor_common_widgets import ClickToEditLineEdit, ScrollSafeComboBox
-from ui.dialogs.list_value_editors import ListValueEditor
-from ui.dialogs.struct_definition_types import normalize_canonical_type_name, is_list_type
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Sizes, ThemeManager, Icons as ThemeIcons, Colors
+from app.ui.dialogs.table_edit_helpers import wrap_click_to_edit_line_edit_for_table_cell
+from app.ui.dialogs.value_editor_common_widgets import ClickToEditLineEdit, ScrollSafeComboBox
+from app.ui.dialogs.list_value_editors import ListValueEditor
+from app.ui.dialogs.struct_definition_types import normalize_canonical_type_name, is_list_type
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.theme_manager import Sizes, ThemeManager, Icons as ThemeIcons, Colors
 
 
 class _DictTableEditorWidget(QtWidgets.QWidget):

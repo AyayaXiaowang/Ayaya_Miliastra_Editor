@@ -209,7 +209,7 @@ class CurrencyBackpackSection(BaseManagementSection):
         )
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             currency_id_text = currency_id_edit.text().strip()
             if not currency_id_text:

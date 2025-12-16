@@ -11,8 +11,14 @@
 from __future__ import annotations
 from typing import List, Dict, TYPE_CHECKING, Tuple, Any, Optional, Set
 
-from ..core.layout_models import LayoutBlock
+from ..internal.layout_models import LayoutBlock
 from ..utils.basic_block_utils import build_basic_block
+from ..utils.copy_identity_utils import (
+    compute_copy_rank,
+    ORDER_MAX_FALLBACK,
+    resolve_copy_target_id,
+    resolve_copy_block_index,
+)
 
 if TYPE_CHECKING:
     from engine.graph.models import GraphModel
@@ -75,19 +81,11 @@ class PositionApplicator:
 
                 is_copy = bool(getattr(node_obj, "is_data_node_copy", False))
                 if is_copy:
-                    copy_block_id = getattr(node_obj, "copy_block_id", "") or ""
-                    expected_index = self._parse_block_index(copy_block_id)
-
-                    # 若 copy_block_id 无法解析（返回哨兵值），则尝试从 ID 后缀 `_copy_block_{idx}_...` 推断
-                    if expected_index >= 10**6 and isinstance(node_id, str) and "_copy_block_" in node_id:
-                        suffix = node_id.rsplit("_copy_block_", 1)[-1]
-                        parts = suffix.split("_")
-                        if parts and parts[0].isdigit():
-                            expected_index = int(parts[0])
+                    expected_index = resolve_copy_block_index(node_obj)
 
                     current_index = getattr(layout_block, "order_index", 0)
                     # 仅当副本的目标块索引与当前块一致时才纳入本 BasicBlock
-                    if 0 < expected_index < 10**6 and expected_index != current_index:
+                    if 0 < expected_index < ORDER_MAX_FALLBACK and expected_index != current_index:
                         continue
 
                 effective_data_nodes.append(node_id)
@@ -194,10 +192,10 @@ class PositionApplicator:
         debug_map = getattr(self.model, "_layout_y_debug_info", None)
 
         for node in self.model.nodes.values():
-            target_id = self._resolve_copy_target_id(node)
+            target_id = resolve_copy_target_id(node)
             if not target_id or target_id in applied_node_ids:
                 continue
-            rank = self._compute_copy_rank(node)
+            rank = compute_copy_rank(node)
             resolved_pos = self._normalize_pos(getattr(node, "pos", None))
             if resolved_pos is not None:
                 self._register_copy_override(copy_position_overrides, target_id, rank, resolved_pos)
@@ -251,54 +249,8 @@ class PositionApplicator:
 
     @staticmethod
     def _compute_copy_rank(node_obj: Any) -> Tuple[int, int]:
-        block_id = getattr(node_obj, "copy_block_id", "")
-        block_index = PositionApplicator._parse_block_index(block_id)
-        copy_counter = PositionApplicator._parse_copy_counter(getattr(node_obj, "id", ""))
-        return (block_index, copy_counter)
-
-    @staticmethod
-    def _parse_block_index(block_id: str) -> int:
-        if isinstance(block_id, str) and block_id.startswith("block_"):
-            suffix = block_id.split("_", 1)[-1]
-            if suffix.isdigit():
-                return int(suffix)
-        return 10**6
-
-    @staticmethod
-    def _parse_copy_counter(node_id: str) -> int:
-        if "_copy_" not in node_id:
-            return 10**6
-        suffix = node_id.rsplit("_copy_", 1)[-1]
-        parts = suffix.split("_")
-        for part in reversed(parts):
-            if part.isdigit():
-                return int(part)
-        return 10**6
-
-    def _resolve_copy_target_id(self, node_obj: Any) -> Optional[str]:
-        if not node_obj:
-            return None
-        node_id = getattr(node_obj, "id", "")
-        has_copy_suffix = isinstance(node_id, str) and "_copy_block_" in node_id
-        is_copy_flag = bool(getattr(node_obj, "is_data_node_copy", False))
-        if not (has_copy_suffix or is_copy_flag):
-            return None
-        original_id = getattr(node_obj, "original_node_id", "") or node_id
-        target_id = PositionApplicator._strip_copy_suffix(original_id)
-        if target_id and target_id in self.model.nodes:
-            return target_id
-        return None
-
-    @staticmethod
-    def _strip_copy_suffix(node_id: str) -> str:
-        marker = "_copy_block_"
-        result = node_id
-        while True:
-            idx = result.rfind(marker)
-            if idx == -1:
-                break
-            result = result[:idx]
-        return result
+        # 兼容旧接口：转发到 utils.copy_identity_utils
+        return compute_copy_rank(node_obj)
 
 
 

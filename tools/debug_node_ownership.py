@@ -2,18 +2,22 @@
 调试工具：检查指定节点图的数据节点归属情况
 """
 
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
+ensure_workspace_root_on_sys_path()
 
 from engine.graph.graph_code_parser import GraphCodeParser
 from engine.layout.utils.global_copy_manager import GlobalCopyManager
-from engine.layout.core.layout_context import LayoutContext
+from engine.layout.internal.layout_context import LayoutContext
 from engine.layout.flow.event_flow_analyzer import find_event_roots
 from engine.layout.blocks.block_identification_coordinator import BlockIdentificationCoordinator
-from engine.layout.core.layout_models import LayoutBlock
-from engine.layout.core.constants import (
+from engine.layout.internal.layout_models import LayoutBlock
+from engine.layout.internal.constants import (
     NODE_WIDTH_DEFAULT,
     NODE_HEIGHT_DEFAULT,
     BLOCK_PADDING_DEFAULT,

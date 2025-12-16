@@ -7,10 +7,11 @@
 from __future__ import annotations
 
 from ..blocks.block_layout_context import BlockLayoutContext
-from ..core.constants import debug
+from ..internal.constants import debug
 from engine.configs.settings import settings
 from .coordinate_assigner_x import compute_flow_x_positions, compute_data_x_positions
 from .coordinate_assigner_data import DataCoordinatePlanner, DataNodeYDebugSnapshot, DataNodePlacementPlan
+from .data_y_relaxation import DataYRelaxationEngine
 
 
 class CoordinateAssigner:
@@ -135,6 +136,13 @@ class CoordinateAssigner:
         for plan in placement_plans:
             self.context.node_local_pos[plan.node_id] = (plan.x_coordinate, plan.y_coordinate)
             self._record_data_y_debug_info(plan.node_id, plan.debug_snapshot)
+
+        # 可选：对数据节点的 Y 做轻量收敛松弛，使“多父/多子”的节点更接近邻居中心（类似块间排版）。
+        # 默认开；若调用方希望完全保持旧行为，可在 settings 中关闭。
+        relax_enabled = bool(getattr(settings, "LAYOUT_RELAX_DATA_Y_IN_BLOCK", True))
+        if relax_enabled:
+            relaxer = DataYRelaxationEngine(self.context, self.node_x_position, self.slot_width)
+            relaxer.relax_in_place()
 
     def _record_data_y_debug_info(self, data_id: str, snapshot: DataNodeYDebugSnapshot) -> None:
         """记录数据节点 Y 分配的调试信息。"""

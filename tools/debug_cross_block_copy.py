@@ -7,7 +7,7 @@
 - 按节点标题子串筛选目标节点，输出其所在基本块、位置信息与入/出边摘要。
 
 用法（在项目根目录执行）：
-  python -X utf8 tools/debug_cross_block_copy.py assets/资源库/节点图/server/锻刀/打造/锻刀英雄_武器展示与选择_界面事件.py 是否相等
+  python -X utf8 -m tools.debug_cross_block_copy assets/资源库/节点图/server/锻刀/打造/锻刀英雄_武器展示与选择_界面事件.py 是否相等
 """
 
 from __future__ import annotations
@@ -18,15 +18,18 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-WORKSPACE = Path(__file__).resolve().parents[1]
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
 
-if str(WORKSPACE) not in sys.path:
-    sys.path.insert(0, str(WORKSPACE))
+WORKSPACE = ensure_workspace_root_on_sys_path()
 
 
 from engine.nodes.node_registry import get_node_registry  # noqa: E402
 from engine.graph.graph_code_parser import GraphCodeParser  # noqa: E402
 from engine.layout import LayoutService  # noqa: E402
+from engine.configs.settings import settings  # noqa: E402
 
 
 def _resolve_code_path(arg: str) -> Path:
@@ -51,6 +54,9 @@ def main() -> None:
 
     title_substring = sys.argv[2] if len(sys.argv) >= 3 else ""
 
+    # GraphCodeParser 解析阶段会触发一次 quiet layout，需要 settings 中可推导 workspace_path
+    settings.set_config_path(WORKSPACE)
+
     registry = get_node_registry(WORKSPACE, include_composite=True)
     node_library = registry.get_library()
 
@@ -63,6 +69,7 @@ def main() -> None:
         include_augmented_model=True,
         clone_model=True,
         write_back_to_input_model=False,
+        workspace_path=WORKSPACE,
     )
     augmented = layout_result.augmented_model
 

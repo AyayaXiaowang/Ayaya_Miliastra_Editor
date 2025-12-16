@@ -17,12 +17,12 @@ from app.automation.input.common import (
     sleep_seconds,
 )
 from app.automation.vision import list_nodes, invalidate_cache
-from app.automation.core.view_alignment import run_pan_loop, PanEvaluation
-from app.automation.core.view_mapping import (
+from app.automation.editor.view_alignment import run_pan_loop, PanEvaluation
+from app.automation.editor.view_mapping import (
     compute_clamped_step,
     perform_drag_with_motion_estimation,
 )
-from app.automation.core.ui_constants import (
+from app.automation.editor.ui_constants import (
     NODE_VIEW_WIDTH_PX,
     NODE_VIEW_HEIGHT_PX,
     VIEW_SAFE_MARGIN_RATIO_DEFAULT,
@@ -33,8 +33,8 @@ from app.automation.core.ui_constants import (
     OCR_CACHE_FLUSH_WAIT_SECONDS,
 )
 from engine.graph.models.graph_model import GraphModel, NodeModel
-from app.automation.core import editor_nodes
-from app.automation.core import executor_utils as _exec_utils
+from app.automation.editor import editor_nodes
+from app.automation.editor import executor_utils as _exec_utils
 
 MIN_SCALE_RATIO = 1e-6
 FIXED_SCALE_RATIO = 1.0

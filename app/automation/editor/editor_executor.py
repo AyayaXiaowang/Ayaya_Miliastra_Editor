@@ -4,18 +4,14 @@
 实现坐标校准和节点图步骤自动执行
 """
 
-import sys
 import math
-from io import BytesIO
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, Callable, List
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.core import editor_nodes
-from app.automation.core import editor_connect
-from app.automation.core import executor_hook_utils as _hook_utils
-from app.automation.core.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
+from app.automation.editor import editor_nodes
+from app.automation.editor import editor_connect
 from app.automation.ports._ports import normalize_kind_text, is_non_connectable_kind
 from app.automation.input.common import (
     log_start,
@@ -25,13 +21,11 @@ from app.automation.input.common import (
     DEFAULT_DRAG_MOUSE_UP_MS,
     compute_position_thresholds,
     sleep_seconds,
-    build_graph_region_overlay,
 )
-from app.automation.core import executor_utils as _exec_utils
-from app.automation.capture.reference_panels import compose_reference_panel
+from app.automation.editor import executor_utils as _exec_utils
 from engine.graph.models.graph_model import GraphModel, NodeModel
-from app.automation.vision import list_nodes, invalidate_cache
-from app.automation.core.view_mapping import (
+from app.automation.vision import list_nodes
+from app.automation.editor.view_mapping import (
     estimate_content_motion,
     compute_clamped_step,
 )
@@ -45,39 +39,23 @@ from . import editor_exec_steps as _steps
 from . import editor_recognition as _rec
 from .node_snapshot import GraphSceneSnapshot
 from engine.utils.text.text_similarity import chinese_similar
-from .debug_utils import log_branch_ambiguity_report
-from app.automation.core.node_library_provider import (
-    get_node_library,
-    set_default_workspace_path,
-)
+from app.automation.editor.node_library_provider import set_default_workspace_path
+
+from .editor_executor_debug import EditorExecutorDebugMixin
+from .editor_executor_hooks import EditorExecutorHooksMixin
+from .editor_executor_node_library import EditorExecutorNodeLibraryMixin
+from .editor_executor_view_state import EditorExecutorViewStateMixin
+from .editor_executor_visual import EditorExecutorVisualMixin
 
 
-_CATEGORY_EQUIVALENCE_MAP = {
-    "流程控制节点": {"流程控制节点", "执行节点"},
-    "执行节点": {"执行节点", "流程控制节点"},
-}
-
-
-def _normalize_category_text(category_text: object) -> str:
-    text = str(category_text or "").strip()
-    if text == "":
-        return ""
-    return text if text.endswith("节点") else f"{text}节点"
-
-
-def _get_equivalent_categories(category_text: str) -> set[str]:
-    normalized = _normalize_category_text(category_text)
-    equivalents = set(_CATEGORY_EQUIVALENCE_MAP.get(normalized, set()))
-    if normalized:
-        equivalents.add(normalized)
-    return equivalents
-
-
-class EditorExecutor:
+class EditorExecutor(
+    EditorExecutorViewStateMixin,
+    EditorExecutorHooksMixin,
+    EditorExecutorVisualMixin,
+    EditorExecutorNodeLibraryMixin,
+    EditorExecutorDebugMixin,
+):
     """编辑器自动执行器"""
-
-    # 允许参与快速链模式的步骤类型（定义集中在 editor_exec_steps 中）
-    FAST_CHAIN_NO_WAIT_TYPES = set(_steps.FAST_CHAIN_ELIGIBLE_STEP_TYPES)
     
     def __init__(self, workspace_path: Path, window_title: str = "千星沙箱"):
         self.workspace_path = workspace_path
@@ -156,31 +134,24 @@ class EditorExecutor:
     # ===== 快速链辅助 =====
     def set_fast_chain_step_type(self, step_type: str) -> None:
         """由执行线程注入当前步骤类型，用于限制快速链的生效范围。"""
-        self._fast_chain_step_type = str(step_type or "")
+        return super().set_fast_chain_step_type(step_type)
 
     def reset_fast_chain_step_type(self) -> None:
-        self._fast_chain_step_type = ""
+        return super().reset_fast_chain_step_type()
 
     def is_fast_chain_step_enabled(self) -> bool:
         """仅当快速链开启且当前步骤属于连接/配置类时才跳过等待。"""
-        if not self.fast_chain_mode:
-            return False
-        return self._fast_chain_step_type in self.FAST_CHAIN_NO_WAIT_TYPES
+        return super().is_fast_chain_step_enabled()
 
     # ===== 连续连线缓存 =====
     def invalidate_connect_chain_context(self, reason: str = "") -> None:
-        self._connect_chain_context = None
-        self._connect_chain_dirty = False
+        return super().invalidate_connect_chain_context(reason)
 
     def begin_connect_chain_step(self) -> Optional[Dict[str, Any]]:
-        self._connect_chain_dirty = False
-        return self._connect_chain_context
+        return super().begin_connect_chain_step()
 
     def complete_connect_chain_step(self, context: Optional[Dict[str, Any]], success: bool) -> None:
-        if not success or self._connect_chain_dirty:
-            self._connect_chain_context = None
-            return
-        self._connect_chain_context = context
+        return super().complete_connect_chain_step(context, success)
     
     def _reset_view_state(self, reason: str = "") -> None:
         """重置与当前编辑器视口绑定的缓存状态。
@@ -190,34 +161,19 @@ class EditorExecutor:
         - 清空连续连线上下文与节点位移缓存
         - 清空识别阶段的首帧截图与检测结果缓存，避免在视口变化后误用旧画面
         """
-        self._view_state_token += 1
-        self._last_connect_prepare_token = -1
-        self._last_synced_view_state_token = -1
-        self._connect_chain_dirty = True
-        self._connect_chain_context = None
-        self._recent_node_position_deltas.clear()
-        self._position_delta_token = -1
-        # 视口变化会使上一帧截图与节点检测结果整体失效
-        if self._scene_snapshot is not None:
-            self._scene_snapshot.invalidate_all(reason or "view_changed")
-        # 同步清理“视口识别阶段”缓存的首帧截图与检测结果，避免在视口变化后误用旧画面。
-        self._last_recognition_screenshot = None
-        self._last_recognition_detected = None
+        return super()._reset_view_state(reason)
 
     def mark_view_changed(self, reason: str = "") -> None:
         """标记视口发生变化，由执行步骤或上层在拖拽/缩放后调用。"""
-        self._reset_view_state(reason or "view_changed")
+        return super().mark_view_changed(reason)
 
     def get_scene_snapshot(self) -> GraphSceneSnapshot:
         """获取当前执行器绑定的场景级快照实例（按需懒初始化）。"""
-        if self._scene_snapshot is None:
-            self._scene_snapshot = GraphSceneSnapshot(self)
-        return self._scene_snapshot
+        return super().get_scene_snapshot()
 
     def invalidate_scene_snapshot(self, reason: str = "") -> None:
         """显式失效场景级快照，用于执行完具有拖拽/布局变更效果的步骤后触发重识别。"""
-        if self._scene_snapshot is not None:
-            self._scene_snapshot.invalidate_all(reason or "manual")
+        return super().invalidate_scene_snapshot(reason)
 
     # ===== 公共小工具（去重：等待/点击/输入 与 暂停/终止钩子） =====
     def _wait_with_hooks(
@@ -229,8 +185,7 @@ class EditorExecutor:
         log_callback=None,
     ) -> bool:
         """委托通用工具，统一等待钩子逻辑。"""
-        return _hook_utils.wait_with_hooks(
-            self,
+        return super()._wait_with_hooks(
             total_seconds,
             pause_hook,
             allow_continue,
@@ -251,7 +206,7 @@ class EditorExecutor:
 
         跨模块调用推荐使用本方法，便于静态检查约束私有方法访问。
         """
-        return self._wait_with_hooks(
+        return super().wait_with_hooks(
             total_seconds=total_seconds,
             pause_hook=pause_hook,
             allow_continue=allow_continue,
@@ -266,77 +221,17 @@ class EditorExecutor:
         - 清空最近一次上下文右键位置
         - 失效视觉识别一步式缓存
         """
-        self.scale_ratio = None
-        self.origin_node_pos = None
-        self.drag_distance_per_pixel = None
-        self._last_context_click_editor_pos = None
-        invalidate_cache()
-        self._log("↻ 已清空上次执行残留：坐标映射与识别缓存已重置", log_callback)
-        # 同步复位“缩放一致性已确认”标记，确保单步/新一轮执行前会进行一次检查
-        self.zoom_50_confirmed = False
-        self.mark_view_changed("reset_mapping_state")
-        self._created_node_history.clear()
-        self._created_node_lookup.clear()
+        return super().reset_mapping_state(log_callback)
 
     def _ensure_node_library(self) -> None:
-        if self._node_library is not None:
-            return
-        library = get_node_library(self.workspace_path)
-        self._node_library = library
-        self._node_defs_by_name = {}
-        for node_def in library.values():
-            node_name = getattr(node_def, "name", "")
-            if isinstance(node_name, str) and node_name:
-                self._node_defs_by_name.setdefault(node_name, []).append(node_def)
+        return super()._ensure_node_library()
 
     def _resolve_node_def_by_name(self, node_name: str, preferred_category: str):
-        if not isinstance(node_name, str) or node_name == "":
-            return None
-        if not self._node_defs_by_name:
-            return None
-        candidates = self._node_defs_by_name.get(node_name, [])
-        if len(candidates) == 0:
-            return None
-        if len(candidates) == 1:
-            return candidates[0]
-        allowed_categories = _get_equivalent_categories(preferred_category)
-        filtered = [
-            candidate
-            for candidate in candidates
-            if _normalize_category_text(getattr(candidate, "category", "")) in allowed_categories
-        ]
-        if len(filtered) == 1:
-            return filtered[0]
-        return None
+        return super()._resolve_node_def_by_name(node_name, preferred_category)
 
     def _get_node_def_for_model(self, node: NodeModel):
         """根据 NodeModel 获取 NodeDef（支持复合节点）。找不到则返回 None。"""
-        self._ensure_node_library()
-        if self._node_library is None:
-            return None
-        from engine.nodes.node_definition_loader import find_composite_node_def
-        # 复合节点优先按 composite_id 精确匹配
-        if getattr(node, 'composite_id', ''):
-            found = find_composite_node_def(self._node_library, composite_id=node.composite_id, node_name=node.title)
-            if found:
-                return found[1]
-        # 常规节点：标准键/别名映射（类别统一为“...节点”）
-        category_standard = _normalize_category_text(getattr(node, "category", ""))
-        candidate_key = f"{category_standard}/{node.title}"
-        # 直接命中标准键或别名键（impl_definition_loader 已将别名键注入库）
-        direct = self._node_library.get(candidate_key)
-        if direct is not None:
-            return direct
-        # 尝试作用域变体（当仅注册了 #{scope} 变体时）
-        for scope_suffix in ("#client", "#server"):
-            scoped_key = f"{candidate_key}{scope_suffix}"
-            scoped = self._node_library.get(scoped_key)
-            if scoped is not None:
-                return scoped
-        fallback = self._resolve_node_def_by_name(node.title, category_standard)
-        if fallback is not None:
-            return fallback
-        return None
+        return super()._get_node_def_for_model(node)
 
     # === 统一可视化输出 ===
     def _build_reference_panel_image(
@@ -348,50 +243,13 @@ class EditorExecutor:
 
         会在 overlays['reference_panel'] 上打 '_embedded' 标记，以避免在同一帧重复合成。
         """
-        screenshot_to_emit = screenshot
-        if not isinstance(overlays, dict):
-            return screenshot_to_emit
-        panel_payload = overlays.get("reference_panel")
-        if not isinstance(panel_payload, dict) or panel_payload.get("_embedded"):
-            return screenshot_to_emit
-
-        content_image = None
-        image_bytes = panel_payload.get("image_bytes")
-        if isinstance(image_bytes, (bytes, bytearray)) and len(image_bytes) > 0:
-            try:
-                with Image.open(BytesIO(image_bytes)) as tpl_img:
-                    content_image = tpl_img.copy()
-            except Exception:
-                content_image = None
-
-        if content_image is None:
-            image_path = panel_payload.get("image_path")
-            if image_path:
-                try:
-                    with Image.open(image_path) as tpl_img_path:
-                        content_image = tpl_img_path.copy()
-                except Exception:
-                    content_image = None
-
-        if content_image is None:
-            return screenshot_to_emit
-
-        screenshot_to_emit = compose_reference_panel(
-            screenshot,
-            title=str(panel_payload.get("title", "") or ""),
-            content_text=panel_payload.get("text"),
-            content_image=content_image,
-        )
-        panel_payload["_embedded"] = True
-        return screenshot_to_emit
+        return super()._build_reference_panel_image(screenshot, overlays)
 
     def _emit_visual(self, screenshot: Image.Image, overlays: Optional[dict], visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]]) -> None:
         """统一的可视化输出入口：所有涉及截图的步骤通过此方法将叠加层推送到监控面板。
         overlays 结构：{'rects': [...], 'circles': [...]}，与 UI 层保持一致。
         """
-        screenshot_to_emit = self._build_reference_panel_image(screenshot, overlays)
-        if visual_callback is not None:
-            visual_callback(screenshot_to_emit, overlays)
+        return super()._emit_visual(screenshot, overlays, visual_callback)
 
     # 轻薄委托：文本输入（带暂停/终止钩子）
     def _input_text_with_hooks(
@@ -401,7 +259,7 @@ class EditorExecutor:
         allow_continue: Optional[Callable[[], bool]] = None,
         log_callback=None,
     ) -> bool:
-        return _hook_utils.input_text_with_hooks(self, text, pause_hook, allow_continue, log_callback)
+        return super()._input_text_with_hooks(text, pause_hook, allow_continue, log_callback)
 
     def _right_click_with_hooks(
         self,
@@ -414,10 +272,9 @@ class EditorExecutor:
         *,
         linger_seconds: float = 0.0,
     ) -> bool:
-        return _hook_utils.right_click_with_hooks(
-            self,
-            int(screen_x),
-            int(screen_y),
+        return super()._right_click_with_hooks(
+            screen_x,
+            screen_y,
             pause_hook,
             allow_continue,
             log_callback,
@@ -438,37 +295,12 @@ class EditorExecutor:
         规范：至少叠加"节点图布置区域"矩形；调用方可通过 overlays_builder 追加叠加内容。
         返回本次截图，以便调用方继续使用。
         """
-        if use_strict_window_capture:
-            screenshot = editor_capture.capture_window_strict(self.window_title)
-            if screenshot is None:
-                screenshot = editor_capture.capture_window(self.window_title)
-        else:
-            screenshot = editor_capture.capture_window(self.window_title)
-        if not screenshot:
-            raise ValueError("截图失败")
-
-        base_overlay = build_graph_region_overlay(screenshot)
-        rects = list(base_overlay.get('rects', []))
-        if label and rects:
-            rects[0]['label'] = f"{rects[0]['label']} · {label}"
-        circles = []
-        reference_panel_payload = None
-        if overlays_builder is not None:
-            extra = overlays_builder(screenshot)
-            if isinstance(extra, dict):
-                if isinstance(extra.get('rects'), list):
-                    rects.extend(extra['rects'])
-                if isinstance(extra.get('circles'), list):
-                    circles.extend(extra['circles'])
-                if 'reference_panel' in extra and reference_panel_payload is None:
-                    reference_panel_payload = extra['reference_panel']
-        overlays = { 'rects': rects }
-        if circles:
-            overlays['circles'] = circles
-        if reference_panel_payload:
-            overlays['reference_panel'] = reference_panel_payload
-        self._emit_visual(screenshot, overlays, visual_callback)
-        return screenshot
+        return super().capture_and_emit(
+            label=label,
+            overlays_builder=overlays_builder,
+            visual_callback=visual_callback,
+            use_strict_window_capture=use_strict_window_capture,
+        )
 
     def emit_visual(
         self,
@@ -481,7 +313,7 @@ class EditorExecutor:
 
         跨模块调用推荐使用本方法，而不是直接访问私有实现。
         """
-        self._emit_visual(screenshot, overlays, visual_callback)
+        return super().emit_visual(screenshot, overlays, visual_callback)
 
     def _ensure_program_point_visible(
         self,
@@ -553,132 +385,14 @@ class EditorExecutor:
         log_callback=None,
         visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
     ) -> None:
-        rect_items: list[dict] = []
-        circle_items: list[dict] = []
-
-        debug_info = getattr(self, "_last_create_position_debug", None)
-        source_label = "图中原始坐标"
-        anchor_node_ids: list[str] = []
-        if isinstance(debug_info, dict):
-            raw_source = str(debug_info.get("source") or "")
-            if raw_source == "anchor":
-                anchor_id_value = debug_info.get("anchor_node_id")
-                anchor_id = str(anchor_id_value or "")
-                if anchor_id:
-                    anchor_node_ids = [anchor_id]
-                source_label = "创建锚点"
-            elif raw_source == "neighbor_offsets":
-                neighbor_ids_value = debug_info.get("neighbor_node_ids")
-                if isinstance(neighbor_ids_value, list):
-                    for value in neighbor_ids_value:
-                        value_str = str(value or "")
-                        if value_str:
-                            anchor_node_ids.append(value_str)
-                if anchor_node_ids:
-                    source_label = "邻居偏移"
-            elif raw_source == "nearest_delta":
-                anchor_id_value = debug_info.get("anchor_node_id")
-                anchor_id = str(anchor_id_value or "")
-                if anchor_id:
-                    anchor_node_ids = [anchor_id]
-                source_label = "最近偏移节点"
-
-        anchor_display = ""
-        if anchor_node_ids:
-            primary_anchor_id = anchor_node_ids[0]
-            primary_anchor = graph_model.nodes.get(primary_anchor_id)
-            if primary_anchor is not None:
-                primary_title_text = ""
-                if getattr(primary_anchor, "title", None) is not None:
-                    primary_title_text = str(primary_anchor.title).strip()
-                if primary_title_text:
-                    anchor_display = f"{primary_title_text} (id={primary_anchor_id})"
-                else:
-                    anchor_display = f"(id={primary_anchor_id})"
-
-        node_title_text = ""
-        if getattr(node, "title", None) is not None:
-            node_title_text = str(node.title).strip()
-        base_label = f"创建节点: {node_title_text} (id={node.id})" if node_title_text else f"创建节点 (id={node.id})"
-        label_text = base_label
-        if source_label and anchor_display:
-            label_text = f"{base_label}\n来源: {source_label} → {anchor_display}"
-        elif source_label:
-            label_text = f"{base_label}\n来源: {source_label}"
-
-        editor_x, editor_y = self.convert_program_to_editor_coords(float(program_x), float(program_y))
-        circle_items.append(
-            {
-                "center": (int(editor_x), int(editor_y)),
-                "radius": 8,
-                "color": (255, 220, 0),
-                "label": label_text,
-            }
+        return super().debug_capture_create_node_position(
+            graph_model,
+            node,
+            program_x,
+            program_y,
+            log_callback,
+            visual_callback,
         )
-
-        visible_map = self.recognize_visible_nodes(graph_model)
-
-        max_anchor_count = 3
-        for anchor_node_id in anchor_node_ids:
-            if len(rect_items) >= max_anchor_count:
-                break
-            anchor_model = graph_model.nodes.get(anchor_node_id)
-            if anchor_model is None:
-                continue
-            anchor_info = visible_map.get(anchor_node_id)
-            bbox_left: int
-            bbox_top: int
-            bbox_width: int
-            bbox_height: int
-            if isinstance(anchor_info, dict) and bool(anchor_info.get("visible")) and isinstance(anchor_info.get("bbox"), (list, tuple)) and len(anchor_info["bbox"]) == 4:
-                bbox = anchor_info["bbox"]
-                bbox_left, bbox_top, bbox_width, bbox_height = (
-                    int(bbox[0]),
-                    int(bbox[1]),
-                    int(bbox[2]),
-                    int(bbox[3]),
-                )
-            else:
-                anchor_prog_x = float(anchor_model.pos[0])
-                anchor_prog_y = float(anchor_model.pos[1])
-                anchor_editor_x, anchor_editor_y = self.convert_program_to_editor_coords(
-                    anchor_prog_x,
-                    anchor_prog_y,
-                )
-                scale_value = 1.0
-                if self.scale_ratio is not None:
-                    scale_value = float(self.scale_ratio) if abs(float(self.scale_ratio)) > 1e-6 else 1.0
-                bbox_width = int(NODE_VIEW_WIDTH_PX * scale_value)
-                bbox_height = int(NODE_VIEW_HEIGHT_PX * scale_value)
-                bbox_left = int(anchor_editor_x)
-                bbox_top = int(anchor_editor_y)
-            anchor_title_text = ""
-            if getattr(anchor_model, "title", None) is not None:
-                anchor_title_text = str(anchor_model.title).strip()
-            anchor_label = f"锚点: {anchor_title_text} (id={anchor_node_id})" if anchor_title_text else f"锚点 (id={anchor_node_id})"
-            rect_items.append(
-                {
-                    "bbox": (
-                        int(bbox_left),
-                        int(bbox_top),
-                        int(bbox_width),
-                        int(bbox_height),
-                    ),
-                    "color": (80, 220, 120),
-                    "label": anchor_label,
-                }
-            )
-
-        overlays: dict = {"rects": rect_items}
-        if circle_items:
-            overlays["circles"] = circle_items
-        screenshot = editor_capture.capture_window_strict(self.window_title)
-        if screenshot is None:
-            screenshot = editor_capture.capture_window(self.window_title)
-        if not screenshot:
-            self._log("✗ 截图失败（创建节点调试可视化）", log_callback)
-            return
-        self._emit_visual(screenshot, overlays, visual_callback)
 
     def debug_capture_visible_node_ids(
         self,
@@ -686,52 +400,7 @@ class EditorExecutor:
         log_callback=None,
         visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]] = None,
     ) -> None:
-        # 可见节点调试依赖稳定的程序↔编辑器坐标映射；若尚未建立映射则直接跳过，
-        # 避免在单步首创建等“未校准场景”中触发坐标相关异常。
-        if self.scale_ratio is None or self.origin_node_pos is None:
-            self._log(
-                "· 可见节点调试：当前尚未完成坐标映射（scale_ratio / origin_node_pos 为空），"
-                "跳过可见节点识别；请先执行快速映射或锚点坐标校准后再重试。",
-                log_callback,
-            )
-            return
-
-        visible_map = self.recognize_visible_nodes(graph_model)
-        if not isinstance(visible_map, dict) or not visible_map:
-            self._log("· 可见节点调试：当前画面中未识别到任何节点", log_callback)
-            return
-
-        def _build_overlay(_image: Image.Image) -> dict:
-            rect_items: list[dict] = []
-            for node_id, info in visible_map.items():
-                if not bool(info.get("visible")):
-                    continue
-                bbox = info.get("bbox")
-                if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
-                    continue
-                bx, by, bw, bh = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
-                node_model = graph_model.nodes.get(node_id)
-                node_title_text = ""
-                if node_model is not None and getattr(node_model, "title", None) is not None:
-                    node_title_text = str(node_model.title).strip()
-                if node_title_text:
-                    label_text = f"{node_title_text} ({node_id})"
-                else:
-                    label_text = str(node_id)
-                rect_items.append(
-                    {
-                        "bbox": (bx, by, bw, bh),
-                        "color": (80, 220, 120),
-                        "label": label_text,
-                    }
-                )
-            return {"rects": rect_items}
-
-        self.capture_and_emit(
-            label="执行前-可见节点ID",
-            overlays_builder=_build_overlay,
-            visual_callback=visual_callback,
-        )
+        return super().debug_capture_visible_node_ids(graph_model, log_callback, visual_callback)
 
     def _log(self, message: str, log_callback=None) -> None:
         """统一日志输出：控制台实时打印 + UI监控窗口回调"""
@@ -991,12 +660,11 @@ class EditorExecutor:
         - tx / ty: 从程序坐标到屏幕坐标的平移量（translation_x / translation_y）
         - epsilon_px: 判定样本点是否为“内点”的像素误差阈值
         """
-        log_branch_ambiguity_report(
-            logger=self._log,
+        return super()._debug_log_branch_ambiguity(
             graph_model=graph_model,
             name_to_model_nodes=name_to_model_nodes,
             name_to_detections=name_to_detections,
-            scale=s,
+            s=s,
             tx=tx,
             ty=ty,
             epsilon_px=epsilon_px,

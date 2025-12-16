@@ -8,12 +8,12 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.layout import UI_HEADER_EXTRA, UI_NODE_PADDING, UI_ROW_HEIGHT
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig
-from ui.foundation import input_dialogs
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.interaction_helpers import handle_wheel_zoom_for_view
-from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
-from ui.foundation.view_utils import fit_view_to_scene_items
-from ui.graph.library_mixins import ConfirmDialogMixin
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.interaction_helpers import handle_wheel_zoom_for_view
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.foundation.view_utils import fit_view_to_scene_items
+from app.ui.graph.library_mixins import ConfirmDialogMixin
 
 PIN_SIZE = 12
 PIN_SPACING = UI_ROW_HEIGHT

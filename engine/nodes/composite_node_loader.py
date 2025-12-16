@@ -1,7 +1,6 @@
 """复合节点加载器 - 负责复合节点的文件加载、保存和序列化"""
 
 from __future__ import annotations
-import json
 import re
 from pathlib import Path
 from typing import Dict, Optional
@@ -10,7 +9,6 @@ import ast
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig
 from engine.nodes.node_definition_loader import NodeDef
 from engine.graph import CompositeCodeParser
-from engine.graph.composite_code_generator import CompositeCodeGenerator
 from engine.graph.utils.metadata_extractor import extract_metadata_from_code
 from engine.graph.utils.ast_utils import find_composite_function
 from engine.utils.logging.logger import log_info
@@ -23,7 +21,6 @@ class CompositeNodeLoader:
     职责：
     - 从文件加载复合节点（支持函数格式和类格式）
     - 保存复合节点为文件（函数格式）
-    - 文件格式迁移（从旧的JSON格式到新的代码格式）
     - 文件名处理和路径计算
     """
     
@@ -46,6 +43,11 @@ class CompositeNodeLoader:
         self.composite_library_dir = composite_library_dir
         self.verbose = verbose
         self.base_node_library = base_node_library
+        self._code_generator = None
+
+    def set_code_generator(self, code_generator) -> None:
+        """注入复合节点代码生成器（应用层实现）。"""
+        self._code_generator = code_generator
     
     def load_composite_from_file(
         self,
@@ -150,20 +152,13 @@ class CompositeNodeLoader:
         # 获取保存路径
         file_path = self.get_file_save_path(composite)
         
-        # 使用CompositeCodeGenerator生成函数格式代码
-        # 生成器可选使用节点库；优先使用基础节点库以避免加载回路
-        if self.base_node_library is not None:
-            node_library = self.base_node_library
-        else:
-            from engine.nodes.impl_definition_loader import load_all_nodes_from_impl
-            node_library = load_all_nodes_from_impl(
-                self.workspace_path, 
-                include_composite=False, 
-                verbose=self.verbose
+        if self._code_generator is None:
+            raise ValueError(
+                "CompositeNodeLoader.save_composite_to_file 需要注入复合节点代码生成器（应用层实现），"
+                "以避免 engine 层绑定运行时/插件导入。"
             )
-        
-        generator = CompositeCodeGenerator(node_library)
-        code = generator.generate_code(composite)
+
+        code = self._code_generator.generate_code(composite)
         
         # 写入文件
         with open(file_path, 'w', encoding='utf-8') as file:
@@ -173,42 +168,6 @@ class CompositeNodeLoader:
             log_info(f"保存复合节点（函数格式）: {file_path.name}")
         
         return file_path
-    
-    def migrate_from_json(self, json_file: Path) -> list[CompositeNodeConfig]:
-        """从旧的JSON文件迁移到函数代码格式
-        
-        Args:
-            json_file: 旧的JSON文件路径
-            
-        Returns:
-            迁移的复合节点列表
-        """
-        with open(json_file, 'r', encoding='utf-8') as file:
-            data = json.load(file)
-        
-        composites_in_json = data.get("composite_nodes", [])
-        if not composites_in_json:
-            # 空文件，直接删除
-            if self.verbose:
-                log_info(f"[迁移] JSON文件为空，删除: {json_file.name}")
-            json_file.unlink()
-            return []
-        
-        # 迁移每个复合节点
-        migrated_composites = []
-        for composite_data in composites_in_json:
-            composite = CompositeNodeConfig.deserialize(composite_data)
-            # 保存为函数代码文件
-            self.save_composite_to_file(composite)
-            migrated_composites.append(composite)
-            if self.verbose:
-                log_info(f"[迁移] {composite.node_name} (ID: {composite.composite_id})")
-        
-        # 删除旧JSON文件
-        json_file.unlink()
-        log_info(f"迁移完成: {len(migrated_composites)} 个复合节点，已删除旧JSON文件")
-        
-        return migrated_composites
     
     def get_file_save_path(self, composite: CompositeNodeConfig) -> Path:
         """根据配置获取复合节点的保存路径

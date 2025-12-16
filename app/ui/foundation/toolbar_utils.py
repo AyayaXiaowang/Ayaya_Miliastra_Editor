@@ -15,7 +15,7 @@
 from PyQt6 import QtWidgets, QtCore
 from typing import List
 
-from ui.foundation.theme_manager import Sizes
+from app.ui.foundation.theme_manager import Sizes
 
 
 def apply_standard_toolbar(toolbar: QtWidgets.QHBoxLayout) -> None:

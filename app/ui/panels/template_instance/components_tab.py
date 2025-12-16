@@ -11,13 +11,13 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from engine.configs.rules import COMPONENT_DEFINITIONS
 from engine.graph.models.entity_templates import get_all_component_types
 from engine.graph.models.package_model import ComponentConfig
-from ui.foundation import input_dialogs
-from ui.foundation.dialog_utils import show_warning_dialog
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Colors, Sizes
-from ui.foundation.toast_notification import ToastNotification
-from ui.panels.template_instance.component_form_factory import create_component_form
-from ui.panels.template_instance.tab_base import TemplateInstanceTabBase
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.theme_manager import Colors, Sizes
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.panels.template_instance.component_form_factory import create_component_form
+from app.ui.panels.template_instance.tab_base import TemplateInstanceTabBase
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,7 @@
 哪些节点缺少 `_layout_y_debug_info`，辅助定位“右上角感叹号缺失”问题。
 
 用法（项目根目录）：
-    python -X utf8 tools/dump_layout_y_debug.py server_scoreboard_controller_01
+    python -X utf8 -m tools.dump_layout_y_debug server_scoreboard_controller_01
 """
 
 from __future__ import annotations
@@ -20,9 +20,12 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")  # type: ignore[attr-defined]
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")  # type: ignore[attr-defined]
 
-WORKSPACE = Path(__file__).resolve().parents[1]
-if str(WORKSPACE) not in sys.path:
-    sys.path.insert(0, str(WORKSPACE))
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
+WORKSPACE = ensure_workspace_root_on_sys_path()
 
 from engine.graph.models import GraphModel  # noqa: E402
 from engine.layout import LayoutService  # noqa: E402
@@ -68,7 +71,7 @@ def main() -> int:
     print(f"[INFO] 载入图：{model.graph_name} ({model.graph_id})")
     print(f"[INFO] 来源缓存：{source_path}")
 
-    layout_result = LayoutService.compute_layout(model, include_augmented_model=False)
+    layout_result = LayoutService.compute_layout(model, include_augmented_model=False, workspace_path=WORKSPACE)
     debug_info = layout_result.y_debug_info or {}
     total_nodes = len(model.nodes)
     covered = len(debug_info)

@@ -19,21 +19,26 @@ from .validation_cache import (
 from .rules.code_syntax_rules import (
     NoListDictLiteralRule,
     NoFStringLambdaEnumerateRule,
+    MatchCaseLiteralPatternRule,
     NoMethodNestedCallsRule,
     NoInlineIfInCallRule,
     NoInlineArithmeticInRangeRule,
 )
 from .rules.code_structure_rules import (
     IfBooleanRule,
+    NoDirectLogicNotCallInIfRule,
+    IfBoolEqualityToConstRule,
     VariadicMinArgsRule,
     GraphVarsDeclarationRule,
     NoLiteralAssignmentRule,
     EventNameRule,
     TypeNameRule,
     SignalParamNamesRule,
+    RequiredInputsRule,
+    StructNameRequiredRule,
     LocalVarInitialValueRule,
 )
-from .rules.code_quality_rules import LongWireRule, UnusedQueryOutputRule, UnreachableCodeRule
+from .rules.code_quality_rules import LongWireRule, EventMultipleFlowOutputsRule, UnusedQueryOutputRule, UnreachableCodeRule
 from .rules.code_port_types_match import PortTypesMatchRule
 from .rules.composite_types_nesting import CompositeTypesAndNestingRule
 from .rules.node_index import clear_node_index_caches
@@ -80,7 +85,12 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
         return cached_rules
     if is_composite:
         if composite_enabled:
-            rules = [CompositeTypesAndNestingRule(), LocalVarInitialValueRule(), NoListDictLiteralRule()]
+            rules = [
+                CompositeTypesAndNestingRule(),
+                LocalVarInitialValueRule(),
+                NoListDictLiteralRule(),
+                MatchCaseLiteralPatternRule(),
+            ]
             _RULE_CACHE[cache_key] = rules
             return rules
         _RULE_CACHE[cache_key] = []
@@ -91,18 +101,24 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
         rules.extend(
             [
                 NoListDictLiteralRule(),
+                MatchCaseLiteralPatternRule(),
                 NoFStringLambdaEnumerateRule(),
                 NoMethodNestedCallsRule(),
                 NoInlineIfInCallRule(),
                 NoInlineArithmeticInRangeRule(),
                 IfBooleanRule(),
+                NoDirectLogicNotCallInIfRule(),
+                IfBoolEqualityToConstRule(),
                 VariadicMinArgsRule(),
+                RequiredInputsRule(),
                 GraphVarsDeclarationRule(),
                 NoLiteralAssignmentRule(),
                 EventNameRule(),
                 TypeNameRule(),
                 LongWireRule(),
+                EventMultipleFlowOutputsRule(),
                 SignalParamNamesRule(),
+                StructNameRequiredRule(),
                 LocalVarInitialValueRule(),
             ]
         )

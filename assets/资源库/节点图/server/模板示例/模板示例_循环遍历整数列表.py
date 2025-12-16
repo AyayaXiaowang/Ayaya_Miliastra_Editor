@@ -56,7 +56,7 @@ class 模板示例_循环遍历整数列表:
         self.game = game
         self.owner_entity = owner_entity
 
-        from runtime.engine.node_graph_validator import validate_node_graph
+        from app.runtime.engine.node_graph_validator import validate_node_graph
 
         validate_node_graph(self.__class__)
 
@@ -127,7 +127,7 @@ class 模板示例_循环遍历整数列表:
 
 
 if __name__ == "__main__":
-    from runtime.engine.node_graph_validator import validate_file
+    from app.runtime.engine.node_graph_validator import validate_file
 
     自身文件路径 = pathlib.Path(__file__).resolve()
     是否通过, 错误列表, 警告列表 = validate_file(自身文件路径)

@@ -29,9 +29,13 @@ from engine.resources.management_naming_rules import (
 from engine.utils.logging.logger import log_info
 from engine.utils.cache.cache_paths import get_resource_cache_dir, get_resource_index_cache_file
 from engine.utils.name_utils import sanitize_resource_filename
+from .atomic_json import atomic_write_json
 
 
 CheckAndSyncNameFn = Callable[[Path, ResourceType, str, str, Optional[dict]], bool]
+
+RESOURCE_INDEX_CACHE_SCHEMA = "resource_index_cache/v1"
+RESOURCE_INDEX_CACHE_SCHEMA_VERSION = 1
 
 
 @dataclass
@@ -79,6 +83,17 @@ class ResourceIndexBuilder:
 
         with open(cache_file, "r", encoding="utf-8") as file_obj:
             data = json.load(file_obj)
+
+        manifest = data.get("__manifest__")
+        if manifest is not None:
+            if not isinstance(manifest, dict):
+                return None
+            schema_value = manifest.get("schema")
+            version_value = manifest.get("schema_version")
+            if schema_value != RESOURCE_INDEX_CACHE_SCHEMA:
+                return None
+            if version_value != RESOURCE_INDEX_CACHE_SCHEMA_VERSION:
+                return None
 
         if (
             "resources_fp" not in data
@@ -382,6 +397,12 @@ class ResourceIndexBuilder:
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_file = self._get_resource_index_cache_file()
         payload = {
+            "__manifest__": {
+                "schema": RESOURCE_INDEX_CACHE_SCHEMA,
+                "schema_version": RESOURCE_INDEX_CACHE_SCHEMA_VERSION,
+                "generated_at": datetime.now().isoformat(),
+                "source": "engine.resources.ResourceIndexBuilder",
+            },
             "resources_fp": self.compute_resources_fingerprint(),
             "resource_index": {
                 resource_type.name: {
@@ -398,8 +419,7 @@ class ResourceIndexBuilder:
             },
             "cached_at": datetime.now().isoformat(),
         }
-        with open(cache_file, "w", encoding="utf-8") as file_obj:
-            json.dump(payload, file_obj, ensure_ascii=False, indent=2)
+        atomic_write_json(cache_file, payload, ensure_ascii=False, indent=2)
 
     @staticmethod
     def _extract_graph_id_from_file(py_file: Path) -> Optional[str]:

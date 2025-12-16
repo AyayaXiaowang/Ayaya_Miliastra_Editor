@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.dialogs.struct_definition_types import (
+from app.ui.dialogs.struct_definition_types import (
     canonical_to_param_type,
     is_dict_type,
     is_list_type,
@@ -22,17 +22,17 @@ from ui.dialogs.struct_definition_types import (
     normalize_canonical_type_name,
     param_type_to_canonical,
 )
-from ui.dialogs.struct_definition_value_editors import (
+from app.ui.dialogs.struct_definition_value_editors import (
     ClickToEditLineEdit,
     DictValueEditor,
     ListValueEditor,
     ScrollSafeComboBox,
 )
-from ui.dialogs.table_edit_helpers import (
+from app.ui.dialogs.table_edit_helpers import (
     wrap_click_to_edit_line_edit_for_table_cell,
 )
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
 class FieldTypeComboBox(ScrollSafeComboBox):
@@ -82,18 +82,23 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
         # 值列展示模式：
         # - "value"：默认行为，按字段类型展示/编辑实际数据值；
         # - "metadata"：元数据模式，仅将传入的 value 视为只读文本展示（例如列表长度），不做列表/字典展开。
+        #   在元数据模式下，value 参数既可以是原始值本身，也可以是
+        #   {"raw": 原始值, "display": 展示文本} 这样的字典，前者用于业务读写，
+        #   后者仅用于第四列表格的可读性展示。
         self._value_mode: str = "value"
 
-        # 列标题：默认采用“序号 / 名字 / 数据类型 / 数据值”，允许调用方按需覆盖，
-        # 但仍固定为 4 列结构以保持组件行为与样式的一致性。
+        # 列标题：默认采用“序号 / 名字 / 数据类型 / 数据值”。
+        # 组件默认仍是 4 列结构，但允许调用方在“数据值”列之后追加额外列（例如勾选列），
+        # 以支持少量定制需求，同时保持名字/类型/值三列的固定索引（1/2/3）不变。
         default_headers: List[str] = ["序号", "名字", "数据类型", "数据值"]
         if column_headers:
             normalized_headers: List[str] = [str(title) for title in column_headers]
-            # 保证长度为 4：不足时填充空字符串，多余时截断。
-            if len(normalized_headers) < 4:
-                normalized_headers.extend([""] * (4 - len(normalized_headers)))
-            self._column_headers: List[str] = normalized_headers[:4]
+            self._column_count: int = max(4, len(normalized_headers))
+            if len(normalized_headers) < self._column_count:
+                normalized_headers.extend([""] * (self._column_count - len(normalized_headers)))
+            self._column_headers = normalized_headers[: self._column_count]
         else:
+            self._column_count = 4
             self._column_headers = default_headers
 
         self.table: QtWidgets.QTableWidget = QtWidgets.QTableWidget(self)
@@ -106,7 +111,7 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
 
     def _setup_table(self) -> None:
         """初始化表格：列配置、样式、交互模式。"""
-        self.table.setColumnCount(4)
+        self.table.setColumnCount(self._column_count)
         self.table.setHorizontalHeaderLabels(self._column_headers)
         self.table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
@@ -143,8 +148,9 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
             # - 序号列：按内容自动调整；
             # - 名字列：使用较窄的固定起始宽度，可交互调节；
             # - 数据类型列：使用较窄的固定起始宽度，可交互调节；
-            # - 数据值列：拉伸占据剩余空间，作为主要编辑区域。
-            header.setStretchLastSection(True)
+            # - 数据值列：拉伸占据剩余空间，作为主要编辑区域；
+            # - 额外列（若有）：按内容收缩展示，避免挤占“数据值”编辑空间。
+            header.setStretchLastSection(False)
             header.setSectionResizeMode(
                 0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents
             )
@@ -157,6 +163,11 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
             header.setSectionResizeMode(
                 3, QtWidgets.QHeaderView.ResizeMode.Stretch
             )
+            if self._column_count > 4:
+                for col in range(4, self._column_count):
+                    header.setSectionResizeMode(
+                        col, QtWidgets.QHeaderView.ResizeMode.ResizeToContents
+                    )
             # 收窄“名字”和“数据类型”列，为“数据值”列腾出更多空间
             header.resizeSection(1, 160)
             header.resizeSection(2, 140)
@@ -211,11 +222,11 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
         self._dict_type_resolver = resolver
 
     def set_column_headers(self, headers: Sequence[str]) -> None:
-        """更新表头标题（保留 4 列结构）。"""
+        """更新表头标题（不改变列数，仅更新显示文本）。"""
         normalized_headers: List[str] = [str(title) for title in headers]
-        if len(normalized_headers) < 4:
-            normalized_headers.extend([""] * (4 - len(normalized_headers)))
-        self._column_headers = normalized_headers[:4]
+        if len(normalized_headers) < self._column_count:
+            normalized_headers.extend([""] * (self._column_count - len(normalized_headers)))
+        self._column_headers = normalized_headers[: self._column_count]
         self.table.setHorizontalHeaderLabels(self._column_headers)
 
     def set_value_mode(self, mode: str) -> None:
@@ -366,7 +377,7 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
             {
                 "name": str,
                 "type_name": str,
-                "value": Any,
+                "value": Any,  # 在 metadata 模式下也可以为 {"raw": Any, "display": Any}
                 "readonly": bool (可选),
                 "name_prefix": str (可选),
                 "foreground": str (可选),
@@ -433,7 +444,7 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
 
         # 详情行：保留第 0 列作为缩进留白，其余三列合并为一个更宽的子表格区域
         # 这样列表/字典等子表格可以占据除序号列外的整行宽度，提升可见区域。
-        self.table.setSpan(detail_row_index, 1, 1, 3)
+        self.table.setSpan(detail_row_index, 1, 1, self._column_count - 1)
 
         # 序号列
         index_item = QtWidgets.QTableWidgetItem(str(main_row_index + 1))
@@ -508,7 +519,7 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
             # 若调用方传入前景色，则尽量让其它列的文本也继承该颜色；
             # 不额外对单元格内控件设置 background-color，交由主题与只读样式统一管理。
             if foreground:
-                for col in range(1, 4):
+                for col in range(1, self._column_count):
                     item = self.table.item(main_row_index, col)
                     if item is not None:
                         item.setForeground(QtGui.QColor(foreground))
@@ -606,18 +617,38 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
         canonical_type_name = normalize_canonical_type_name(type_name or "")
         # 元数据模式：仅将传入的 value 以只读文本形式展示（例如列表长度），不做类型特化。
         if self._value_mode == "metadata":
+            # 支持两种传入形式：
+            # - 纯值：value 既作为展示内容，也作为业务读写用的原始值；
+            # - {"raw": Any, "display": Any}：raw 作为真实值，display 作为展示文本。
+            raw_value: Any = value
+            display_value: Any = value
+            from collections.abc import Mapping as _MappingABC  # 避免与 typing.Mapping 混淆
+
+            if isinstance(value, _MappingABC):
+                if "raw" in value:
+                    raw_value = value.get("raw")
+                if "display" in value:
+                    display_value = value.get("display")
+
             text = ""
-            if isinstance(value, (int, float)):
-                int_value = int(value)
-                text = str(int_value) if float(value) == float(int_value) else str(value)
-            elif isinstance(value, str):
-                text = value
+            if isinstance(display_value, (int, float)):
+                int_value = int(display_value)
+                text = (
+                    str(int_value)
+                    if float(display_value) == float(int_value)
+                    else str(display_value)
+                )
+            elif isinstance(display_value, str):
+                text = display_value
+
             line_edit = ClickToEditLineEdit(text, self.table)
             line_edit.setPlaceholderText("")
             line_edit.setClearButtonEnabled(False)
             line_edit.setMinimumHeight(Sizes.INPUT_HEIGHT)
             line_edit.setReadOnly(True or readonly)
             line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+            # 在元数据模式下，通过动态属性记录真实值，便于后续从表格中读取。
+            line_edit.setProperty("two_row_raw_value", raw_value)
             return self._wrap_line_edit_in_value_cell(line_edit)
 
         if not canonical_type_name:
@@ -789,6 +820,30 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
     ) -> Any:
         """从值编辑控件中提取数据。"""
         normalized_type_name = normalize_canonical_type_name(type_name)
+
+        # 元数据模式：优先从动态属性中读取真实值，其次回退到文本内容。
+        if self._value_mode == "metadata":
+            if value_widget is None:
+                return ""
+
+            # 可能直接是行编辑框，也可能是外层容器，优先尝试属性读取。
+            raw_value = value_widget.property("two_row_raw_value")
+            if raw_value is not None:
+                return raw_value
+
+            line_edit: Optional[QtWidgets.QLineEdit]
+            if isinstance(value_widget, QtWidgets.QLineEdit):
+                line_edit = value_widget
+            else:
+                line_edit = value_widget.findChild(QtWidgets.QLineEdit)
+
+            if line_edit is not None:
+                raw_value_from_editor = line_edit.property("two_row_raw_value")
+                if raw_value_from_editor is not None:
+                    return raw_value_from_editor
+                return line_edit.text()
+
+            return ""
 
         # 列表类型
         if is_list_type(normalized_type_name):

@@ -5,7 +5,7 @@ from typing import Dict, Optional
 from PyQt6 import QtWidgets, QtCore
 
 from engine.configs.components.ui_control_group_model import UIControlGroupTemplate
-from ui.panels.ui_control_group_template_helpers import build_template_tree_section, is_custom_template
+from app.ui.panels.ui_control_group_template_helpers import build_template_tree_section, is_custom_template
 
 __all__ = ["TemplateTreeWidget"]
 

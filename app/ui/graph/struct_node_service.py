@@ -34,16 +34,17 @@ from engine.graph.common import (
 from engine.resources.definition_schema_view import (
     get_default_definition_schema_view,
 )
-from ui.dialogs.struct_binding_dialog import StructBindingDialog
-from ui.graph.core.struct_logic import (
+from app.ui.dialogs.struct_binding_dialog import StructBindingDialog
+from app.ui.graph.logic.struct_logic import (
     build_struct_node_def_proxy,
     plan_struct_port_sync,
     resolve_struct_binding,
 )
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 
 
 if TYPE_CHECKING:
-    from ui.graph.graph_scene import GraphScene
+    from app.ui.graph.graph_scene import GraphScene
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +155,56 @@ def get_effective_node_def_for_scene(
 
 
 # ---------------------------------------------------------------------------
+# GraphScene 侧薄封装：预处理与菜单注入（下沉 GraphScene 的业务耦合点）
+# ---------------------------------------------------------------------------
+
+
+def prepare_node_model_for_scene(scene: "GraphScene", node: NodeModel) -> None:
+    """在创建 NodeGraphicsItem 之前，对“结构体相关节点”做一次 UI 侧模型预处理。
+
+    规则：
+    - 若图模型中已存在 struct_bindings，则在创建图形项前基于当前包结构体定义补全字段端口；
+    - 与“配置结构体…”对话框的端口同步语义保持一致。
+    """
+    node_title = getattr(node, "title", "") or ""
+    if node_title not in STRUCT_NODE_TITLES:
+        return
+
+    struct_bindings = scene.model.get_struct_bindings()
+    binding_payload = struct_bindings.get(str(node.id))
+    if not isinstance(binding_payload, dict):
+        return
+
+    structs = get_current_package_structs(scene)
+    if not structs:
+        return
+
+    sync_struct_ports_for_node(scene, str(node.id), structs)
+
+
+def contribute_context_menu_for_node(
+    scene: "GraphScene",
+    menu_builder: ContextMenuBuilder,
+    *,
+    node_id: str,
+    node_title: str,
+    add_separator_before: bool,
+) -> bool:
+    """为节点注入“结构体相关”的右键菜单项。"""
+    if node_title not in STRUCT_NODE_TITLES:
+        return False
+
+    if add_separator_before:
+        menu_builder.add_separator()
+
+    def _bind_struct() -> None:
+        bind_struct_for_node(scene, node_id)
+
+    menu_builder.add_action("配置结构体…", _bind_struct)
+    return True
+
+
+# ---------------------------------------------------------------------------
 # 节点级操作：结构体绑定与端口同步
 # ---------------------------------------------------------------------------
 
@@ -174,7 +225,7 @@ def bind_struct_for_node(scene: "GraphScene", node_id: str) -> None:
         views = scene.views()
         if views:
             parent_widget = views[0].window()
-        from ui.foundation import dialog_utils
+        from app.ui.foundation import dialog_utils
 
         dialog_utils.show_warning_dialog(
             parent_widget,
@@ -281,6 +332,8 @@ __all__ = [
     "get_current_package_structs",
     "build_struct_node_def_proxy_for_scene",
     "get_effective_node_def_for_scene",
+    "prepare_node_model_for_scene",
+    "contribute_context_menu_for_node",
     "bind_struct_for_node",
     "sync_struct_ports_for_node",
 ]

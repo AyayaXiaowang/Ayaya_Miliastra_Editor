@@ -4,15 +4,10 @@ import sys
 from pathlib import Path
 from typing import Optional, List
 
-
-def _ensure_sys_path(workspace_root: Path) -> None:
-    """确保可以以顶层包名导入 engine/ui 等模块。"""
-    if str(workspace_root) not in sys.path:
-        sys.path.insert(0, str(workspace_root))
-    app_dir = workspace_root / "app"
-    if str(app_dir) not in sys.path:
-        sys.path.insert(0, str(app_dir))
-
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path, get_workspace_root
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path, get_workspace_root
 
 def _load_ocr_engine() -> None:
     """在导入 PyQt6 之前预热 OCR 引擎，避免 DLL 冲突。"""
@@ -55,7 +50,7 @@ def _run_template_library_smoke(
 ) -> None:
     """对元件库页面做一次基础构造与刷新冒烟测试。"""
     from engine.resources.global_resource_view import GlobalResourceView
-    from ui.graph.library_pages.template_library_widget import TemplateLibraryWidget
+    from app.ui.graph.library_pages.template_library_widget import TemplateLibraryWidget
 
     if package_views:
         package_like = package_views[0]
@@ -79,7 +74,7 @@ def _run_entity_placement_smoke(
 ) -> None:
     """对实体摆放页面做一次基础构造与刷新冒烟测试。"""
     from engine.resources.global_resource_view import GlobalResourceView
-    from ui.graph.library_pages.entity_placement_widget import EntityPlacementWidget
+    from app.ui.graph.library_pages.entity_placement_widget import EntityPlacementWidget
 
     if package_views:
         package_like = package_views[0]
@@ -110,7 +105,7 @@ def _run_graph_library_smoke(
 ) -> None:
     """对节点图库页面做一次基础构造与刷新冒烟测试。"""
     from engine.resources.global_resource_view import GlobalResourceView
-    from ui.graph.library_pages.graph_library_widget import GraphLibraryWidget
+    from app.ui.graph.library_pages.graph_library_widget import GraphLibraryWidget
 
     widget = GraphLibraryWidget(resource_manager, package_index_manager)
 
@@ -131,7 +126,7 @@ def _run_package_library_smoke(
     package_index_manager: "PackageIndexManager",
 ) -> None:
     """对存档库页面做一次基础构造与刷新冒烟测试。"""
-    from ui.graph.library_pages.package_library_widget import PackageLibraryWidget
+    from app.ui.graph.library_pages.package_library_widget import PackageLibraryWidget
 
     widget = PackageLibraryWidget(resource_manager, package_index_manager)
     widget.refresh()
@@ -155,8 +150,9 @@ def main() -> None:
     skip_ocr = "--skip-ocr" in sys.argv
     if skip_ocr:
         sys.argv = [arg for arg in sys.argv if arg != "--skip-ocr"]
-    workspace_root = Path(__file__).resolve().parents[1]
-    _ensure_sys_path(workspace_root)
+
+    workspace_root = get_workspace_root()
+    ensure_workspace_root_on_sys_path()
 
     from engine.utils.logging.console_sanitizer import install_ascii_safe_print
     from engine.configs.settings import settings

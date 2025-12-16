@@ -7,17 +7,17 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from engine.configs.specialized.node_graph_configs import (
     STRUCT_TYPE_BASIC,
 )
-from ui.dialogs.struct_definition_types import (
+from app.ui.dialogs.struct_definition_types import (
     is_dict_type,
     is_list_type,
     is_struct_type,
     normalize_canonical_type_name,
 )
-from ui.dialogs.struct_definition_value_editors import ClickToEditLineEdit
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import Sizes, ThemeManager
-from ui.foundation import dialog_utils
-from ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
+from app.ui.dialogs.struct_definition_value_editors import ClickToEditLineEdit
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import Sizes, ThemeManager
+from app.ui.foundation import dialog_utils
+from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
 
 
 class StructDefinitionEditorWidget(QtWidgets.QWidget):

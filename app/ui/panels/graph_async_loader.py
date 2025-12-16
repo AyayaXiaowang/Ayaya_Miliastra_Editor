@@ -7,7 +7,7 @@ from typing import Callable, Dict, Optional
 
 from PyQt6 import QtCore
 
-from ui.panels.graph_data_provider import GraphDataProvider, GraphLoadPayload
+from app.runtime.services.graph_data_service import GraphDataService, GraphLoadPayload
 
 _EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="graph-loader")
 atexit.register(_EXECUTOR.shutdown, False)
@@ -19,7 +19,7 @@ class GraphAsyncLoader(QtCore.QObject):
     _payload_ready = QtCore.pyqtSignal(object, str, object)
     _membership_ready = QtCore.pyqtSignal(object, str, object, object, object)
 
-    def __init__(self, provider: GraphDataProvider, parent: Optional[QtCore.QObject] = None) -> None:
+    def __init__(self, provider: GraphDataService, parent: Optional[QtCore.QObject] = None) -> None:
         super().__init__(parent)
         self._provider = provider
         self._pending: Dict[str, Future] = {}
@@ -117,7 +117,7 @@ _SHARED_LOADERS: Dict[int, GraphAsyncLoader] = {}
 _SHARED_LOCK = Lock()
 
 
-def get_shared_graph_loader(provider: GraphDataProvider) -> GraphAsyncLoader:
+def get_shared_graph_loader(provider: GraphDataService) -> GraphAsyncLoader:
     key = id(provider)
     with _SHARED_LOCK:
         loader = _SHARED_LOADERS.get(key)

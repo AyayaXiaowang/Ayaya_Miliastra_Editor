@@ -10,7 +10,7 @@ from PIL import Image
 from app.automation import capture as editor_capture
 from app.automation.input.common import sleep_seconds
 from app.automation.vision.ocr_utils import normalize_ocr_bbox
-from app.automation.core.ui_constants import ZOOM_ACTION_WAIT_SECONDS, CONTEXT_MENU_APPEAR_WAIT_SECONDS
+from app.automation.editor.ui_constants import ZOOM_ACTION_WAIT_SECONDS, CONTEXT_MENU_APPEAR_WAIT_SECONDS
 
 
 def ensure_zoom_ratio_50(

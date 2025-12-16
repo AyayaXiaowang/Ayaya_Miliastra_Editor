@@ -11,10 +11,10 @@ from typing import Dict, Optional
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.graph.models.package_model import SignalConfig
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation import dialog_utils
-from ui.foundation.theme_manager import ThemeManager
-from ui.widgets.signal_table_widget import SignalTableWidget
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation import dialog_utils
+from app.ui.foundation.theme_manager import ThemeManager
+from app.ui.widgets.signal_table_widget import SignalTableWidget
 
 
 class SignalPickerDialog(BaseDialog):

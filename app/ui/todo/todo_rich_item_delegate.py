@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.theme_manager import Colors
+from app.ui.foundation.theme_manager import Colors
 
 
 class RichTextItemDelegate(QtWidgets.QStyledItemDelegate):

@@ -27,13 +27,13 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from typing import Dict, List, Optional
 
 from app.models import TodoItem
-from ui.foundation.global_hotkey_manager import GlobalHotkeyManager
-from ui.foundation.theme_manager import Sizes as ThemeSizes
-from ui.foundation.ui_notifier import notify as notify_with_toast
-from ui.todo.todo_config import LayoutConstants, TodoStyles
-from ui.todo.todo_navigation_controller import TodoNavigationController
-from ui.todo.todo_rich_item_delegate import RichTextItemDelegate
-from ui.todo.todo_list_orchestrator import TodoListOrchestrator
+from app.ui.foundation.global_hotkey_manager import GlobalHotkeyManager
+from app.ui.foundation.theme_manager import Sizes as ThemeSizes
+from app.ui.foundation.ui_notifier import notify as notify_with_toast
+from app.ui.todo.todo_config import LayoutConstants, TodoStyles
+from app.ui.todo.todo_navigation_controller import TodoNavigationController
+from app.ui.todo.todo_rich_item_delegate import RichTextItemDelegate
+from app.ui.todo.todo_list_orchestrator import TodoListOrchestrator
 
 
 class TodoListWidget(QtWidgets.QWidget):

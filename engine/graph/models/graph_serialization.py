@@ -3,39 +3,52 @@
 负责节点图数据结构的序列化和反序列化操作
 """
 from __future__ import annotations
-from typing import Dict, List, TYPE_CHECKING, Tuple
+from typing import Dict, List, TYPE_CHECKING, Tuple, Any
 
 if TYPE_CHECKING:
     from engine.graph.models.graph_model import GraphModel, NodeModel, EdgeModel, PortModel, BasicBlock
 
 
-def _parse_port_list(ports_data, is_input: bool) -> List["PortModel"]:
-    """解析端口列表，支持多种数据格式
-    
-    Args:
-        ports_data: 端口数据，支持三种格式：
-            - 字典格式：{端口名: {type: ..., value: ...}}
-            - 字典列表格式：[{name: "端口名", ...}]
-            - 字符串列表格式：["端口名1", "端口名2"]
-        is_input: 是否为输入端口
-        
-    Returns:
-        PortModel列表
-    """
-    from engine.graph.models.graph_model import PortModel
-    
-    if isinstance(ports_data, dict):
-        # 字典格式：{端口名: {type: ..., value: ...}}
-        return [PortModel(name=port_name, is_input=is_input) for port_name in ports_data.keys()]
-    elif ports_data and isinstance(ports_data, list):
-        if isinstance(ports_data[0], dict):
-            # 字典列表格式：[{name: "端口名", ...}]
-            return [PortModel(name=x["name"], is_input=is_input) for x in ports_data]
-        else:
-            # 字符串列表格式：["端口名1", "端口名2"]
-            return [PortModel(name=x, is_input=is_input) for x in ports_data]
-    else:
+def _parse_string_list(value: Any, *, field_name: str) -> List[str]:
+    if value is None:
         return []
+    if not isinstance(value, list):
+        raise TypeError(f"节点图序列化格式错误：字段 '{field_name}' 必须为 list[str]")
+    result: List[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise TypeError(f"节点图序列化格式错误：字段 '{field_name}' 必须为 list[str]")
+        result.append(item)
+    return result
+
+
+def _parse_int_to_str_dict(value: Any, *, field_name: str) -> Dict[int, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise TypeError(f"节点图序列化格式错误：字段 '{field_name}' 必须为 dict[int, str]")
+    result: Dict[int, str] = {}
+    for raw_key, raw_value in value.items():
+        if isinstance(raw_key, int):
+            key = raw_key
+        elif isinstance(raw_key, str) and raw_key.isdigit():
+            key = int(raw_key)
+        else:
+            raise TypeError(
+                f"节点图序列化格式错误：字段 '{field_name}' 的 key 必须为 int 或数字字符串"
+            )
+        if isinstance(raw_value, str):
+            result[key] = raw_value
+        else:
+            result[key] = str(raw_value)
+    return result
+
+
+def _parse_port_list(ports_data: Any, is_input: bool) -> List["PortModel"]:
+    """解析端口列表（唯一格式：list[str]）。"""
+    from engine.graph.models.graph_model import PortModel
+    names = _parse_string_list(ports_data, field_name="inputs/outputs")
+    return [PortModel(name=name, is_input=is_input) for name in names]
 
 
 def serialize_graph(graph: "GraphModel") -> dict:
@@ -133,39 +146,40 @@ def deserialize_graph(data: dict) -> "GraphModel":
     )
     graph.metadata = data.get("metadata", {})
     
-    # 事件流顺序（若存在则加载，用于稳定事件布局顺序）
+    # 事件流顺序（用于稳定事件布局顺序）
     if "event_flow_order" in data:
-        # 兼容错误数据类型，强制转为字符串列表
-        graph.event_flow_order = [str(x) for x in list(data.get("event_flow_order") or [])]
+        graph.event_flow_order = _parse_string_list(
+            data.get("event_flow_order"),
+            field_name="event_flow_order",
+        )
     
-    # 事件标题顺序（若存在则加载，用于ID缺失时的稳定回退）
+    # 事件标题顺序（用于ID缺失时的稳定回退）
     if "event_flow_titles" in data:
-        graph.event_flow_titles = [str(x) for x in list(data.get("event_flow_titles") or [])]
+        graph.event_flow_titles = _parse_string_list(
+            data.get("event_flow_titles"),
+            field_name="event_flow_titles",
+        )
     
     # 双向无痛编辑：加载用户自定义信息
-    graph.event_flow_comments = data.get("event_flow_comments", {})
-    # 确保键是整数类型（JSON序列化时会将整数键转为字符串）
-    if graph.event_flow_comments:
-        graph.event_flow_comments = {int(k) if isinstance(k, str) and k.isdigit() else k: v 
-                                     for k, v in graph.event_flow_comments.items()}
+    graph.event_flow_comments = _parse_int_to_str_dict(
+        data.get("event_flow_comments", {}),
+        field_name="event_flow_comments",
+    )
     graph.preserve_formatting = data.get("preserve_formatting", True)
     
-    # 兼容两种nodes格式：字典 {"node_id": {...}} 或列表 [{...}]
     nodes_data = data.get("nodes", [])
-    if isinstance(nodes_data, dict):
-        # 字典格式：转换为列表
-        nodes_list = list(nodes_data.values())
-    else:
-        # 列表格式：直接使用
-        nodes_list = nodes_data
-    
-    for node_data in nodes_list:
+    if not isinstance(nodes_data, list):
+        raise TypeError("节点图序列化格式错误：字段 'nodes' 必须为 list[dict]")
+
+    for node_data in nodes_data:
+        if not isinstance(node_data, dict):
+            raise TypeError("节点图序列化格式错误：字段 'nodes' 必须为 list[dict]")
         node = NodeModel(
             id=node_data["id"],
             title=node_data.get("title", ""),
             category=node_data.get("category", ""),
             composite_id=node_data.get("composite_id", ""),  # 加载复合节点ID
-            pos=tuple(node_data.get("position", node_data.get("pos", [0.0, 0.0]))),  # 兼容 position 和 pos
+            pos=tuple(node_data.get("pos", [0.0, 0.0])),
         )
         
         # 使用辅助函数解析端口列表，支持三种格式
@@ -178,23 +192,14 @@ def deserialize_graph(data: dict) -> "GraphModel":
         node.source_lineno = int(node_data.get("source_lineno", 0) or 0)
         node.source_end_lineno = int(node_data.get("source_end_lineno", node.source_lineno or 0) or 0)
 
-        # 变参节点兼容：若定义中存在形如"0~99"的占位输入，但当前没有任何数字输入端口，
+        # 变参节点端口补全：若端口名中存在形如"0~99"的占位输入，但当前没有任何数字输入端口，
         # 则为模型补充一个默认数字端口"0"，以便UI显示"默认口+加号"体验。
-        inputs_raw = node_data.get("inputs", [])
-        has_variadic_placeholder = False
-        if isinstance(inputs_raw, list):
-            # 字符串列表或字典列表
-            sample = inputs_raw[0] if inputs_raw else None
-            if isinstance(sample, dict):
-                has_variadic_placeholder = any('~' in str(x.get('name', '')) for x in inputs_raw)
-            else:
-                has_variadic_placeholder = any('~' in str(x) for x in inputs_raw)
-        elif isinstance(inputs_raw, dict):
-            has_variadic_placeholder = any('~' in str(k) for k in inputs_raw.keys())
-        if has_variadic_placeholder:
-            if not any(port.name.isdigit() for port in node.inputs):
-                from engine.graph.models.graph_model import PortModel
-                node.inputs.append(PortModel(name="0", is_input=True))
+        has_variadic_placeholder = any("~" in str(port.name) for port in (node.inputs or []))
+        if has_variadic_placeholder and not any(
+            str(port.name).isdigit() for port in (node.inputs or [])
+        ):
+            from engine.graph.models.graph_model import PortModel
+            node.inputs.append(PortModel(name="0", is_input=True))
         
         # 加载虚拟引脚相关字段
         node.is_virtual_pin = node_data.get("is_virtual_pin", False)
@@ -225,22 +230,19 @@ def deserialize_graph(data: dict) -> "GraphModel":
         
         graph.nodes[node.id] = node
     
-    # 兼容两种edges格式：字典 {"edge_id": {...}} 或列表 [{...}]
     edges_data = data.get("edges", [])
-    if isinstance(edges_data, dict):
-        # 字典格式：转换为列表
-        edges_list = list(edges_data.values())
-    else:
-        # 列表格式：直接使用
-        edges_list = edges_data
-    
-    for edge_data in edges_list:
+    if not isinstance(edges_data, list):
+        raise TypeError("节点图序列化格式错误：字段 'edges' 必须为 list[dict]")
+
+    for edge_data in edges_data:
+        if not isinstance(edge_data, dict):
+            raise TypeError("节点图序列化格式错误：字段 'edges' 必须为 list[dict]")
         edge = EdgeModel(
             id=edge_data["id"],
-            src_node=edge_data.get("source", edge_data.get("src_node")),  # 兼容 source 和 src_node
-            src_port=edge_data.get("source_port", edge_data.get("src_port")),  # 兼容 source_port 和 src_port
-            dst_node=edge_data.get("target", edge_data.get("dst_node")),  # 兼容 target 和 dst_node
-            dst_port=edge_data.get("target_port", edge_data.get("dst_port")),  # 兼容 target_port 和 dst_port
+            src_node=edge_data["src_node"],
+            src_port=edge_data["src_port"],
+            dst_node=edge_data["dst_node"],
+            dst_port=edge_data["dst_port"],
         )
         graph.edges[edge.id] = edge
     

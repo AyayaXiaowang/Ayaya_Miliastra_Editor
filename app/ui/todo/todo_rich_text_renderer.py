@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional, Tuple, Callable
 from app.models import TodoItem
 from engine.graph.models.graph_model import GraphModel
 
-from ui.todo.todo_config import StepTypeColors, StepTypeRules
-from ui.foundation.theme_manager import Colors as ThemeColors
+from app.ui.todo.todo_config import StepTypeColors, StepTypeRules
+from app.ui.foundation.theme_manager import Colors as ThemeColors
 
 
 def _lookup_node_title_and_category(

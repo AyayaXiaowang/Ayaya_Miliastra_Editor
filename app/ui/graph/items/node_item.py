@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-from ui.foundation.theme_manager import Colors
-from ui.graph.graph_palette import GraphPalette
-from ui.graph.items.port_item import PortGraphicsItem, BranchPortValueEdit
-from ui.widgets.constant_editors import (
+from app.ui.foundation.theme_manager import Colors
+from app.ui.graph.graph_palette import GraphPalette
+from app.ui.graph.items.port_item import PortGraphicsItem, BranchPortValueEdit
+from app.ui.widgets.constant_editors import (
     ConstantTextEdit,
     ConstantBoolComboBox,
     ConstantVector3Edit,
@@ -17,8 +17,8 @@ from engine.layout.utils.graph_query_utils import build_input_port_layout_plan
 from engine.graph.common import is_selection_input_port
 
 if TYPE_CHECKING:
-    from ui.graph.graph_scene import GraphScene
-    from ui.dynamic_port_widget import AddPortButton
+    from app.ui.graph.graph_scene import GraphScene
+    from app.ui.dynamic_port_widget import AddPortButton
 
 NODE_PADDING = 10
 ROW_HEIGHT = UI_ROW_HEIGHT
@@ -46,7 +46,9 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
             QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
             QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemSendsScenePositionChanges
         )
-        self._layout_ports()
+        # 端口布局依赖 GraphScene 上下文（layout_registry_context / edge_items 等）。
+        # QGraphicsItem 在未加入场景前 self.scene() 为 None，因此必须由 GraphScene.add_node_item()
+        # 在 addItem(item) 之后触发一次布局。
     
     def iter_all_ports(self) -> list[PortGraphicsItem]:
         """返回该节点的所有端口（含流程端口）。"""
@@ -86,7 +88,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
         Returns:
             端口类型字符串，如"整数"、"布尔值"、"向量3"等
         """
-        from ui.graph.graph_scene import GraphScene
+        from app.ui.graph.graph_scene import GraphScene
         scene = self.scene()
         if scene and isinstance(scene, GraphScene):
             node_def = scene.get_node_def(self.node)
@@ -139,7 +141,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
         scene_ref_for_edges = self.scene()
         if not scene_ref_for_edges:
             return edges_to_update
-        from ui.graph.graph_scene import GraphScene
+        from app.ui.graph.graph_scene import GraphScene
         if not isinstance(scene_ref_for_edges, GraphScene):
             return edges_to_update
         connected_edges = scene_ref_for_edges.get_edges_for_node(self.node.id)
@@ -391,7 +393,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
         total_input_rows: int,
     ) -> None:
         """为变参输入节点与多分支节点布局“+”端口按钮。"""
-        from ui.dynamic_port_widget import AddPortButton
+        from app.ui.dynamic_port_widget import AddPortButton
 
         scene_ref_for_plus = self.scene()
         is_read_only_scene = bool(
@@ -459,8 +461,19 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
 
         connected_input_ports = self._collect_connected_input_ports()
         fm_label, fm_input = self._create_font_metrics()
-        
-        plan = build_input_port_layout_plan(self.node, connected_input_ports)
+
+        scene_ref = self.scene()
+        registry_context = getattr(scene_ref, "layout_registry_context", None) if scene_ref is not None else None
+        if registry_context is None:
+            raise RuntimeError(
+                "NodeGraphicsItem 无法获取 layout_registry_context。"
+                "请确保 GraphScene 在初始化时已创建 LayoutRegistryContext（依赖 settings.set_config_path(...)）。"
+            )
+        plan = build_input_port_layout_plan(
+            self.node,
+            connected_input_ports,
+            registry_context=registry_context,
+        )
         is_multibranch_node = self.node.title == "多分支"
         is_variadic_input_node = bool(getattr(plan, "input_plus_rows", 0))
         width = self._compute_node_width(plan, fm_label)

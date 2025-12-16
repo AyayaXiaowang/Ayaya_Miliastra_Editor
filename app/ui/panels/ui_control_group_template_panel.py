@@ -9,19 +9,20 @@ from engine.configs.components.ui_control_group_model import (
     UIWidgetConfig,
     create_template_widget_preset,
 )
-from ui.foundation.base_widgets import FormDialog
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.dialog_utils import show_info_dialog, show_warning_dialog
-from ui.panels.ui_control_group_crud import (
+from app.ui.foundation.base_widgets import FormDialog
+from app.ui.foundation.theme_manager import ThemeManager
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.dialog_utils import show_info_dialog, show_warning_dialog
+from app.ui.panels.ui_control_group_crud import (
     confirm_entity_delete,
     prompt_entity_name,
     validate_unique_entity_name,
 )
-from ui.panels.ui_control_group_preview_helpers import render_template_on_preview
-from ui.panels.ui_control_group_store import UIControlGroupStore
-from ui.panels.ui_control_group_template_tree import TemplateTreeWidget
-from ui.panels.ui_control_panel_base import UIControlPanelBase
-from ui.panels.panel_search_support import SidebarSearchController
+from app.ui.panels.ui_control_group_preview_helpers import render_template_on_preview
+from app.ui.panels.ui_control_group_store import UIControlGroupStore
+from app.ui.panels.ui_control_group_template_tree import TemplateTreeWidget
+from app.ui.panels.ui_control_panel_base import UIControlPanelBase
+from app.ui.panels.panel_search_support import SidebarSearchController
 from .ui_control_group_template_helpers import (
     is_custom_template,
     resize_widget_in_store,
@@ -109,31 +110,41 @@ class UITemplateLibraryPanel(UIControlPanelBase):
 
     def _add_template(self) -> None:
         dialog = FormDialog("添加界面控件模板", parent=self)
-        type_combo = dialog.add_combo_box("widget_type", "选择控件类型:", TEMPLATE_WIDGET_TYPES)
-        dialog.add_line_edit("widget_name", "控件名称:", placeholder="输入控件名称（可选）")
 
-        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            widget_type = dialog.value("widget_type")
-            template = create_template_widget_preset(widget_type)
+        type_combo = QtWidgets.QComboBox()
+        type_combo.setStyleSheet(ThemeManager.combo_box_style())
+        type_combo.addItems(list(TEMPLATE_WIDGET_TYPES))
+        dialog.add_form_field("选择控件类型:", type_combo, field_name="widget_type")
 
-            custom_name = dialog.value("widget_name").strip()
-            if custom_name:
-                normalized = validate_unique_entity_name(
-                    self,
-                    custom_name,
-                    entity_label="模板",
-                    existing_names=[tpl.template_name for tpl in self.store.templates.values()],
-                )
-                if not normalized:
-                    return
-                template.template_name = normalized
+        name_edit = QtWidgets.QLineEdit()
+        name_edit.setPlaceholderText("输入控件名称（可选）")
+        name_edit.setStyleSheet(ThemeManager.input_style())
+        dialog.add_form_field("控件名称:", name_edit, field_name="widget_name")
 
-            self.store.templates[template.template_id] = template
-            self.refresh_templates()
-            self.template_changed.emit()
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
 
-            self.template_selected.emit(template.template_id)
-            self.show_template_preview(template.template_id)
+        widget_type = type_combo.currentText()
+        template = create_template_widget_preset(widget_type)
+
+        custom_name = name_edit.text().strip()
+        if custom_name:
+            normalized = validate_unique_entity_name(
+                self,
+                custom_name,
+                entity_label="模板",
+                existing_names=[tpl.template_name for tpl in self.store.templates.values()],
+            )
+            if not normalized:
+                return
+            template.template_name = normalized
+
+        self.store.templates[template.template_id] = template
+        self.refresh_templates()
+        self.template_changed.emit()
+
+        self.template_selected.emit(template.template_id)
+        self.show_template_preview(template.template_id)
 
     def _show_template_context_menu(self, pos: QtCore.QPoint) -> None:
         item = self.template_list.itemAt(pos)

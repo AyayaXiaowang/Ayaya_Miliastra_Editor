@@ -1,8 +1,18 @@
-# 小王千星工坊（Ayaya_Miliastra_Editor）
+# Graph_Generater（小王千星工坊 / Ayaya_Miliastra_Editor）
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**仓库地址**：https://github.com/AyayaXiaowang/Ayaya_Miliastra_Editor
+**仓库地址**：[AyayaXiaowang/Ayaya_Miliastra_Editor](https://github.com/AyayaXiaowang/Ayaya_Miliastra_Editor)
+
+---
+
+## 项目状态（Beta）
+
+- 本项目目前处于 **Beta** 阶段，迭代可能会非常快：**API、校验规则、资源结构、CLI 参数**都可能调整。
+- 当 README 与实际行为不一致时，优先以以下内容为准：
+  - `claude.md`（根目录与各子目录的约束/入口说明）
+  - CLI 脚本自身的报错提示与 `--help`
+  - `tools.validate.*` / `engine.validate` 的实现与校验输出
 
 面向原神千星奇域的 **离线沙箱编辑器 + Graph Code 工具链**：用 Python 代码描述节点图，由内置引擎负责解析、验证、自动排版，再配合自动化脚本把步骤精准落到真实编辑器。
 
@@ -92,7 +102,9 @@
 
 ## 安装依赖
 
-### 一键安装所有依赖
+### 依赖安装（未锁定）
+
+本仓库目前 **未提供** `requirements.txt/pyproject.toml` 等“可复现的依赖锁定文件”。下方命令仅作为“常用依赖”的安装示例；若你的环境缺库，请以实际报错提示为准补齐。
 
 ```powershell
 pip install PyQt6 rapidocr-onnxruntime numpy opencv-python Pillow pyperclip keyboard
@@ -117,11 +129,14 @@ pip install PyQt6 rapidocr-onnxruntime numpy opencv-python Pillow pyperclip keyb
 ### 1. 克隆仓库
 
 ```powershell
-git clone https://github.com/AyayaXiaowang/Ayaya_Miliastra_Editor.git
+git clone <你的仓库地址>
+# 例如（上游参考）：
+# git clone https://github.com/AyayaXiaowang/Ayaya_Miliastra_Editor.git
 ```
 
 ```powershell
-cd Ayaya_Miliastra_Editor
+cd <仓库目录>
+# 本地文件夹名可以和仓库名不同（例如你把仓库放在 Graph_Generater/ 目录下）
 ```
 
 ### 2. 安装依赖
@@ -136,6 +151,18 @@ pip install PyQt6 rapidocr-onnxruntime numpy opencv-python Pillow pyperclip keyb
 python -X utf8 -m app.cli.run_app
 ```
 
+也可以使用更短入口：
+
+```powershell
+python -X utf8 -m app
+```
+
+VSCode 调试（F5）也可以直接运行根目录脚本：
+
+```powershell
+python run_app_debug.py
+```
+
 启动后会打开 PyQt6 主窗口，可以查看节点图、复合节点、资源配置等。
 
 ---
@@ -147,19 +174,19 @@ python -X utf8 -m app.cli.run_app
 验证所有节点图：
 
 ```powershell
-python -X utf8 tools\validate_graphs.py --all
+python -X utf8 -m tools.validate.validate_graphs --all
 ```
 
 验证单个节点图：
 
 ```powershell
-python -X utf8 tools\validate_graphs.py 资源库/节点图/server/你的图.py
+python -X utf8 -m tools.validate.validate_graphs -f assets\资源库\节点图\server\你的图.py
 ```
 
 ### 验证存档（功能包）
 
 ```powershell
-python -X utf8 tools\validate_package.py
+python -X utf8 -m tools.validate.validate_package
 ```
 
 ### 清理缓存
@@ -167,26 +194,30 @@ python -X utf8 tools\validate_package.py
 清理所有缓存：
 
 ```powershell
-python -X utf8 tools\clear_caches.py --clear
+python -X utf8 -m tools.clear_caches --clear
 ```
 
 清理并重建索引和缓存：
 
 ```powershell
-python -X utf8 tools\clear_caches.py --clear --rebuild-index --rebuild-graph-caches
+python -X utf8 -m tools.clear_caches --clear --rebuild-index --rebuild-graph-caches
 ```
+
+> 注意：当前版本的 `--rebuild-index/--rebuild-graph-caches` 仍处于“占位开关”状态，命令会输出提示但不会真正执行重建逻辑。
 
 ---
 
 ## 目录结构
 
 ```text
-Graph_Generater/
+repo_root/
+├── app/             # UI、自动化、CLI 入口
+│   ├── cli/
+│   │   └── run_app.py       # UI/CLI 入口（请用 python -m app.cli.run_app）
+│   └── runtime/
+│       └── cache/           # 运行期缓存（默认位置，自动生成）
 ├── engine/          # 引擎核心（Graph Code 解析、布局、验证、模型）
 ├── plugins/         # 节点实现及注册表（server/client/shared）
-├── app/             # UI、自动化、CLI 入口
-│   └── cli/
-│       └── run_app.py   # 主程序入口
 ├── assets/          # 资源库（节点图、复合节点、预设、OCR 模板等）
 │   └── 资源库/
 │       ├── 节点图/      # Graph Code 节点图文件
@@ -194,7 +225,7 @@ Graph_Generater/
 │       ├── 管理配置/    # 信号、结构体等配置
 │       └── ...
 ├── tools/           # 工具脚本（验证、生成、清理等）
-└── runtime/         # 运行期缓存（自动生成）
+└── runtime/         # 预留目录（当前通常为空/不使用）
 ```
 
 ---
@@ -209,7 +240,7 @@ Graph_Generater/
 ### 2. 运行验证（必须）
 
 ```powershell
-python -X utf8 tools\validate_graphs.py 资源库/节点图/server/你的图.py
+python -X utf8 -m tools.validate.validate_graphs -f assets\资源库\节点图\server\你的图.py
 ```
 
 验证不通过不得继续，必须根据错误提示修复。  
@@ -233,10 +264,10 @@ python -X utf8 -m app.cli.run_app
 
 | 脚本 | 用途 |
 | --- | --- |
-| `tools/validate_graphs.py` | 节点图 & 复合节点验证（支持全量 / 单文件 / 严格模式） |
-| `tools/validate_package.py` | 存档级验证，等同 UI 中“验证”按钮 |
-| `tools/clear_caches.py` | 清理 / 重建运行期缓存、索引 |
-| `app/cli/convert_graph_to_executable.py` | 将 Graph Code 转成可执行 Python，便于本地调试与单测 |
+| `tools.validate.validate_graphs` | 节点图 & 复合节点验证（推荐 `python -m ...` 运行；支持全量 / 单文件 / 严格模式） |
+| `tools.validate.validate_package` | 存档级验证，等同 UI 中“验证”按钮（推荐 `python -m ...` 运行） |
+| `tools.clear_caches` | 清理运行期缓存（推荐 `python -m ...` 运行；重建开关当前为占位） |
+| `app.cli.convert_graph_to_executable` | 将 Graph Code 转成可执行 Python（必须使用 `python -m ...` 运行） |
 
 ---
 
@@ -255,7 +286,7 @@ python -X utf8 -m app.cli.run_app
 
 ### 其他注意事项
 
-- 写完节点图代码后，**必须** 运行 `validate_graphs.py` 验证并根据结果修复
+- 写完节点图代码后，**必须** 运行 `tools/validate/validate_graphs.py` 验证并根据结果修复
 - Graph Code 只能使用节点库中已定义的节点（`plugins/nodes` 与复合节点库）
 - 本项目只做静态建模与校验，不在本地执行节点实际业务逻辑
 - 运行期缓存缺失时会自动重建，不影响首次启动
@@ -265,6 +296,6 @@ python -X utf8 -m app.cli.run_app
 ## 许可
 
 本项目遵循 **GNU General Public License v3.0**。  
-完整条款见根目录 `LICENSE`，或访问 https://www.gnu.org/licenses/gpl-3.0.html
+完整条款见根目录 `LICENSE`，或访问 [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.html)
 
 

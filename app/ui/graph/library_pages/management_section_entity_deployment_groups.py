@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .management_sections_base import *
-from ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.forms.schema_dialog import FormDialogBuilder
 
 
 class EntityDeploymentGroupsSection(BaseManagementSection):
@@ -152,7 +152,7 @@ class EntityDeploymentGroupsSection(BaseManagementSection):
         )
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             group_identifier_value = group_identifier_line_edit.text().strip()
             if not group_identifier_value:

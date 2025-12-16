@@ -14,8 +14,8 @@ PanelScaffold、SectionCard 等新组件取代，因此在这里移除，避免�
 from PyQt6 import QtCore, QtWidgets
 from typing import Optional
 
-from ui.foundation.theme_manager import ThemeManager, Sizes
-from ui.foundation import dialog_utils
+from app.ui.foundation.theme_manager import ThemeManager, Sizes
+from app.ui.foundation import dialog_utils
 
 
 class BaseDialog(QtWidgets.QDialog):

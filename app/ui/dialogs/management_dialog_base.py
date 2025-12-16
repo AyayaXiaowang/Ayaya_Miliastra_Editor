@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from PyQt6 import QtGui, QtWidgets
 
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import ThemeManager, Colors
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager, Colors
 
 
 class ManagementDialogBase(BaseDialog):

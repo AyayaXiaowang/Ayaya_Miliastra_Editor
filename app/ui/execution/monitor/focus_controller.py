@@ -14,7 +14,8 @@ from pathlib import Path
 
 from PyQt6 import QtCore
 
-from app.automation.core.executor_protocol import ViewportController
+from app.automation.editor.executor_protocol import ViewportController
+from engine.utils.cache.cache_paths import get_runtime_cache_root
 
 
 class FocusController:
@@ -80,11 +81,11 @@ class FocusController:
         """将最近一次“定位镜头”下的可见节点识别结果落盘为 JSON。
 
         保存内容仅用于调试与离线分析，不参与运行时逻辑：
-        - 路径：{workspace_root}/runtime/cache/last_focus_recognition.json
+        - 路径：{runtime_cache_root}/debug/last_focus_recognition.json（默认 runtime_cache_root 为 app/runtime/cache）
         - 字段：graph_id、节点ID、标题、程序坐标、可见标记、编辑器 bbox / center / screen_center。
         """
-        base_path = Path(workspace_path)
-        output_dir = base_path / "runtime" / "cache"
+        workspace_root = Path(workspace_path)
+        output_dir = get_runtime_cache_root(workspace_root) / "debug"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         graph_id_value = getattr(graph_model, "graph_id", None)
@@ -219,7 +220,7 @@ class FocusController:
             self._log("✗ 缺少工作区路径，无法创建执行器进行识别")
             return
 
-        from app.automation.core.editor_executor import EditorExecutor
+        from app.automation.editor.editor_executor import EditorExecutor
 
         # 优先复用外部共享的执行器实例（与执行线程共享），保持视口状态一致
         executor = None

@@ -16,6 +16,8 @@ from .ast_utils import (
     iter_class_methods,
 )
 from .node_index import data_query_node_names
+from engine.graph.graph_code_parser import GraphCodeParser
+from engine.utils.graph.graph_utils import is_flow_port_name
 
 
 class LongWireRule(ValidationRule):
@@ -91,6 +93,59 @@ class LongWireRule(ValidationRule):
                         "usage_count": usage_count,
                         "line_span": line_span,
                     },
+                )
+            )
+
+        return issues
+
+
+class EventMultipleFlowOutputsRule(ValidationRule):
+    """事件节点存在多条流程出边（可读性提示）
+
+    说明：
+    - 事件节点通常只作为单一流程入口；若出现多条流程线，往往意味着代码中存在多个独立的流程入口或控制流被“断开”。
+    - 这不一定是错误（可能是刻意并行），但在 UI 中会显著增加阅读负担，建议人工确认。
+    """
+
+    rule_id = "engine_code_event_multiple_flow_outputs"
+    category = "代码规范"
+    default_level = "warning"
+
+    def apply(self, ctx: ValidationContext) -> List[EngineIssue]:
+        if ctx.is_composite or ctx.file_path is None:
+            return []
+
+        file_path: Path = ctx.file_path
+        parser = GraphCodeParser(ctx.workspace_path)
+        graph_model, _ = parser.parse_file(file_path)
+
+        issues: List[EngineIssue] = []
+        event_nodes = [n for n in graph_model.nodes.values() if n.category == "事件节点"]
+        for event_node in event_nodes:
+            flow_out_edges = [
+                e
+                for e in graph_model.edges.values()
+                if e.src_node == event_node.id and is_flow_port_name(e.src_port)
+            ]
+            if len(flow_out_edges) <= 1:
+                continue
+
+            dst_titles: List[str] = []
+            for edge in flow_out_edges:
+                dst = graph_model.nodes.get(edge.dst_node)
+                dst_titles.append(dst.title if dst else str(edge.dst_node))
+
+            issues.append(
+                EngineIssue(
+                    level=self.default_level,
+                    category=self.category,
+                    code="CODE_EVENT_MULTIPLE_FLOW_OUTPUTS",
+                    message=(
+                        f"{event_node.title} 事件节点的流程出口连出了 {len(flow_out_edges)} 条流程线（目标: {', '.join(dst_titles)}）；"
+                        "请确认是否确实需要多个独立流程入口。若非刻意并行，建议将后续流程显式串联，避免事件节点在 UI 中呈现多分叉入口。"
+                    ),
+                    file=str(file_path),
+                    line_span=f"{getattr(event_node, 'source_lineno', 0)}~{getattr(event_node, 'source_end_lineno', 0) or getattr(event_node, 'source_lineno', 0)}",
                 )
             )
 

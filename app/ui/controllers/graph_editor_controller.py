@@ -9,7 +9,7 @@ from PyQt6 import QtCore, QtWidgets
 
 from engine.graph.models.graph_model import GraphModel
 from engine.graph.models.graph_config import GraphConfig
-from engine.layout import layout_by_event_regions
+from engine.layout import LayoutService
 from engine.resources.resource_manager import ResourceManager, ResourceType
 from engine.signal import compute_signal_schema_hash
 from engine.graph.common import (
@@ -18,15 +18,15 @@ from engine.graph.common import (
     SIGNAL_SEND_STATIC_INPUTS,
     SIGNAL_LISTEN_STATIC_OUTPUTS,
 )
-from ui.graph.graph_undo import AddNodeCommand
+from app.ui.graph.graph_undo import AddNodeCommand
 from engine.nodes.node_definition_loader import NodeDef
 from engine.nodes.port_name_rules import parse_range_definition
-from ui.graph.graph_scene import GraphScene
-from ui.graph.graph_view import GraphView
-from ui.graph.scene_builder import populate_scene_from_model
-from ui.controllers.graph_error_tracker import get_instance as get_error_tracker
-from ui.foundation import dialog_utils
-from app.common.graph_data_cache import drop_graph_data_for_graph
+from app.ui.graph.graph_scene import GraphScene
+from app.ui.graph.graph_view import GraphView
+from app.ui.graph.scene_builder import populate_scene_from_model
+from app.ui.controllers.graph_error_tracker import get_instance as get_error_tracker
+from app.ui.foundation import dialog_utils
+from app.common.in_memory_graph_payload_cache import drop_graph_data_for_graph
 
 
 class GraphEditorController(QtCore.QObject):
@@ -237,7 +237,7 @@ class GraphEditorController(QtCore.QObject):
         """加载复合节点子图到编辑器（含预排版与复合上下文注入）。
 
         设计目标：
-        - 由控制器统一负责对子图做一次事件区域预排版（layout_by_event_regions）；
+        - 由控制器统一负责对子图做一次预排版（LayoutService.compute_layout）；
         - 将复合节点专用的 composite_edit_context 通过 scene_extra_options 注入 GraphScene；
         - UI 层仅关心“当前选中的复合节点 ID 与其子图数据”，不再手动构造场景与批量 add_node/add_edge。
         """
@@ -248,7 +248,7 @@ class GraphEditorController(QtCore.QObject):
 
         # 1) 在当前进程内对复合节点子图做一次事件区域预排版（不落盘，仅调整位置语义）。
         pre_layout_model = GraphModel.deserialize(graph_data)
-        layout_by_event_regions(pre_layout_model)
+        LayoutService.compute_layout(pre_layout_model, clone_model=False)
         layouted_graph_data = pre_layout_model.serialize()
 
         # 2) 注入复合节点编辑上下文：由 GraphScene 消费，用于端口同步与虚拟引脚回调。
@@ -346,7 +346,7 @@ class GraphEditorController(QtCore.QObject):
         self.view.viewport().update()
         # 小地图在批量构建期间可能未及时绘制，这里显式刷新与置顶
         if hasattr(self.view, 'mini_map') and self.view.mini_map:
-            from ui.graph.graph_view.assembly.view_assembly import ViewAssembly
+            from app.ui.graph.graph_view.assembly.view_assembly import ViewAssembly
             ViewAssembly.update_mini_map_position(self.view)
             self.view.mini_map.show()
             self.view.mini_map.raise_()
@@ -707,7 +707,7 @@ class GraphEditorController(QtCore.QObject):
         """将当前模型写入持久化缓存（用于自动排版后覆盖缓存）。
         
         位置变化不落盘，但希望下次打开时直接使用最新位置，
-        因此在自动排版完成后，将当前 GraphModel 序列化并写入 runtime/cache/graph_cache。
+        因此在自动排版完成后，将当前 GraphModel 序列化并写入 app/runtime/cache/graph_cache。
         """
         if not self.current_graph_id or not self.model:
             return
@@ -726,15 +726,12 @@ class GraphEditorController(QtCore.QObject):
         # 使任务清单等上下文中的图数据缓存失效，避免继续使用旧布局。
         drop_graph_data_for_graph(self.current_graph_id)
         parent_window = self.parent()
-        if parent_window is not None and hasattr(parent_window, "todo_widget"):
-            todo_widget = getattr(parent_window, "todo_widget")
-            if todo_widget is not None and hasattr(todo_widget, "tree_manager"):
-                tree_manager = getattr(todo_widget, "tree_manager")
-                graph_support = getattr(tree_manager, "_graph_support", None)
-                if graph_support is not None and hasattr(graph_support, "_graph_model_cache"):
-                    model_cache = getattr(graph_support, "_graph_model_cache")
-                    if isinstance(model_cache, dict) and self.current_graph_id in model_cache:
-                        model_cache.pop(self.current_graph_id, None)
+        if parent_window is not None and hasattr(parent_window, "graph_property_panel"):
+            panel = getattr(parent_window, "graph_property_panel", None)
+            data_provider = getattr(panel, "data_provider", None) if panel is not None else None
+            invalidate_graph = getattr(data_provider, "invalidate_graph", None) if data_provider is not None else None
+            if callable(invalidate_graph):
+                invalidate_graph(self.current_graph_id)
         # 自动排版完成后：在编辑视图中自动适配全图并居中显示
         if self.view is not None:
             QtCore.QTimer.singleShot(100, lambda: self.view and self.view.fit_all(use_animation=False))

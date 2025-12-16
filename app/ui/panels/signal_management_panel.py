@@ -14,13 +14,13 @@ from __future__ import annotations
 
 from PyQt6 import QtCore, QtWidgets
 
-from ui.dialogs.signal_edit_dialog import SignalEditorWidget
-from ui.foundation.theme_manager import ThemeManager, Sizes
-from ui.panels.package_membership_selector import (
+from app.ui.dialogs.signal_edit_dialog import SignalEditorWidget
+from app.ui.foundation.theme_manager import ThemeManager, Sizes
+from app.ui.panels.package_membership_selector import (
     PackageMembershipSelector,
     build_package_membership_row,
 )
-from ui.panels.panel_scaffold import PanelScaffold, build_scrollable_column
+from app.ui.panels.panel_scaffold import PanelScaffold, build_scrollable_column
 
 
 class SignalManagementPanel(PanelScaffold):

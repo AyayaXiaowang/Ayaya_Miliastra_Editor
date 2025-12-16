@@ -4,7 +4,7 @@ from typing import Optional
 
 from PyQt6 import QtWidgets
 
-from ui.foundation.base_widgets import FormDialog
+from app.ui.foundation.base_widgets import FormDialog
 
 
 class NewPlayerTemplateDialog(FormDialog):

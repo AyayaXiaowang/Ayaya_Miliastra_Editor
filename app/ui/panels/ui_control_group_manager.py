@@ -10,11 +10,11 @@ from PyQt6 import QtCore, QtWidgets
 
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from ui.foundation.dialog_utils import show_warning_dialog
-from ui.foundation.ui_preview_canvas import UIPreviewCanvas
-from ui.panels.ui_control_group_layout_panel import UILayoutPanel
-from ui.panels.ui_control_group_template_panel import UITemplateLibraryPanel
-from ui.panels.ui_control_group_store import UIControlGroupStore
+from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation.ui_preview_canvas import UIPreviewCanvas
+from app.ui.panels.ui_control_group_layout_panel import UILayoutPanel
+from app.ui.panels.ui_control_group_template_panel import UITemplateLibraryPanel
+from app.ui.panels.ui_control_group_store import UIControlGroupStore
 
 __all__ = ["UIControlGroupManager"]
 

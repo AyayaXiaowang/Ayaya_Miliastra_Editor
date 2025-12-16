@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 from engine.configs.components.ui_control_group_model import UIControlGroupTemplate
-from ui.panels.ui_control_group_template_helpers import iter_template_preview_configs
+from app.ui.panels.ui_control_group_template_helpers import iter_template_preview_configs
 
 
 def render_template_on_preview(

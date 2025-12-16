@@ -10,20 +10,20 @@ from engine.resources.package_view import PackageView
 from engine.resources.resource_manager import ResourceManager
 from engine.resources.resource_manager import ResourceType
 from engine.resources.unclassified_resource_view import UnclassifiedResourceView
-from ui.foundation import input_dialogs
-from ui.foundation.theme_manager import Sizes
-from ui.foundation.toolbar_utils import apply_standard_toolbar
-from ui.graph.library_mixins import SearchFilterMixin, ConfirmDialogMixin
-from ui.graph.library_pages.library_scaffold import LibraryChangeEvent, LibraryPageMixin, LibrarySelection
-from ui.graph.library_pages.management_tree_helpers import (
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.theme_manager import Sizes
+from app.ui.foundation.toolbar_utils import apply_standard_toolbar
+from app.ui.graph.library_mixins import SearchFilterMixin, ConfirmDialogMixin
+from app.ui.graph.library_pages.library_scaffold import LibraryChangeEvent, LibraryPageMixin, LibrarySelection
+from app.ui.graph.library_pages.management_tree_helpers import (
     build_management_category_items_for_tree,
 )
-from ui.management.section_registry import (
+from app.ui.management.section_registry import (
     MANAGEMENT_RESOURCE_BINDINGS,
     MANAGEMENT_RESOURCE_ORDER,
     MANAGEMENT_RESOURCE_TITLES,
 )
-from ui.panels.panel_scaffold import PanelScaffold, SectionCard
+from app.ui.panels.panel_scaffold import PanelScaffold, SectionCard
 
 
 class PackageLibraryWidget(PanelScaffold, SearchFilterMixin, ConfirmDialogMixin, LibraryPageMixin):

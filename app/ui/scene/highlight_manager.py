@@ -6,8 +6,8 @@ from typing import Callable, Dict, List, Optional, Set
 
 from PyQt6 import QtGui
 
-from ui.foundation.theme_manager import Colors
-from ui.scene.interaction_state import YDebugInteractionState
+from app.ui.foundation.theme_manager import Colors
+from app.ui.scene.interaction_state import YDebugInteractionState
 
 
 class YDebugHighlightManager:

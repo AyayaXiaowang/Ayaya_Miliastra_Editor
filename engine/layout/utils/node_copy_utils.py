@@ -13,6 +13,10 @@ from typing import Optional, List, Dict
 from dataclasses import replace
 
 from engine.graph.models import GraphModel, NodeModel, PortModel
+from .copy_identity_utils import (
+    infer_copy_block_id_from_node_id,
+    strip_copy_suffix,
+)
 
 
 def _resolve_canonical_original_id(node: NodeModel) -> str:
@@ -23,7 +27,7 @@ def _resolve_canonical_original_id(node: NodeModel) -> str:
     """
     if getattr(node, "original_node_id", ""):
         return node.original_node_id
-    return _strip_copy_suffix(getattr(node, "id", ""))
+    return strip_copy_suffix(getattr(node, "id", ""))
 
 
 def create_data_node_copy(
@@ -225,23 +229,10 @@ def _prune_basic_blocks(model: GraphModel) -> None:
 
 
 def _strip_copy_suffix(node_id: str) -> str:
-    """去除节点ID中的副本后缀"""
-    if not node_id:
-        return ""
-    marker = "_copy_"
-    idx = node_id.find(marker)
-    return node_id[:idx] if idx != -1 else node_id
+    """去除节点ID中的副本后缀（兼容旧调用点，转发到 copy_identity_utils）。"""
+    return strip_copy_suffix(node_id)
 
 
 def _infer_copy_block_id_from_node_id(node_id: str) -> str:
-    """从节点ID推断副本所属块ID"""
-    if not node_id:
-        return ""
-    marker = "_copy_"
-    if marker not in node_id:
-        return ""
-    suffix = node_id.rsplit(marker, 1)[-1]
-    parts = suffix.split("_")
-    if len(parts) >= 2 and parts[0] == "block" and parts[1].isdigit():
-        return f"block_{parts[1]}"
-    return ""
+    """从节点ID推断副本所属块ID（兼容旧调用点，转发到 copy_identity_utils）。"""
+    return infer_copy_block_id_from_node_id(node_id)

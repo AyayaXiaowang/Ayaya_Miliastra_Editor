@@ -6,7 +6,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.nodes.node_definition_loader import group_by_category
 from engine.nodes.port_type_system import can_connect_ports
-from ui.foundation.theme_manager import Colors, Sizes, Gradients
+from app.ui.foundation.theme_manager import Colors, Sizes, Gradients
 
 if TYPE_CHECKING:
     from engine.nodes.node_definition_loader import NodeDef

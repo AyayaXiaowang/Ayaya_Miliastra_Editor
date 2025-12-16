@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="获取列表对应值",
     category="查询节点",
-    inputs=[("列表", "泛型"), ("序号", "整数")],
+    inputs=[("列表", "泛型列表"), ("序号", "整数")],
     outputs=[("值", "泛型")],
     description="返回列表中指定序号对应的值，序号从0开始",
     doc_reference="服务器节点/查询节点/查询节点.md"

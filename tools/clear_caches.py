@@ -4,16 +4,16 @@ from __future__ import annotations
 缓存管理脚本（运行期产物）
 
 提供命令：
-- 清空磁盘缓存：app/runtime/cache/graph_cache、app/runtime/cache/resource_cache、app/runtime/cache/node_cache
+- 清空磁盘缓存：运行时缓存根目录（默认 app/runtime/cache）下的 graph_cache/resource_cache/node_cache
 - 清空内存缓存（ResourceManager 内部）
-- 重建资源索引缓存（扫描资源库并写入 app/runtime/cache/resource_cache/resource_index.json）
-- 预构建节点图持久化缓存（遍历全部节点图并加载，以生成 app/runtime/cache/graph_cache/*.json）
+- 重建资源索引缓存（扫描资源库并写入 resource_cache/resource_index.json）
+- 预构建节点图持久化缓存（遍历全部节点图并加载，以生成 graph_cache/*.json）
 
 使用示例（在项目根目录执行）：
-  python -X utf8 tools/clear_caches.py --clear
-  python -X utf8 tools/clear_caches.py --clear --rebuild-index
-  python -X utf8 tools/clear_caches.py --clear --rebuild-index --rebuild-graph-caches
-  python -X utf8 tools/clear_caches.py --clear-graph-cache
+  python -X utf8 -m tools.clear_caches --clear
+  python -X utf8 -m tools.clear_caches --clear --rebuild-index
+  python -X utf8 -m tools.clear_caches --clear --rebuild-index --rebuild-graph-caches
+  python -X utf8 -m tools.clear_caches --clear-graph-cache
 """
 
 import argparse
@@ -21,11 +21,16 @@ from pathlib import Path
 
 import shutil
 
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path, get_workspace_root
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path, get_workspace_root
+
+ensure_workspace_root_on_sys_path()
+
 
 def compute_workspace_path() -> Path:
-    tools_dir = Path(__file__).resolve().parent
-    workspace_path = tools_dir.parent
-    return workspace_path
+    return get_workspace_root()
 
 
 def _remove_dir_contents(dir_path: Path) -> int:
@@ -58,14 +63,21 @@ def run_clear_operations(
     clear_resource_index_cache: bool,
     clear_node_cache: bool,
 ) -> None:
-    runtime_root = workspace_path / "app" / "runtime"
-    cache_root = runtime_root / "cache"
-    graph_cache = cache_root / "graph_cache"
-    resource_cache = cache_root / "resource_cache"
-    node_cache = cache_root / "node_cache"
-    ui_session_state_file = cache_root / "ui_last_session.json"
-    ingame_save_selection_file = cache_root / "player_ingame_save_selection.json"
-    todo_states_dir = runtime_root / "todo_states"
+    from engine.utils.cache.cache_paths import (  # noqa: WPS433
+        get_graph_cache_dir,
+        get_node_cache_dir,
+        get_resource_cache_dir,
+        get_runtime_cache_root,
+    )
+
+    runtime_cache_root = get_runtime_cache_root(workspace_path)
+    graph_cache = get_graph_cache_dir(workspace_path)
+    resource_cache = get_resource_cache_dir(workspace_path)
+    node_cache = get_node_cache_dir(workspace_path)
+
+    ui_session_state_file = runtime_cache_root / "ui_last_session.json"
+    ingame_save_selection_file = runtime_cache_root / "player_ingame_save_selection.json"
+    todo_states_dir = workspace_path / "app" / "runtime" / "todo_states"
 
     if clear_all:
         removed = 0
@@ -82,15 +94,15 @@ def run_clear_operations(
     if clear_graph_cache:
         removed = _remove_dir_contents(graph_cache)
         removed_total += removed
-        print(f"[OK] 已清空图缓存 app/runtime/cache/graph_cache，删除条目数: {removed}")
+        print(f"[OK] 已清空图缓存 {graph_cache}，删除条目数: {removed}")
     if clear_resource_index_cache:
         removed = _remove_dir_contents(resource_cache)
         removed_total += removed
-        print(f"[OK] 已清空资源索引缓存 app/runtime/cache/resource_cache，删除条目数: {removed}")
+        print(f"[OK] 已清空资源索引缓存 {resource_cache}，删除条目数: {removed}")
     if clear_node_cache:
         removed = _remove_dir_contents(node_cache)
         removed_total += removed
-        print(f"[OK] 已清空节点库缓存 app/runtime/cache/node_cache，删除条目数: {removed}")
+        print(f"[OK] 已清空节点库缓存 {node_cache}，删除条目数: {removed}")
     if removed_total == 0 and not (clear_graph_cache or clear_resource_index_cache or clear_node_cache):
         print("[信息] 未指定任何清理目标；如需全量清理请添加 --clear")
 
@@ -117,17 +129,17 @@ def main() -> None:
     parser.add_argument(
         "--clear-graph-cache",
         action="store_true",
-        help="仅清空 app/runtime/cache/graph_cache",
+        help="仅清空 graph_cache（位于运行时缓存根目录下）",
     )
     parser.add_argument(
         "--clear-resource-index-cache",
         action="store_true",
-        help="仅清空 app/runtime/cache/resource_cache（资源索引缓存）",
+        help="仅清空 resource_cache（资源索引缓存，位于运行时缓存根目录下）",
     )
     parser.add_argument(
         "--clear-node-cache",
         action="store_true",
-        help="仅清空 app/runtime/cache/node_cache（节点库持久化缓存）",
+        help="仅清空 node_cache（节点库持久化缓存）",
     )
     parser.add_argument(
         "--rebuild-index",

@@ -11,6 +11,7 @@ from engine.utils.logging.logger import log_info
 from .resource_cache_service import ResourceCacheService
 from .resource_file_ops import ResourceFileOps
 from .resource_state import ResourceIndexState
+from .atomic_json import atomic_write_json
 
 
 class JsonResourceStore:
@@ -43,8 +44,7 @@ class JsonResourceStore:
             log_info("  [重命名] 已删除旧文件: {}", existing_file.name)
 
         resource_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(resource_file, "w", encoding="utf-8") as file:
-            json.dump(data, file, ensure_ascii=False, indent=2)
+        atomic_write_json(resource_file, data, ensure_ascii=False, indent=2)
 
         self._state.set_file_path(resource_type, resource_id, resource_file)
         self._state.set_filename(resource_type, resource_id, resource_file.stem)

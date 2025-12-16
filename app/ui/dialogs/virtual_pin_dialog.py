@@ -3,8 +3,8 @@
 from PyQt6 import QtCore, QtWidgets
 from typing import Optional, List
 from engine.nodes.advanced_node_features import VirtualPinConfig, MappedPort
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import ThemeManager, Colors
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager, Colors
 
 
 class CreateVirtualPinDialog(BaseDialog):

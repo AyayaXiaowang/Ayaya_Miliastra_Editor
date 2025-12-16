@@ -7,10 +7,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from PyQt6 import QtWidgets, QtCore
-from ui.graph.graph_palette import GraphPalette
+from app.ui.graph.graph_palette import GraphPalette
 
 if TYPE_CHECKING:
-    from ui.graph.graph_view import GraphView
+    from app.ui.graph.graph_view import GraphView
 
 
 class TopRightControlsManager:

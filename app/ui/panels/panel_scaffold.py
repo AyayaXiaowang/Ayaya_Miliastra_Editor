@@ -8,8 +8,8 @@
 
 from PyQt6 import QtCore, QtWidgets
 
-from ui.foundation.theme_manager import Colors, Sizes
-from ui.foundation.style_mixins import StyleMixin
+from app.ui.foundation.theme_manager import Colors, Sizes
+from app.ui.foundation.style_mixins import StyleMixin
 
 
 class PanelScaffold(QtWidgets.QWidget, StyleMixin):

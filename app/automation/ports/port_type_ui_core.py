@@ -20,9 +20,9 @@ from typing import Callable, Optional, Tuple
 
 from PIL import Image
 
-from app.automation.core import editor_nodes
-from app.automation.core import executor_utils as _exec_utils
-from app.automation.core.executor_protocol import (
+from app.automation.editor import editor_nodes
+from app.automation.editor import executor_utils as _exec_utils
+from app.automation.editor.executor_protocol import (
     EditorExecutorProtocol,
     EditorExecutorWithViewport,
     AutomationStepContext,

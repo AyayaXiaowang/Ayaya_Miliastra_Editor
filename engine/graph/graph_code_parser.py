@@ -9,10 +9,11 @@ import re
 
 from engine.nodes.node_definition_loader import NodeDef
 from engine.nodes.node_registry import get_node_registry
-from engine.graph.models import GraphModel, NodeModel
+from engine.graph.models import GraphModel, NodeModel, PortModel
 from engine.graph.common import (
     is_flow_port,
     SIGNAL_LISTEN_NODE_TITLE,
+    SIGNAL_NAME_PORT_NAME,
     STRUCT_NODE_TITLES,
     STRUCT_SPLIT_NODE_TITLE,
     STRUCT_BUILD_NODE_TITLE,
@@ -81,20 +82,6 @@ def validate_graph(
     def _is_flow(node: NodeModel, port_name: str, is_source: bool) -> bool:
         return is_flow_port_with_context(node, port_name, is_source, node_library)
     
-    def _allows_implicit_data_input(node: NodeModel, port_name: str) -> bool:
-        """判断某些节点/端口是否允许“无显式数据来源”（由运行时代码注入默认值）。
-        
-        目前约定：
-        - 【设置自定义变量】/【获取自定义变量】节点的“目标实体”输入端：
-          若未连线且无常量，代码生成器会自动注入 self.owner_entity 作为默认目标实体，
-          因此在结构校验阶段不再视作“缺少数据来源”的错误。
-        """
-        title = getattr(node, "title", "") or ""
-        name = str(port_name or "")
-        if title in ("设置自定义变量", "获取自定义变量") and name == "目标实体":
-            return True
-        return False
-    
     # 检查端口类型匹配：流程端口不能连接到数据端口
     # 说明：使用集中式的上下文感知判定，覆盖"多分支"等语义特殊节点。
 
@@ -152,10 +139,6 @@ def validate_graph(
                 has_constant_value = port.name in node.input_constants
                 is_virtual_pin = virtual_pin_mappings.get((node.id, port.name), False)
                 if not (has_incoming_edge or has_constant_value or is_virtual_pin):
-                    # 对支持隐式默认值的端口（例如自定义变量节点的“目标实体”），
-                    # 允许在图结构中不显式连接数据来源，由执行代码负责注入。
-                    if _allows_implicit_data_input(node, port.name):
-                        continue
                     lo = getattr(node, 'source_lineno', 0)
                     hi = getattr(node, 'source_end_lineno', 0) or lo
                     span_text = f" (第{lo}~{hi}行)" if isinstance(lo, int) and lo > 0 else " (第?~?行)"
@@ -283,14 +266,10 @@ class GraphCodeParser:
         graph_model.metadata["source_file"] = relative_str
         graph_model.metadata["parsed_at"] = datetime.now().isoformat()
         
-        # 4. 基于 register_handlers 中的注册调用，为【监听信号】事件节点补充信号绑定。
-        self._apply_signal_bindings_from_register_handlers(tree, graph_model)
-
-        # 4.1 基于代码中的常量变量声明，为节点输入端口补充常量值（不走连线）。
-        self._apply_constant_bindings_from_code(tree, graph_model)
-
-        # 5. 基于 docstring 中的结构体 ID 约定，为结构体相关节点补充默认结构体绑定。
-        self._apply_struct_bindings_from_code(tree, graph_model)
+        # 4. 语义推导已下沉到 IR 管线：
+        # - register_handlers → 【监听信号】绑定由 CodeToGraphParser 在创建事件节点时完成；
+        # - 模块/方法内命名常量在 IR 解析阶段直接回填到 node.input_constants；
+        # - 结构体节点绑定在节点创建当刻写入 GraphModel.metadata["struct_bindings"]。
         
         # 同步 docstring/代码中的图变量
         if metadata.get("graph_variables"):
@@ -411,20 +390,24 @@ class GraphCodeParser:
         tree: ast.Module,
         graph_model: GraphModel,
     ) -> None:
-        """从类内 register_handlers 调用中推导【监听信号】事件节点的信号绑定。
+        """从类内 register_handlers 调用中推导“信号监听事件”的绑定信息。
 
         约定：
-        - 仅处理形如 self.game.register_event_handler(\"<literal>\", self.on_监听信号, owner=...) 的调用；
-        - literal 既可以是 signal_id，也可以是信号显示名（signal_name）；
-        - 本方法会使用信号定义仓库将 literal 解析为稳定的 signal_id 后写入
-          GraphModel.metadata[\"signal_bindings\"]，若解析失败则保留原文；
-        - 若 GraphModel.metadata 中已存在针对该节点的 signal_bindings，则不覆盖用户在 UI 中配置的绑定。
+        - 处理形如 `self.game.register_event_handler("<literal>", self.on_<任意处理器>, owner=...)` 的调用；
+        - 若 `<literal>` 能解析到已定义信号（signal_id 或 signal_name），则将对应事件节点视为【监听信号】：
+          - 将节点标题改为 `SIGNAL_LISTEN_NODE_TITLE`；
+          - 确保存在输入端口 `SIGNAL_NAME_PORT_NAME`，并回填 `node.input_constants["信号名"]` 供 UI 展示；
+          - 将绑定解析为稳定的 signal_id 写入 `GraphModel.metadata["signal_bindings"]`；
+        - 若 UI/用户已为该节点写入 signal_bindings，则不覆盖绑定，但仍会回填显示用的“信号名”常量。
         """
         if not isinstance(tree, ast.Module):
             return
 
         # 1) 构建事件名称 → 节点 ID 的映射（按解析顺序对齐 event_flow_order 与 event_flow_titles）。
         title_to_node_id: Dict[str, str] = {}
+        # 兼容：若事件节点在后续被重命名（例如信号事件统一显示为【监听信号】），
+        # 则使用“event_<方法名>_...”的稳定前缀反查节点 ID。
+        method_base_to_node_id_by_prefix: Dict[str, str] = {}
         titles = list(graph_model.event_flow_titles or [])
         ids = list(graph_model.event_flow_order or [])
         for node_id, title in zip(ids, titles):
@@ -435,6 +418,15 @@ class GraphCodeParser:
                 continue
             # 标题即事件名称（例如“实体创建时”/“监听信号”）
             title_to_node_id[str(title)] = str(node_id)
+            # 事件节点 ID 约定：event_<event_name>_<uuid8>
+            node_id_text = str(node_id)
+            if node_id_text.startswith("event_"):
+                body = node_id_text[len("event_") :]
+                underscore_index = body.rfind("_")
+                if underscore_index > 0:
+                    method_base_name = body[:underscore_index]
+                    if method_base_name and method_base_name not in method_base_to_node_id_by_prefix:
+                        method_base_to_node_id_by_prefix[method_base_name] = node_id_text
 
         if not title_to_node_id:
             return
@@ -497,7 +489,7 @@ class GraphCodeParser:
                 if not method_base_name:
                     continue
 
-                node_id = title_to_node_id.get(method_base_name)
+                node_id = title_to_node_id.get(method_base_name) or method_base_to_node_id_by_prefix.get(method_base_name)
                 if not node_id:
                     continue
 
@@ -505,20 +497,42 @@ class GraphCodeParser:
                 if not event_node:
                     continue
 
-                # 仅对【监听信号】事件节点写入 signal_bindings。
-                if getattr(event_node, "title", "") != SIGNAL_LISTEN_NODE_TITLE:
-                    continue
-
-                # 若 UI 已经为该节点写入绑定，则不覆盖。
-                existing_signal_id = graph_model.get_node_signal_id(node_id)
-                if existing_signal_id:
-                    continue
-
-                # 将 register_event_handler 中的事件名称作为“信号标识字面量”，
-                # 既接受 signal_id，也允许写信号显示名（signal_name）；最终写入稳定的 ID，
-                # 后续 UI / 校验与代码生成统一依赖 GraphModel.metadata["signal_bindings"] 中的 ID。
+                # 将 register_event_handler 中的事件名称作为“信号标识字面量”尝试解析。
                 resolved_id = self._resolve_signal_id_from_literal(raw_event_name)
-                graph_model.set_node_signal_binding(node_id, resolved_id)
+
+                # 仅当确实解析到已定义信号时，才将该事件视为【监听信号】。
+                # 这样不会误把普通引擎事件或自定义事件名改成监听信号。
+                if self._signal_repo is None:
+                    signal_module = import_module("engine.signal")
+                    get_repo = getattr(signal_module, "get_default_signal_repository")
+                    self._signal_repo = get_repo()
+                resolved_payload = self._signal_repo.get_payload(resolved_id)  # type: ignore[union-attr]
+                if not (isinstance(resolved_payload, dict) and resolved_payload):
+                    continue
+
+                # ===== 1) 事件节点表现为【监听信号】并回填“信号名”选择端口 =====
+                if getattr(event_node, "title", "") != SIGNAL_LISTEN_NODE_TITLE:
+                    event_node.title = SIGNAL_LISTEN_NODE_TITLE
+                    # 同步 event_flow_titles，避免事件列表/分组仍显示旧标题
+                    for idx, existing_id in enumerate(list(graph_model.event_flow_order or [])):
+                        if str(existing_id) == str(node_id):
+                            if graph_model.event_flow_titles is not None and idx < len(graph_model.event_flow_titles):
+                                graph_model.event_flow_titles[idx] = SIGNAL_LISTEN_NODE_TITLE
+                            break
+
+                # 确保存在“信号名”输入端口（事件节点在 IR 层可能没有输入端口）
+                if not any(getattr(p, "name", "") == SIGNAL_NAME_PORT_NAME for p in (getattr(event_node, "inputs", None) or [])):
+                    event_node.inputs = list(getattr(event_node, "inputs", []) or [])
+                    event_node.inputs.append(PortModel(name=SIGNAL_NAME_PORT_NAME, is_input=True))
+
+                # 用显示名回填，便于 UI 直接展示（即使 register_event_handler 用的是 signal_id）
+                display_name = str(resolved_payload.get("signal_name") or "").strip()
+                event_node.input_constants.setdefault(SIGNAL_NAME_PORT_NAME, display_name or raw_event_name)
+
+                # ===== 2) 写入稳定的 signal_id 绑定（若 UI 已配置则不覆盖） =====
+                existing_signal_id = graph_model.get_node_signal_id(node_id)
+                if not existing_signal_id:
+                    graph_model.set_node_signal_binding(node_id, resolved_id)
 
     def _resolve_signal_id_from_literal(self, literal: str) -> str:
         """将 register_event_handler 中的事件名字面量解析为稳定的 signal_id。
@@ -603,6 +617,12 @@ class GraphCodeParser:
                 end_line = start_line
             span_records.append((node_title, start_line, end_line, str(raw_node_id)))
 
+        # 优先使用“精确 span”匹配：IR 层对函数调用节点通常直接取 call_node 的 lineno/end_lineno，
+        # 这样比“重叠范围最大”更稳定，也能显著降低误匹配概率。
+        span_exact_index: Dict[Tuple[str, int, int], List[str]] = {}
+        for title, start, end, node_id in span_records:
+            span_exact_index.setdefault((title, start, end), []).append(node_id)
+
         def _get_ast_span(ast_node: ast.AST) -> Tuple[int, int]:
             lineno = getattr(ast_node, "lineno", 0) or 0
             end_lineno = getattr(ast_node, "end_lineno", lineno) or lineno
@@ -613,6 +633,14 @@ class GraphCodeParser:
             return lineno, end_lineno
 
         def _match_struct_node_id(node_title: str, lineno: int, end_lineno: int) -> Optional[str]:
+            exact_candidates = span_exact_index.get((node_title, lineno, end_lineno))
+            if exact_candidates:
+                if len(exact_candidates) == 1:
+                    return exact_candidates[0]
+                # 极少数情况下可能出现同标题同 span 的重复节点（例如复制/合并导致的异常状态）。
+                # 这里选择一个稳定顺序，避免随机行为。
+                return sorted(exact_candidates)[0]
+
             best_id: Optional[str] = None
             best_overlap = 0
             for title, start, end, candidate_id in span_records:
@@ -634,9 +662,6 @@ class GraphCodeParser:
                 if keyword.arg == "结构体名":
                     if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
                         return keyword.value.value.strip()
-                    # 兼容旧版 ast.Str
-                    if hasattr(ast, 'Str') and isinstance(keyword.value, ast.Str):
-                        return keyword.value.s.strip()  # type: ignore[attr-defined]
             return None
 
         def _get_struct_info(struct_name_text: str) -> Optional[Tuple[str, str, Dict[str, Any], List[str]]]:
@@ -712,7 +737,7 @@ class GraphCodeParser:
                     static_inputs = set(STRUCT_MODIFY_STATIC_INPUTS)
 
                 # 收集代码中实际使用的字段名
-                used_field_names: List[str] = []
+                build_or_modify_used_field_names: List[str] = []
                 for keyword in ast_node.keywords or []:
                     arg_name = keyword.arg
                     if not isinstance(arg_name, str) or not arg_name:
@@ -721,10 +746,14 @@ class GraphCodeParser:
                         continue
                     if arg_name not in defined_field_name_set:
                         continue
-                    if arg_name not in used_field_names:
-                        used_field_names.append(arg_name)
+                    if arg_name not in build_or_modify_used_field_names:
+                        build_or_modify_used_field_names.append(arg_name)
 
-                node_binding_info[matched_node_id] = (struct_id, struct_name, used_field_names)
+                node_binding_info[matched_node_id] = (
+                    struct_id,
+                    struct_name,
+                    build_or_modify_used_field_names,
+                )
 
         # 2) 处理"拆分结构体"：从"结构体名"参数提取结构体，字段名来源于左侧的多目标赋值。
         for ast_node in ast.walk(tree):
@@ -767,7 +796,7 @@ class GraphCodeParser:
             defined_field_name_set = set(defined_field_names)
 
             # 收集代码中实际使用的字段名（从赋值目标）
-            used_field_names: List[str] = []
+            split_used_field_names: List[str] = []
 
             def _collect_names_from_target(target: ast.AST) -> None:
                 if isinstance(target, ast.Name):
@@ -776,8 +805,8 @@ class GraphCodeParser:
                         return
                     if name_text not in defined_field_name_set:
                         return
-                    if name_text not in used_field_names:
-                        used_field_names.append(name_text)
+                    if name_text not in split_used_field_names:
+                        split_used_field_names.append(name_text)
                 elif isinstance(target, ast.Tuple):
                     for element in target.elts:
                         _collect_names_from_target(element)
@@ -788,7 +817,7 @@ class GraphCodeParser:
             else:
                 _collect_names_from_target(ast_node.target)
 
-            node_binding_info[matched_node_id] = (struct_id, struct_name, used_field_names)
+            node_binding_info[matched_node_id] = (struct_id, struct_name, split_used_field_names)
 
         # 3) 写回绑定：保留已有绑定，未显式配置的节点按"代码中实际使用字段"推导字段列表。
         for node_id, node in graph_model.nodes.items():

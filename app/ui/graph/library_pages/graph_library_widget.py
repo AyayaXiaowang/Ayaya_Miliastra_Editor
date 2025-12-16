@@ -5,15 +5,15 @@ from typing import Optional, Dict, List, Union
 from datetime import datetime
 from pathlib import Path
 
-from ui.foundation.theme_manager import Sizes
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.graph.library_mixins import (
+from app.ui.foundation.theme_manager import Sizes
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.graph.library_mixins import (
     SearchFilterMixin,
     SelectionAndScrollMixin,
     ToolbarMixin,
     ConfirmDialogMixin,
 )
-from ui.graph.library_pages.library_scaffold import (
+from app.ui.graph.library_pages.library_scaffold import (
     LibraryChangeEvent,
     LibraryPageMixin,
     LibrarySelection,
@@ -23,15 +23,15 @@ from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.graph_reference_tracker import GraphReferenceTracker
 from engine.graph.models.graph_config import GraphConfig
 from engine.graph.models.graph_model import GraphModel
-from ui.dialogs.graph_detail_dialog import GraphDetailDialog
-from ui.graph.library_pages.graph_card_widget import GraphCardWidget
-from ui.controllers.graph_error_tracker import get_instance as get_error_tracker
+from app.ui.dialogs.graph_detail_dialog import GraphDetailDialog
+from app.ui.graph.library_pages.graph_card_widget import GraphCardWidget
+from app.ui.controllers.graph_error_tracker import get_instance as get_error_tracker
 from engine.resources.package_view import PackageView
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.unclassified_resource_view import UnclassifiedResourceView
-from ui.panels.panel_scaffold import PanelScaffold, SectionCard
+from app.ui.panels.panel_scaffold import PanelScaffold, SectionCard
 
-from ui.graph.graph_library import FolderTreeMixin, GraphListMixin
+from app.ui.graph.graph_library import FolderTreeMixin, GraphListMixin
 
 
 class GraphLibraryWidget(

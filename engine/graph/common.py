@@ -151,10 +151,14 @@ def _fallback_var_name(counter: Optional[VarNameCounter], base: Optional[str] = 
 
 def _get_data_input_edge_index(graph_model: GraphModel) -> Dict[str, Dict[str, EdgeModel]]:
     cache = getattr(graph_model, "_cached_data_input_edges", None)
-    cache_version = getattr(graph_model, "_cached_data_input_edges_version", None)
-    current_version = len(graph_model.edges)
+    cache_revision = getattr(graph_model, "_cached_data_input_edges_revision", None)
+    cache_len = getattr(graph_model, "_cached_data_input_edges_len", None)
+    current_len = len(graph_model.edges)
+    current_revision = getattr(graph_model, "_edges_revision", None)
+    if not isinstance(current_revision, int):
+        current_revision = 0
 
-    if cache is not None and cache_version == current_version:
+    if cache is not None and cache_revision == current_revision and cache_len == current_len:
         return cache
 
     index: Dict[str, Dict[str, EdgeModel]] = {}
@@ -168,7 +172,8 @@ def _get_data_input_edge_index(graph_model: GraphModel) -> Dict[str, Dict[str, E
         per_node.setdefault(edge.dst_port, edge)
 
     setattr(graph_model, "_cached_data_input_edges", index)
-    setattr(graph_model, "_cached_data_input_edges_version", current_version)
+    setattr(graph_model, "_cached_data_input_edges_revision", current_revision)
+    setattr(graph_model, "_cached_data_input_edges_len", current_len)
     return index
 
 
@@ -433,11 +438,11 @@ def is_selection_input_port(node: Optional[Any], port_name: str) -> bool:
 
 # 静音布局调用：统一保存/恢复调试开关
 def apply_layout_quietly(graph_model: GraphModel) -> None:
-    from engine.layout import layout_by_event_regions
+    from engine.layout import LayoutService
     from engine.configs.settings import settings
     _old = settings.LAYOUT_DEBUG_PRINT
     settings.LAYOUT_DEBUG_PRINT = False
-    layout_by_event_regions(graph_model)
+    LayoutService.compute_layout(graph_model, clone_model=False)
     settings.LAYOUT_DEBUG_PRINT = _old
 
 

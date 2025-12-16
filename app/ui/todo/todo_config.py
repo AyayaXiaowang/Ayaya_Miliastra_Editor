@@ -17,7 +17,7 @@
 
 from dataclasses import dataclass
 
-from ui.foundation.theme_manager import (
+from app.ui.foundation.theme_manager import (
     Colors as ThemeColors,
     Sizes as ThemeSizes,
     Icons as ThemeIcons,

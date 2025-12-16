@@ -9,8 +9,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from engine.graph.models.package_model import InstanceConfig, TemplateConfig
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from ui.foundation.theme_manager import Colors, Sizes
-from ui.panels.template_instance.tab_base import TemplateInstanceTabBase, is_drop_template_config
+from app.ui.foundation.theme_manager import Colors, Sizes
+from app.ui.panels.template_instance.tab_base import TemplateInstanceTabBase, is_drop_template_config
 
 
 class BasicInfoTab(TemplateInstanceTabBase):

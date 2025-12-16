@@ -8,7 +8,7 @@ from __future__ import annotations
 import ast
 from typing import List, Optional, Tuple, Union
 
-from engine.graph.models import NodeModel, EdgeModel
+from engine.graph.models import GraphModel, NodeModel, EdgeModel
 
 from .var_env import VarEnv
 from .validators import Validators
@@ -133,6 +133,7 @@ def build_local_var_nodes(
     env: VarEnv,
     ctx: FactoryContext,
     validators: Validators,
+    graph_model: GraphModel,
 ) -> Tuple[
     bool,
     List[NodeModel],
@@ -178,6 +179,7 @@ def build_local_var_nodes(
             stmt=stmt,
             prev_flow_node=new_prev,
             need_suppress_once=new_suppress,
+            graph_model=graph_model,
             ctx=ctx,
             env=env,
             validators=validators,
@@ -229,6 +231,7 @@ def build_local_var_nodes(
         stmt=stmt,
         prev_flow_node=new_prev,
         need_suppress_once=new_suppress,
+        graph_model=graph_model,
         ctx=ctx,
         env=env,
         validators=validators,

@@ -96,7 +96,7 @@ class SignalSection(BaseManagementSection):
         title: str,
         message: str,
     ) -> None:
-        from ui.foundation import dialog_utils
+        from app.ui.foundation import dialog_utils
 
         dialog_utils.show_warning_dialog(parent_widget, title, message)
 

@@ -6,25 +6,21 @@ from typing import Any, Optional, List, Tuple, Dict, Set
 
 from PyQt6 import QtCore, QtWidgets, QtGui
 
-from ui.foundation.dialog_utils import show_warning_dialog
-from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
-from ui.panels.panel_scaffold import PanelScaffold
-from ui.panels.package_membership_selector import build_package_membership_row
-from ui.widgets.graph_references_table_widget import GraphReferencesTableWidget
+from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
+from app.ui.panels.panel_scaffold import PanelScaffold
+from app.ui.panels.package_membership_selector import build_package_membership_row
+from app.ui.widgets.graph_references_table_widget import GraphReferencesTableWidget
 from engine.resources.resource_manager import ResourceManager
 from engine.resources.package_index_manager import PackageIndexManager
 from engine.configs.resource_types import ResourceType
 from engine.configs.specialized.struct_definitions_data import list_struct_ids
 from engine.graph.models.graph_config import GraphConfig
 from engine.graph.models.graph_model import GraphModel
-from ui.widgets.graph_variable_table_widget import GraphVariableTableWidget
-from ui.foundation.info_snippets import GRAPH_VARIABLE_INFO
-from ui.panels.graph_data_provider import (
-    GraphDataProvider,
-    GraphLoadPayload,
-    get_shared_graph_data_provider,
-)
-from ui.panels.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
+from app.ui.widgets.graph_variable_table_widget import GraphVariableTableWidget
+from app.ui.foundation.info_snippets import GRAPH_VARIABLE_INFO
+from app.runtime.services.graph_data_service import GraphDataService, GraphLoadPayload, get_shared_graph_data_service
+from app.ui.panels.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
 
 
 class GraphPropertyPanel(PanelScaffold):
@@ -47,7 +43,7 @@ class GraphPropertyPanel(PanelScaffold):
         )
         self.resource_manager = resource_manager
         self.package_index_manager = package_index_manager
-        self.data_provider = get_shared_graph_data_provider(resource_manager, package_index_manager)
+        self.data_provider: GraphDataService = get_shared_graph_data_service(resource_manager, package_index_manager)
         self.graph_loader: GraphAsyncLoader = get_shared_graph_loader(self.data_provider)
         
         self.current_graph_id: Optional[str] = None

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 from PyQt6 import QtWidgets, QtGui, QtCore
-from ui.foundation.theme_manager import ThemeManager
+from app.ui.foundation.theme_manager import ThemeManager
 
 
 class StandardAction(Enum):

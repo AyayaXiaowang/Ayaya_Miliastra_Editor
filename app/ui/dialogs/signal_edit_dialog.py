@@ -6,14 +6,14 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.graph.models.package_model import SignalConfig, SignalParameterConfig
 from engine.graph.models.entity_templates import get_all_variable_types
-from ui.dialogs.struct_definition_value_editors import ClickToEditLineEdit
-from ui.dialogs.table_edit_helpers import (
+from app.ui.dialogs.struct_definition_value_editors import ClickToEditLineEdit
+from app.ui.dialogs.table_edit_helpers import (
     wrap_click_to_edit_line_edit_for_table_cell,
 )
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import Sizes, ThemeManager
-from ui.foundation import dialog_utils
-from ui.widgets.inline_table_editor_widget import (
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import Sizes, ThemeManager
+from app.ui.foundation import dialog_utils
+from app.ui.widgets.inline_table_editor_widget import (
     InlineTableColumnSpec,
     InlineTableEditorWidget,
 )

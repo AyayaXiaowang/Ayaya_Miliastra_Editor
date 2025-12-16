@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtCore import Qt
 
-from ui.foundation.theme_manager import Colors
+from app.ui.foundation.theme_manager import Colors
 
 
 @dataclass

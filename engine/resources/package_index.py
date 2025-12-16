@@ -77,7 +77,7 @@ class PackageResources:
         resources.graphs = data.get("graphs", [])
         resources.composites = data.get("composites", [])
         
-        # 战斗预设（向后兼容）
+        # 战斗预设：结构标准化（缺失字段使用默认空列表）
         combat_data = data.get("combat_presets", {})
         resources.combat_presets = {
             "player_templates": combat_data.get("player_templates", []),
@@ -88,7 +88,7 @@ class PackageResources:
             "items": combat_data.get("items", []),
         }
         
-        # 管理配置（向后兼容）
+        # 管理配置：结构标准化（缺失字段使用默认空列表）
         management_data = data.get("management", {})
         resources.management = {
             "timers": management_data.get("timers", []),

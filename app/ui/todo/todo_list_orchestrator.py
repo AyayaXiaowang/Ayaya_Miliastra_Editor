@@ -6,15 +6,15 @@ from PyQt6.QtCore import Qt
 
 from app.models import TodoItem
 from engine.configs.settings import settings
-from ui.todo.todo_config import StepTypeRules
-from ui.todo.todo_preview_panel import TodoPreviewPanel
-from ui.todo.todo_detail_panel import TodoDetailPanel
-from ui.todo.todo_tree import TodoTreeManager
-from ui.todo.todo_executor_bridge import TodoExecutorBridge
-from ui.todo.todo_context_menu import TodoContextMenu
-from ui.todo.todo_runtime_state import TodoRuntimeState
-from ui.todo.current_todo_resolver import build_context_from_host, resolve_current_todo_for_leaf
-from app.ui.todo.todo_event_flow_blocks import collect_block_node_ids_for_header_item
+from app.ui.todo.todo_config import StepTypeRules
+from app.ui.todo.todo_preview_panel import TodoPreviewPanel
+from app.ui.todo.todo_detail_panel import TodoDetailPanel
+from app.ui.todo.todo_tree import TodoTreeManager
+from app.ui.todo.todo_executor_bridge import TodoExecutorBridge
+from app.ui.todo.todo_context_menu import TodoContextMenu
+from app.ui.todo.todo_runtime_state import TodoRuntimeState
+from app.ui.todo.current_todo_resolver import build_context_from_host, resolve_current_todo_for_leaf
+from app.ui.todo.preview_graph_context_resolver import resolve_graph_preview_context
 from app.ui.todo.recognition_backfill_planner import (
     plan_recognition_backfill,
     _get_created_node_id_from_detail,
@@ -232,7 +232,7 @@ class TodoListOrchestrator:
             rich_segments_role=host.RICH_SEGMENTS_ROLE,
         )
 
-    def _build_graph_expand_dependencies(self) -> Optional[tuple[object, object]]:
+    def _build_graph_expand_dependencies(self) -> Optional[tuple[object, object, object]]:
         """为模板图根懒加载提供 package/resource_manager 依赖。
 
         由宿主 TodoListWidget 注入 MainWindow 引用后，通过该方法统一解析当前包与资源管理器，
@@ -249,7 +249,8 @@ class TodoListOrchestrator:
         package = getattr(package_controller, "current_package", None)
         if not package:
             return None
-        return (package, resource_manager)
+        package_index_manager = getattr(main_window, "package_index_manager", None)
+        return (package, resource_manager, package_index_manager)
 
     def _wire_signals(self) -> None:
         host = self.host
@@ -373,16 +374,7 @@ class TodoListOrchestrator:
         tree_manager = getattr(host, "tree_manager", None)
         if tree_manager is None:
             return
-
-        graph_support = getattr(tree_manager, "_graph_support", None)
-        if graph_support is None:
-            return
-
-        block_node_ids = collect_block_node_ids_for_header_item(
-            header_item,
-            tree_manager.todo_map,
-            graph_support=graph_support,
-        )
+        block_node_ids = tree_manager.collect_block_node_ids_for_header_item(header_item)
         if not block_node_ids:
             return
 
@@ -402,11 +394,11 @@ class TodoListOrchestrator:
             graph_data,
             graph_id,
             container,
-        ) = preview_panel.preview_controller.get_graph_data_id_and_container(
+        ) = resolve_graph_preview_context(
             flow_root_todo,
             tree_manager.todo_map,
-            host.main_window,
-            tree_manager,
+            tree_manager=tree_manager,
+            main_window=host.main_window,
         )
         if not isinstance(graph_data, dict) or not graph_id:
             return
@@ -602,7 +594,10 @@ class TodoListOrchestrator:
         if host.preview_panel.handle_composite_preview(todo, host.main_window):
             switched_to_preview = True
         elif host.preview_panel.handle_graph_preview(
-            todo, host.tree_manager.todo_map, host.main_window
+            todo,
+            host.tree_manager.todo_map,
+            host.main_window,
+            tree_manager=host.tree_manager,
         ):
             switched_to_preview = True
 

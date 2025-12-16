@@ -5,8 +5,8 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtWidgets, QtGui
 
 from engine.nodes.advanced_node_features import VirtualPinConfig
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
 class PinCardWidget(QtWidgets.QWidget):

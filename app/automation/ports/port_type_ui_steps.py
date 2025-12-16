@@ -20,7 +20,7 @@ from PIL import Image
 from engine.graph.models.graph_model import NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
 
-from app.automation.core.executor_protocol import EditorExecutorWithViewport, AutomationStepContext
+from app.automation.editor.executor_protocol import EditorExecutorWithViewport, AutomationStepContext
 from app.automation.ports.port_picker import pick_port_center_for_node
 from app.automation.ports.port_type_inference import parse_typed_dict_alias
 from app.automation.ports.dict_port_type_steps import set_dict_port_type_with_settings

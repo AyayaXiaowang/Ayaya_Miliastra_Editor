@@ -6,8 +6,8 @@ from typing import Optional, Dict
 
 from PyQt6 import QtCore
 
-from app.common.graph_data_cache import resolve_graph_data
 from app.models import UiNavigationRequest
+from app.runtime.services.graph_data_service import GraphDataService, get_shared_graph_data_service
 
 
 class NavigationCoordinator(QtCore.QObject):
@@ -34,6 +34,20 @@ class NavigationCoordinator(QtCore.QObject):
         # 用于获取当前包和状态（由主窗口设置）
         self.get_current_package = None
         self.get_current_package_id = None
+        self.get_graph_data_service = None
+
+    def _resolve_graph_data_service(self) -> GraphDataService:
+        getter = getattr(self, "get_graph_data_service", None)
+        if callable(getter):
+            service = getter()
+            if service is not None:
+                return service
+        parent_obj = self.parent()
+        resource_manager = getattr(parent_obj, "resource_manager", None) if parent_obj is not None else None
+        package_index_manager = (
+            getattr(parent_obj, "package_index_manager", None) if parent_obj is not None else None
+        )
+        return get_shared_graph_data_service(resource_manager, package_index_manager)
 
     # === 统一入口 ===
 
@@ -100,8 +114,13 @@ class NavigationCoordinator(QtCore.QObject):
         if not graph_id:
             return
 
-        graph_data = resolve_graph_data(detail_info) if detail_info else None
+        graph_data_service = self._resolve_graph_data_service()
+        graph_data = (
+            graph_data_service.resolve_payload_graph_data(detail_info) if detail_info else None
+        )
         if graph_data is None:
+            graph_data = graph_data_service.load_graph_data(graph_id)
+        if not isinstance(graph_data, dict):
             return
 
         container = None
@@ -219,8 +238,11 @@ class NavigationCoordinator(QtCore.QObject):
             "graph_signals_overview",
             "graph_bind_signal",
         ]:
-            graph_id = detail_info.get("graph_id")
-            graph_data = resolve_graph_data(detail_info)
+            graph_data_service = self._resolve_graph_data_service()
+            graph_id = str(detail_info.get("graph_id") or "")
+            graph_data = graph_data_service.resolve_payload_graph_data(detail_info)
+            if graph_data is None and graph_id:
+                graph_data = graph_data_service.load_graph_data(graph_id)
             template_id = detail_info.get("template_id")
             instance_id = detail_info.get("instance_id")
 
@@ -238,7 +260,7 @@ class NavigationCoordinator(QtCore.QObject):
                     current_package = self.get_current_package()
                     container = current_package.get_instance(instance_id) if current_package else None
 
-            if graph_id and graph_data:
+            if graph_id and isinstance(graph_data, dict):
                 self.open_graph.emit(graph_id, graph_data, container)
                 QtCore.QTimer.singleShot(
                     200,

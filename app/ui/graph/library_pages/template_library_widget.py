@@ -6,16 +6,16 @@ from typing import Optional, Union, Dict, Any, List
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.theme_manager import Sizes
-from ui.foundation.toast_notification import ToastNotification
-from ui.foundation.id_generator import generate_prefixed_id
-from ui.graph.library_mixins import (
+from app.ui.foundation.theme_manager import Sizes
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.foundation.id_generator import generate_prefixed_id
+from app.ui.graph.library_mixins import (
     ConfirmDialogMixin,
     SearchFilterMixin,
     ToolbarMixin,
     rebuild_list_with_preserved_selection,
 )
-from ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.forms.schema_dialog import FormDialogBuilder
 from engine.configs.resource_types import ResourceType
 from engine.resources.package_view import PackageView
 from engine.resources.global_resource_view import GlobalResourceView
@@ -28,13 +28,13 @@ from engine.graph.models.entity_templates import (
     get_template_library_entity_types,
 )
 from engine.configs.entities.creature_models import get_creature_model_display_pairs, get_creature_model_category_for_name
-from ui.graph.library_pages.library_scaffold import (
+from app.ui.graph.library_pages.library_scaffold import (
     DualPaneLibraryScaffold,
     LibraryChangeEvent,
     LibraryPageMixin,
     LibrarySelection,
 )
-from ui.graph.library_pages.category_tree_mixin import EntityCategoryTreeMixin
+from app.ui.graph.library_pages.category_tree_mixin import EntityCategoryTreeMixin
 
 
 @dataclass(frozen=True)

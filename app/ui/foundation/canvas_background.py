@@ -2,7 +2,7 @@
 
 from PyQt6 import QtGui
 
-from ui.graph.graph_palette import GraphPalette
+from app.ui.graph.graph_palette import GraphPalette
 
 
 def draw_grid_background(painter, rect, grid_size: int = 50) -> None:

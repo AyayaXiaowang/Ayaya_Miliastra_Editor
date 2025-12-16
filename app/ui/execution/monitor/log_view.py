@@ -8,7 +8,7 @@ from datetime import datetime
 from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtCore import Qt
 
-from ui.foundation.theme_manager import Colors
+from app.ui.foundation.theme_manager import Colors
 
 
 class LogViewController:
@@ -404,6 +404,6 @@ class LogViewController:
 
     def _scroll_to_bottom(self) -> None:
         """滚动日志到底部"""
-        from ui.foundation.scroll_helpers import scroll_to_bottom
+        from app.ui.foundation.scroll_helpers import scroll_to_bottom
         scroll_to_bottom(self._log_text)
 

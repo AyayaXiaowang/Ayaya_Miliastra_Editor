@@ -16,14 +16,18 @@ import sys
 from pathlib import Path
 from typing import Protocol, get_type_hints, get_origin
 
-from engine.utils.logging.console_sanitizer import ascii_safe_print
-
 # 添加项目根目录到Python路径
 workspace_root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(workspace_root))
 
-from app.automation.core.executor_protocol import EditorExecutorProtocol
-from app.automation.core.editor_executor import EditorExecutor
+from app.automation.editor.executor_protocol import EditorExecutorProtocol
+from app.automation.editor.editor_executor import EditorExecutor
+
+
+def ascii_safe_print(message: object) -> None:
+    """避免控制台编码炸裂：把不可编码字符转义后输出。"""
+    text = str(message)
+    print(text.encode("ascii", errors="backslashreplace").decode("ascii"))
 
 
 safe_print = ascii_safe_print
@@ -52,26 +56,19 @@ def check_protocol_implementation():
     protocol_methods = {}
     
     # 获取协议的类型注解（属性）
-    try:
-        hints = get_type_hints(EditorExecutorProtocol)
-        for attr_name, attr_type in hints.items():
-            if not attr_name.startswith('__'):
-                protocol_attributes[attr_name] = attr_type
-    except Exception as e:
-        print(f"⚠ 警告：无法获取协议类型注解: {e}")
+    hints = get_type_hints(EditorExecutorProtocol)
+    for attr_name, attr_type in hints.items():
+        if not attr_name.startswith('__'):
+            protocol_attributes[attr_name] = attr_type
     
     # 获取协议的方法签名
     for name in dir(EditorExecutorProtocol):
         if name.startswith('__'):
             continue
         attr = getattr(EditorExecutorProtocol, name)
-        if callable(attr) and not isinstance(attr, type):
-            try:
-                sig = inspect.signature(attr)
-                protocol_methods[name] = sig
-            except (ValueError, TypeError):
-                # 无法获取签名（可能是属性或特殊成员）
-                pass
+        if inspect.isfunction(attr):
+            sig = inspect.signature(attr)
+            protocol_methods[name] = sig
     
     # 检查 EditorExecutor 实现
     missing_attributes = []
@@ -102,33 +99,29 @@ def check_protocol_implementation():
             safe_print(f"[WARN] {method_name} is not callable")
             continue
         
-        try:
-            impl_sig = inspect.signature(impl_method)
-            
-            # 比较参数（忽略self）
-            protocol_params = list(protocol_sig.parameters.items())[1:]  # 跳过self
-            impl_params = list(impl_sig.parameters.items())[1:]  # 跳过self
-            
-            if len(protocol_params) != len(impl_params):
-                signature_mismatches.append((method_name, "param count mismatch", protocol_sig, impl_sig))
-                safe_print(f"[X] Signature mismatch: {method_name}")
-                safe_print(f"  Protocol: {protocol_sig}")
-                safe_print(f"  Implementation: {impl_sig}")
-            else:
-                params_match = True
-                for (proto_name, proto_param), (impl_name, impl_param) in zip(protocol_params, impl_params):
-                    if proto_name != impl_name:
-                        params_match = False
-                        break
-                
-                if params_match:
-                    safe_print(f"[OK] Method exists and signature matches: {method_name}")
-                else:
-                    signature_mismatches.append((method_name, "param name mismatch", protocol_sig, impl_sig))
-                    safe_print(f"[WARN] Method exists but param names don't match: {method_name}")
+        impl_sig = inspect.signature(impl_method)
         
-        except (ValueError, TypeError) as e:
-            safe_print(f"[WARN] Cannot check signature for {method_name}: {e}")
+        # 比较参数（忽略self）
+        protocol_params = list(protocol_sig.parameters.items())[1:]  # 跳过self
+        impl_params = list(impl_sig.parameters.items())[1:]  # 跳过self
+        
+        if len(protocol_params) != len(impl_params):
+            signature_mismatches.append((method_name, "param count mismatch", protocol_sig, impl_sig))
+            safe_print(f"[X] Signature mismatch: {method_name}")
+            safe_print(f"  Protocol: {protocol_sig}")
+            safe_print(f"  Implementation: {impl_sig}")
+        else:
+            params_match = True
+            for (proto_name, _proto_param), (impl_name, _impl_param) in zip(protocol_params, impl_params):
+                if proto_name != impl_name:
+                    params_match = False
+                    break
+            
+            if params_match:
+                safe_print(f"[OK] Method exists and signature matches: {method_name}")
+            else:
+                signature_mismatches.append((method_name, "param name mismatch", protocol_sig, impl_sig))
+                safe_print(f"[WARN] Method exists but param names don't match: {method_name}")
     
     if not missing_methods and not signature_mismatches:
         safe_print("[OK] All methods correctly implemented")
@@ -173,8 +166,8 @@ def check_protocol_usage_in_modules():
         "app/automation/ports/port_type_steps_input.py",
         "app/automation/ports/port_type_steps_output.py",
         "app/automation/config/config_node_steps.py",
-        "app/automation/core/executor_utils.py",
-        "app/automation/core/editor_nodes.py",
+        "app/automation/editor/executor_utils.py",
+        "app/automation/editor/editor_nodes.py",
     ]
     
     results = []
@@ -189,7 +182,7 @@ def check_protocol_usage_in_modules():
             content = f.read()
         
         # 检查是否导入了协议
-        has_protocol_import = "from app.automation.core.executor_protocol import" in content
+        has_protocol_import = "from app.automation.editor.executor_protocol import" in content
         
         # 检查是否使用了协议类型注解
         has_protocol_annotation = "EditorExecutorProtocol" in content

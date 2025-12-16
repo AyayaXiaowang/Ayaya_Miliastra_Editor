@@ -50,23 +50,24 @@ class ExecutionPlanner:
         """严格按左侧列表顺序返回**可执行**步骤。
 
         规则：
-        - 若存在 `event_flow_root`，按其 children 顺序返回，并过滤出受支持的 `graph_*` 叶子步骤；
+        - 若当前节点的子项中存在 `event_flow_root`，则视为“整图/整模板”执行入口：
+          按 **所有** `event_flow_root` 的出现顺序串联其 children，并过滤出受支持的 `graph_*` 叶子步骤；
         - 否则，按当前节点的 children 顺序返回，同样仅保留受支持的步骤类型。
         """
-        # 优先：事件流根 → 按子项原始顺序原样收集，再做类型过滤
-        flow_root = None
+        # 优先：若当前节点下存在事件流根，则串联所有事件流的子步骤（修复“整图只执行第一个事件流”的问题）
+        flow_roots: List[TodoItem] = []
         for child_id in current_todo.children:
-            child = todo_map.get(child_id)
-            if child and (child.detail_info or {}).get("type") == "event_flow_root":
-                flow_root = child
-                break
+            child_todo = todo_map.get(child_id)
+            if child_todo and (child_todo.detail_info or {}).get("type") == "event_flow_root":
+                flow_roots.append(child_todo)
 
-        if flow_root is not None:
+        if flow_roots:
             raw_steps: List[TodoItem] = []
-            for step_id in flow_root.children:
-                step = todo_map.get(step_id)
-                if step is not None:
-                    raw_steps.append(step)
+            for flow_root in flow_roots:
+                for step_id in flow_root.children:
+                    step_todo = todo_map.get(step_id)
+                    if step_todo is not None:
+                        raw_steps.append(step_todo)
             return ExecutionPlanner._filter_supported_steps(raw_steps)
 
         # 回退：无事件流根时，直接返回当前层级的子项顺序（同样做类型过滤）

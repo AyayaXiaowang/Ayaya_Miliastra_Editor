@@ -11,9 +11,14 @@ from engine.resources.package_index import PackageIndex, PackageResources
 from engine.graph.models.package_model import InstanceConfig
 from engine.utils.logging.logger import log_info
 from engine.utils.name_utils import sanitize_package_filename
+from .atomic_json import atomic_write_json
 
 if TYPE_CHECKING:
     from engine.resources.resource_manager import ResourceManager
+
+
+PACKAGES_LIST_SCHEMA = "package_list/v1"
+PACKAGES_LIST_SCHEMA_VERSION = 1
 
 
 class PackageIndexManager:
@@ -63,10 +68,9 @@ class PackageIndexManager:
         """
         self.workspace_path = workspace_path
         self.resource_manager = resource_manager
-        # 地图索引物理位置：assets/资源库/地图索引
-        # 注意：此路径必须与 engine/resources/claude.md 中的说明保持一致，
-        # 不要随意改成其他目录名（例如“存档索引”），否则 UI 将在启动时看不到任何存档。
-        self.index_dir = workspace_path / "assets" / "资源库" / "地图索引"
+        # 功能包索引物理位置：assets/资源库/功能包索引
+        # 注意：此路径必须与资源库文档中的说明保持一致，否则 UI 将在启动时看不到任何存档包。
+        self.index_dir = workspace_path / "assets" / "资源库" / "功能包索引"
         self.index_dir.mkdir(parents=True, exist_ok=True)
 
         # Todo 勾选状态为编辑器运行期状态，单独保存在 app/runtime/todo_states 下，
@@ -81,6 +85,110 @@ class PackageIndexManager:
         
         self._ensure_packages_file()
         self._build_package_filename_index()
+        self._ensure_packages_list_consistent()
+
+    def _compute_packages_list_fingerprint(self) -> str:
+        """计算存档包清单指纹（pkg_*.json 文件数 + 最新修改时间）。"""
+        file_count = 0
+        latest_mtime = 0.0
+        for json_file in self.index_dir.glob("pkg_*.json"):
+            stat = json_file.stat()
+            file_count += 1
+            if stat.st_mtime > latest_mtime:
+                latest_mtime = stat.st_mtime
+        return f"pkg_index:{file_count}:{round(latest_mtime, 3)}"
+
+    def _read_packages_list_data(self) -> dict:
+        """读取 packages.json 原始内容（不做一致性修复）。"""
+        if self.packages_file.exists():
+            with open(self.packages_file, "r", encoding="utf-8") as file_obj:
+                data = json.load(file_obj)
+            if isinstance(data, dict):
+                packages_value = data.get("packages")
+                last_opened_value = data.get("last_opened_package_id")
+                manifest_value = data.get("__manifest__")
+                return {
+                    "packages": packages_value if isinstance(packages_value, list) else [],
+                    "last_opened_package_id": last_opened_value if isinstance(last_opened_value, (str, type(None))) else None,
+                    "__manifest__": manifest_value if isinstance(manifest_value, dict) else {},
+                }
+        return {"packages": [], "last_opened_package_id": None, "__manifest__": {}}
+
+    def _rebuild_packages_list_data(self, previous_last_opened: Optional[str]) -> dict:
+        """从 pkg_*.json 重建 packages.json 的 packages 列表（派生数据）。"""
+        packages: List[dict] = []
+        for json_file in self.index_dir.glob("pkg_*.json"):
+            if json_file.name == "packages.json":
+                continue
+            with open(json_file, "r", encoding="utf-8") as file_obj:
+                pkg_data = json.load(file_obj)
+            if not isinstance(pkg_data, dict):
+                continue
+            package_id_value = pkg_data.get("package_id")
+            if not isinstance(package_id_value, str) or not package_id_value:
+                continue
+            packages.append(
+                {
+                    "package_id": package_id_value,
+                    "name": pkg_data.get("name", ""),
+                    "description": pkg_data.get("description", ""),
+                    "created_at": pkg_data.get("created_at", ""),
+                    "updated_at": pkg_data.get("updated_at", ""),
+                }
+            )
+
+        # 排序：优先按更新时间（字符串 ISO），再按 package_id 兜底，保证稳定输出
+        packages.sort(key=lambda item: (str(item.get("updated_at", "")), str(item.get("package_id", ""))), reverse=True)
+
+        # last_opened 只存“选择状态”，若指向不存在的包则清空（特殊视图保留）
+        last_opened = previous_last_opened
+        if isinstance(last_opened, str) and last_opened not in ("global_view", "unclassified_view"):
+            valid_ids = {pkg.get("package_id") for pkg in packages if isinstance(pkg, dict)}
+            if last_opened not in valid_ids:
+                last_opened = None
+
+        return {
+            "packages": packages,
+            "last_opened_package_id": last_opened,
+        }
+
+    def _ensure_packages_list_consistent(self) -> None:
+        """确保 packages.json 与当前 index_dir 的 pkg_*.json 集合一致。"""
+        current_fp = self._compute_packages_list_fingerprint()
+        raw = self._read_packages_list_data()
+        manifest = raw.get("__manifest__")
+        if not isinstance(manifest, dict):
+            manifest = {}
+        saved_schema = manifest.get("schema")
+        saved_version = manifest.get("schema_version")
+        saved_fp = manifest.get("packages_fp")
+
+        if saved_schema != PACKAGES_LIST_SCHEMA or saved_version != PACKAGES_LIST_SCHEMA_VERSION or saved_fp != current_fp:
+            rebuilt = self._rebuild_packages_list_data(raw.get("last_opened_package_id"))
+            self._save_packages_list_data(rebuilt)
+
+    def _load_packages_list_data(self) -> dict:
+        """加载存档列表数据（保证一致性）。"""
+        self._ensure_packages_file()
+        self._ensure_packages_list_consistent()
+        return self._read_packages_list_data()
+
+    def _save_packages_list_data(self, data: dict) -> None:
+        """保存存档列表数据（写入派生 manifest）。"""
+        packages_value = data.get("packages")
+        last_opened_value = data.get("last_opened_package_id")
+        normalized = {
+            "packages": packages_value if isinstance(packages_value, list) else [],
+            "last_opened_package_id": last_opened_value if isinstance(last_opened_value, (str, type(None))) else None,
+        }
+        normalized["__manifest__"] = {
+            "schema": PACKAGES_LIST_SCHEMA,
+            "schema_version": PACKAGES_LIST_SCHEMA_VERSION,
+            "packages_fp": self._compute_packages_list_fingerprint(),
+            "generated_at": datetime.now().isoformat(),
+            "source": "engine.resources.PackageIndexManager",
+        }
+        atomic_write_json(self.packages_file, normalized, ensure_ascii=False, indent=2)
 
     def _get_todo_state_file_path(self, package_id: str) -> Path:
         """获取指定存档的 Todo 状态文件路径。"""
@@ -112,16 +220,14 @@ class PackageIndexManager:
         - 内容为 {todo_id: bool} 映射，仅供编辑器 UI 使用，不参与功能包导出。
         """
         todo_file_path = self._get_todo_state_file_path(package_index.package_id)
-        with open(todo_file_path, "w", encoding="utf-8") as file_obj:
-            json.dump(package_index.todo_states, file_obj, ensure_ascii=False, indent=2)
+        atomic_write_json(todo_file_path, package_index.todo_states, ensure_ascii=False, indent=2)
     
     def _ensure_packages_file(self) -> None:
         """确保存档列表文件存在"""
         if not self.packages_file.exists():
-            self._save_packages_list_data({
-                "packages": [],
-                "last_opened_package_id": None
-            })
+            self._save_packages_list_data(
+                {"packages": [], "last_opened_package_id": None}
+            )
     
     def _build_package_filename_index(self) -> None:
         """扫描存档索引目录，构建ID到文件名的映射，并同步name字段"""
@@ -147,6 +253,8 @@ class PackageIndexManager:
         
         if sync_count > 0:
             log_info("[同步] 自动同步了 {} 个存档的name字段（文件名已被手动修改）", sync_count)
+            # name 同步会写回 pkg_*.json，清单文件应视为派生数据，统一重建一次以保持一致。
+            self._ensure_packages_list_consistent()
     
     @staticmethod
     def _sanitize_package_filename(name: str) -> str:
@@ -181,18 +289,8 @@ class PackageIndexManager:
             data["name"] = display_name_from_file
             data["updated_at"] = datetime.now().isoformat()
             
-            # 保存更新后的文件
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            
-            # 同时更新packages.json中的名称
-            packages_data = self._load_packages_list_data()
-            for pkg_info in packages_data["packages"]:
-                if pkg_info["package_id"] == data.get("package_id"):
-                    pkg_info["name"] = display_name_from_file
-                    pkg_info["updated_at"] = data["updated_at"]
-                    break
-            self._save_packages_list_data(packages_data)
+            # 保存更新后的文件（原子写，避免中断导致索引 JSON 半写入）
+            atomic_write_json(file_path, data, ensure_ascii=False, indent=2)
 
             log_info(
                 "  [文件名同步] {}: name字段 '{}' -> '{}'",
@@ -294,20 +392,6 @@ class PackageIndexManager:
         # 3. 回退到使用ID命名
         return self.index_dir / f"{package_id}.json"
     
-    def _load_packages_list_data(self) -> dict:
-        """加载存档列表数据"""
-        if self.packages_file.exists():
-            with open(self.packages_file, 'r', encoding='utf-8') as file:
-                data = json.load(file)
-                # 当前仅支持新格式：包含 "packages" 和 "last_opened_package_id" 的字典结构
-                return data
-        return {"packages": [], "last_opened_package_id": None}
-    
-    def _save_packages_list_data(self, data: dict) -> None:
-        """保存存档列表数据"""
-        with open(self.packages_file, 'w', encoding='utf-8') as file:
-            json.dump(data, file, ensure_ascii=False, indent=2)
-    
     def list_packages(self) -> List[dict]:
         """列出所有存档的基本信息
         
@@ -397,9 +481,8 @@ class PackageIndexManager:
                 old_file.unlink()
                 log_info("  [重命名] 已删除旧存档文件: {}", old_file.name)
         
-        # 保存索引文件
-        with open(index_file, 'w', encoding='utf-8') as file:
-            json.dump(package_index.serialize(), file, ensure_ascii=False, indent=2)
+        # 保存索引文件（原子写）
+        atomic_write_json(index_file, package_index.serialize(), ensure_ascii=False, indent=2)
 
         # 单独保存 Todo 勾选状态到运行期状态目录
         self._save_todo_states(package_index)

@@ -5,16 +5,16 @@ from typing import Optional, Union, Tuple
 
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from ui.foundation import input_dialogs
-from ui.foundation.theme_manager import Sizes
-from ui.foundation.toast_notification import ToastNotification
-from ui.graph.library_mixins import (
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.theme_manager import Sizes
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.graph.library_mixins import (
     ConfirmDialogMixin,
     SearchFilterMixin,
     ToolbarMixin,
     rebuild_list_with_preserved_selection,
 )
-from ui.graph.library_pages.combat_presets import (
+from app.ui.graph.library_pages.combat_presets import (
     BaseCombatPresetSection,
     TableRowData,
     SECTION_SEQUENCE,
@@ -23,7 +23,7 @@ from ui.graph.library_pages.combat_presets import (
     get_section_by_key,
     get_section_by_selection_label,
 )
-from ui.graph.library_pages.library_scaffold import (
+from app.ui.graph.library_pages.library_scaffold import (
     DualPaneLibraryScaffold,
     LibraryChangeEvent,
     LibraryPageMixin,

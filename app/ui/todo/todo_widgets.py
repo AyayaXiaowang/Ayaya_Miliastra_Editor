@@ -4,7 +4,7 @@ from typing import Callable, Optional
 
 from PyQt6 import QtWidgets
 
-from ui.todo.todo_config import TodoStyles
+from app.ui.todo.todo_config import TodoStyles
 
 
 def create_execute_button(

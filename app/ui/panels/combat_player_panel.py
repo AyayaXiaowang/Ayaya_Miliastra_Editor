@@ -25,17 +25,17 @@ from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.package_view import PackageView
 from engine.resources.resource_manager import ResourceManager
-from ui.foundation.theme_manager import Colors
-from ui.panels.combat_ability_components import CombatSettingsSection
-from ui.panels.combat_player_panel_sections import (
+from app.ui.foundation.theme_manager import Colors
+from app.ui.panels.combat_ability_components import CombatSettingsSection
+from app.ui.panels.combat_player_panel_sections import (
     CombatPlayerPanelSectionsMixin,
     _GraphBindingContext,
     _PlayerEditorStruct,
 )
-from ui.panels.panel_scaffold import PanelScaffold
-from ui.panels.template_instance.graphs_tab import GraphsTab
-from ui.panels.template_instance_service import TemplateInstanceService
-from ui.panels.package_membership_selector import PackageMembershipSelector, build_package_membership_row
+from app.ui.panels.panel_scaffold import PanelScaffold
+from app.ui.panels.template_instance.graphs_tab import GraphsTab
+from app.ui.panels.template_instance_service import TemplateInstanceService
+from app.ui.panels.package_membership_selector import PackageMembershipSelector, build_package_membership_row
 
 
 PresetPackage = Union[PackageView, GlobalResourceView]

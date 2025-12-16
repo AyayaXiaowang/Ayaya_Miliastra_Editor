@@ -9,7 +9,7 @@ from engine.graph.models import GraphModel
 from engine.nodes.advanced_node_features import build_signal_definitions_from_package
 from engine.signal import get_default_signal_binding_service
 
-from app.common.graph_data_cache import drop_graph_data_for_root, store_graph_data
+from app.common.in_memory_graph_payload_cache import drop_graph_data_for_root, store_graph_data
 from app.models.todo_item import TodoItem
 from app.models.todo_graph_tasks import (
     CompositeTaskBuilder,

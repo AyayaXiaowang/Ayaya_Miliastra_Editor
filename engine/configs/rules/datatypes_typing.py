@@ -2,7 +2,8 @@ from __future__ import annotations
 
 # 仅用于类型检查工具（如 Pyright/Pylance）识别的“占位类型定义”。
 # 运行时无任何行为，仅提供名称以避免“未定义类型”提示。
-# 节点图验证仍以 runtime/node_graph_validator.py 的注解解析为准。
+# 节点图验证统一由 `engine.validate.node_graph_validator` 提供；
+# runtime 侧（`runtime.engine.node_graph_validator` / `app.runtime.engine.node_graph_validator`）仅做 re-export。
 #
 # 注意：为减少误报（例如 range(0, 行上界) 中行上界的类型检查错误），
 # 部分占位类型会继承对应的内置类型，使其在静态分析时具备基本的兼容性。
@@ -101,6 +102,14 @@ class 结构体列表(list[结构体]):
 
 
 class 泛型: ...
+
+
+class 泛型字典(dict):
+    ...
+
+
+class 泛型列表(list):
+    ...
 
 
 # 字典别名占位类型：用于键类型_值类型字典形式的注解，消除静态检查器对别名类型的未定义报错。

@@ -19,12 +19,12 @@ from PIL import Image
 
 from engine.graph.models.graph_model import GraphModel, NodeModel
 
-from app.automation.core.executor_protocol import (
+from app.automation.editor.executor_protocol import (
     EditorExecutorProtocol,
     EditorExecutorWithViewport,
     AutomationStepContext,
 )
-from app.automation.core.node_snapshot import NodePortsSnapshotCache
+from app.automation.editor.node_snapshot import NodePortsSnapshotCache
 from app.automation.ports._ports import get_port_category
 from app.automation.ports.port_type_effective import infer_effective_output_type
 from app.automation.ports.port_type_inference import is_generic_type_name
@@ -108,6 +108,12 @@ def process_output_ports_type_setting(
             edge_lookup,
             log_callback,
         )
+        if not isinstance(target_type, str) or target_type.strip() == "":
+            executor.log(
+                f"[端口类型/输出] 端口 '{mapped_name}' 无法推断具体类型：跳过该端口类型设置",
+                log_callback,
+            )
+            continue
 
         def apply_output_type(
             screenshot_inner: Image.Image,

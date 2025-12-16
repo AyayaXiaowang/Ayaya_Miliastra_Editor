@@ -3,9 +3,9 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Dict, List, Optional
 
-from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.panels.panel_scaffold import PanelScaffold, SectionCard
+from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.panels.panel_scaffold import PanelScaffold, SectionCard
 from engine.validate.comprehensive_validator import ValidationIssue
 
 

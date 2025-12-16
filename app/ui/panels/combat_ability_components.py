@@ -19,9 +19,9 @@ from typing import Any, Dict, Optional, Tuple
 from PyQt6 import QtCore, QtWidgets
 
 from engine.configs.combat import CombatEffectAssetType
-from ui.foundation.theme_manager import Colors, Sizes
-from ui.foundation.toggle_switch import ToggleSwitch
-from ui.panels.ui_control_group_collapsible_section import CollapsibleSection
+from app.ui.foundation.theme_manager import Colors, Sizes
+from app.ui.foundation.toggle_switch import ToggleSwitch
+from app.ui.panels.ui_control_group_collapsible_section import CollapsibleSection
 
 
 @dataclass(frozen=True)

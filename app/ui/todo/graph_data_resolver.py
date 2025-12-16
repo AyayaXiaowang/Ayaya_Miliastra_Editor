@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from app.common.graph_data_cache import resolve_graph_data
+from app.common.in_memory_graph_payload_cache import resolve_graph_data
 from app.models import TodoItem
+from app.ui.todo.preview_graph_context_resolver import resolve_graph_preview_context
+from app.runtime.services.graph_data_service import get_shared_graph_data_service
 
 
 def _has_graph_structure(data: object) -> bool:
@@ -47,11 +49,16 @@ def resolve_graph_data_for_execution(
 
     加载顺序：
     1. 若预览面板当前图与执行上下文 graph_id 一致，则优先复用 `current_graph_data`；
-    2. 否则通过 TodoPreviewController 解析 graph_data / graph_id 并按需加载；
+    2. 否则通过 `preview_graph_context_resolver.resolve_graph_preview_context` 解析并按需加载；
     3. 若依然失败，优先使用 TreeManager.load_graph_data_for_root 按根 Todo 加载；
     4. 最后仅从 detail_info 的缓存 key 中解析（不再直接按 graph_id 触发资源加载）。
     """
     expected_graph_id = _resolve_expected_graph_id(focus_todo, root_todo)
+    graph_data_service = None
+    if main_window is not None:
+        resource_manager = getattr(main_window, "resource_manager", None)
+        package_index_manager = getattr(main_window, "package_index_manager", None)
+        graph_data_service = get_shared_graph_data_service(resource_manager, package_index_manager)
 
     # 1) 仅在“预览当前图”与执行上下文一致时复用预览面板图数据
     if preview_panel is not None:
@@ -65,22 +72,17 @@ def resolve_graph_data_for_execution(
                 return current_preview_data
 
     # 2) 通过 TodoPreviewController 统一解析（含 graph_id 兜底与缓存写回 & 图根加载逻辑）
-    if (
-        preview_panel is not None
-        and hasattr(preview_panel, "preview_controller")
-        and preview_panel.preview_controller is not None
-    ):
-        todo_map = getattr(tree_manager, "todo_map", {}) if tree_manager is not None else {}
-        resolved_tuple = preview_panel.preview_controller.get_graph_data_id_and_container(
-            focus_todo,
+    todo_map = getattr(tree_manager, "todo_map", {}) if tree_manager is not None else {}
+    target_todo = focus_todo or root_todo
+    if target_todo is not None:
+        preview_graph_data, _graph_id, _container = resolve_graph_preview_context(
+            target_todo,
             todo_map,
-            main_window,
-            tree_manager,
+            tree_manager=tree_manager,
+            main_window=main_window,
         )
-        if isinstance(resolved_tuple, tuple) and resolved_tuple:
-            preview_graph_data = resolved_tuple[0]
-            if _has_graph_structure(preview_graph_data):
-                return preview_graph_data
+        if _has_graph_structure(preview_graph_data):
+            return preview_graph_data
 
     # 3) 通过 TreeManager/TodoTreeGraphSupport 的图根加载逻辑解析
     if tree_manager is not None and root_todo is not None and hasattr(
@@ -98,7 +100,11 @@ def resolve_graph_data_for_execution(
         info_candidates.append(focus_todo.detail_info or {})
 
     for info in info_candidates:
-        cached = resolve_graph_data(info)
+        cached = (
+            graph_data_service.resolve_payload_graph_data(info)
+            if graph_data_service is not None
+            else resolve_graph_data(info)
+        )
         if _has_graph_structure(cached):
             return cached
 

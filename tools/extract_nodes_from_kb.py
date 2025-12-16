@@ -13,8 +13,12 @@ import argparse
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-# 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent.parent))
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
+ensure_workspace_root_on_sys_path()
 
 
 @dataclass

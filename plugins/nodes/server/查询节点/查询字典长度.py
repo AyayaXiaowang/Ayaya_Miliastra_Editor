@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="查询字典长度",
     category="查询节点",
-    inputs=[("字典", "泛型")],
+    inputs=[("字典", "泛型字典")],
     outputs=[("长度", "整数")],
     description="查询字典中键值对的数量",
     doc_reference="服务器节点/查询节点/查询节点.md"

@@ -28,12 +28,12 @@ from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.package_view import PackageView
 from engine.resources.resource_manager import ResourceManager
-from ui.foundation.theme_manager import Colors, Sizes
-from ui.foundation.toggle_switch import ToggleSwitch
-from ui.panels.combat_player_panel_sections import _GraphBindingContext
-from ui.panels.panel_scaffold import PanelScaffold
-from ui.panels.template_instance.graphs_tab import GraphsTab
-from ui.panels.template_instance_service import TemplateInstanceService
+from app.ui.foundation.theme_manager import Colors, Sizes
+from app.ui.foundation.toggle_switch import ToggleSwitch
+from app.ui.panels.combat_player_panel_sections import _GraphBindingContext
+from app.ui.panels.panel_scaffold import PanelScaffold
+from app.ui.panels.template_instance.graphs_tab import GraphsTab
+from app.ui.panels.template_instance_service import TemplateInstanceService
 
 
 PresetPackage = Union[PackageView, GlobalResourceView]

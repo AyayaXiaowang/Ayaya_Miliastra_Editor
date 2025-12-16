@@ -8,12 +8,12 @@ from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.unclassified_resource_view import UnclassifiedResourceView
 from engine.graph.models.graph_config import GraphConfig
 from engine.graph.models.graph_model import GraphModel
-from ui.dialogs.graph_detail_dialog import GraphDetailDialog
-from ui.foundation import input_dialogs
-from ui.foundation.context_menu_builder import ContextMenuBuilder
-from ui.foundation.id_generator import generate_prefixed_id
-from ui.foundation.toast_notification import ToastNotification
-from ui.graph.library_pages.graph_card_widget import GraphCardWidget
+from app.ui.dialogs.graph_detail_dialog import GraphDetailDialog
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.id_generator import generate_prefixed_id
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.graph.library_pages.graph_card_widget import GraphCardWidget
 
 
 class GraphListMixin:
@@ -67,6 +67,29 @@ class GraphListMixin:
 
     def _refresh_graph_list(self) -> None:
         """刷新节点图列表（使用卡片显示）"""
+        # 节点图库页面在模式切换时会被频繁触发 refresh；若资源库指纹与当前视图上下文未变，
+        # 则跳过全量枚举与排序，直接复用现有卡片与选中状态，避免 UI 卡顿。
+        current_package_key: tuple[str, str] = ("none", "")
+        if isinstance(self.current_package, PackageView):
+            current_package_key = ("package", self.current_package.package_id)
+        elif isinstance(self.current_package, GlobalResourceView):
+            current_package_key = ("global", "")
+        elif isinstance(self.current_package, UnclassifiedResourceView):
+            current_package_key = ("unclassified", "")
+
+        resource_fingerprint = self.resource_manager.get_resource_library_fingerprint()
+        refresh_signature = (
+            resource_fingerprint,
+            current_package_key,
+            self.current_graph_type,
+            self.current_folder,
+            self.current_sort_by,
+        )
+        previous_signature = getattr(self, "__graph_list_refresh_signature", None)
+        if previous_signature == refresh_signature:
+            return
+        setattr(self, "__graph_list_refresh_signature", refresh_signature)
+
         allowed_graph_ids = None
         if isinstance(self.current_package, PackageView):
             pkg_resources = self.package_index_manager.get_package_resources(self.current_package.package_id)
@@ -262,7 +285,7 @@ class GraphListMixin:
                     "不能在图库页面直接编辑并保存。",
                 )
             return
-        from ui.dialogs.graph_variable_dialog import GraphVariableDialog
+        from app.ui.dialogs.graph_variable_dialog import GraphVariableDialog
 
         graph_data = self.resource_manager.load_resource(ResourceType.GRAPH, graph_id)
         if not graph_data:

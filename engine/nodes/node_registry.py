@@ -60,9 +60,7 @@ class NodeRegistry:
             "[缓存][节点库] 未命中持久化缓存，开始全量扫描与解析"
             f"（workspace={self.workspace_path}，include_composite={self.include_composite}）..."
         )
-        # 以工作区根目录为节点实现库根路径：
-        # - 现用实现库：plugins/nodes
-        # - 兼容旧结构：node_implementations（存在时仍会被扫描）
+        # 以工作区根目录为节点实现库根路径（实现库位于 plugins/nodes）。
         node_defs_root = self.workspace_path
         lib = load_all_nodes(node_defs_root, include_composite=self.include_composite, verbose=False)
         log_info(f"[缓存][节点库] 解析完成，共 {len(lib)} 个节点定义，写入持久化缓存中...")
@@ -107,7 +105,7 @@ class NodeRegistry:
         cache_dir = self._get_node_cache_dir()
         cache_file = cache_dir / "node_library.json"
         if not cache_file.exists():
-            log_info("[缓存][节点库] 未找到持久化缓存文件（app/runtime/cache/node_cache/node_library.json），需要重建")
+            log_info(f"[缓存][节点库] 未找到持久化缓存文件（{cache_file}），需要重建")
             return None
         with open(cache_file, "r", encoding="utf-8") as f:
             data = json.load(f)

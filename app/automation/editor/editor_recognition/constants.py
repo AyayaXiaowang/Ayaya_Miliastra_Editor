@@ -23,6 +23,7 @@ FIT_STRATEGY_UNIQUE_TITLE = "unique_title_translation"
 FIT_STRATEGY_ORDINARY_NODES = "ordinary_nodes_position_match"
 FIT_STRATEGY_RELATIVE_ANCHORS = "relative_anchor_alignment"
 FIT_STRATEGY_ORIGIN_TRANSLATION = "origin_translation_voting"
+FIT_STRATEGY_UNIQUE_RATIO_ALIGNMENT = "unique_ratio_alignment"
 
 ORDINARY_NODES_MIN_MATCHES = 2
 ORDINARY_NODES_POSITION_TOLERANCE_MULTIPLIER = 1.5

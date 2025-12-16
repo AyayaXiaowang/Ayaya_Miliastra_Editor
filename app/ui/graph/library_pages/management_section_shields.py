@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .management_sections_base import *
-from ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.forms.schema_dialog import FormDialogBuilder
 
 
 class ShieldSection(BaseManagementSection):
@@ -167,7 +167,7 @@ class ShieldSection(BaseManagementSection):
         )
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             if not shield_id_edit.text().strip():
                 dialog_utils.show_warning_dialog(

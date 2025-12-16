@@ -36,7 +36,6 @@ from .nodes import (
 from engine.graph import (  # type: ignore
     GraphCodeParser,
     CompositeCodeParser,
-    ExecutableCodeGenerator,
     GraphParseError,
     validate_graph,
 )
@@ -80,7 +79,6 @@ __all__ = [
     # graph code
     "GraphCodeParser",
     "CompositeCodeParser",
-    "ExecutableCodeGenerator",
     "GraphParseError",
     "validate_graph",
     # validators

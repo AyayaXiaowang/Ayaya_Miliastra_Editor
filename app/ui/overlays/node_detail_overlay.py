@@ -429,7 +429,7 @@ class NodeDetailOverlayManager(QtCore.QObject):
         self.right_overlay.fade_out()
         
         # 清除操作延迟到淡出完成后（使用 Debouncer 统一防抖）
-        from ui.foundation.debounce import Debouncer
+        from app.ui.foundation.debounce import Debouncer
         if self._pending_clear_debouncer is None:
             self._pending_clear_debouncer = Debouncer(self)
         self._pending_clear_debouncer.debounce(1050, lambda: self._delayed_clear(current_version))

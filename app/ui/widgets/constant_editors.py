@@ -7,10 +7,10 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import TYPE_CHECKING, Optional, Union
 
-from ui.graph.graph_palette import GraphPalette
+from app.ui.graph.graph_palette import GraphPalette
 
 if TYPE_CHECKING:
-    from ui.graph.items.node_item import NodeGraphicsItem
+    from app.ui.graph.items.node_item import NodeGraphicsItem
 
 
 class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
@@ -104,7 +104,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
         
         # 延迟布局操作，让焦点切换先完成，避免界面跳转
         if value_changed:
-            from ui.foundation.debounce import Debouncer
+            from app.ui.foundation.debounce import Debouncer
             if self._layout_debouncer is None:
                 self._layout_debouncer = Debouncer(self)
             self._layout_debouncer.debounce(50, self._delayed_layout_and_save)

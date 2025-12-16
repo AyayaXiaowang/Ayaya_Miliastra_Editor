@@ -11,7 +11,7 @@ from typing import Protocol, runtime_checkable
 
 from PyQt6 import QtWidgets
 
-from ui.foundation.toast_notification import ToastNotification
+from app.ui.foundation.toast_notification import ToastNotification
 
 
 @runtime_checkable

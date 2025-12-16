@@ -1,7 +1,7 @@
 """左侧导航栏"""
 
 from PyQt6 import QtCore, QtWidgets, QtGui
-from ui.foundation.theme_manager import ThemeManager, Colors
+from app.ui.foundation.theme_manager import ThemeManager, Colors
 
 
 class NavigationButton(QtWidgets.QPushButton):

@@ -1,8 +1,8 @@
 """
-验证布局等价性：对比 runtime/cache/graph_cache/*.json 的已缓存坐标与当前 LayoutService 计算结果。
+验证布局等价性：对比运行时 graph_cache（默认 app/runtime/cache/graph_cache）中的已缓存坐标与当前 LayoutService 计算结果。
 
 用法：
-  python -X utf8 tools/verify_layout_equivalence.py
+  python -X utf8 -m tools.verify_layout_equivalence
 
 判定：
   - 同一图内，节点集合必须一致；
@@ -22,12 +22,16 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")  # type: ignore[attr-defined]
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")  # type: ignore[attr-defined]
 
-WORKSPACE = Path(__file__).resolve().parents[1]
-if str(WORKSPACE) not in sys.path:
-    sys.path.insert(0, str(WORKSPACE))
+if __package__:
+    from ._bootstrap import ensure_workspace_root_on_sys_path
+else:
+    from _bootstrap import ensure_workspace_root_on_sys_path
+
+WORKSPACE = ensure_workspace_root_on_sys_path()
 
 from engine.graph.models import GraphModel  # noqa: E402
 from engine.layout import LayoutService  # noqa: E402
+from engine.utils.cache.cache_paths import get_graph_cache_dir  # noqa: E402
 
 
 def _load_cached_graphs(cache_dir: Path) -> list[tuple[str, GraphModel, Dict[str, Tuple[float, float]]]]:
@@ -47,17 +51,9 @@ def _load_cached_graphs(cache_dir: Path) -> list[tuple[str, GraphModel, Dict[str
 
 
 def verify_equivalence(tol: float = 1.0) -> int:
-    cache_dir_candidates = [
-        WORKSPACE / "runtime" / "cache" / "graph_cache",
-        WORKSPACE / "app" / "runtime" / "cache" / "graph_cache",
-    ]
-    cache_dir = None
-    for candidate in cache_dir_candidates:
-        if candidate.exists():
-            cache_dir = candidate
-            break
-    if cache_dir is None:
-        print("[ERROR] 未找到缓存目录 runtime/cache/graph_cache 或 app/runtime/cache/graph_cache")
+    cache_dir = get_graph_cache_dir(WORKSPACE)
+    if not cache_dir.exists():
+        print(f"[ERROR] 未找到 graph_cache 目录：{cache_dir}")
         return 2
 
     entries = _load_cached_graphs(cache_dir)
@@ -70,7 +66,7 @@ def verify_equivalence(tol: float = 1.0) -> int:
 
     for graph_name, model, baseline in entries:
         # 纯计算布局，不修改原模型
-        result = LayoutService.compute_layout(model)
+        result = LayoutService.compute_layout(model, workspace_path=WORKSPACE)
         # 先比节点集合
         if set(result.positions.keys()) != set(baseline.keys()):
             print(f"[DIFF] 节点集合不一致：{graph_name}")

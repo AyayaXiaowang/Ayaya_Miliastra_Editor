@@ -20,8 +20,8 @@ from pathlib import Path
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-from ui.foundation.theme.tokens.colors import Colors
-from ui.panels.config_component_registry import find_config_component
+from app.ui.foundation.theme.tokens.colors import Colors
+from app.ui.panels.config_component_registry import find_config_component
 
 
 class WidgetHoverInspector(QtCore.QObject):

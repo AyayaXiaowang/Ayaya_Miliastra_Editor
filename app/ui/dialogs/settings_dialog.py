@@ -4,10 +4,10 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui, QtWidgets
 import sys
 
-from ui.foundation.base_widgets import BaseDialog
-from ui.foundation.theme_manager import ThemeManager, Colors, Sizes
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 from engine.configs.settings import settings
-from ui.graph.library_mixins import ConfirmDialogMixin
+from app.ui.graph.library_mixins import ConfirmDialogMixin
 
 
 class SettingsDialog(BaseDialog, ConfirmDialogMixin):
@@ -84,6 +84,10 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         # ========== 执行与系统 ==========
         runtime_group = self._create_runtime_settings_group()
         scroll_layout.addWidget(runtime_group)
+
+        # ========== 资源库更新 ==========
+        resource_update_group = self._create_resource_update_settings_group()
+        scroll_layout.addWidget(resource_update_group)
         
         scroll_layout.addStretch()
         scroll_area.setWidget(scroll_content)
@@ -99,7 +103,9 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
 
         # 清除所有缓存按钮
         clear_cache_button = QtWidgets.QPushButton("清除所有缓存")
-        clear_cache_button.setToolTip("清除内存缓存与磁盘上的节点图缓存（runtime/cache/graph_cache）")
+        clear_cache_button.setToolTip(
+            "清除内存缓存与磁盘上的节点图缓存（app/runtime/cache/graph_cache）"
+        )
         clear_cache_button.clicked.connect(self._clear_all_caches)
         button_layout.addWidget(clear_cache_button)
 
@@ -369,6 +375,55 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         drag_mode_layout.addWidget(self.drag_mode_combo)
         drag_mode_layout.addStretch()
         layout.addLayout(drag_mode_layout)
+        
+        return group
+    
+    def _create_resource_update_settings_group(self) -> QtWidgets.QGroupBox:
+        """创建资源库更新策略设置组"""
+        group = QtWidgets.QGroupBox("资源库更新（节点图 / 管理配置等）")
+        layout = QtWidgets.QVBoxLayout(group)
+
+        description_label = QtWidgets.QLabel(
+            "当外部工具修改 assets/资源库 下的节点图、管理配置或战斗预设等资源时，"
+            "可以选择是否由程序自动检测并刷新视图，或仅在手动点击顶部“更新”按钮时刷新。"
+        )
+        description_label.setWordWrap(True)
+        description_label.setStyleSheet(
+            f"color: {Colors.TEXT_SECONDARY}; font-size: 10px;"
+        )
+        layout.addWidget(description_label)
+
+        mode_layout = QtWidgets.QHBoxLayout()
+        mode_label = QtWidgets.QLabel("资源库更新方式：")
+        self.resource_update_mode_combo = QtWidgets.QComboBox()
+        self.resource_update_mode_combo.addItem(
+            "自动更新（推荐）：检测到资源库变更时自动刷新索引与相关视图",
+            True,
+        )
+        self.resource_update_mode_combo.addItem(
+            "手动更新：仅在点击顶部工具栏的“更新”按钮时刷新资源库",
+            False,
+        )
+        self.resource_update_mode_combo.setToolTip(
+            "自动更新：继续使用文件监控，在外部修改资源库时自动刷新。\n"
+            "手动更新：关闭资源库目录自动监控，仅保留当前图文件监控；"
+            "当确认外部工具已完成修改时，可通过主窗口顶部的“更新”按钮手动刷新视图。"
+        )
+        mode_layout.addWidget(mode_label)
+        mode_layout.addWidget(self.resource_update_mode_combo)
+        mode_layout.addStretch()
+        layout.addLayout(mode_layout)
+
+        info_label = QtWidgets.QLabel(
+            "说明：切换为“手动更新”后，资源库目录的自动监控将被关闭，"
+            "避免频繁刷新带来的性能与日志开销；如需立即查看外部修改结果，"
+            "请使用主窗口顶部的“更新”按钮。"
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet(
+            f"color: {Colors.TEXT_SECONDARY}; font-size: 10px; padding-left: 20px;"
+        )
+        layout.addWidget(info_label)
 
         return group
     
@@ -407,6 +462,10 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         current_drag_mode = getattr(settings, "MOUSE_DRAG_MODE", "auto")
         idx3 = self.drag_mode_combo.findData(current_drag_mode)
         self.drag_mode_combo.setCurrentIndex(idx3 if idx3 != -1 else 0)
+        # 资源库自动更新模式
+        auto_refresh_enabled = bool(getattr(settings, "RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED", True))
+        idx_resource = self.resource_update_mode_combo.findData(auto_refresh_enabled)
+        self.resource_update_mode_combo.setCurrentIndex(idx_resource if idx_resource != -1 else 0)
     
     def show_info(self, title: str, message: str) -> None:
         """使用 ConfirmDialogMixin 风格的提示弹窗接口。
@@ -431,6 +490,7 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         
         # 记录关键开关的旧值（用于触发一次性重载）
         old_cross_block_copy = bool(settings.DATA_NODE_CROSS_BLOCK_COPY)
+        old_resource_auto_refresh = bool(getattr(settings, "RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED", True))
         
         # 应用设置
         settings.LAYOUT_TIGHT_BLOCK_PACKING = self.tight_block_spacing_checkbox.isChecked()
@@ -446,6 +506,8 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         settings.DATA_NODE_CROSS_BLOCK_COPY = self.data_node_copy_checkbox.isChecked()
         new_theme_mode = self.ui_theme_combo.currentData()
         settings.UI_THEME_MODE = new_theme_mode
+        # 资源库自动刷新模式
+        settings.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED = bool(self.resource_update_mode_combo.currentData())
         # 若跨块复制开关发生变化（True↔False）：在下次自动排版前强制以 .py 重新解析当前图
         if bool(old_cross_block_copy) != bool(settings.DATA_NODE_CROSS_BLOCK_COPY):
             parent = self.parent()
@@ -463,6 +525,19 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         
         # 保存到文件
         if settings.save():
+            # 设置已成功保存，必要时应用资源库自动刷新开关到文件监控
+            resource_auto_refresh_changed = (
+                bool(old_resource_auto_refresh) != bool(settings.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED)
+            )
+            if resource_auto_refresh_changed:
+                parent = self.parent()
+                file_watcher_manager = getattr(parent, "file_watcher_manager", None)
+                if file_watcher_manager is not None and hasattr(
+                    file_watcher_manager, "set_resource_auto_refresh_enabled"
+                ):
+                    file_watcher_manager.set_resource_auto_refresh_enabled(
+                        bool(settings.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED)
+                    )
             # 如果修改了需要重启的设置，提示用户/询问是否立即重启
             theme_mode_changed = (new_theme_mode != old_theme_mode)
             if theme_mode_changed:
@@ -509,7 +584,10 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
 
     def _clear_all_caches(self) -> None:
         """清除所有缓存（内存+持久化的节点图缓存）"""
-        if not self.confirm("确认清除", "确定要清除所有缓存吗？\n\n此操作将删除 runtime/cache/graph_cache 下的缓存文件，并清空内存缓存。"):
+        if not self.confirm(
+            "确认清除",
+            "确定要清除所有缓存吗？\n\n此操作将删除 app/runtime/cache/graph_cache 下的缓存文件，并清空内存缓存。",
+        ):
             return
         parent = self.parent()
         resource_manager = getattr(parent, "resource_manager", None)

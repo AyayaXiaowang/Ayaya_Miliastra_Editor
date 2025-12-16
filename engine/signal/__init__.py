@@ -21,7 +21,19 @@ from .binding_service import (  # noqa: F401
     get_default_signal_binding_service,
 )
 from .codegen_adapter import SignalCodegenAdapter  # noqa: F401
-from .validation_suite import SignalValidationSuite  # noqa: F401
 from .schema_utils import compute_signal_schema_hash  # noqa: F401
 
+
+def __getattr__(name: str):
+    """延迟导入以避免与 validate 子系统形成循环依赖。
+
+    注意：`engine.validate` 的部分规则会在 import 时访问 `engine.signal`（例如 EventNameRule），
+    而 `SignalValidationSuite` 又需要引用 validate 规则类型。若在本模块顶层导入该 suite，
+    会导致引擎入口（`import engine`）出现循环导入。
+    """
+    if name == "SignalValidationSuite":
+        from .validation_suite import SignalValidationSuite
+
+        return SignalValidationSuite
+    raise AttributeError(name)
 

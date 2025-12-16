@@ -16,13 +16,13 @@ from engine.configs.management.resource_language_configs import SkillResourceCon
 from engine.configs.management.shop_economy_configs import EquipmentDataConfig
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from ui.foundation.id_generator import generate_prefixed_id
-from ui.foundation.theme_manager import ThemeManager
-from ui.graph.library_pages.management_sections import (
+from app.ui.foundation.id_generator import generate_prefixed_id
+from app.ui.foundation.theme_manager import ThemeManager
+from app.ui.graph.library_pages.management_sections import (
     BaseManagementSection,
     ManagementRowData,
 )
-from ui.forms.schema_dialog import FormDialogBuilder
+from app.ui.forms.schema_dialog import FormDialogBuilder
 
 
 ManagementPackage = Union[PackageView, GlobalResourceView]
@@ -162,7 +162,7 @@ class SkillResourceSection(BaseManagementSection):
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
             if not name_edit.text().strip():
-                from ui.foundation import dialog_utils
+                from app.ui.foundation import dialog_utils
 
                 dialog_utils.show_warning_dialog(
                     dialog_self,
@@ -391,7 +391,7 @@ class BackgroundMusicSection(BaseManagementSection):
                 normalized_existing_ids.add(str(value))
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             entered_id = id_edit.text().strip()
             music_name_text = name_edit.text().strip()
@@ -492,7 +492,7 @@ class BackgroundMusicSection(BaseManagementSection):
         music_map = package.management.background_music
         original_data = music_map.get(item_id)
         if not isinstance(original_data, dict):
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             dialog_utils.show_warning_dialog(
                 parent_widget,
@@ -654,7 +654,7 @@ class EquipmentDataSection(BaseManagementSection):
                 normalized_existing_ids.add(str(value))
 
         def _validate(dialog_self: QtWidgets.QDialog) -> bool:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             entered_id = id_edit.text().strip()
             equipment_name_text = name_edit.text().strip()
@@ -754,7 +754,7 @@ class EquipmentDataSection(BaseManagementSection):
         equipment_map = package.management.equipment_data
         equipment_data = equipment_map.get(item_id)
         if equipment_data is None:
-            from ui.foundation import dialog_utils
+            from app.ui.foundation import dialog_utils
 
             dialog_utils.show_warning_dialog(
                 parent_widget,
@@ -805,6 +805,13 @@ __all__ = [
     "BackgroundMusicSection",
     "EquipmentDataSection",
 ]
+
+
+
+
+
+
+
 
 
 

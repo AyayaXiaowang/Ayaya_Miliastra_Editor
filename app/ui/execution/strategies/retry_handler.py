@@ -8,7 +8,7 @@
 - 更新锚点记录
 """
 
-from app.automation.core.executor_protocol import ViewportController
+from app.automation.editor.executor_protocol import ViewportController
 
 
 class RetryResult:

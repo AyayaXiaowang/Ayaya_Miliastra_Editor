@@ -4,12 +4,12 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtGui
 from typing import Any, Dict, Optional
 
-from ui.foundation.toast_notification import ToastNotification
-from ui.dialogs.settings_dialog import SettingsDialog
+from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.dialogs.settings_dialog import SettingsDialog
 from app.models.view_modes import ViewMode
 from engine.validate.comprehensive_validator import ComprehensiveValidator
 from engine.configs.resource_types import ResourceType
-from ui.graph.library_pages.library_scaffold import LibrarySelection
+from app.ui.graph.library_pages.library_scaffold import LibrarySelection
 from app.runtime.ui_session_state import load_last_session_state, save_last_session_state
 from app.ui.todo.current_todo_resolver import build_context_from_host
 
@@ -21,7 +21,7 @@ class WindowAndNavigationEventsMixin:
 
     def _update_window_title(self, title: str) -> None:
         """更新窗口标题"""
-        from ui.main_window.main_window import APP_TITLE
+        from app.ui.main_window.main_window import APP_TITLE
 
         self.setWindowTitle(f"{APP_TITLE} - {title}")
 
@@ -447,22 +447,17 @@ class WindowAndNavigationEventsMixin:
         current_mode = ViewMode.from_index(self.central_stack.currentIndex())
         if current_mode != ViewMode.MANAGEMENT:
             return
-        if hasattr(self, "_update_ui_settings_tab_for_management"):
-            self._update_ui_settings_tab_for_management(section_key)
-        if hasattr(self, "_ensure_signal_editor_tab_for_management"):
-            self._ensure_signal_editor_tab_for_management(section_key)
-        if hasattr(self, "_ensure_struct_editor_tab_for_management"):
-            self._ensure_struct_editor_tab_for_management(section_key)
-        if hasattr(self, "_ensure_main_camera_editor_tab_for_management"):
-            self._ensure_main_camera_editor_tab_for_management(section_key)
-        if hasattr(self, "_ensure_peripheral_system_editor_tab_for_management"):
-            self._ensure_peripheral_system_editor_tab_for_management(section_key)
-        if hasattr(self, "_ensure_equipment_entry_editor_tab_for_management"):
-            self._ensure_equipment_entry_editor_tab_for_management(section_key)
-        if hasattr(self, "_ensure_equipment_tag_editor_tab_for_management"):
-            self._ensure_equipment_tag_editor_tab_for_management(section_key)
-        if hasattr(self, "_ensure_equipment_type_editor_tab_for_management"):
-            self._ensure_equipment_type_editor_tab_for_management(section_key)
+
+        # ViewState 记录当前 section（单一真源雏形）
+        view_state = getattr(self, "view_state", None)
+        management_state = getattr(view_state, "management", None) if view_state is not None else None
+        if management_state is not None:
+            setattr(management_state, "section_key", str(section_key))
+
+        policy = getattr(self, "right_panel_policy", None)
+        apply_method = getattr(policy, "apply_management_section", None)
+        if callable(apply_method):
+            apply_method(section_key)
 
     def _open_player_editor(self) -> None:
         """打开玩家编辑器（战斗预设页签内部）"""
@@ -472,10 +467,8 @@ class WindowAndNavigationEventsMixin:
         elif hasattr(self, "combat_widget") and hasattr(self.combat_widget, "tabs"):
             self.combat_widget.tabs.setCurrentIndex(0)
         # 同时将右侧面板切换到玩家模板详情标签（如已挂载）
-        if hasattr(self, "side_tab") and hasattr(self, "player_editor_panel"):
-            idx = self.side_tab.indexOf(self.player_editor_panel)
-            if idx != -1:
-                self.side_tab.setCurrentIndex(idx)
+        if hasattr(self, "right_panel_registry"):
+            self.right_panel_registry.switch_to("player_editor")
 
     # === 验证与设置 ===
 
@@ -499,6 +492,16 @@ class WindowAndNavigationEventsMixin:
         if current_mode == ViewMode.TODO:
             self._refresh_todo_list()
             self._show_toast("已根据新设置刷新任务清单", "success")
+
+    def _on_manual_refresh_resource_library(self) -> None:
+        """手动刷新资源库（顶部工具栏“更新”按钮）。
+
+        当选择“手动更新”模式或希望立刻查看外部工具对资源库的改动时，
+        通过此入口重建资源索引并刷新各资源库相关视图。
+        """
+        if hasattr(self, "refresh_resource_library"):
+            self.refresh_resource_library()
+        self._show_toast("已根据磁盘最新内容刷新资源库", "info")
 
     # === 窗口关闭 ===
 

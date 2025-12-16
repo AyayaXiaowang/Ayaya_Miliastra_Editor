@@ -10,9 +10,11 @@ from .pipeline.runner import run_pipeline
 
 
 def load_all_nodes_from_impl(workspace_path: Path, include_composite: bool = True, verbose: bool = False) -> Dict[str, NodeDef]:
-    """从 node_implementations 反射加载带有 @node_spec 装饰器的实现函数，构建 NodeDef 库。
+    """从实现库构建 NodeDef 库（实现侧唯一权威来源）。
 
-    说明：此加载器以实现为唯一权威来源。
+    说明：
+    - V2 管线只解析 `plugins/nodes/**.py`，不做 import，避免副作用；
+    - 该加载器基于管线产物构建 NodeDef 字典。
     """
     library: Dict[str, NodeDef] = {}
 

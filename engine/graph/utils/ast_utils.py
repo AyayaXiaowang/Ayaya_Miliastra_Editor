@@ -87,14 +87,6 @@ def _extract_constant_value_raw(value_node: ast.expr) -> Any:
     if isinstance(value_node, ast.Constant):
         return value_node.value
     
-    # 兼容旧 AST 节点类型
-    if isinstance(value_node, ast.Str):
-        return value_node.s
-    if isinstance(value_node, ast.Num):
-        return value_node.n
-    if isinstance(value_node, ast.NameConstant):
-        return value_node.value
-    
     # 一元 +/- 运算
     if isinstance(value_node, ast.UnaryOp):
         if isinstance(value_node.op, ast.USub):
@@ -122,7 +114,6 @@ def extract_constant_value(value_node: ast.expr) -> Any:
     
     支持的形式（统一供 IR 与复合节点等场景复用）：
     - 标准常量：int / float / str / bool / None（ast.Constant）
-    - 兼容旧 AST 节点：ast.Str / ast.Num / ast.NameConstant
     - 一元运算：数值前的一元正负号（+/-Constant）
     - 容器字面量：list / tuple（元素递归调用本函数）
     - self.<字段> 访问：
@@ -135,14 +126,6 @@ def extract_constant_value(value_node: ast.expr) -> Any:
     """
     # 标准常量
     if isinstance(value_node, ast.Constant):
-        return value_node.value
-    
-    # 兼容旧 AST 节点类型
-    if isinstance(value_node, ast.Str):
-        return value_node.s
-    if isinstance(value_node, ast.Num):
-        return value_node.n
-    if isinstance(value_node, ast.NameConstant):
         return value_node.value
     
     # 一元 +/- 运算（主要用于 -1 / +1 / -1.0 等写法）

@@ -13,12 +13,12 @@ from __future__ import annotations
 - ui.dialogs.dict_value_editors
 """
 
-from ui.dialogs.value_editor_common_widgets import (
+from app.ui.dialogs.value_editor_common_widgets import (
     ClickToEditLineEdit,
     ScrollSafeComboBox,
 )
-from ui.dialogs.list_value_editors import ListEditDialog, ListValueEditor
-from ui.dialogs.dict_value_editors import DictEditDialog, DictValueEditor
+from app.ui.dialogs.list_value_editors import ListEditDialog, ListValueEditor
+from app.ui.dialogs.dict_value_editors import DictEditDialog, DictValueEditor
 
 
 __all__ = [

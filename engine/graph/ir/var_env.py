@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from engine.graph.models import NodeModel
 
@@ -34,6 +34,10 @@ class VarEnv:
     branch_assigned_names: Set[str] = field(default_factory=set)
     used_after_branch_names: Set[str] = field(default_factory=set)
     branch_assign_usage_candidates: Set[str] = field(default_factory=set)
+    # 方法体内命名常量：变量名 → 常量值（允许 None/False/0 等）。
+    # 用途：当节点调用参数引用这些变量时，将其视为“输入常量”回填到 node.input_constants，
+    #       不再通过数据连线表达。
+    local_const_values: Dict[str, Any] = field(default_factory=dict)
 
     def set_variable(self, name: str, source_node_id: str, source_port_name: str) -> None:
         self.var_map[name] = (source_node_id, source_port_name)
@@ -48,6 +52,16 @@ class VarEnv:
 
     def get_variable(self, name: str) -> Optional[Tuple[str, str]]:
         return self.var_map.get(name)
+
+    def set_local_constant(self, name: str, value: Any) -> None:
+        if isinstance(name, str) and name:
+            self.local_const_values[name] = value
+
+    def has_local_constant(self, name: str) -> bool:
+        return isinstance(name, str) and name in self.local_const_values
+
+    def get_local_constant(self, name: str) -> Any:
+        return self.local_const_values.get(name)
 
     def add_predeclared_locals(self, names: Iterable[str]) -> None:
         """注册在解析前已声明的局部变量名称。"""

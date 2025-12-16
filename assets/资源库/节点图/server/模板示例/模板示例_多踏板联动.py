@@ -2,10 +2,10 @@
 graph_id: server_multi_pedal_link_example_01
 graph_name: 模板示例_多踏板联动
 graph_type: server
-description: 通过监听“示例_踏板开关状态变化”信号，将同一开关名字下的多个踏板激活状态聚合为一个总开关，可配置需要同时激活的踏板数量，实现任意数量的多踏板联动。
+description: 通过监听“通用踏板开关_状态变化”信号，将目标踏板集合（按 GUID 白名单过滤）的激活状态聚合为一个总开关；可配置需要同时激活的踏板数量，实现任意数量的多踏板联动。
 
 节点图变量：
-- 联动组名字: 字符串 = "默认" [对外暴露]
+- 踏板GUID列表_变量名: 字符串 = "关联踏板GUID列表" [对外暴露]
 - 需要激活数量: 整数 = 2 [对外暴露]
 - 消息目标GUID列表_变量名: 字符串 = "关联实体GUID列表" [对外暴露]
 - 消息触发变量名: 字符串 = "是否激活" [对外暴露]
@@ -31,10 +31,10 @@ from engine.graph.models.package_model import GraphVariableConfig
 
 GRAPH_VARIABLES: list[GraphVariableConfig] = [
     GraphVariableConfig(
-        name="联动组名字",
+        name="踏板GUID列表_变量名",
         variable_type="字符串",
-        default_value="默认",
-        description="对外暴露：用于与踏板上的“开关名字”对应的联动组名称，相同名字的踏板视为同一联动组。",
+        default_value="关联踏板GUID列表",
+        description="对外暴露：用于读取“目标踏板 GUID 列表”的自定义变量名（通常挂在本图所属实体上），只统计该列表内的踏板信号。",
         is_exposed=True,
     ),
     GraphVariableConfig(
@@ -79,45 +79,53 @@ class 模板示例_多踏板联动:
     """多踏板联动示例：任意数量的踏板共同控制一组大门。
 
     用法说明：
-    - 每个踏板使用 `模板示例_踏板开关_信号广播`，并在其“开关名字”图变量中填入相同的组名，例如"组A"；
-    - 本图挂载在一个“联动控制器”实体上，该实体通过自定义变量保存要控制的大门 GUID 列表；
-    - `联动组名字` 与踏板的“开关名字”一致，用于过滤只关心同一组的信号；
-    - `需要激活数量` 配置至少需要多少个踏板同时处于激活状态时才算“联动开启”；
-    - 当监听到 `示例_踏板开关状态变化` 信号时，根据 `是否激活` 对当前激活数量做 +1 / -1 统计，
-      并在达到或失去联动条件时，统一为目标实体写入布尔变量（例如大门的“是否激活”），实现多踏板联动。
+    - 每个踏板使用 `模板示例_踏板开关_信号广播`，踏板端仅广播 `是否激活`；
+    - 本图挂载在一个“联动控制器”实体上，该实体通过自定义变量保存：
+      - 目标踏板 GUID 列表（用于过滤只处理这些踏板的信号）；
+      - 要控制的大门 GUID 列表；
+    - 当监听到 `通用踏板开关_状态变化` 信号时，通过监听事件自带的 `信号来源实体` 获取发送方 GUID，
+      并仅在其属于“目标踏板 GUID 列表”时参与统计；然后根据 `是否激活` 对当前激活数量做 +1 / -1，
+      在达到或失去联动条件时，为目标实体写入布尔变量（例如大门的“是否激活”），实现多踏板联动。
     """
 
     def __init__(self, game, owner_entity):
         self.game = game
         self.owner_entity = owner_entity
 
-        from runtime.engine.node_graph_validator import validate_node_graph
+        from app.runtime.engine.node_graph_validator import validate_node_graph
 
         validate_node_graph(self.__class__)
 
     # ---------------------------- 事件：监听踏板状态信号 ----------------------------
-    def on_示例_踏板开关状态变化(
+    def on_通用踏板开关_状态变化(
         self,
         事件源实体,
         事件源GUID,
         信号来源实体,
-        是否激活,
-        开关名字,
+        是否激活: "布尔值",
     ):
-        """监听踏板广播的“是否激活”状态，并按联动组统计当前激活数量。"""
-        联动组名字_配置: "字符串" = 获取节点图变量(
+        """监听踏板广播的“是否激活”状态，并按“目标踏板 GUID 列表”过滤后统计当前激活数量。"""
+        踏板GUID列表_变量名: "字符串" = 获取节点图变量(
             self.game,
-            变量名="联动组名字",
+            变量名="踏板GUID列表_变量名",
         )
-        是否同组: "布尔值" = 是否相等(
+        目标踏板GUID列表: "GUID列表" = 获取自定义变量(
             self.game,
-            枚举1=开关名字,
-            枚举2=联动组名字_配置,
+            目标实体=获取自身实体(self.game),
+            变量名=踏板GUID列表_变量名,
         )
-        if 逻辑非运算(
+        来源GUID: "GUID" = 以实体查询GUID(
             self.game,
-            输入=是否同组,
-        ):
+            实体=信号来源实体,
+        )
+        是否目标踏板: "布尔值" = 列表是否包含该值(
+            self.game,
+            列表=目标踏板GUID列表,
+            值=来源GUID,
+        )
+        if 是否目标踏板:
+            pass
+        else:
             return
 
         当前激活数量: "整数" = 获取节点图变量(
@@ -125,11 +133,8 @@ class 模板示例_多踏板联动:
             变量名="当前激活数量",
         )
         更新后激活数量: "整数"
-        if 是否相等(
-            self.game,
-            枚举1=是否激活,
-            枚举2=True,
-        ):
+        是否激活_布尔: "布尔值" = 是否激活
+        if 是否激活_布尔:
             更新后激活数量 = 加法运算(
                 self.game,
                 左值=当前激活数量,
@@ -168,10 +173,9 @@ class 模板示例_多踏板联动:
             输入1=是否满足联动条件,
             输入2=之前是否已激活,
         )
-        if 逻辑非运算(
-            self.game,
-            输入=是否状态发生变化,
-        ):
+        if 是否状态发生变化:
+            pass
+        else:
             return
 
         # 记录新的联动总开关状态
@@ -211,14 +215,14 @@ class 模板示例_多踏板联动:
     def register_handlers(self):
         """注册监听踏板状态变化信号的事件处理器。"""
         self.game.register_event_handler(
-            "示例_踏板开关状态变化",
-            self.on_示例_踏板开关状态变化,
+            "通用踏板开关_状态变化",
+            self.on_通用踏板开关_状态变化,
             owner=self.owner_entity,
         )
 
 
 if __name__ == "__main__":
-    from runtime.engine.node_graph_validator import validate_file
+    from app.runtime.engine.node_graph_validator import validate_file
 
     自身文件路径 = pathlib.Path(__file__).resolve()
     是否通过, 错误列表, 警告列表 = validate_file(自身文件路径)
