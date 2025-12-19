@@ -101,20 +101,21 @@
 | 要求 | 说明 |
 | --- | --- |
 | **操作系统** | Windows 10/11（中文界面，推荐 4K 或 2K 分辨率） |
-| **Python** | 3.10+（推荐 3.10.x；仓库代码使用 3.10+ 语法） |
+| **Python** | 3.10 - 3.12（推荐 3.10.x；当前依赖锁不支持 Python 3.13） |
 | **终端** | PowerShell 7 |
 | **其他** | 确保安装 Visual C++ 运行库 |
 
 补充说明：
 - **CI 基线**：Python 3.10
 - **本地验证**：当前仓库已在 Python 3.12.3 下跑通 `pytest`
+- **重要**：`constraints.txt` 钉死的 `rapidocr-onnxruntime==1.4.4` 声明 `Requires-Python: <3.13`，因此 **Python 3.13 会在安装阶段直接失败**
 
 ### 最小可运行版本矩阵（锁定基线）
 
 | 维度 | 基线 |
 | --- | --- |
 | OS | Windows 10/11 |
-| Python | 3.10+（推荐 3.10.x） |
+| Python | 3.10 - 3.12（推荐 3.10.x） |
 | 关键依赖版本 | 见 `constraints.txt`（PyQt6 / onnxruntime / opencv / numpy 等已钉死） |
 
 ---
@@ -134,6 +135,11 @@
 ```powershell
 pip install -r requirements.txt -c constraints.txt
 ```
+
+如果你遇到类似下面的错误（`ResolutionImpossible` / `rapidocr-onnxruntime` 冲突）：
+
+- 先检查 `python --version`：**必须是 3.10 - 3.12**（Python 3.13 不支持 `rapidocr-onnxruntime==1.4.4`）
+- 确保你在正确的 venv 里安装（不要混用多个 Python 的 venv）
 
 安装开发/测试依赖：
 

@@ -6,6 +6,7 @@
 # 说明：
 # - 这里优先锁定“高风险原生依赖/大依赖”（PyQt6 / onnxruntime / opencv / numpy 等）
 # - 如果你需要升级版本，请同步更新 README 的“最小可运行版本矩阵”
+# - 本锁定基于 Python 3.10 - 3.12；Python 3.13 由于 rapidocr-onnxruntime 的 Requires-Python 限制而不可用
 PyQt6==6.7.1
 rapidocr-onnxruntime==1.4.4
 onnxruntime==1.20.1 ; platform_system == "Windows"

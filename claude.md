@@ -18,7 +18,7 @@
 ```bash
 python -X utf8 -m app.cli.run_app
 ```
-推荐环境：Windows 10/11 + Python 3.10+（项目使用 match/case、PEP 604 等 3.10+ 语法特性，推荐 3.10.x 作为基线）。
+推荐环境：Windows 10/11 + Python 3.10 - 3.12（项目使用 match/case、PEP 604 等 3.10+ 语法特性，推荐 3.10.x 作为基线；当前依赖锁不支持 Python 3.13）。
 说明：本仓库多数 CLI/校验脚本要求以模块方式运行（`python -m ...`）以确保 `__package__/__spec__` 正确；若直接运行 `.py` 文件提示“请使用模块方式运行”，按提示改用 `-m` 即可。
 
 ### VSCode 调试入口（运行当前文件 / F5）
