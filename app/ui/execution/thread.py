@@ -27,6 +27,7 @@ from engine.graph.models.graph_model import GraphModel
 from engine.configs.settings import settings
 from app.automation import capture as editor_capture
 from app.automation.vision import list_nodes
+from app.automation.vision.ocr_template_profile import build_ocr_template_profile_mismatch_hint
 
 
 class ExecutionThread(QtCore.QThread):
@@ -84,6 +85,8 @@ class ExecutionThread(QtCore.QThread):
         # - 同一执行步内的零节点守卫与跳过检查共享一次 recognize_visible_nodes 结果；
         # - 进入具体执行器步骤前不会在核心层复用，自动化内核仍按自身快照与缓存策略工作。
         self._step_visible_map_cache: Optional[Dict[str, Dict[str, Any]]] = None
+        # “模板 profile 与显示设置不匹配”提示：只在本轮执行首次失败时输出一次，避免刷屏
+        self._ocr_template_profile_hint_emitted: bool = False
 
         # 策略对象（依赖注入，便于测试替换）
         self.anchor_selector = AnchorSelector(graph_model)
@@ -270,6 +273,7 @@ class ExecutionThread(QtCore.QThread):
             # 零节点识别守卫：除首个创建步骤外，若当前画面检测不到任何节点则立即终止执行
             guard_ok, guard_reason = self._check_zero_nodes_guard(step_index, step_todo, step_info)
             if not guard_ok:
+                self._maybe_log_ocr_template_profile_hint()
                 summary_text = self.summary_builder.build_summary(step_info)
                 reason_txt = guard_reason or "当前页面未识别到任何节点"
                 self.monitor.log(f"✗ 步骤执行失败：{summary_text}｜原因：{reason_txt}")
@@ -299,6 +303,7 @@ class ExecutionThread(QtCore.QThread):
                 continue
 
             # 失败：先尝试按上限回退重试（不在重试过程中回填 step_completed，避免 UI/监控计数错乱）
+            self._maybe_log_ocr_template_profile_hint()
             reason_txt = last_issue if last_issue else "未提供原因（请查看上方详细日志）"
             max_retry = self._get_max_step_retry_limit()
             if max_retry > 0:
@@ -373,6 +378,19 @@ class ExecutionThread(QtCore.QThread):
             return int(value) if value is not None else 3
         except Exception:
             return 3
+
+    def _maybe_log_ocr_template_profile_hint(self) -> None:
+        """若 OCR 模板 profile 与当前显示设置不匹配，则在失败时给出一次性提示。"""
+        if bool(self._ocr_template_profile_hint_emitted):
+            return
+        selection = getattr(self.executor, "ocr_template_profile_selection", None)
+        if selection is None:
+            return
+        hint_text = build_ocr_template_profile_mismatch_hint(selection)
+        if not hint_text:
+            return
+        self._ocr_template_profile_hint_emitted = True
+        self.monitor.log(hint_text)
     
     def _execute_single_step(
         self,

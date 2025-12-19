@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
+import inspect
+import keyword
 import re
 
 from engine.graph.common import (
@@ -27,7 +29,7 @@ from engine.graph.models import GraphModel, NodeModel
 from engine.nodes.node_definition_loader import NodeDef
 from engine.nodes.node_registry import get_node_registry
 from engine.signal import SignalCodegenAdapter
-from engine.utils.name_utils import sanitize_class_name
+from engine.utils.name_utils import make_valid_identifier, sanitize_class_name
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +81,9 @@ class ExecutableCodeGenerator:
         self.options = options or ExecutableCodegenOptions()
         self.var_name_counter = VarNameCounter(0)
         self._signal_codegen = SignalCodegenAdapter()
+        self._current_graph_type: str = "server"
+        self._runtime_exports_by_scope: Dict[str, Dict[str, Callable[..., object]]] = {}
+        self._requires_game_cache: Dict[Tuple[str, str], bool] = {}
 
     def generate_code(self, graph_model: GraphModel, metadata: Optional[Dict[str, Any]] = None) -> str:
         """生成可运行的节点图类结构 Python 源码。"""
@@ -89,6 +94,7 @@ class ExecutableCodeGenerator:
         lines.extend(self._generate_executable_header(graph_model, metadata))
 
         graph_type = metadata.get("graph_type", "server")
+        self._current_graph_type = str(graph_type or "server")
         lines.extend(self._generate_executable_imports(graph_type))
 
         lines.append("")
@@ -169,6 +175,69 @@ class ExecutableCodeGenerator:
     def _sanitize_class_name(self, name: str) -> str:
         return sanitize_class_name(name)
 
+    def _get_node_def(self, node: NodeModel) -> Optional[NodeDef]:
+        """按 NodeModel 尝试在节点库中解析对应 NodeDef。
+
+        兼容带作用域后缀的键（如 `...#server/#client`）。
+        """
+        base_key = f"{node.category}/{node.title}"
+        direct = self.node_library.get(base_key)
+        if direct is not None:
+            return direct
+        for suffix in ("#server", "#client"):
+            scoped = self.node_library.get(f"{base_key}{suffix}")
+            if scoped is not None:
+                return scoped
+        return None
+
+    @staticmethod
+    def _is_safe_kwarg_name(name: str) -> bool:
+        """判断字符串能否作为 Python 关键字参数名（不引入 dict 字面量绕路）。"""
+        text = str(name or "").strip()
+        return bool(text) and text.isidentifier() and (not keyword.iskeyword(text))
+
+    def _ensure_graph_scope(self) -> str:
+        scope = str(getattr(self, "_current_graph_type", "") or "").strip().lower()
+        return scope if scope in {"server", "client"} else "server"
+
+    def _get_runtime_exports_for_scope(self) -> Dict[str, Callable[..., object]]:
+        """加载并缓存当前作用域下的运行时节点函数导出表。
+
+        说明：
+        - 该生成器需要输出“可运行”代码，因此必须知道节点函数是否接受 `game` 作为第一个参数；
+        - 统一委托 runtime 层的 V2 实现加载器（无 try/except，失败直接抛出）。
+        """
+        scope = self._ensure_graph_scope()
+        cached = self._runtime_exports_by_scope.get(scope)
+        if cached is not None:
+            return cached
+        from app.runtime.engine.node_impl_loader import load_node_exports_for_scope
+
+        exports = load_node_exports_for_scope(scope)
+        self._runtime_exports_by_scope[scope] = exports
+        return exports
+
+    def _call_requires_game(self, func_name: str) -> bool:
+        """判断节点函数调用是否需要传入 `self.game`。"""
+        scope = self._ensure_graph_scope()
+        key = (scope, str(func_name or ""))
+        if key in self._requires_game_cache:
+            return self._requires_game_cache[key]
+
+        exports = self._get_runtime_exports_for_scope()
+        target = exports.get(func_name)
+        if target is None:
+            raise ValueError(
+                f"无法生成可执行代码：运行时未找到节点函数 '{func_name}'（scope={scope}）。"
+                "请确认节点实现可被 V2 清单发现，且 prelude 已正确导出。"
+            )
+
+        sig = inspect.signature(target)
+        params = list(sig.parameters.values())
+        requires = bool(params) and (params[0].name == "game")
+        self._requires_game_cache[key] = requires
+        return requires
+
     def _generate_graph_class(self, graph_model: GraphModel) -> List[str]:
         options = self.options
         lines: List[str] = []
@@ -210,14 +279,17 @@ class ExecutableCodeGenerator:
         graph_model: GraphModel,
     ) -> List[str]:
         lines: List[str] = []
-        event_name = event_node.title
+        event_name = self._signal_codegen.get_event_name_for_node(graph_model, event_node.id) or event_node.title
+        handler_suffix = make_valid_identifier(event_name)
+        if not handler_suffix:
+            handler_suffix = "event"
 
         if self._signal_codegen.is_signal_listen_node(event_node):
-            lines.append(f"    def on_{event_name}(self, **event_kwargs):")
+            lines.append(f"    def on_{handler_suffix}(self, **event_kwargs):")
         else:
             param_names = get_event_param_names_from_node(event_node)
             signature_parts = ["self", *param_names]
-            lines.append(f"    def on_{event_name}({', '.join(signature_parts)}):")
+            lines.append(f"    def on_{handler_suffix}({', '.join(signature_parts)}):")
 
         lines.append(f'        """事件处理器：{event_name}"""')
 
@@ -251,7 +323,7 @@ class ExecutableCodeGenerator:
             if data_index < len(param_names):
                 normalized.append(param_names[data_index])
             else:
-                fallback = output_port.name.replace(":", "").strip()
+                fallback = make_valid_identifier(output_port.name)
                 normalized.append(fallback or f"event_param_{data_index}")
             data_index += 1
         return normalized
@@ -316,7 +388,13 @@ class ExecutableCodeGenerator:
         if self._signal_codegen.is_signal_send_node(node):
             return self._signal_codegen.generate_send_signal_call(node, graph_model, input_params)
 
-        func_name = node.title
+        # 节点调用名：统一使用 make_valid_identifier(节点显示名) 派生（运行时会导出同名别名）。
+        display_name = str(getattr(node, "title", "") or "")
+        func_name = make_valid_identifier(display_name)
+        if not func_name:
+            raise ValueError(f"无法为节点【{display_name}】生成可执行代码：无法派生合法的函数名")
+
+        include_game = self._call_requires_game(func_name)
         has_variadic_params = (
             any("~" in param_name for param_name in input_params.keys())
             or any(param_name.isdigit() for param_name in input_params.keys())
@@ -339,12 +417,57 @@ class ExecutableCodeGenerator:
             for param_name, param_value in normal_params.items():
                 if "~" in param_name:
                     continue
+                if not self._is_safe_kwarg_name(param_name):
+                    raise ValueError(
+                        f"无法为节点【{node.title}】生成可执行代码：变参节点存在不合法的关键字端口名 '{param_name}'。"
+                        "该生成器不允许用 dict 字面量绕过（节点图规则禁止 {} 字面量），请修改端口命名为合法标识符。"
+                    )
                 param_segments.append(f"{param_name}={param_value}")
         else:
-            for param_name, param_value in input_params.items():
-                param_segments.append(f"{param_name}={param_value}")
+            node_def = self._get_node_def(node)
+            dynamic_port_type_value = str(getattr(node_def, "dynamic_port_type", "") or "") if node_def else ""
 
-        call_expr = render_call_expression(func_name, "self.game", param_segments)
+            data_port_names_in_order = [
+                p.name for p in node.inputs if not is_flow_port(node, p.name, False)
+            ]
+
+            # 动态端口节点：静态端口使用位置参数（不依赖端口名可作为标识符），动态端口必须用关键字参数
+            if dynamic_port_type_value and node_def is not None:
+                static_port_order = [
+                    name
+                    for name in (getattr(node_def, "inputs", []) or [])
+                    if name not in ("流程入", "流程出") and ("~" not in name)
+                ]
+                static_set = set(static_port_order)
+                dynamic_ports_in_order = [
+                    name for name in data_port_names_in_order if name not in static_set
+                ]
+
+                for port_name in static_port_order:
+                    param_segments.append(input_params.get(port_name, '""'))
+
+                for port_name in dynamic_ports_in_order:
+                    if not self._is_safe_kwarg_name(port_name):
+                        raise ValueError(
+                            f"无法为节点【{node.title}】生成可执行代码：动态端口名 '{port_name}' 不是合法的关键字参数名。"
+                            "节点图规则禁止使用 {} 字面量，无法通过 **{...} 传参，请重命名该端口为合法标识符。"
+                        )
+                    param_segments.append(f"{port_name}={input_params.get(port_name, '\"\"')}")
+            else:
+                # 非动态节点：若端口名可作为关键字参数，则保留 keyword= 形式；否则回退为全位置参数，避免生成语法错误。
+                all_safe_as_kw = all(self._is_safe_kwarg_name(n) for n in data_port_names_in_order)
+                if all_safe_as_kw:
+                    for port_name in data_port_names_in_order:
+                        param_segments.append(f"{port_name}={input_params.get(port_name, '\"\"')}")
+                else:
+                    for port_name in data_port_names_in_order:
+                        param_segments.append(input_params.get(port_name, '""'))
+
+        if include_game:
+            call_expr = render_call_expression(func_name, "self.game", param_segments)
+        else:
+            args_str = ", ".join(param_segments)
+            call_expr = f"{func_name}({args_str})" if args_str else f"{func_name}()"
 
         lines: List[str] = []
         if node.outputs:
@@ -360,8 +483,7 @@ class ExecutableCodeGenerator:
                     counter=self.var_name_counter,
                 )
                 output_vars = finalize_output_var_names(raw_names, counter=self.var_name_counter)
-                node_def_key = f"{node.category}/{node.title}"
-                node_def = self.node_library.get(node_def_key)
+                node_def = self._get_node_def(node)
                 for port, var_name in zip(data_outputs, output_vars):
                     var_mapping[(node.id, port.name)] = var_name
                     declared_type = ""
@@ -500,9 +622,12 @@ class ExecutableCodeGenerator:
         for event_node_id in event_flows:
             event_node = graph_model.nodes[event_node_id]
             event_name = self._signal_codegen.get_event_name_for_node(graph_model, event_node_id)
+            handler_suffix = make_valid_identifier(event_name)
+            if not handler_suffix:
+                handler_suffix = "event"
             lines.append("        self.game.register_event_handler(")
             lines.append(f'            "{event_name}",')
-            lines.append(f"            self.on_{event_name},")
+            lines.append(f"            self.on_{handler_suffix},")
             lines.append("            owner=self.owner_entity")
             lines.append("        )")
 

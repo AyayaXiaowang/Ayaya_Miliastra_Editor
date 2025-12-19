@@ -113,6 +113,23 @@ def enforce_graph_roi_context():
         _CAPTURE_STATE.enforce_graph_roi = previous_state
 
 
+@contextmanager
+def disable_graph_roi_context():
+    """上下文管理器：确保进入时关闭强制 ROI，退出时恢复原状态（异常安全）。
+    
+    说明：
+    - 执行步骤时通常会启用强制 ROI（限制 OCR/模板匹配到节点图布置区域）；
+    - 但个别 UI（如右键候选弹窗）可能出现在节点图区域之外；
+    - 此上下文用于在局部临时关闭强制 ROI，避免裁剪导致漏检。
+    """
+    previous_state = _CAPTURE_STATE.enforce_graph_roi
+    _CAPTURE_STATE.enforce_graph_roi = False
+    try:
+        yield
+    finally:
+        _CAPTURE_STATE.enforce_graph_roi = previous_state
+
+
 def get_ocr_cache() -> _LruCache:
     """获取 OCR 缓存对象"""
     return _OCR_RESULT_CACHE

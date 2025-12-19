@@ -20,12 +20,19 @@ from PIL import Image
 from . import vision_backend as _vb
 from app.automation.capture import capture_client_image as _capture_client_image
 
+from .ui_profile_params import get_port_header_height_px as _get_port_header_height_px
+
 _NODE_GRID_SIZE = 256
 _DUPLICATE_IOU_THRESHOLD = 0.35
 _DUPLICATE_CONTAINMENT_RATIO = 0.85
 _DUPLICATE_CENTER_DISTANCE_PX = 28.0
 _DUPLICATE_AXIS_OVERLAP_RATIO = 0.65
 _last_node_filter_report: Optional[Dict[str, Any]] = None
+
+
+def get_port_recognition_header_height_px() -> int:
+    """返回当前环境下端口识别应跳过的节点标题栏高度（像素）。"""
+    return int(_get_port_header_height_px())
 
 
 def _round4(value: float) -> float:

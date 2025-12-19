@@ -77,6 +77,12 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         # 连接 UI 控件信号
         self._connect_ui_signals()
 
+        # 精简模式（默认关闭）：面板内容与主窗口布局同步收敛，便于低分辨率下只留“控制+日志”
+        self._compact_mode_enabled: bool = False
+        self._compact_saved_main_window_state: dict | None = None
+        self._compact_saved_log_splitter_sizes: list[int] | None = None
+        self._update_compact_mode_button_state()
+
         # Ctrl+P 快捷键：随时暂停
         self._ctrlp_shortcut = QtGui.QShortcut(QtGui.QKeySequence("Ctrl+P"), self)
         self._ctrlp_shortcut.activated.connect(self.request_pause)
@@ -85,8 +91,14 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         """从 UI 引用字典中提取控件为实例变量（便于访问）"""
         self.status_label = self._ui_refs["status_label"]
         self.progress_label = self._ui_refs["progress_label"]
+        self.compact_mode_button = self._ui_refs.get("compact_mode_button")
         self.step_context_label = self._ui_refs["step_context_label"]
         self.screenshot_label = self._ui_refs["screenshot_label"]
+        self.controls_widget = self._ui_refs.get("controls_widget")
+        self.tests_widget = self._ui_refs.get("tests_widget")
+        self.drag_widget = self._ui_refs.get("drag_widget")
+        self.filters_widget = self._ui_refs.get("filters_widget")
+        self.log_splitter = self._ui_refs.get("log_splitter")
         self.pause_button = self._ui_refs["pause_button"]
         self.resume_button = self._ui_refs["resume_button"]
         self.next_step_button = self._ui_refs["next_step_button"]
@@ -206,6 +218,169 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         # 执行事件过滤
         if self.event_errors_only_checkbox is not None:
             self.event_errors_only_checkbox.toggled.connect(self._on_event_errors_only_toggled)
+
+        # 精简模式（面板内开关）
+        compact_button = self._ui_refs.get("compact_mode_button")
+        if isinstance(compact_button, QtWidgets.QAbstractButton):
+            compact_button.toggled.connect(self._on_compact_mode_toggled)
+
+    # === 精简模式（UI 收敛 + 主窗口小窗化）========================================
+
+    @property
+    def compact_mode_enabled(self) -> bool:
+        return bool(getattr(self, "_compact_mode_enabled", False))
+
+    def set_compact_mode(self, enabled: bool) -> None:
+        target_enabled = bool(enabled)
+        if target_enabled == self.compact_mode_enabled:
+            self._update_compact_mode_button_state()
+            return
+        self._compact_mode_enabled = target_enabled
+        self._apply_compact_panel_ui(target_enabled)
+        self._apply_compact_main_window_layout(target_enabled)
+        self._update_compact_mode_button_state()
+
+    def _on_compact_mode_toggled(self, checked: bool) -> None:
+        self.set_compact_mode(bool(checked))
+
+    def _update_compact_mode_button_state(self) -> None:
+        button = self._ui_refs.get("compact_mode_button")
+        if not isinstance(button, QtWidgets.QAbstractButton):
+            return
+        desired_checked = self.compact_mode_enabled
+        if button.isChecked() != desired_checked:
+            button.blockSignals(True)
+            button.setChecked(desired_checked)
+            button.blockSignals(False)
+        if desired_checked:
+            button.setText("完整")
+            button.setToolTip("退出精简模式：恢复完整面板与布局")
+        else:
+            button.setText("精简")
+            button.setToolTip("进入精简模式：缩小窗口，只保留执行控制 / 步骤 / 日志")
+
+    def _apply_compact_panel_ui(self, enabled: bool) -> None:
+        """精简模式：隐藏非核心控件，仅保留执行控制/步骤上下文/日志。"""
+        layout = self._ui_refs.get("layout")
+        if isinstance(layout, QtWidgets.QVBoxLayout):
+            if enabled:
+                layout.setContentsMargins(6, 6, 6, 6)
+                layout.setSpacing(6)
+            else:
+                layout.setContentsMargins(8, 8, 8, 8)
+                layout.setSpacing(8)
+
+        # 核心 UI：状态/进度/步骤/控制按钮/日志
+        self.screenshot_label.setVisible(not enabled)
+        self.inspect_button.setVisible(not enabled)
+        self.match_focus_button.setVisible(not enabled)
+
+        tests_widget = self._ui_refs.get("tests_widget")
+        if isinstance(tests_widget, QtWidgets.QWidget):
+            tests_widget.setVisible(not enabled)
+        drag_widget = self._ui_refs.get("drag_widget")
+        if isinstance(drag_widget, QtWidgets.QWidget):
+            drag_widget.setVisible(not enabled)
+        filters_widget = self._ui_refs.get("filters_widget")
+        if isinstance(filters_widget, QtWidgets.QWidget):
+            filters_widget.setVisible(not enabled)
+
+        if isinstance(self.events_table, QtWidgets.QWidget):
+            self.events_table.setVisible(not enabled)
+
+        splitter = self._ui_refs.get("log_splitter")
+        if isinstance(splitter, QtWidgets.QSplitter):
+            if enabled:
+                if self._compact_saved_log_splitter_sizes is None:
+                    self._compact_saved_log_splitter_sizes = splitter.sizes()
+                splitter.setSizes([0, 1])
+            else:
+                if isinstance(self._compact_saved_log_splitter_sizes, list):
+                    splitter.setSizes(self._compact_saved_log_splitter_sizes)
+                self._compact_saved_log_splitter_sizes = None
+
+    def _apply_compact_main_window_layout(self, enabled: bool) -> None:
+        """精简模式：联动主窗口，把主要空间让给外部编辑器窗口。"""
+        main_window = self.window()
+        main_splitter = getattr(main_window, "main_splitter", None)
+        if not isinstance(main_splitter, QtWidgets.QSplitter):
+            return
+
+        nav_bar = getattr(main_window, "nav_bar", None)
+        central_stack = getattr(main_window, "central_stack", None)
+        right_panel_container = getattr(main_window, "right_panel_container", None)
+
+        if enabled:
+            if self._compact_saved_main_window_state is None:
+                self._compact_saved_main_window_state = {
+                    "was_maximized": bool(getattr(main_window, "isMaximized", lambda: False)()),
+                    "was_fullscreen": bool(getattr(main_window, "isFullScreen", lambda: False)()),
+                    "geometry": main_window.geometry(),
+                    "main_splitter_sizes": main_splitter.sizes(),
+                    "nav_bar_visible": bool(getattr(nav_bar, "isVisible", lambda: True)()),
+                    "central_stack_visible": bool(getattr(central_stack, "isVisible", lambda: True)()),
+                    "right_panel_min_width": int(getattr(right_panel_container, "minimumWidth", lambda: 0)()),
+                    "right_panel_max_width": int(getattr(right_panel_container, "maximumWidth", lambda: 0)()),
+                }
+
+            if getattr(main_window, "isMaximized", lambda: False)() or getattr(
+                main_window, "isFullScreen", lambda: False
+            )():
+                main_window.showNormal()
+
+            if isinstance(nav_bar, QtWidgets.QWidget):
+                nav_bar.setVisible(False)
+            if isinstance(central_stack, QtWidgets.QWidget):
+                central_stack.setVisible(False)
+            if isinstance(right_panel_container, QtWidgets.QWidget):
+                right_panel_container.setVisible(True)
+                # 右侧容器默认 min=350；精简模式下允许更窄，以便窗口缩小
+                right_panel_container.setMinimumWidth(360)
+                right_panel_container.setMaximumWidth(900)
+
+            # 让右侧占满，并缩小主窗口尺寸（用户仍可手动调整）
+            main_splitter.setSizes([0, 1])
+            target_width = 540
+            target_height = 620
+            screen = getattr(main_window, "screen", lambda: None)()
+            available = getattr(screen, "availableGeometry", lambda: None)() if screen is not None else None
+            if isinstance(available, QtCore.QRect):
+                if target_width > available.width():
+                    target_width = available.width()
+                if target_height > available.height():
+                    target_height = available.height()
+            main_window.resize(int(target_width), int(target_height))
+            return
+
+        # disabled: restore
+        saved = self._compact_saved_main_window_state
+        if not isinstance(saved, dict):
+            return
+
+        main_window.showNormal()
+
+        if isinstance(nav_bar, QtWidgets.QWidget):
+            nav_bar.setVisible(bool(saved.get("nav_bar_visible", True)))
+        if isinstance(central_stack, QtWidgets.QWidget):
+            central_stack.setVisible(bool(saved.get("central_stack_visible", True)))
+        if isinstance(right_panel_container, QtWidgets.QWidget):
+            right_panel_container.setMinimumWidth(int(saved.get("right_panel_min_width", 350)))
+            right_panel_container.setMaximumWidth(int(saved.get("right_panel_max_width", 1200)))
+
+        splitter_sizes = saved.get("main_splitter_sizes")
+        if isinstance(splitter_sizes, list) and len(splitter_sizes) >= 2:
+            main_splitter.setSizes(splitter_sizes)
+
+        geometry = saved.get("geometry")
+        if isinstance(geometry, QtCore.QRect):
+            main_window.setGeometry(geometry)
+
+        if bool(saved.get("was_fullscreen", False)):
+            main_window.showFullScreen()
+        elif bool(saved.get("was_maximized", False)):
+            main_window.showMaximized()
+
+        self._compact_saved_main_window_state = None
 
     def _get_graph_model(self):
         """统一的图模型获取：优先当前注入，再回退回调"""

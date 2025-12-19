@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -11,7 +12,15 @@ if not __package__:
         "（不再支持通过脚本内 sys.path.insert 的方式运行）"
     )
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
+def _resolve_workspace_root() -> Path:
+    # 源码运行（python -m）：以仓库根目录作为工作区
+    # PyInstaller 冻结运行（exe）：以 exe 所在目录作为工作区（要求 assets/ 与 exe 同级外置）
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[2]
+
+
+WORKSPACE_ROOT = _resolve_workspace_root()
 
 from engine.utils.logging.console_sanitizer import install_ascii_safe_print
 
@@ -39,6 +48,7 @@ SAFETY_NOTICE = (
 
 def main() -> None:
     workspace = WORKSPACE_ROOT
+    os.chdir(workspace)
     # 在应用创建前尽早加载用户设置，确保主题模式等开关在启动阶段生效
     settings.set_config_path(workspace)
     settings.load()

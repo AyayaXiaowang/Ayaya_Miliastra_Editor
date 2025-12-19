@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import keyword
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Set
@@ -38,14 +39,21 @@ def _required_input_ports_by_func(workspace_path: Path, scope: str) -> Dict[str,
     registry = get_node_registry(workspace_path, include_composite=False)
     library = registry.get_library()
     mapping: Dict[str, List[str]] = {}
-    for _, node_def in (library.items() if isinstance(library, dict) else []):
+    for full_key, node_def in (library.items() if isinstance(library, dict) else []):
         if bool(getattr(node_def, "is_composite", False)):
             continue
         if not bool(getattr(node_def, "is_available_in_scope", lambda _scope: True)(scope_text)):
             continue
-        func_name = getattr(node_def, "name", "") or ""
-        if not isinstance(func_name, str) or func_name == "":
+
+        # 节点在 Graph Code 中的“可调用名”以节点库 key 的名称部分为准：`类别/名称` → `名称`。
+        # 这样可以覆盖 V2 管线注入的别名（例如 make_valid_identifier 派生的可调用别名）。
+        if not isinstance(full_key, str) or "/" not in full_key:
             continue
+        _, func_name = full_key.split("/", 1)
+        func_name = str(func_name or "").strip()
+        if (not func_name) or ("#" in func_name) or (not func_name.isidentifier()) or keyword.iskeyword(func_name):
+            continue
+
         inputs = list(getattr(node_def, "inputs", []) or [])
         required_ports: List[str] = []
         for port_name in inputs:
@@ -87,6 +95,8 @@ class RequiredInputsRule(ValidationRule):
 
         issues: List[EngineIssue] = []
 
+        from engine.graph.ir.arg_normalizer import is_reserved_argument
+
         for _, method in iter_class_methods(tree):
             for node in ast.walk(method):
                 if not isinstance(node, ast.Call):
@@ -108,11 +118,11 @@ class RequiredInputsRule(ValidationRule):
                     if isinstance(arg, str) and arg:
                         provided_ports.add(arg)
 
-                # 2) 位置参数：跳过第一个 self.game，将其余按“必填端口声明顺序”映射
+                # 2) 位置参数：过滤 self/game/owner_entity 等保留参数，将其余按“必填端口声明顺序”映射
                 pos_args = list(getattr(node, "args", []) or [])
-                provided_data_args = max(0, len(pos_args) - 1)
-                if provided_data_args > 0:
-                    for i in range(min(provided_data_args, len(required_ports))):
+                data_args = [arg for arg in pos_args if not is_reserved_argument(arg)]
+                if data_args:
+                    for i in range(min(len(data_args), len(required_ports))):
                         provided_ports.add(required_ports[i])
 
                 missing = [p for p in required_ports if p not in provided_ports]

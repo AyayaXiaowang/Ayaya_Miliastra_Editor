@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from PIL import Image
 from app.automation import capture as editor_capture
 from app.automation import AutomationFacade
+from app.automation.vision import get_port_recognition_header_height_px
 from app.automation.vision import list_nodes as _vision_list_nodes
 from app.automation.vision import list_ports as _vision_list_ports
 from app.automation.vision import invalidate_cache as _vision_invalidate
@@ -438,6 +439,16 @@ class RecognitionActions:
         for nd in nodes:
             bx, by, bw, bh = nd.bbox
             rects.append({'bbox': (int(bx), int(by), int(bw), int(bh)), 'color': (140, 160, 255), 'label': str(getattr(nd, 'name_cn','') or '')})
+            header_height_px = int(get_port_recognition_header_height_px())
+            excluded_height_px = min(int(bh), header_height_px)
+            if excluded_height_px > 0:
+                rects.append(
+                    {
+                        "bbox": (int(bx), int(by), int(bw), int(excluded_height_px)),
+                        "color": (255, 0, 0),
+                        "label": f"端口排除区({int(excluded_height_px)}px)",
+                    }
+                )
             ports = _vision_list_ports(screenshot, (int(bx), int(by), int(bw), int(bh)))
             for p in ports:
                 px, py, pw, ph = p.bbox
@@ -504,6 +515,20 @@ class RecognitionActions:
                     "label": node_label,
                 }
             )
+            excluded_height_px = min(int(node_bbox_h), int(get_port_recognition_header_height_px()))
+            if excluded_height_px > 0:
+                rects.append(
+                    {
+                        "bbox": (
+                            int(node_bbox_x),
+                            int(node_bbox_y),
+                            int(node_bbox_w),
+                            int(excluded_height_px),
+                        ),
+                        "color": (255, 0, 0),
+                        "label": f"端口排除区({int(excluded_height_px)}px)",
+                    }
+                )
 
             rect_canvas = {
                 "x": int(node_bbox_x) - int(region_x),
@@ -516,7 +541,7 @@ class RecognitionActions:
                 canvas_image,
                 rect_canvas,
                 template_dir,
-                header_height=28,
+                header_height=int(get_port_recognition_header_height_px()),
                 threshold=0.7,
             )
 

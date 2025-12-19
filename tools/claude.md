@@ -15,6 +15,9 @@
     - 占位符同步：支持 `python -X utf8 -m tools.build_ui_pages --sync-placeholders <ui_page_id>`，将原始 HTML 中的占位符同步到对应的 UI 文本绑定 JSON 中（未绑定项可先留空，后续在管理配置界面补齐）。
   - `validate/validate_graph_cache_integrity.py`：校验 graph_cache JSON 的结构一致性（节点 / 边 / 端口名称对应关系），在项目根目录执行 `python -X utf8 -m tools.validate.validate_graph_cache_integrity`，可按单文件或目录进行定向检查。
 
+- 打包与分发：
+  - `packaging/build_windows_exe.ps1`：Windows 便携版打包脚本（PyInstaller onedir）。产物写入 `release/`，并将 `assets/` 作为外置目录复制到 exe 同级。
+
 - 运行期管理与诊断：
   - `clear_caches.py`：运行期缓存清理和重建入口（`python -X utf8 -m tools.clear_caches`）；支持 `--clear` 以及 `--rebuild-index/--rebuild-graph-caches` 的真实重建；提供 `--root <workspace>` 便于在临时目录/CI 中做无副作用验证。
   - `check_runtime_data_dirs_not_packages.py`：静态检查运行期数据目录（如 `app/runtime/cache`）中是否误放了 `*.py`（尤其 `__init__.py`），用于防止“数据目录被做成可导入包/模块”的结构回归。

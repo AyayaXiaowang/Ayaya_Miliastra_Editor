@@ -285,7 +285,9 @@ def set_dict_port_type_with_settings(
     ctx: AutomationStepContext,
 ) -> bool:
     """通过 Settings / Dictionary 图标为“字典”端口分别设置键/值类型。"""
-    templates_root = executor.workspace_path / "assets" / "ocr_templates" / "4K-CN"
+    template_profile_value = getattr(executor, "ocr_template_profile", None)
+    template_profile = str(template_profile_value or "4K-CN")
+    templates_root = executor.workspace_path / "assets" / "ocr_templates" / template_profile
     node_templates_root = templates_root / "Node"
     dict_icon_path = node_templates_root / "Dictionary.png"
 

@@ -9,7 +9,7 @@
 
 ### panel.py（~379 行，胶水层）
 ExecutionMonitorPanel 本体，仅负责组装与委托：
-- UI 组装：通过 `panel_app.ui.build_monitor_ui(self)` 构建所有控件
+- UI 组装：通过 `panel_ui.build_monitor_ui(self)` 构建所有控件
 - 委托初始化：构造时创建 `RecognitionActions`、`FocusController`、`LogViewController`、`VisualRenderer`、`ScreenshotCaptureManager`、`ExecutionControl`
 - 信号转发：接收外部调用（start_monitoring/stop_monitoring/log/update_visual），通过信号线程安全更新 UI
 - 按钮绑定：通过 `_connect_ui_signals()` 统一连接控件信号到委托方法（控制按钮由 `ExecutionControl` 内部处理）
@@ -17,6 +17,7 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - 可视化渲染：委托给 `VisualRenderer.render_visual()`
 - 属性访问：`is_running` / `is_paused` / `step_mode_enabled` 委托到 `ExecutionControl` 的同名属性（通过 @property）
 - 外部 API 保持不变：start_monitoring/stop_monitoring/log/update_status/update_progress/wait_if_paused/is_execution_allowed/is_step_mode_enabled
+- 精简模式：面板顶部“精简/完整”开关可隐藏截图/测试/拖拽/筛选/事件表，并联动主窗口收起导航与中央区，便于低分辨率下只保留“控制+日志”
 
 ### visual_overlays.py（~190 行）
 纯绘制函数，负责在 QPixmap 上叠加可视化元素（节点框/端口圆/OCR区域等）：
@@ -59,8 +60,8 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
   - `test_warning()`：Warning.png 模板匹配
   - `test_ocr_zoom()`：识别节点图缩放区域（期望 50% 等百分比文本）
   - `test_nodes()`：节点识别（叠加矩形与中文标题；若 `list_nodes` 去重抑制了节点，会以红框标注原始矩形，标签包含“被抑制”提示、触发抑制的目标框、IoU/包含率/中心距等具体指标）
-  - `test_ports()`：端口识别（为每个检测到的节点列出最终端口结果，按 kind/side/index 标注并叠加显示置信度百分比）
-  - `test_ports_deep()`：深度端口识别（基于一步式识别模板匹配结果，展示置信度≥70%的模板命中；包括在 NMS 与同行去重阶段被抑制的候选，在标签文本中追加“因NMS重叠被排除 / 因同行去重被排除”等原因说明，并对因 NMS 重叠被抑制的候选在同一模板、同一目标框分组内仅展示置信度最高的一条，同时在标签中显示与其发生重叠的保留命中及 IoU 折算后的重叠率）
+  - `test_ports()`：端口识别（为每个检测到的节点列出最终端口结果，按 kind/side/index 标注并叠加显示置信度百分比；同时用红框标注端口识别跳过的节点顶部区域，排除高度来自 `app.automation.vision.get_port_recognition_header_height_px()`）。
+  - `test_ports_deep()`：深度端口识别（基于一步式识别模板匹配结果，展示置信度≥70%的模板命中；包括在 NMS 与同行去重阶段被抑制的候选，在标签文本中追加“因NMS重叠被排除 / 因同行去重被排除”等原因说明，并对因 NMS 重叠被抑制的候选在同一模板、同一目标框分组内仅展示置信度最高的一条，同时在标签中显示与其发生重叠的保留命中及 IoU 折算后的重叠率）；端口标题栏排除高度与运行时保持一致（使用 `app.automation.vision.get_port_recognition_header_height_px()`），并在画面上用红框标注被排除区域。
   - `test_settings_tpl()`：Settings.png 模板匹配
   - `test_add_templates()`：Add.png / Add_Multi.png 模板匹配
   - `test_searchbar_templates()`：search.png / search2.png 模板匹配
@@ -123,10 +124,11 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - 锚点生成（`_tokens_to_anchor_html`）：将分段 tokens 转为可点击的 `<a href='todo:...'>`
 - 信号自动连接：`search_input.textChanged` → `_on_search_text_changed`；`filter_combo.currentIndexChanged` → `_on_filter_changed`
 
-### panel_app.ui.py（~280 行）
+### panel_ui.py（~280 行）
 面板 UI 组装与样式，提供一次性构建函数：
 - `build_monitor_ui(parent)`：构建执行监控面板的所有 UI 控件，返回控件引用字典
   - 返回字典包含所有控件：status_label、progress_label、step_context_label、screenshot_label、各按钮、log_text 等
+  - 精简模式开关：`compact_mode_button`（QPushButton，checkable），由面板本体连接并驱动 UI 收敛与主窗口小窗化
   - 布局：VBoxLayout 包含状态行、步骤上下文、截图、控制按钮行（暂停/继续/下一步/单步/终止/检查/定位镜头）、测试按钮行×3（识别类 / 模板类 / 截图类）、“拖拽测试”区（第一行显示当前中心与目标坐标输入，第二行放置“拖拽到坐标/向左拖拽/向右拖拽”按钮）、日志筛选行、日志文本
   - 初始按钮状态：暂停/继续/下一步/终止默认禁用，单步复选框启用
 - `_apply_compact_controls_style(parent)`：应用紧凑化控件样式（按钮 font-size:11px、padding:2px 8px；复选框 font-size:11px）

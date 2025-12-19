@@ -20,10 +20,53 @@ from app.automation.ports.port_picker import (
     pick_port_center_for_node,
 )
 from app.automation.ports.port_type_inference import safe_get_port_type_from_node_def
-from app.automation.vision import list_nodes, list_ports as list_ports_for_bbox, invalidate_cache
+from app.automation.vision import (
+    get_port_recognition_header_height_px,
+    invalidate_cache,
+    list_nodes,
+    list_ports as list_ports_for_bbox,
+)
 from engine.graph.models.graph_model import NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
 from engine.graph.common import is_selection_input_port
+
+
+def _build_port_recognition_excluded_header_rects(
+    *,
+    src_bbox: BBox,
+    dst_bbox: BBox,
+) -> List[dict]:
+    """构建端口识别的“顶部排除区域”红框，用于在执行监控中直观看到被跳过的区域。"""
+
+    def _build_single(node_bbox: BBox, label: str) -> Optional[dict]:
+        bbox_x, bbox_y, bbox_w, bbox_h = (
+            int(node_bbox[0]),
+            int(node_bbox[1]),
+            int(node_bbox[2]),
+            int(node_bbox[3]),
+        )
+        if bbox_w <= 0 or bbox_h <= 0:
+            return None
+        header_height_px = int(get_port_recognition_header_height_px())
+        if header_height_px <= 0:
+            return None
+        excluded_height = min(header_height_px, bbox_h)
+        if excluded_height <= 0:
+            return None
+        return {
+            "bbox": (bbox_x, bbox_y, bbox_w, int(excluded_height)),
+            "color": (255, 0, 0),
+            "label": f"端口排除区-{label}",
+        }
+
+    rects: List[dict] = []
+    src_rect = _build_single(src_bbox, "源")
+    if src_rect is not None:
+        rects.append(src_rect)
+    dst_rect = _build_single(dst_bbox, "目标")
+    if dst_rect is not None:
+        rects.append(dst_rect)
+    return rects
 
 
 def _is_within_position_threshold(
@@ -712,7 +755,10 @@ class PortMatchingService:
                 dst_candidates_total=len(dst_ports_all),
             )
             if self.visual_callback is not None:
-                rects_ports = []
+                rects_ports = _build_port_recognition_excluded_header_rects(
+                    src_bbox=src_snapshot.node_bbox,
+                    dst_bbox=dst_snapshot.node_bbox,
+                )
                 for p in src_ports_all:
                     bx, by, bw, bh = int(p.bbox[0]), int(p.bbox[1]), int(p.bbox[2]), int(p.bbox[3])
                     rects_ports.append({"bbox": (bx, by, bw, bh), "color": (80, 160, 255), "label": f"源:{str(getattr(p,'name_cn','') or '')}"})
@@ -777,7 +823,15 @@ class PortMatchingService:
                     "label": f"选目标#{str(dst_ord_actual) if dst_ord_actual is not None else '?'}",
                 },
             ]
-            self.executor.emit_visual(screenshot, {"circles": circles}, self.visual_callback)
+            excluded_header_rects = _build_port_recognition_excluded_header_rects(
+                src_bbox=src_snapshot.node_bbox,
+                dst_bbox=dst_snapshot.node_bbox,
+            )
+            self.executor.emit_visual(
+                screenshot,
+                {"circles": circles, "rects": excluded_header_rects},
+                self.visual_callback,
+            )
 
         if chosen_src is not None and src_selection_kind in ("flow", "data"):
             actual_src_kind = normalize_kind_text(getattr(chosen_src, "kind", ""))

@@ -11,6 +11,6 @@ from engine.utils.logging.logger import log_info
     description="在运行时动态添加一个匀速旋转型基础运动器",
     doc_reference="服务器节点/执行节点/执行节点.md"
 )
-def 添加匀速旋转型基础运动器(game, 目标实体, 运动器名称, 运动器时长, 角速度_角度_秒):
+def 添加匀速旋转型基础运动器(game, 目标实体, 运动器名称, 运动器时长, 角速度_角度_秒, 旋转轴朝向):
     """在运行时动态添加一个匀速旋转型基础运动器"""
     log_info(f"[添加匀速旋转型基础运动器] 执行")

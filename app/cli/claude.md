@@ -12,7 +12,7 @@ CLI 与批处理入口（解析参数→调用 `engine` / `plugins` → 输出�
 - 解析/校验等能力优先使用 `engine` 公共 API（`from engine import ...`）；运行时绑定的源码生成器位于 `app.codegen`，CLI 在需要“导出可运行代码”时可从 `app.codegen` 导入。
 - 所有 CLI 入口脚本均位于本目录；根目录不再提供同名 Python 薄包装脚本，但允许提供 OS 级便捷启动入口（如 `run_app.bat` / `run_app.ps1`），其内部仍必须使用 `python -m ...`
 - CLI 工作流主要围绕“AI/脚本写 Graph Code → 引擎解析/校验/排版 → 自动化脚本在真实编辑器中搭图”设计，仅做静态建模与生成，不在本地执行节点实际业务逻辑。
-- `run_app.py` 作为 UI 启动入口，负责预热 OCR 引擎、在创建 `QApplication` 之前加载并应用用户设置（含界面主题模式与日志详细程度），统一在启动阶段通过 `settings.NODE_IMPL_LOG_VERBOSE` 打开信息级日志以确保控制台可见关键进度，然后创建主窗口；安全声明弹窗统一通过 `ui.foundation.dialog_utils` 的封装接口弹出，包含“我已知晓/不再提醒”两种选择，并将“不再提醒”状态写回 `settings.SAFETY_NOTICE_SUPPRESSED`。
+- `run_app.py` 作为 UI 启动入口，负责预热 OCR 引擎、在创建 `QApplication` 之前加载并应用用户设置（含界面主题模式与日志详细程度），统一在启动阶段通过 `settings.NODE_IMPL_LOG_VERBOSE` 打开信息级日志以确保控制台可见关键进度，然后创建主窗口；安全声明弹窗统一通过 `ui.foundation.dialog_utils` 的封装接口弹出，包含“我已知晓/不再提醒”两种选择，并将“不再提醒”状态写回 `settings.SAFETY_NOTICE_SUPPRESSED`；同时兼容 PyInstaller 冻结运行：默认以 **exe 所在目录** 作为工作区，并在启动阶段 `chdir` 到该目录（要求外置 `assets/` 与 exe 同级）。
 
 # 注意事项
 - PowerShell 环境下逐行执行命令，不使用 `&&`。

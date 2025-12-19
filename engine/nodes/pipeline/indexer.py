@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Dict, Any, Optional
 
+from engine.utils.name_utils import make_valid_identifier
+
 
 def build_index(library_by_key: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -70,6 +72,21 @@ def build_index(library_by_key: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
                 _put_alias(alias_to_key, f"{category_standard}/{name_text}#{scope_suffix}", str(node_key))
             elif not is_scoped:
                 _put_alias(alias_to_key, f"{category_standard}/{name_text}", str(node_key))
+
+                # 兼容：若节点名包含 '/'，同时注入“去掉斜杠”的可调用别名（历史约定）。
+                # 例如："设置背包掉落道具/货币数量" -> "设置背包掉落道具货币数量"
+                slash_removed = name_text.replace("/", "")
+                if slash_removed and slash_removed != name_text:
+                    _put_alias(alias_to_key, f"{category_standard}/{slash_removed}", str(node_key))
+
+                # 统一“可调用名”别名：将节点显示名称转换为合法的 Python 标识符。
+                # 说明：
+                # - Graph Code 中节点以函数调用形式出现，必须是合法标识符；
+                # - 节点显示名可能包含 '/'、'：'、括号等字符；此处为其注入稳定别名；
+                # - 仅对不带 '#scope' 的基键注入，遵循“unscoped alias 不得指向 scoped 变体”的约定。
+                callable_alias = make_valid_identifier(name_text)
+                if callable_alias and callable_alias != name_text:
+                    _put_alias(alias_to_key, f"{category_standard}/{callable_alias}", str(node_key))
 
         for alias_text in list(node_item.get("aliases") or []):
             alias_str = str(alias_text or "")

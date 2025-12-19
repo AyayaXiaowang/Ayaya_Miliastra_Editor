@@ -10,6 +10,7 @@
   - IR 层不再写入 `GraphModel.metadata["signal_bindings"/"struct_bindings"]`；这些字段统一由 `engine.graph.semantic.GraphSemanticPass` 覆盖式生成（幂等、可复现）。
   - IR 层只负责把“选择端口常量/动态字段端口”建模到 NodeModel（`input_constants` + `ports`），作为 Pass 的推导输入。
 - 复合节点虚拟引脚构建以**类格式**为前提（pin_marker + 方法签名推断），不再支持旧函数式复合节点“按顶层函数签名提取引脚”的路径，避免解析口径分裂。
+- 事件处理方法参数名推导会对事件节点输出端口名做 `make_valid_identifier` 规范化并保证唯一，避免端口名包含 `：`/括号等导致生成代码出现非法标识符。
 
 ## 注意事项
 - 端口/参数归一化必须通过 `arg_normalizer.normalize_call_arguments`，避免端口名分叉。

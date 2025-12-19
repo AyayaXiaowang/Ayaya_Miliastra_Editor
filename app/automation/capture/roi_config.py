@@ -102,6 +102,12 @@ def get_region_rect(screenshot: Image.Image, region_name: str) -> Tuple[int, int
 
         target_w = int(size_px[0])
         target_h = int(size_px[1])
+        if str(region_name) == "节点图缩放区域":
+            # 缩放区域像素大小受分辨率/Windows 缩放影响，统一走 profile 参数解析
+            from app.automation.vision.ui_profile_params import get_zoom_region_size_px
+            zoom_w, zoom_h = get_zoom_region_size_px()
+            target_w = int(zoom_w)
+            target_h = int(zoom_h)
         if target_w <= 0 or target_h <= 0:
             return (0, 0, 0, 0)
 
@@ -185,3 +191,23 @@ def clip_to_graph_region(
     clipped_height = max(0, int(clip_bottom - clip_top))
     return (int(clip_left), int(clip_top), int(clipped_width), int(clipped_height))
 
+
+def clip_to_image_bounds(
+    screenshot: Image.Image,
+    rect: Tuple[int, int, int, int],
+) -> Tuple[int, int, int, int]:
+    """将给定矩形裁剪到截图边界内，返回裁剪后的矩形 (x, y, w, h)。
+    
+    说明：
+    - 用于处理弹窗/浮层等可能出现在节点图区域之外的 UI；
+    - 仅做窗口边界裁剪，不依赖任何 ROI 策略开关。
+    """
+    input_left, input_top, input_width, input_height = int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3])
+    img_width, img_height = screenshot.size
+    clip_left = max(0, int(input_left))
+    clip_top = max(0, int(input_top))
+    clip_right = min(int(input_left + input_width), int(img_width))
+    clip_bottom = min(int(input_top + input_height), int(img_height))
+    clipped_width = max(0, int(clip_right - clip_left))
+    clipped_height = max(0, int(clip_bottom - clip_top))
+    return (int(clip_left), int(clip_top), int(clipped_width), int(clipped_height))

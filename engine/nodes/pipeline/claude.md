@@ -14,6 +14,7 @@ V2 节点解析管线的分层实现与对外检索封装。包含：
 - 查找能力既可通过 `lookup` 函数使用，也可通过 `NodeLibrary` 封装使用。
 - V1 回退路径已移除（以 V2 为唯一实现）。
 - 已引入轻量类型化数据结构（`types.py`）：`ExtractedSpec`/`NormalizedSpec`，便于单测与类型提示（向下兼容 dict 结构）。
+- indexer 会为节点显示名自动注入“可调用别名”（如 `name.replace("/", "")` 与 `make_valid_identifier(name)`），用于支持 Graph Code/导出代码在遇到 `/`、`：`、括号等字符时仍能以合法 Python 标识符形式调用节点。
 - 复合节点子管线（`composite_runner.py`：discovery/parse/validate/expand/augment）已直接使用 `CompositeCodeParser` 解析复合节点文件（payload / 类格式）并构建 `NodeDef`，不再委托 `CompositeNodeManager`；管理器仅用于编辑/运行期的库管理与懒加载。解析器会注入 `workspace_path` 并在解析期派生布局上下文，避免在节点库构建中反向触发 `NodeRegistry`。旧函数式复合节点格式不再支持。
 - 复合节点文件发现规则由 `engine.nodes.composite_file_policy` 统一维护：仅解析 `assets/资源库/复合节点库/**/composite_*.py`，避免不同入口看到的复合集合不一致。
 - 目录内不再保留 `composite_validator.py` 这类容易被误用的旧占位入口，复合节点校验以 `composite_validate.py` 为唯一通路。

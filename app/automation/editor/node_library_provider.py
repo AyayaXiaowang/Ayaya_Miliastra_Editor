@@ -50,6 +50,11 @@ def get_workspace_root(workspace_path: Path | str | None = None) -> Path:
     return _resolve_workspace(workspace_path)
 
 
+def get_default_workspace_root_or_none() -> Optional[Path]:
+    """返回当前注册的默认 workspace（若未设置则返回 None）。"""
+    return _DEFAULT_WORKSPACE
+
+
 def get_node_library(
     workspace_path: Path | str | None = None,
     *,

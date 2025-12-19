@@ -9,6 +9,10 @@
 - 节点图导出与复合节点导出的“可执行/可运行”代码生成器已迁入本目录；`engine` 不再包含运行时绑定的生成逻辑。
 - 生成代码默认采用 `runtime.engine.graph_prelude_*`/资源库 `_prelude.py` 的导入策略：上层可通过参数选择导入模式、选择 server/client 预设以及是否启用 `@validate_node_graph`（校验入口默认指向 `engine.validate.node_graph_validator`）。
 - 为避免 `ui.*` 与 `app.ui.*` 双导入，节点图/复合节点生成代码在 workspace_bootstrap 策略下只注入 `PROJECT_ROOT` 与 `ASSETS_ROOT` 到 `sys.path`，不注入 `<repo>/app`。
+- 可执行节点图代码生成在遇到“端口名无法作为 Python 关键字参数名”的情况（例如包含括号、斜杠等）时，会对**非变参节点**自动回退为**位置参数**生成，避免产生语法错误并保持通过节点图校验规则（禁止 `{}` 字面量绕路）。
+- 节点调用名统一以 `make_valid_identifier(节点显示名)` 派生（运行时会导出同名别名），从而支持节点显示名包含 `/`、`：`、括号等字符时仍可在 Graph Code 中作为合法函数调用出现。
+- 是否传入 `self.game` 由运行时节点函数签名决定：仅当首参为 `game` 时才传入，避免纯查询类节点因多传参数导致运行时报错。
+- 事件处理方法名同样使用 `make_valid_identifier` 派生，并在“监听信号”场景下以绑定的 `signal_id` 作为事件名与方法后缀，保证 `register_handlers` 与 `on_<事件>` 方法名一致。
 - 复合节点源码落盘统一生成**类格式（@composite_class）+ JSON payload**：文件内以 `COMPOSITE_PAYLOAD_JSON`（多行字符串）承载 `CompositeNodeConfig.serialize()`，避免触发复合节点校验规则中的“禁止 list/dict 字面量”，并确保 UI 可视化编辑后可闭环落盘与再次解析/校验。
 
 ## 注意事项

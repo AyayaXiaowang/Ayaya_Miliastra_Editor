@@ -34,6 +34,8 @@ class VariadicMinArgsRule(ValidationRule):
         rules = variadic_min_args(ctx.workspace_path, scope)
         issues: List[EngineIssue] = []
 
+        from engine.graph.ir.arg_normalizer import is_reserved_argument
+
         for _, method in iter_class_methods(tree):
             for node in ast.walk(method):
                 if not isinstance(node, ast.Call):
@@ -45,8 +47,9 @@ class VariadicMinArgsRule(ValidationRule):
                 if fname not in rules:
                     continue
                 required = int(rules[fname])
-                total_pos_args = len(getattr(node, "args", []) or [])
-                provided_data_args = max(0, total_pos_args - 1)  # 跳过 self.game
+                pos_args = list(getattr(node, "args", []) or [])
+                data_args = [arg for arg in pos_args if not is_reserved_argument(arg)]
+                provided_data_args = len(data_args)
                 if provided_data_args < required:
                     if required == 1:
                         msg = (

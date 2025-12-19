@@ -38,6 +38,7 @@ python -X utf8 -m app.cli.run_app
 ## 验证与工具
 - 功能包校验：`python -X utf8 -m tools.validate.validate_package`
 - 节点图/复合图校验：`python -X utf8 -m tools.validate.validate_graphs --all`（或传入单个/通配符路径仅校验指定图）
+- Windows 便携版打包（exe，`assets/` 外置）：`powershell -ExecutionPolicy Bypass -File tools/packaging/build_windows_exe.ps1`（本地私有脚本，默认不进仓库；产物写入 `release/`）
 - 缓存清理：`python -X utf8 -m tools.clear_caches --clear [--rebuild-index] [--rebuild-graph-caches]`
 - 校验入口规范：校验相关脚本只保留在 `tools/validate/`，避免出现重复入口与转发层噪音。
 - 后台输入/OCR/执行桥：统一入口 `app.automation.*`，不再提供 `core.automation` 兼容层。

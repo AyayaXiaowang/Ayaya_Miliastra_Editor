@@ -30,6 +30,10 @@ from app.automation.vision import (
     list_nodes,
     list_ports,
 )
+from app.automation.vision.ocr_template_profile import (
+    resolve_ocr_template_profile_selection,
+    set_default_ocr_template_profile,
+)
 from app.automation.ports.port_picker import pick_port_center_for_node
 from app.automation.editor.view_alignment import run_pan_loop, PanEvaluation
 from app.automation.editor.view_mapping import (
@@ -88,7 +92,12 @@ class RealExecutor:
 
         # 模板路径（基于工程根目录推导）：供需要使用固定 OCR 模板的功能复用
         root_dir = Path(__file__).resolve().parents[3]
-        templates_root = root_dir / "assets" / "ocr_templates" / "4K-CN"
+        selection = resolve_ocr_template_profile_selection(root_dir)
+        self.ocr_template_profile = selection.selected_profile_name
+        self.ocr_template_profile_selection = selection
+        set_default_ocr_template_profile(root_dir, self.ocr_template_profile)
+
+        templates_root = root_dir / "assets" / "ocr_templates" / self.ocr_template_profile
         self.dict_key_template_path = templates_root / "jian.png"
         self.dict_value_template_path = templates_root / "zhi.png"
 

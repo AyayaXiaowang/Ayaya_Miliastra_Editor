@@ -4,10 +4,10 @@
 # 当前状态
 ## 模块划分
 - **dpi_awareness.py** - DPI 感知：进程级 DPI 感知设置（Windows Per-Monitor DPI）
-- **roi_config.py** - 区域配置：统一定义所有识别区域（ROI - Region of Interest），支持基于比例的常规区域和基于锚点的派生区域；`clip_to_graph_region` 允许复用已计算的节点图矩形，避免重复获取。
+- **roi_config.py** - 区域配置：统一定义所有识别区域（ROI - Region of Interest），支持基于比例的常规区域和基于锚点的派生区域；`clip_to_graph_region` / `clip_to_image_bounds` 提供基础裁剪能力；其中 `"节点图缩放区域"` 的派生尺寸会通过 `app.automation.vision.ui_profile_params` 依据 OCR 模板 profile 自动调整，避免不同分辨率/缩放下固定像素失真。
 - **roi_constraints.py** - 节点图 ROI 约束：统一封装“强制节点图区域”的裁剪/日志逻辑，供模板匹配与 OCR 共享，内部直接复用 `clip_to_graph_region` 计算交集。
 - **cache.py** - 缓存机制：提供 OCR 和模板匹配的 LRU 缓存，基于内容哈希避免重复计算
-  - 提供 `enforce_graph_roi_context()` 上下文管理器，确保异常安全的 ROI 状态管理
+  - 提供 `enforce_graph_roi_context()` / `disable_graph_roi_context()` 上下文管理器，在“强制节点图 ROI”与“临时关闭强制 ROI”之间安全切换
   - 封装全局状态（`_CaptureState`），提供 `reset_capture_state()` 用于测试隔离
 - **screen_capture.py** - 截图功能：窗口/客户区/全屏截图，支持多显示器（all_screens），并提供基于 PrintWindow 的实验性“仅窗口截图”接口；客户区截图复用 `input.win_input.get_client_rect` 统一坐标换算，对外提供 `capture_screen_region` 以绝对坐标直接截取屏幕子区域，避免“全屏抓取再裁剪”的额外成本；所有 `ImageGrab` / PrintWindow 调用前自动执行 `ensure_dpi_awareness_once()`，保证缩放环境下仍以物理像素工作。
 - **ocr.py** - OCR 识别：使用 RapidOCR 引擎并结合缓存机制，支持区域限制和结果缓存，并通过 `clip_to_graph_region` 统一节点图裁剪；识别结束后会在 overlays 中附带 `reference_panel` 元数据，供 UI 预览 OCR 文本。RapidOCR/ONNXRuntime 采用惰性加载策略，仅在首次实际调用 OCR 能力时导入，未使用 OCR 时不会额外绑定本地推理环境。

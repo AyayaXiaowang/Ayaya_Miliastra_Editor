@@ -204,6 +204,32 @@ python run_app_debug.py
 
 ---
 
+## Windows 打包（exe，assets 外置）
+
+本项目提供 Windows 便携版打包脚本（不要求用户安装 Python），但 **`assets/` 不会被打进 exe**，会以“外置目录”的形式与 exe 同级分发（保证资源库可随时替换/增量更新）。
+
+在项目根目录执行（PowerShell）：
+
+```powershell
+# 先安装依赖（在干净 venv 里执行）
+pip install -r requirements.txt -c constraints.txt
+
+# 再安装 PyInstaller（已包含在 requirements-dev.txt 中）
+pip install -r requirements-dev.txt -c constraints.txt
+
+# 生成 Windows 便携版目录 + zip
+.\tools\packaging\build_windows_exe.ps1
+```
+
+输出：
+- 目录：`release/Graph_Generater_windows_portable/Graph_Generater/`
+- exe：`release/Graph_Generater_windows_portable/Graph_Generater/Graph_Generater.exe`
+- 外置资源：`release/Graph_Generater_windows_portable/Graph_Generater/assets/`
+
+运行：双击 `Graph_Generater.exe`（要求 `assets/` 与 exe 同级存在）。
+
+---
+
 ## 常见问题（FAQ）
 
 ### 如何告诉 AI 画什么节点？

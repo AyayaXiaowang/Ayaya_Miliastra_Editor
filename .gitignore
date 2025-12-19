@@ -56,6 +56,9 @@ runtime/name_sync_state.json
 docs/
 projects/
 
+# 本地私有打包脚本目录（不进仓库）
+tools/packaging/
+
 # ---------- 资源库上传策略 ----------
 # 默认忽略整个资源库内容
 assets/资源库/**

@@ -22,12 +22,14 @@ from app.automation.input.common import (
     DEFAULT_VERIFY_MAX_ATTEMPTS,
     DEFAULT_WAIT_INTERVAL_SECONDS,
     DEFAULT_WAIT_POLL_INTERVAL_SECONDS,
-    OCR_EXCLUDE_TOP_PIXELS_DEFAULT,
     sleep_seconds,
+)
+from app.automation.vision.ui_profile_params import (
+    get_candidate_popup_size_px,
+    get_ocr_exclude_top_pixels_default,
 )
 from app.automation.vision.ocr_utils import fingerprint_region, get_bbox_center
 
-CANDIDATE_SEARCH_MARGIN_TOP = 160
 NODE_LIST_CONTEXT_LINGER_SECONDS = 0.5
 
 
@@ -107,28 +109,25 @@ class CandidatePopupToolkit:
         screenshot: Image.Image,
         label: str,
     ) -> Optional[CandidatePopupDetection]:
-        region_rect_full = editor_capture.get_region_rect(screenshot, "节点图布置区域")
-        rx, ry, rw, rh = region_rect_full
-        if CANDIDATE_SEARCH_MARGIN_TOP > 0:
-            expanded_top = max(0, int(ry) - int(CANDIDATE_SEARCH_MARGIN_TOP))
-            expanded_height = int(ry + rh - expanded_top)
-            search_region = (int(rx), int(expanded_top), int(rw), int(expanded_height))
-        else:
-            search_region = region_rect_full
+        # 说明：候选列表/右键弹窗可能出现在节点图布置区域之外（但仍在窗口内）。
+        # 执行步骤时通常启用了“强制节点图 ROI”，此处必须临时关闭强制 ROI，
+        # 否则会导致模板匹配与 OCR 被裁剪，从而在边缘场景漏检。
+        img_width, img_height = screenshot.size
+        search_region = (0, 0, int(img_width), int(img_height))
         self.logger.log(
             "模板",
-            f"{label}：限制在节点图区域进行搜索",
-            region=region_rect_full,
+            f"{label}：在全窗口范围搜索候选列表模板",
             search_region=search_region,
         )
-        match = editor_capture.match_template(
-            screenshot,
-            str(self.template_path),
-            search_region=search_region,
-        )
-        if not match:
-            self.logger.log("模板", f"{label}：候选列表模板未命中，跳过该帧 OCR")
-            return None
+        with editor_capture.disable_graph_roi_context():
+            match = editor_capture.match_template(
+                screenshot,
+                str(self.template_path),
+                search_region=None,
+            )
+            if not match:
+                self.logger.log("模板", f"{label}：候选列表模板全窗口未命中，跳过该帧 OCR")
+                return None
         list_x, list_y, list_w, list_h, match_score = match
         self.logger.log(
             "OCR-模板",
@@ -137,12 +136,13 @@ class CandidatePopupToolkit:
             size=(int(list_w), int(list_h)),
             score=float(match_score) if isinstance(match_score, (int, float)) else match_score,
         )
-        popup_rect_raw = (int(list_x), int(list_y), 500, 650)
-        popup_rect = editor_capture.clip_to_graph_region(screenshot, popup_rect_raw)
+        popup_width_px, popup_height_px = get_candidate_popup_size_px()
+        popup_rect_raw = (int(list_x), int(list_y), int(popup_width_px), int(popup_height_px))
+        popup_rect = editor_capture.clip_to_image_bounds(screenshot, popup_rect_raw)
         return CandidatePopupDetection(
             popup_rect=popup_rect,
             popup_rect_raw=popup_rect_raw,
-            region_rect=region_rect_full,
+            region_rect=search_region,
             match=match,
         )
 
@@ -159,7 +159,7 @@ class CandidatePopupToolkit:
         region_rect_full = detection.region_rect
         exclude_pixels = exclude_top_pixels if exclude_top_pixels is not None else self.exclude_top_pixels
         if exclude_pixels is None:
-            exclude_pixels = OCR_EXCLUDE_TOP_PIXELS_DEFAULT
+            exclude_pixels = int(get_ocr_exclude_top_pixels_default())
         self.logger.log(
             "OCR",
             f"{label}：在候选列表区域执行 OCR",
@@ -168,12 +168,13 @@ class CandidatePopupToolkit:
             region=region_rect_full,
             exclude_top=int(exclude_pixels),
         )
-        return editor_capture.ocr_recognize_region(
-            screenshot,
-            popup_rect,
-            return_details=True,
-            exclude_top_pixels=exclude_pixels,
-        )
+        with editor_capture.disable_graph_roi_context():
+            return editor_capture.ocr_recognize_region(
+                screenshot,
+                popup_rect,
+                return_details=True,
+                exclude_top_pixels=exclude_pixels,
+            )
 
     def extract_position(
         self,

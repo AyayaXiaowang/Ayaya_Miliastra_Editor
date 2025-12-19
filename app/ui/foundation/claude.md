@@ -31,5 +31,6 @@
 - 通用工具函数应职责单一、参数命名清晰，避免隐式依赖全局状态；修改主题或基础样式时，应考虑对全局 UI 的影响，优先通过集中常量与函数控制。
 - 申请新 ID 或构建对话框样式时，优先调用现有工具（如 `generate_prefixed_id()`、`ThemeManager.dialog_surface_style()`），并在需要新的跨页面说明文字时统一写入 `info_snippets.py`。
 - 需要标准输入/确认弹窗时，优先从 `app.ui.foundation` 顶层导入：`BaseDialog` / `FormDialog` / `show_*_dialog` / `ask_*_dialog` / `prompt_text` / `prompt_item` / `prompt_int` 等入口，而不是在业务模块中直接 new `QDialog` 或调用 `QInputDialog.get*`；`tools/check_no_direct_qdialog.py` 用于静态检查基础封装层之外的新代码中是否直接使用 `QDialog`。
+- `global_hotkey_manager.py` 使用 ctypes 调用 WinAPI（`RegisterHotKey/UnregisterHotKey`）时必须显式声明 `argtypes/restype`（尤其是 `HWND` 在 64 位进程下为指针类型），否则会把窗口句柄当成 32 位 int 导致溢出或参数截断。
 
  

@@ -70,12 +70,27 @@ class GlobalHotkeyManager(QtCore.QObject):
         
         # Windows API 函数
         self.user32 = ctypes.windll.user32
+        # ctypes 默认会把参数按 32 位 int 处理；在 64 位进程中 hwnd 会溢出，
+        # 必须显式声明 argtypes/restype。
+        self.user32.RegisterHotKey.argtypes = [
+            wintypes.HWND,  # hWnd
+            wintypes.INT,   # id
+            wintypes.UINT,  # fsModifiers
+            wintypes.UINT,  # vk
+        ]
+        self.user32.RegisterHotKey.restype = wintypes.BOOL
+        self.user32.UnregisterHotKey.argtypes = [
+            wintypes.HWND,  # hWnd
+            wintypes.INT,   # id
+        ]
+        self.user32.UnregisterHotKey.restype = wintypes.BOOL
         
         # 隐藏窗口用于接收消息
         self._hidden_widget: Optional[HotkeyWidget] = None
         
         # 热键注册状态
         self._hotkeys_registered = False
+        self._registered_hotkey_ids: set[int] = set()
     
     def _on_hotkey_pressed(self, hotkey_id: int) -> None:
         """处理热键按下事件"""
@@ -101,31 +116,38 @@ class GlobalHotkeyManager(QtCore.QObject):
             self._hidden_widget.hotkey_pressed.connect(self._on_hotkey_pressed)
         
         # 获取窗口句柄
-        hwnd = int(self._hidden_widget.winId())
+        hwnd = wintypes.HWND(int(self._hidden_widget.winId()))
+        self._registered_hotkey_ids.clear()
         
         # 注册 Ctrl+[
-        success1 = self.user32.RegisterHotKey(
+        success1 = bool(self.user32.RegisterHotKey(
             hwnd,
             HOTKEY_PREV,
             MOD_CONTROL,
             VK_OEM_4
-        )
+        ))
+        if success1:
+            self._registered_hotkey_ids.add(int(HOTKEY_PREV))
         
         # 注册 Ctrl+]
-        success2 = self.user32.RegisterHotKey(
+        success2 = bool(self.user32.RegisterHotKey(
             hwnd,
             HOTKEY_NEXT,
             MOD_CONTROL,
             VK_OEM_6
-        )
+        ))
+        if success2:
+            self._registered_hotkey_ids.add(int(HOTKEY_NEXT))
         
         # 注册 Ctrl+P（全局暂停）
-        success3 = self.user32.RegisterHotKey(
+        success3 = bool(self.user32.RegisterHotKey(
             hwnd,
             HOTKEY_CTRL_P,
             MOD_CONTROL,
             VK_P
-        )
+        ))
+        if success3:
+            self._registered_hotkey_ids.add(int(HOTKEY_CTRL_P))
         
         if success1 and success2 and success3:
             self._hotkeys_registered = True
@@ -134,19 +156,27 @@ class GlobalHotkeyManager(QtCore.QObject):
         else:
             # 部分注册失败，清理已注册的热键
             print(f"[全局热键] 注册失败: Ctrl+[ = {success1}, Ctrl+] = {success2}, Ctrl+P = {success3}")
-            self.unregister_hotkeys()
+            for hotkey_id in list(self._registered_hotkey_ids):
+                self.user32.UnregisterHotKey(hwnd, int(hotkey_id))
+            self._registered_hotkey_ids.clear()
+            self._hotkeys_registered = False
             return False
     
     def unregister_hotkeys(self) -> None:
         """注销全局热键"""
-        if not self._hotkeys_registered:
+        if (not self._hotkeys_registered) and (len(self._registered_hotkey_ids) == 0):
             return
         
         if self._hidden_widget:
-            hwnd = int(self._hidden_widget.winId())
-            self.user32.UnregisterHotKey(hwnd, HOTKEY_PREV)
-            self.user32.UnregisterHotKey(hwnd, HOTKEY_NEXT)
-            self.user32.UnregisterHotKey(hwnd, HOTKEY_CTRL_P)
+            hwnd = wintypes.HWND(int(self._hidden_widget.winId()))
+            if self._registered_hotkey_ids:
+                for hotkey_id in list(self._registered_hotkey_ids):
+                    self.user32.UnregisterHotKey(hwnd, int(hotkey_id))
+                self._registered_hotkey_ids.clear()
+            else:
+                self.user32.UnregisterHotKey(hwnd, int(HOTKEY_PREV))
+                self.user32.UnregisterHotKey(hwnd, int(HOTKEY_NEXT))
+                self.user32.UnregisterHotKey(hwnd, int(HOTKEY_CTRL_P))
         
         self._hotkeys_registered = False
         print(f"[全局热键] 注销成功")

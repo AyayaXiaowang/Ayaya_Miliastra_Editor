@@ -6,9 +6,20 @@ editor_capture 模块的子包
 
 # 从各子模块导出公共接口
 from .dpi_awareness import ensure_dpi_awareness_once, set_dpi_awareness
-from .roi_config import REGIONS_CONFIG, get_region_rect, get_region_center, clip_to_graph_region
+from .roi_config import (
+    REGIONS_CONFIG,
+    get_region_rect,
+    get_region_center,
+    clip_to_graph_region,
+    clip_to_image_bounds,
+)
 from .roi_constraints import resolve_search_region, clip_region_with_graph
-from .cache import set_enforce_graph_roi, reset_capture_state, enforce_graph_roi_context
+from .cache import (
+    set_enforce_graph_roi,
+    reset_capture_state,
+    enforce_graph_roi_context,
+    disable_graph_roi_context,
+)
 from .screen_capture import (
     capture_client_image,
     capture_window,
@@ -44,12 +55,14 @@ __all__ = [
     'get_region_rect',
     'get_region_center',
     'clip_to_graph_region',
+    'clip_to_image_bounds',
     'resolve_search_region',
     'clip_region_with_graph',
     # 缓存控制
     'set_enforce_graph_roi',
     'reset_capture_state',
     'enforce_graph_roi_context',
+    'disable_graph_roi_context',
     # 截图
     'capture_client_image',
     'capture_window',

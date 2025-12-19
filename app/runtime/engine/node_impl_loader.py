@@ -22,6 +22,7 @@ import zlib
 
 from engine.nodes.pipeline.discovery import discover_implementation_files
 from engine.nodes.pipeline.extractor_ast import extract_specs
+from engine.utils.name_utils import make_valid_identifier
 
 
 _CACHED_MODULES_BY_FILE: Dict[Path, ModuleType] = {}
@@ -114,6 +115,32 @@ def load_node_exports_for_scope(scope: str) -> Dict[str, Callable[..., object]]:
         if function_name in exports and exports[function_name] is not impl:
             raise ValueError(f"节点实现函数名冲突：{function_name}（file={spec.file_path}）")
         exports[function_name] = impl
+
+        # 统一“可调用名”别名：根据 @node_spec(name=...) 的显示名称推导稳定的 Python 标识符。
+        # 说明：
+        # - Graph Code 与导出的可执行代码都要求节点以函数调用形式出现（必须是合法标识符）；
+        # - 节点显示名可能包含 '/'、'：'、括号等字符；此处为其注入稳定别名，保持“显示名/实现函数名”解耦。
+        display_name = str(getattr(spec, "name", "") or "").strip()
+        if display_name:
+            callable_alias = make_valid_identifier(display_name)
+            if callable_alias and callable_alias not in exports:
+                exports[callable_alias] = impl
+            elif callable_alias and exports.get(callable_alias) is not impl:
+                raise ValueError(
+                    f"节点可调用别名冲突：{callable_alias}（name={display_name}，file={spec.file_path}）"
+                )
+
+            # 兼容历史约定：若显示名包含 '/'，同时提供“去掉斜杠”的别名。
+            # 例如："设置背包掉落道具/货币数量" -> "设置背包掉落道具货币数量"
+            slash_removed = display_name.replace("/", "").strip()
+            if slash_removed:
+                slash_removed_alias = make_valid_identifier(slash_removed)
+                if slash_removed_alias and slash_removed_alias not in exports:
+                    exports[slash_removed_alias] = impl
+                elif slash_removed_alias and exports.get(slash_removed_alias) is not impl:
+                    raise ValueError(
+                        f"节点可调用别名冲突：{slash_removed_alias}（name={display_name}，file={spec.file_path}）"
+                    )
 
     _CACHED_EXPORTS_BY_SCOPE[scope_text] = exports
     return exports

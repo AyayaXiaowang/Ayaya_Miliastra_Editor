@@ -13,6 +13,7 @@
 - `graph_prelude_server.py` / `graph_prelude_server.pyi`：Server 侧节点图前导脚本（最小化导入，`.pyi` 为类型桩，向编辑器透出节点函数与占位类型，消除“函数名标黄”）
   - 透出 `engine.graph.composite.pin_api` 提供的 `流程入/流程出/数据入/数据出` 等辅助函数，供复合节点自动引脚声明使用。
 - `graph_prelude_client.py`：Client 侧节点图前导脚本（最小化导入，与 server 版保持等价导出，包括 `pin_api` 与 `validate_node_graph`）
+- `node_impl_loader.py`：运行时节点实现加载器（V2 唯一入口），按作用域加载节点实现并导出；同时为节点显示名自动注入“可调用别名”（`name.replace("/", "")` 与 `make_valid_identifier(name)`），确保 Graph Code/导出代码可稳定调用包含特殊字符的节点。
 
 ## 注意事项
 - 本目录仅包含可执行代码，不存放缓存数据

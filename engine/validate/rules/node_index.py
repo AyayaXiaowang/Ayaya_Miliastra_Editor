@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
+import keyword
 
 from engine.nodes.node_registry import get_node_registry
 from engine.nodes.constants import ALLOWED_SCOPES
@@ -18,6 +19,39 @@ def _expand_aliases(names: Set[str]) -> Set[str]:
     return alias
 
 
+def _is_safe_call_name(name: str) -> bool:
+    text = str(name or "").strip()
+    return bool(text) and text.isidentifier() and (not keyword.iskeyword(text))
+
+
+def _iter_callable_nodes(
+    lib: Dict[str, object],
+    *,
+    scope_text: str,
+) -> List[Tuple[str, object]]:
+    """从节点库中抽取“可在 Graph Code 中以函数调用出现”的节点名列表。
+
+    约定：
+    - callable 名称取自节点库 key 的 “名称部分”（`类别/名称` → `名称`），因为 Graph Code 调用无法携带类别前缀；
+    - 跳过带 `#scope` 的变体键（Graph Code 无法以合法标识符写出 `xxx#client`）。
+    """
+    result: List[Tuple[str, object]] = []
+    for full_key, node_def in (lib.items() if isinstance(lib, dict) else []):
+        if not isinstance(full_key, str) or "/" not in full_key:
+            continue
+        if not hasattr(node_def, "is_available_in_scope"):
+            continue
+        if not bool(getattr(node_def, "is_available_in_scope")(scope_text)):
+            continue
+        _, name_part = full_key.split("/", 1)
+        if "#" in name_part:
+            continue
+        if not _is_safe_call_name(name_part):
+            continue
+        result.append((name_part, node_def))
+    return result
+
+
 @lru_cache(maxsize=8)
 def node_function_names(workspace: Path, scope: str) -> Set[str]:
     """返回指定作用域下可用的节点函数名集合（含复合节点）。"""
@@ -27,10 +61,10 @@ def node_function_names(workspace: Path, scope: str) -> Set[str]:
 
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
-    base_names: Set[str] = {
-        nd.name for _, nd in lib.items() if nd.is_available_in_scope(scope_text)
-    }
-    return _expand_aliases(base_names)
+    names: Set[str] = set()
+    for call_name, _ in _iter_callable_nodes(lib, scope_text=scope_text):
+        names.add(call_name)
+    return names
 
 
 @lru_cache(maxsize=8)
@@ -43,14 +77,12 @@ def boolean_node_names(workspace: Path, scope: str) -> Set[str]:
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     names: Set[str] = set()
-    for _, node_def in lib.items():
-        if not node_def.is_available_in_scope(scope_text):
-            continue
+    for call_name, node_def in _iter_callable_nodes(lib, scope_text=scope_text):
         for _, port_type in (getattr(node_def, "output_types", {}) or {}).items():
             if isinstance(port_type, str) and ("布尔" in port_type):
-                names.add(node_def.name)
+                names.add(call_name)
                 break
-    return _expand_aliases(names)
+    return names
 
 
 @lru_cache(maxsize=8)
@@ -63,9 +95,7 @@ def flow_node_names(workspace: Path, scope: str) -> Set[str]:
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     names: Set[str] = set()
-    for _, node_def in lib.items():
-        if not node_def.is_available_in_scope(scope_text):
-            continue
+    for call_name, node_def in _iter_callable_nodes(lib, scope_text=scope_text):
         input_types = getattr(node_def, "input_types", {}) or {}
         output_types = getattr(node_def, "output_types", {}) or {}
         has_flow = (
@@ -75,8 +105,8 @@ def flow_node_names(workspace: Path, scope: str) -> Set[str]:
             or ("流程出" in (getattr(node_def, "outputs", []) or []))
         )
         if has_flow:
-            names.add(node_def.name)
-    return _expand_aliases(names)
+            names.add(call_name)
+    return names
 
 
 @lru_cache(maxsize=8)
@@ -89,13 +119,11 @@ def data_query_node_names(workspace: Path, scope: str) -> Set[str]:
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     names: Set[str] = set()
-    for _, node_def in lib.items():
-        if not node_def.is_available_in_scope(scope_text):
-            continue
+    for call_name, node_def in _iter_callable_nodes(lib, scope_text=scope_text):
         category = getattr(node_def, "category", "") or ""
         if isinstance(category, str) and (("查询" in category) or ("运算" in category)):
-            names.add(node_def.name)
-    return _expand_aliases(names)
+            names.add(call_name)
+    return names
 
 
 @lru_cache(maxsize=8)
@@ -132,16 +160,14 @@ def variadic_min_args(workspace: Path, scope: str) -> Dict[str, int]:
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     rules: Dict[str, int] = {}
-    for _, node_def in lib.items():
-        if not node_def.is_available_in_scope(scope_text):
-            continue
+    for call_name, node_def in _iter_callable_nodes(lib, scope_text=scope_text):
         inputs: List[str] = list(getattr(node_def, "inputs", []) or [])
         if not inputs:
             continue
         variadic_inputs: List[str] = [str(inp) for inp in inputs if "~" in str(inp)]
         if not variadic_inputs:
             continue
-        rules[node_def.name] = 1 if len(variadic_inputs) == 1 else 2
+        rules[call_name] = 1 if len(variadic_inputs) == 1 else 2
     return rules
 
 
@@ -154,10 +180,8 @@ def input_types_by_func(workspace: Path, scope: str) -> Dict[str, Dict[str, str]
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     result: Dict[str, Dict[str, str]] = {}
-    for _, nd in lib.items():
-        if not nd.is_available_in_scope(scope_text):
-            continue
-        result[nd.name] = dict(nd.input_types)
+    for call_name, nd in _iter_callable_nodes(lib, scope_text=scope_text):
+        result[call_name] = dict(getattr(nd, "input_types", {}) or {})
     return result
 
 
@@ -170,12 +194,10 @@ def input_generic_constraints_by_func(workspace: Path, scope: str) -> Dict[str, 
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     result: Dict[str, Dict[str, List[str]]] = {}
-    for _, nd in lib.items():
-        if not nd.is_available_in_scope(scope_text):
-            continue
+    for call_name, nd in _iter_callable_nodes(lib, scope_text=scope_text):
         constraints = getattr(nd, "input_generic_constraints", {}) or {}
         if constraints:
-            result[nd.name] = {port: list(allowed or []) for port, allowed in constraints.items()}
+            result[call_name] = {port: list(allowed or []) for port, allowed in constraints.items()}
     return result
 
 
@@ -200,9 +222,7 @@ def input_enum_options_by_func(workspace: Path, scope: str) -> Dict[str, Dict[st
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     result: Dict[str, Dict[str, List[str]]] = {}
-    for _, nd in lib.items():
-        if not nd.is_available_in_scope(scope_text):
-            continue
+    for call_name, nd in _iter_callable_nodes(lib, scope_text=scope_text):
         options_raw = getattr(nd, "input_enum_options", {}) or {}
         if not isinstance(options_raw, dict) or not options_raw:
             continue
@@ -213,7 +233,7 @@ def input_enum_options_by_func(workspace: Path, scope: str) -> Dict[str, Dict[st
             if isinstance(candidates, list):
                 options_normalized[port_name] = [str(c) for c in candidates if str(c)]
         if options_normalized:
-            result[nd.name] = options_normalized
+            result[call_name] = options_normalized
     return result
 
 
@@ -226,13 +246,11 @@ def output_types_by_func(workspace: Path, scope: str) -> Dict[str, List[str]]:
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     result: Dict[str, List[str]] = {}
-    for _, nd in lib.items():
-        if not nd.is_available_in_scope(scope_text):
-            continue
+    for call_name, nd in _iter_callable_nodes(lib, scope_text=scope_text):
         outs: List[str] = []
-        for out_name in nd.outputs:
-            outs.append(nd.output_types.get(out_name, ""))
-        result[nd.name] = outs
+        for out_name in getattr(nd, "outputs", []) or []:
+            outs.append((getattr(nd, "output_types", {}) or {}).get(out_name, ""))
+        result[call_name] = outs
     return result
 
 
@@ -245,12 +263,10 @@ def output_generic_constraints_by_func(workspace: Path, scope: str) -> Dict[str,
     registry = get_node_registry(workspace, include_composite=True)
     lib = registry.get_library()
     result: Dict[str, Dict[str, List[str]]] = {}
-    for _, nd in lib.items():
-        if not nd.is_available_in_scope(scope_text):
-            continue
+    for call_name, nd in _iter_callable_nodes(lib, scope_text=scope_text):
         constraints = getattr(nd, "output_generic_constraints", {}) or {}
         if constraints:
-            result[nd.name] = {port: list(allowed or []) for port, allowed in constraints.items()}
+            result[call_name] = {port: list(allowed or []) for port, allowed in constraints.items()}
     return result
 
 

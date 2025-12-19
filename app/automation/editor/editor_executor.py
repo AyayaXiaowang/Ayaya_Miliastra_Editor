@@ -40,6 +40,10 @@ from . import editor_recognition as _rec
 from .node_snapshot import GraphSceneSnapshot
 from engine.utils.text.text_similarity import chinese_similar
 from app.automation.editor.node_library_provider import set_default_workspace_path
+from app.automation.vision.ocr_template_profile import (
+    resolve_ocr_template_profile_selection,
+    set_default_ocr_template_profile,
+)
 
 from .editor_executor_debug import EditorExecutorDebugMixin
 from .editor_executor_hooks import EditorExecutorHooksMixin
@@ -63,14 +67,24 @@ class EditorExecutor(
 
         # 统一在自动化入口设置默认 workspace，供视觉与节点库缓存复用
         set_default_workspace_path(workspace_path)
+
+        # 初始化 DPI 感知（影响截图像素与系统分辨率读取）
+        editor_capture.set_dpi_awareness()
+
+        # OCR 模板 profile：根据当前显示设置自动选择（如 4K-100-CN / 4K-125-CN）
+        selection = resolve_ocr_template_profile_selection(workspace_path)
+        self.ocr_template_profile = selection.selected_profile_name
+        self.ocr_template_profile_selection = selection
+        # 也写入全局默认，供 vision_backend 等无法显式注入 executor 的路径复用
+        set_default_ocr_template_profile(workspace_path, self.ocr_template_profile)
         
         # 坐标校准信息
         self.scale_ratio: Optional[float] = None  # 程序坐标到编辑器坐标的比例
         self.origin_node_pos: Optional[Tuple[float, float]] = None  # 原点节点在编辑器中的位置
         self.drag_distance_per_pixel: Optional[float] = None  # 每次拖动1像素对应的程序坐标距离
         
-        # 模板路径
-        templates_root = workspace_path / "assets" / "ocr_templates" / "4K-CN"
+        # 模板路径（基于选定的 profile）
+        templates_root = workspace_path / "assets" / "ocr_templates" / self.ocr_template_profile
         node_templates_root = templates_root / "Node"
         self.search_bar_template_path = templates_root / "search.png"
         self.search_bar_template_path2 = templates_root / "search2.png"
@@ -83,9 +97,6 @@ class EditorExecutor(
         # 节点定义库（懒加载）
         self._node_library = None
         self._node_defs_by_name: Dict[str, List[Any]] = {}
-        
-        # 初始化DPI感知
-        editor_capture.set_dpi_awareness()
 
         # 最近一次右键呼出上下文菜单的编辑器坐标（用于定位节点搜索弹窗）
         self._last_context_click_editor_pos: Optional[Tuple[int, int]] = None

@@ -31,7 +31,7 @@
 - 组合规则（M3 层）：`code_port_types_match.py`、`composite_types_nesting.py` 等模块在端口类型匹配、复合节点嵌套与泛型类型使用等方面补充更高层次的检查，其中端口类型匹配规则会结合节点库中声明的端口类型与枚举候选值，对 Graph Code 中的常量与变量类型进行约束校验。
   - 端口类型匹配会额外对基础算术节点（如加减乘除）的“左值/右值”执行语义级限制：禁止把“布尔值”当作数值参与算术运算，即便节点端口写成了“泛型”也会报错，避免类型语义被隐式滥用。
 - 规则入口由 `engine.validate.api.validate_files()` 统一装配：`_build_rules()` 会按配置开关与“是否复合节点文件”选择规则集，并通过 `ValidationPipeline` 顺序执行；是否启用严格实体入参校验由配置键 `STRICT_ENTITY_INPUTS_WIRE_ONLY` 控制（由 `validate_files(..., strict_entity_wire_only=...)` 参数注入）。
-- `node_index.py` 提供节点库速查与缓存清理工具（`clear_node_index_caches()`），避免节点定义更新后出现脏读；`ast_utils.py` 负责 AST 解析、源码缓存与统一生成 `EngineIssue` 的辅助函数；涉及节点图代码特有语义时，可以依赖 `engine.graph.utils` 提供的纯函数工具（如复合节点实例提取），避免在规则内部重复实现解析逻辑。
+- `node_index.py` 提供节点库速查与缓存清理工具（`clear_node_index_caches()`），并以“节点库 key 的名称部分（`类别/名称` → `名称`）”作为 Graph Code 的可调用名来源，从而兼容管线注入的别名（如 `make_valid_identifier(name)`）；`ast_utils.py` 负责 AST 解析、源码缓存与统一生成 `EngineIssue` 的辅助函数；涉及节点图代码特有语义时，可以依赖 `engine.graph.utils` 提供的纯函数工具（如复合节点实例提取），避免在规则内部重复实现解析逻辑。
 - 类型名相关规则负责检查节点图代码中的中文类型注解以及代码级 `GRAPH_VARIABLES` 声明中的图变量类型是否落在引擎支持的数据类型集合内（含基础类型、列表类型、结构体、枚举、泛型等），避免出现诸如“任意”这类未注册的自由类型名，并统一约定仅使用“泛型”这一宽泛类型标识；docstring 中的“节点图变量”段落仅作说明，校验与声明完全忽略。
 
 

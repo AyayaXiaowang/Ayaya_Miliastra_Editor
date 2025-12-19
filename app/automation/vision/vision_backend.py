@@ -31,6 +31,8 @@ from app.automation.editor.node_library_provider import (
     get_node_library,
     get_workspace_root,
 )
+from app.automation.vision.ocr_template_profile import resolve_ocr_template_profile_name
+from app.automation.vision.ui_profile_params import get_port_header_height_px
 
 
 def _fallback_project_root() -> Path:
@@ -76,7 +78,8 @@ def invalidate_cache() -> None:
 def get_template_dir() -> str:
     """返回节点模板目录路径。"""
     project_root = _resolve_workspace_root()
-    template_dir = project_root / "assets" / "ocr_templates" / "4K-CN" / "Node"
+    profile_name = resolve_ocr_template_profile_name(project_root, preferred_locale="CN")
+    template_dir = project_root / "assets" / "ocr_templates" / profile_name / "Node"
     return str(template_dir)
 
 
@@ -289,10 +292,11 @@ def _ensure_cache(window_image: Image.Image) -> None:
     canvas_image = window_image.crop((region_x, region_y, region_x + region_w, region_y + region_h))
 
     template_dir = get_template_dir()
+    header_height_px = int(get_port_header_height_px(workspace_root=_get_workspace_path()))
     recognized_nodes_canvas = recognize_scene(
         canvas_image,
         template_dir,
-        header_height=28,
+        header_height=header_height_px,
         threshold=0.80,
     )
 
