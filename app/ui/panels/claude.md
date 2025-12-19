@@ -23,6 +23,7 @@
 ## 注意事项
 - 编辑流程通过控制器或 helper 协调，涉及包索引/所属存档的操作统一委托 `PackageController`/`PackageIndexManager`，不要在面板内手写业务流或直接操作文件。
 - 遵循 UI 目录约定：不使用 `try/except` 吞错，异常直接抛出；主题/尺寸统一使用 `ThemeManager` 与 token，避免散落的硬编码 QSS 或颜色。
+- 字体：避免硬编码字体族名（如 `Microsoft YaHei UI`），需要显式设置字体时统一使用 `app.ui.foundation.fonts`；多数场景直接依赖应用级默认字体即可。
 - 面板如需写入运行期缓存或 UI 记忆类状态，统一通过 `app.runtime.services.*`（例如 `JsonCacheService`）完成；不要在面板内自行拼 `app/runtime/cache` 路径或手写 JSON 读写逻辑。
 - 面板需要文本/枚举/整数输入弹窗时，统一从 `app.ui.foundation` 顶层导入 `prompt_text/prompt_item/prompt_int`（实现位于 `ui/foundation/input_dialogs.py`）；`dialog_utils.py` 仅用于消息框类提示。
 - 组件仅操作传入的资源实例，不复制或缓存独立副本，确保多视图下编辑同一资源时状态一致。

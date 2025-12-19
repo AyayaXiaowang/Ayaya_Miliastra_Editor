@@ -11,6 +11,7 @@
 
 ## 当前状态
 - 主题系统：`theme_manager.py` 负责主题 token 暴露与样式缓存；`ThemeManager` 暴露 `Colors/Sizes/Icons/Gradients/HTMLStyles` 类属性，token 实现在 `theme/tokens/`，QSS/HTML 片段位于 `theme/styles/`，`style_mixins.py` 提供统一样式混入（新代码优先使用 `apply_panel_style` / `apply_form_dialog_style` / `apply_card_style` 三个入口），`canvas_background.py` 专职画布网格绘制；常用组件的样式（如左侧导航按钮、Toast 卡片等）通过 `ThemeManager.navigation_button_style()` / `ThemeManager.toast_style()` 统一暴露，避免在具体 widget 中重复书写 QSS。主题系统支持浅色/深色模式切换：启动时由 `ThemeManager.apply_app_style()` 根据 `settings.UI_THEME_MODE` 与系统配色方案选择实际调色板，并在全局应用对应 QSS。
+- 字体选择：`fonts.py` 提供 UI/等宽/emoji 字体族的按平台选择与替换兜底；`ThemeManager.apply_app_style()` 在启动阶段统一注入应用字体。需要显式设置字体时应使用该模块，避免在组件中硬编码 `Microsoft YaHei/Consolas` 等字体族名。
 - `style_mixins.py` 的基础样式混入现已覆盖按钮/输入/树/列表/表格/滚动条外，也同时注入下拉框与数值框样式（combo/spin），确保面板内的 QSpinBox/QComboBox 与全局主题一致。
 - 画布网格：`canvas_background.draw_grid_background()` 依赖 `ui/graph/graph_palette.py` 中的固定深色调色板（背景 `#1E1E1E`，细网格 `#2A2A2A`，粗网格 `#3A3A3A`），不随主题切换变色，保证节点图画布外观稳定；网格起点使用 floor 对齐，避免负坐标/缩放/平移下出现跳变与错位。
 - 基础控件：`base_widgets.py` 提供统一样式的对话框基类（`BaseDialog` / `FormDialog`）以承载表单与列表，同级模块中还包含通用布尔开关等基础输入部件（如带主色渐变轨道的 `ToggleSwitch`），可在各业务面板中直接复用，保证布尔配置项的交互与尺寸规范一致。

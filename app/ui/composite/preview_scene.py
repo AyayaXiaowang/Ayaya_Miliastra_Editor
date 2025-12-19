@@ -8,6 +8,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.layout import UI_HEADER_EXTRA, UI_NODE_PADDING, UI_ROW_HEIGHT
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation import input_dialogs
 from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 from app.ui.foundation.interaction_helpers import handle_wheel_zoom_for_view
@@ -31,7 +32,7 @@ class CompositeNodePreviewItem(QtWidgets.QGraphicsItem):
         self.title = title
         self.width = width
         self.height = height
-        self.title_font = QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Weight.Bold)
+        self.title_font = ui_fonts.ui_font(11, bold=True)
 
     def boundingRect(self) -> QtCore.QRectF:
         return QtCore.QRectF(-self.width / 2, -self.height / 2, self.width, self.height)
@@ -109,7 +110,7 @@ class VirtualPinItem(QtWidgets.QGraphicsItem):
         port_radius = 6
         tag_width = 24
         tag_height = 20
-        font_metrics = QtGui.QFontMetrics(QtGui.QFont("Microsoft YaHei", 9))
+        font_metrics = QtGui.QFontMetrics(ui_fonts.ui_font(9))
         text_width = font_metrics.horizontalAdvance(self.label_text)
         gap = 6
         if self.pin_config.is_input:
@@ -139,7 +140,7 @@ class VirtualPinItem(QtWidgets.QGraphicsItem):
             painter.drawRoundedRect(tag_rect, radius, radius)
 
             painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 1))
-            painter.setFont(QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold))
+            painter.setFont(ui_fonts.ui_font(10, bold=True))
             painter.drawText(tag_rect, QtCore.Qt.AlignmentFlag.AlignCenter, self.number_text)
 
             if self.pin_config.is_flow:
@@ -155,13 +156,13 @@ class VirtualPinItem(QtWidgets.QGraphicsItem):
                 painter.drawEllipse(port_rect)
                 port_right = port_radius * 2
 
-            painter.setFont(QtGui.QFont("Microsoft YaHei", 9))
+            painter.setFont(ui_fonts.ui_font(9))
             # 在深色画布上使用高对比度文本颜色，避免名称与背景融为一体
             painter.setPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY))
             painter.drawText(QtCore.QPointF(port_right + 6, 4), self.label_text)
         else:
-            painter.setFont(QtGui.QFont("Microsoft YaHei", 9))
-            font_metrics = QtGui.QFontMetrics(QtGui.QFont("Microsoft YaHei", 9))
+            painter.setFont(ui_fonts.ui_font(9))
+            font_metrics = QtGui.QFontMetrics(ui_fonts.ui_font(9))
             text_width = font_metrics.horizontalAdvance(self.label_text)
 
             # 先绘制端口与序号标签，再绘制文本，避免后画的图形覆盖文字
@@ -188,12 +189,12 @@ class VirtualPinItem(QtWidgets.QGraphicsItem):
             painter.drawRoundedRect(tag_rect, radius, radius)
 
             painter.setPen(QtGui.QPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY), 1))
-            painter.setFont(QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold))
+            painter.setFont(ui_fonts.ui_font(10, bold=True))
             painter.drawText(tag_rect, QtCore.Qt.AlignmentFlag.AlignCenter, self.number_text)
 
             # 文本整体放在端口左侧并预留间距，避免与端口重叠
             text_x = -text_width - status_width - 6
-            painter.setFont(QtGui.QFont("Microsoft YaHei", 9))
+            painter.setFont(ui_fonts.ui_font(9))
             painter.setPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY))
             painter.drawText(QtCore.QPointF(text_x, 4), self.label_text)
 
@@ -306,7 +307,7 @@ class CompositeNodePreviewGraphics(QtWidgets.QGraphicsView, ConfirmDialogMixin):
         if not self.composite_config:
             text_item = self.scene.addText("暂无复合节点\n\n右键内部节点的端口\n可暴露为虚拟引脚")
             text_item.setDefaultTextColor(QtGui.QColor(Colors.TEXT_SECONDARY))
-            text_item.setFont(QtGui.QFont("Microsoft YaHei UI", 12))
+            text_item.setFont(ui_fonts.ui_font(12))
             text_item.setPos(-80, -40)
             return
 

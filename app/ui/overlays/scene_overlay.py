@@ -10,6 +10,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, Dict, List
 from app.ui.overlays.text_layout import GridOccupancyIndex
 from app.ui.graph.graph_palette import GraphPalette
+from app.ui.foundation import fonts as ui_fonts
 
 
 class SceneOverlayMixin:
@@ -377,7 +378,7 @@ class SceneOverlayMixin:
         """
         if not text:
             return
-        use_font = font if font is not None else QtGui.QFont('Microsoft YaHei UI', 10, QtGui.QFont.Weight.Bold)
+        use_font = font if font is not None else ui_fonts.ui_font(10, bold=True)
         use_fill = fill_color if fill_color is not None else QtGui.QColor(QtCore.Qt.GlobalColor.white)
         use_stroke = stroke_color if stroke_color is not None else QtGui.QColor(0, 0, 0, 220)
 
@@ -413,7 +414,7 @@ class SceneOverlayMixin:
 
     def _measure_text_rect(self, x: float, y_center: float, text: str, font: QtGui.QFont | None = None) -> QtCore.QRectF:
         """估算文本占位矩形(用于避免重叠排布)"""
-        use_font = font if font is not None else QtGui.QFont('Microsoft YaHei UI', 10, QtGui.QFont.Weight.Bold)
+        use_font = font if font is not None else ui_fonts.ui_font(10, bold=True)
         fm = QtGui.QFontMetricsF(use_font)
         width = float(fm.horizontalAdvance(text))
         height = float(fm.height())
@@ -433,7 +434,7 @@ class SceneOverlayMixin:
         """绘制不与已放置文本重叠的标签(仅沿Y方向避让)"""
         if not text:
             return
-        use_font = font if font is not None else QtGui.QFont('Microsoft YaHei UI', 10, QtGui.QFont.Weight.Bold)
+        use_font = font if font is not None else ui_fonts.ui_font(10, bold=True)
         fm = QtGui.QFontMetricsF(use_font)
         step = float(fm.height() + 2.0)
         max_shift = step * 20  # 上限防止极端情况下无限下移

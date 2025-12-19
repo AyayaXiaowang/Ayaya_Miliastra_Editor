@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PyQt6 import QtCore, QtGui, QtWidgets
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import Colors
 from app.ui.graph.graph_palette import GraphPalette
 from app.ui.graph.items.port_item import PortGraphicsItem, BranchPortValueEdit
@@ -29,7 +30,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
     def __init__(self, node: NodeModel):
         super().__init__()
         self.node = node
-        self.title_font = QtGui.QFont('Microsoft YaHei', 11, QtGui.QFont.Weight.Bold)
+        self.title_font = ui_fonts.ui_font(11, bold=True)
         self._ports_in: List[PortGraphicsItem] = []
         self._ports_out: List[PortGraphicsItem] = []
         self._flow_in: Optional[PortGraphicsItem] = None
@@ -187,8 +188,8 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
 
     def _create_font_metrics(self) -> tuple[QtGui.QFontMetrics, QtGui.QFontMetrics]:
         """构造标签与输入文本的字体度量，用于宽度估算。"""
-        label_font = QtGui.QFont("Microsoft YaHei", 9)
-        input_font = QtGui.QFont("Consolas", 8)
+        label_font = ui_fonts.ui_font(9)
+        input_font = ui_fonts.monospace_font(8)
         fm_label = QtGui.QFontMetrics(label_font)
         fm_input = QtGui.QFontMetrics(input_font)
         return fm_label, fm_input
@@ -583,7 +584,7 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
         painter.drawText(title_rect.adjusted(12, 0, -12, 0), QtCore.Qt.AlignmentFlag.AlignVCenter | QtCore.Qt.AlignmentFlag.AlignLeft, title_text)
 
         # port labels (including flow ports) - 所有标签都使用亮色
-        painter.setFont(QtGui.QFont('Microsoft YaHei', 9))
+        painter.setFont(ui_fonts.ui_font(9))
         painter.setPen(QtGui.QColor(GraphPalette.TEXT_LABEL))  # 统一使用亮色
         header_h = ROW_HEIGHT + 10
         
@@ -672,10 +673,10 @@ class NodeGraphicsItem(QtWidgets.QGraphicsItem):
                             
                             # 绘制警告感叹号（在输入框位置）
                             painter.setPen(warning_color)
-                            painter.setFont(QtGui.QFont('Microsoft YaHei', 11, QtGui.QFont.Weight.Bold))
+                            painter.setFont(ui_fonts.ui_font(11, bold=True))
                             warning_rect = QtCore.QRectF(r.width() * 0.35, label_y, 20, ROW_HEIGHT)
                             painter.drawText(warning_rect, QtCore.Qt.AlignmentFlag.AlignVCenter | QtCore.Qt.AlignmentFlag.AlignCenter, "!")
-                            painter.setFont(QtGui.QFont('Microsoft YaHei', 9))  # 恢复字体
+                            painter.setFont(ui_fonts.ui_font(9))  # 恢复字体
                             break
 
     def _category_color_start(self) -> QtGui.QColor:

@@ -34,7 +34,7 @@ class HTMLStyles:
                 color: {Colors.ERROR};
                 padding: 2px 6px;
                 border-radius: {Sizes.RADIUS_SMALL}px;
-                font-family: 'Consolas', monospace;
+                font-family: "SF Mono", Menlo, Monaco, Consolas, "Cascadia Mono", "Noto Sans Mono", "DejaVu Sans Mono", monospace;
             }}
             table {{
                 background-color: {Colors.BG_CARD};

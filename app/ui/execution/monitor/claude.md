@@ -130,6 +130,7 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
   - 布局：VBoxLayout 包含状态行、步骤上下文、截图、控制按钮行（暂停/继续/下一步/单步/终止/检查/定位镜头）、测试按钮行×3（识别类 / 模板类 / 截图类）、“拖拽测试”区（第一行显示当前中心与目标坐标输入，第二行放置“拖拽到坐标/向左拖拽/向右拖拽”按钮）、日志筛选行、日志文本
   - 初始按钮状态：暂停/继续/下一步/终止默认禁用，单步复选框启用
 - `_apply_compact_controls_style(parent)`：应用紧凑化控件样式（按钮 font-size:11px、padding:2px 8px；复选框 font-size:11px）
+- 日志文本：日志正文 QTextBrowser 使用等宽字体（通过 `app.ui.foundation.fonts` 统一选择），避免硬编码 `Consolas` 等平台字体名。
 - 不包含信号连接：信号连接由面板在 `_connect_ui_signals()` 中统一处理
 - 控件 tooltip：为每个测试按钮提供详细说明（例如："对顶部标签栏或指定区域执行一次 OCR，并在监控面板叠加展示识别结果"）
 

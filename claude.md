@@ -54,6 +54,7 @@ python -X utf8 -m app.cli.run_app
 - 端口类型设置：泛型家族端口必须在“设置类型”步骤选定具体类型；最终点击前做硬性校验。
 - 图变量与实体输入校验统一由 `app.runtime.engine.node_graph_validator` 与 `engine.validate` 负责。
 - 根目录允许放置临时分析产物（例如 `project_file_paths.txt` 一类清单文件）辅助排查，但保持可清理、不可作为长期依赖。
+- 本地打包/分发用的压缩包建议统一输出到 `release/`（可随时删除重建，避免与源码混放）。
 - 本地运行产物与个人状态文件统一视为“噪音文件”，应被忽略且在文件树中隐藏（见根目录 `.gitignore` 与 `.cursorignore`）。
   - 资源库采用“默认忽略 + 白名单放行（示例_/模板示例_）”策略时，仍必须继续忽略 `__pycache__/`、`*.pyc` 等编译缓存；若曾被 git 跟踪，需要用 `git rm --cached` 从索引移除。
 - 文档规范：每个目录仅保留一个 `claude.md`；其余 Markdown 文档已清理。请在各目录的 `claude.md` 中维护“目录用途、当前状态、注意事项”的实时描述（不记录历史）。

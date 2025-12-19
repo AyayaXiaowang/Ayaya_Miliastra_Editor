@@ -14,6 +14,8 @@ from app.ui.graph.virtual_pin_ui_service import (
     build_port_context_menu as build_port_context_menu_from_service,
 )
 from app.ui.foundation import dialog_utils
+from app.ui.foundation import fonts as ui_fonts
+from app.ui.foundation.theme_manager import Colors
 from app.ui.graph.graph_palette import GraphPalette
 
 if TYPE_CHECKING:
@@ -276,7 +278,7 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
 
                 # 绘制数字
                 painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.TEXT_BRIGHT), 1))
-                font = QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold)
+                font = ui_fonts.ui_font(10, bold=True)
                 painter.setFont(font)
                 painter.drawText(tag_rect, QtCore.Qt.AlignmentFlag.AlignCenter, number_text)
 
@@ -514,7 +516,7 @@ class BranchPortValueEdit(QtWidgets.QGraphicsTextItem):
         self.node_item = node_item
         self.port_name = port_name  # 当前端口名称
         self.setDefaultTextColor(QtGui.QColor(GraphPalette.WARN_GOLD))  # 金黄色，表示这是流程端口相关
-        self.setFont(QtGui.QFont('Consolas', 8))
+        self.setFont(ui_fonts.monospace_font(8))
         self.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextEditorInteraction)
         self.setPlainText(port_name)  # 默认显示端口名称
         

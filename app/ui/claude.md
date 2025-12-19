@@ -457,7 +457,7 @@ from app.ui.execution.monitor import ExecutionMonitorPanel
 ### 主题系统与全局样式
 - 全局样式注入：程序启动时由 `ThemeManager.apply_app_style(app)` 统一注入字体与基础 QSS（按钮/输入/树/列表/表格/滚动条/标签页/分组框/对话框）。
 - 组件样式来源：主题 token/QSS 工厂集中在 `app.ui.foundation.theme.*`，`StyleMixin` 位于 `app.ui.foundation.style_mixins`，请优先通过混入或 `ThemeManager.*_style()` 获取样式，避免在组件内分散 `setStyleSheet` 的硬编码。
-- 默认字体：应用级默认字体为 `Microsoft YaHei UI`，字号使用 `Sizes.FONT_NORMAL`；局部强调请仅调整字号/粗细，尽量复用 `Colors` 配色常量。
+- 默认字体：应用级默认字体由 `ThemeManager.apply_app_style(app)` + `app.ui.foundation.fonts` 统一按平台选择并做替换兜底（Windows: `Microsoft YaHei UI`；macOS: `PingFang SC`；等宽：Windows: `Consolas`；macOS: `SF Mono`/`Menlo`）。局部强调请仅调整字号/粗细，尽量复用 `Colors` 配色常量。
 
 #### 右键菜单与语义样式规范（统一入口）
 - 右键菜单风格：统一使用 `ThemeManager.context_menu_style()`（白底、深色字、浅蓝选中，高对比分隔线）；不要内联手写 QSS。

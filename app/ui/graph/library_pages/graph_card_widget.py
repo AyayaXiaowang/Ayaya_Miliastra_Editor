@@ -4,6 +4,7 @@ from PyQt6 import QtCore, QtWidgets, QtGui
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 from app.ui.controllers.graph_error_tracker import get_instance as get_error_tracker
 
@@ -56,17 +57,17 @@ class GraphCardWidget(QtWidgets.QWidget):
 
         # 类型图标
         self.type_label = QtWidgets.QLabel()
-        self.type_label.setFont(QtGui.QFont("Segoe UI Emoji", 14))
+        self.type_label.setFont(ui_fonts.emoji_font(14))
         header_layout.addWidget(self.type_label)
 
         # 名称
         self.name_label = QtWidgets.QLabel()
-        self.name_label.setFont(QtGui.QFont("Microsoft YaHei UI", 11, QtGui.QFont.Weight.Bold))
+        self.name_label.setFont(ui_fonts.ui_font(11, bold=True))
         header_layout.addWidget(self.name_label, 1)
         
         # 节点图变量按钮
         self.variables_button = QtWidgets.QPushButton("📊 变量")
-        self.variables_button.setFont(QtGui.QFont("Microsoft YaHei UI", 9))
+        self.variables_button.setFont(ui_fonts.ui_font(9))
         self.variables_button.setStyleSheet(f"""
             QPushButton {{
                 background-color: {Colors.SECONDARY};
@@ -89,7 +90,7 @@ class GraphCardWidget(QtWidgets.QWidget):
         
         # 编辑按钮
         self.edit_button = QtWidgets.QPushButton("✏️ 编辑")
-        self.edit_button.setFont(QtGui.QFont("Microsoft YaHei UI", 9))
+        self.edit_button.setFont(ui_fonts.ui_font(9))
         self.edit_button.setStyleSheet(f"""
             QPushButton {{
                 background-color: {Colors.PRIMARY};
@@ -112,7 +113,7 @@ class GraphCardWidget(QtWidgets.QWidget):
         
         # 引用次数（可点击）
         self.ref_button = QtWidgets.QPushButton()
-        self.ref_button.setFont(QtGui.QFont("Microsoft YaHei UI", 9))
+        self.ref_button.setFont(ui_fonts.ui_font(9))
         self.ref_button.setStyleSheet(
             f"""
             QPushButton {{
@@ -139,12 +140,12 @@ class GraphCardWidget(QtWidgets.QWidget):
         stats_layout.setSpacing(15)
 
         self.nodes_label = QtWidgets.QLabel()
-        self.nodes_label.setFont(QtGui.QFont("Microsoft YaHei UI", 9))
+        self.nodes_label.setFont(ui_fonts.ui_font(9))
         stats_layout.addWidget(self.nodes_label)
         
         # 连线数
         self.edges_label = QtWidgets.QLabel()
-        self.edges_label.setFont(QtGui.QFont("Microsoft YaHei UI", 9))
+        self.edges_label.setFont(ui_fonts.ui_font(9))
         stats_layout.addWidget(self.edges_label)
         
         stats_layout.addStretch()
@@ -152,12 +153,12 @@ class GraphCardWidget(QtWidgets.QWidget):
         
         # 第三行：修改时间
         self.time_label = QtWidgets.QLabel()
-        self.time_label.setFont(QtGui.QFont("Microsoft YaHei UI", 8))
+        self.time_label.setFont(ui_fonts.ui_font(8))
         layout.addWidget(self.time_label)
 
         # 描述（如果有）
         self.description_label = QtWidgets.QLabel()
-        self.description_label.setFont(QtGui.QFont("Microsoft YaHei UI", 8))
+        self.description_label.setFont(ui_fonts.ui_font(8))
         self.description_label.setWordWrap(True)
         layout.addWidget(self.description_label)
 

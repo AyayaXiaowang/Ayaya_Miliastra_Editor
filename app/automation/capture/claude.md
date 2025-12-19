@@ -52,6 +52,7 @@ app.automation.capture (统一入口)
 - OCR 和模板匹配支持"强制节点图区域"模式：
   - 使用 `set_enforce_graph_roi(True/False)` 手动控制（需配对调用）
   - 推荐使用 `with enforce_graph_roi_context():` 上下文管理器（异常安全，自动恢复）
+- `utils.get_chinese_font` 不再写死字体绝对路径：支持通过环境变量 `GRAPH_GENERATER_CHINESE_FONT_PATH` 指定字体文件；未指定时会从系统字体目录探测并回退到 PIL 默认字体。
 - 鼠标操作支持输入阻止保护，防止用户干扰自动化执行
 - 鼠标操作的经典 / 混合 / 即时配置统一通过 profile 数据驱动，左/右键共享同一实现，修改参数时只需调整字典或设置项
 - 所有截图操作支持多显示器（all_screens=True）

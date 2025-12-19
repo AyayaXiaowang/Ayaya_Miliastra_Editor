@@ -7,6 +7,7 @@
 from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtCore import Qt
 
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import Colors, ThemeManager
 
 
@@ -289,7 +290,7 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     log_text.setOpenLinks(False)
     log_text.setOpenExternalLinks(False)
     log_text.setAcceptRichText(True)
-    log_text.setFont(QtGui.QFont("Consolas", 9))
+    log_text.setFont(ui_fonts.monospace_font(9))
     splitter.addWidget(log_text)
     splitter.setStretchFactor(0, 3)
     splitter.setStretchFactor(1, 2)

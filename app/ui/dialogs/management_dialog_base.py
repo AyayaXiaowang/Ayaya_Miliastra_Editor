@@ -5,6 +5,7 @@ from __future__ import annotations
 from PyQt6 import QtGui, QtWidgets
 
 from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import ThemeManager, Colors
 
 
@@ -43,13 +44,13 @@ class ManagementDialogBase(BaseDialog):
     # -- private helpers -------------------------------------------------
     def _build_header(self, title_text: str, info_text: str) -> None:
         title_label = QtWidgets.QLabel(title_text)
-        title_label.setFont(QtGui.QFont("Microsoft YaHei UI", 14, QtGui.QFont.Weight.Bold))
+        title_label.setFont(ui_fonts.ui_font(14, bold=True))
         title_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY}; padding: 10px;")
         self.content_layout.insertWidget(0, title_label)
 
         if info_text:
             info_label = QtWidgets.QLabel(info_text)
-            info_label.setFont(QtGui.QFont("Microsoft YaHei UI", 9))
+            info_label.setFont(ui_fonts.ui_font(9))
             info_label.setWordWrap(True)
             info_label.setStyleSheet(f"{ThemeManager.info_label_dark_style()} border-radius: 4px;")
             self.content_layout.insertWidget(1, info_label)

@@ -10,7 +10,7 @@
   - 使用 `_cached_scene_pixmap` 作为场景渲染缓存；监听 `scene.changed/sceneRectChanged`，通过 100ms **尾缘防抖** 合并重建请求：拖动或批量修改期间只在停止操作后重建一次缓存，避免频繁全图渲染导致卡顿。
   - 小地图内支持左键点击或拖动来跳转视口位置，坐标换算与 `paintEvent` 中的缩放/偏移逻辑保持一致，保证显示与交互一致性。
 - `ruler_overlay_painter.py`：
-  - `RulerOverlayPainter`：以静态方法在 `GraphView.paintEvent` 中绘制顶部/左侧坐标标尺，基于 `viewportTransform` 计算每单位像素并自适应合并刻度，即使极小缩放也能自动增大间隔避免文字堆叠。
+  - `RulerOverlayPainter`：以静态方法在 `GraphView.paintEvent` 中绘制顶部/左侧坐标标尺，基于 `viewportTransform` 计算每单位像素并自适应合并刻度，即使极小缩放也能自动增大间隔避免文字堆叠；标尺文字的等宽字体由 `app.ui.foundation.fonts` 统一选择，避免硬编码平台字体名。
   - 在视图坐标系中绘制，对场景缩放和平移透明，保证标尺刻度与屏幕像素对齐。
 
 ## 注意事项

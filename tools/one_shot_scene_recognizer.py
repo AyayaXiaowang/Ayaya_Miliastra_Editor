@@ -6,21 +6,23 @@
 输出：每个节点的矩形、标题（中文，仅当识别到文本时）、端口（侧别、序号、模板类型、坐标）。
 
 注意：
-- 不进行任何窗口截屏或磁盘写入，仅对传入图像进行处理；
+- 不进行任何窗口截屏；仅对传入图像进行处理；
+- 默认会把部分中间结果写入运行时缓存根目录下的 debug 子目录，便于排查识别问题（可通过环境变量 GRAPH_GENERATER_DEBUG_OUTPUT_ROOT 覆写输出根目录）；
 - 不使用 try/except；错误直接抛出；
 - 变量命名清晰可读，避免难以理解的缩写；
 """
 
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Optional, Any
+from pathlib import Path
 import os
 import time
 
 import cv2
 import numpy as np
 from PIL import Image
-from app.automation.vision.ocr_utils import get_ocr_engine
-from app.automation.vision.ocr_utils import extract_chinese
+
+# 注意：OCR 工具在函数内惰性导入，避免 tools 与 app.automation.vision 之间形成循环导入。
 
 
 # ============================
@@ -78,6 +80,23 @@ class TemplateMatchDebugInfo:
 
 
 _TEMPLATE_CACHE: Dict[str, Dict[str, np.ndarray]] = {}
+
+
+def _get_workspace_root_for_tools() -> Path:
+    tools_dir = Path(__file__).resolve().parent
+    return tools_dir.parent
+
+
+def _get_debug_output_root_dir() -> Path:
+    env_value = str(os.environ.get("GRAPH_GENERATER_DEBUG_OUTPUT_ROOT", "") or "").strip()
+    if env_value:
+        return Path(env_value)
+
+    workspace_root = _get_workspace_root_for_tools()
+    from engine.utils.cache.cache_paths import get_runtime_cache_root
+
+    runtime_cache_root = get_runtime_cache_root(workspace_root)
+    return runtime_cache_root / "debug" / "one_shot_scene_recognizer"
 
 
 def _load_template_images(template_dir: str) -> Dict[str, np.ndarray]:
@@ -504,6 +523,8 @@ def _find_content_bottom_with_probes(image_array: np.ndarray,
 def _ocr_titles_for_rectangles(screenshot: Image.Image, rectangles: List[Dict], header_height: int = 28) -> Dict[int, str]:
     if len(rectangles) == 0:
         return {}
+    from app.automation.vision.ocr_utils import get_ocr_engine, extract_chinese
+
     ocr_engine = get_ocr_engine()
 
     min_tile_height = 48
@@ -859,10 +880,11 @@ def _detect_rectangles_from_canvas(canvas_image: Image.Image) -> List[Dict]:
     print("检测鲜亮色块（画布内）")
     print("=" * 60)
 
-    # 输出目录（与 color_block_detector 一致）
-    output_dir = r"E:\Dep\UGC\testimage"
-    debug_dir = os.path.join(output_dir, "debug_steps")
-    os.makedirs(debug_dir, exist_ok=True)
+    # 调试输出目录：默认落在运行时缓存根目录下的 debug/ 子目录，可通过环境变量覆写
+    debug_output_root_dir = _get_debug_output_root_dir()
+    debug_steps_dir = debug_output_root_dir / "debug_steps"
+    debug_steps_dir.mkdir(parents=True, exist_ok=True)
+    debug_dir = str(debug_steps_dir)
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
     # 转换
@@ -1061,6 +1083,8 @@ def recognize_scene(canvas_image: Image.Image,
     rectangles = _detect_rectangles_from_canvas(canvas_image)
     if len(rectangles) == 0:
         return []
+
+    from app.automation.vision.ocr_utils import extract_chinese
 
     titles_by_index = _ocr_titles_for_rectangles(canvas_image, rectangles, header_height=header_height)
     templates = _load_template_images(template_dir)

@@ -15,6 +15,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.configs.settings import settings
 from app.ui.foundation.canvas_background import draw_grid_background as _draw_grid_background
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme import ThemeRegistry
 from app.ui.foundation.theme.combo_proxy_style import ComboArrowProxyStyle
 from app.ui.foundation.theme.styles import (
@@ -284,7 +285,8 @@ class ThemeManager:
         app.setStyle(ComboArrowProxyStyle(base_style))
 
         # 3) 应用字体与全局样式表（依赖上一步选定的 Colors）
-        app.setFont(QtGui.QFont("Microsoft YaHei UI", Sizes.FONT_NORMAL))
+        ui_fonts.install_platform_font_substitutions()
+        app.setFont(ui_fonts.ui_font(Sizes.FONT_NORMAL))
         app.setStyleSheet(cls.global_style())
 
         class WheelGuardFilter(QtCore.QObject):

@@ -19,7 +19,7 @@
     - `_collect_edges_for_update()`：从 `GraphScene.get_edges_for_node()` 收集需要在布局后刷新端点的连线，避免对全图连线做扫描。
     - `_reset_ports_and_controls()`：清理旧的端口 `QGraphicsItem` 与常量编辑控件，重置内部缓存与流程口引用。
     - `_collect_connected_input_ports()`：扫描 `scene.edge_items`，收集所有已连线的输入端口名，为“是否展示行内常量编辑控件”提供依据。
-    - `_create_font_metrics()` / `_compute_node_width()`：使用统一字体度量，根据左右端口标签宽度计算节点主体宽度（控件换行后不再参与节点宽度估算）。
+    - `_create_font_metrics()` / `_compute_node_width()`：使用统一字体度量，根据左右端口标签宽度计算节点主体宽度（字体选择通过 `app.ui.foundation.fonts` 统一按平台兜底；控件换行后不再参与节点宽度估算）。
     - `_compute_node_rect_and_rows()`：依据 `InputPortLayoutPlan.total_input_rows/input_plus_rows` 与输出端口数量，计算节点矩形高度与内容行数，规则与 `engine.layout.utils.graph_query_utils.estimate_node_height_ui_exact_*` 保持一致。
     - `_layout_input_ports_and_controls()`：按照 `build_input_port_layout_plan()` 生成的 `render_inputs/row_index_by_port/control_row_index_by_port` 渲染输入端口与常量编辑控件（文本/布尔/三维向量），并记录 `_input_row_index_map` 与 `_control_positions` 以便 `paint()` 与验证高亮使用；端口类型到具体编辑控件的映射集中在 `app.ui.widgets.constant_editors.create_constant_editor_for_port` 中，节点图形项本身不再硬编码 `"实体" / "三维向量" / "布尔值"` 等业务含义。
     - `_layout_output_ports_and_branch_controls()`：布局输出端口，统一使用 `port_type_system.is_flow_port_with_context()` 判定流程口；在多分支节点上为每个分支输出准备隐藏的 `BranchPortValueEdit`，放置在标签左侧。

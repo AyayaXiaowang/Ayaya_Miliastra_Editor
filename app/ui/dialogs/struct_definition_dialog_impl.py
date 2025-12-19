@@ -15,6 +15,7 @@ from app.ui.dialogs.struct_definition_types import (
 )
 from app.ui.dialogs.struct_definition_value_editors import ClickToEditLineEdit
 from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import Sizes, ThemeManager
 from app.ui.foundation import dialog_utils
 from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
@@ -76,7 +77,7 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
 
         fields_label = QtWidgets.QLabel("字段列表")
         fields_label.setFont(
-            QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold)
+            ui_fonts.ui_font(10, bold=True)
         )
         fields_label.setStyleSheet(ThemeManager.heading(4))
         layout.addWidget(fields_label)

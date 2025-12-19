@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6 import QtCore, QtGui
 
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import Colors
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ class RulerOverlayPainter:
         text_color = QtGui.QColor(Colors.CANVAS_RULER_TEXT)
         line_color = QtGui.QColor(Colors.CANVAS_RULER_LINE)
         
-        painter.setFont(QtGui.QFont('Consolas', 9))
+        painter.setFont(ui_fonts.monospace_font(9))
         
         viewport_rect = view.viewport().rect()
         

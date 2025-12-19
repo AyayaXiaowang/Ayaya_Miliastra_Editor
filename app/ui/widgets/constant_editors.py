@@ -8,6 +8,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import TYPE_CHECKING, Optional, Union
 
 from app.ui.graph.graph_palette import GraphPalette
+from app.ui.foundation import fonts as ui_fonts
 
 if TYPE_CHECKING:
     from app.ui.graph.items.node_item import NodeGraphicsItem
@@ -23,7 +24,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
         self._layout_timer = None  # 兼容保留（将使用 Debouncer）
         self._layout_debouncer = None
         self.setDefaultTextColor(QtGui.QColor(GraphPalette.TEXT_LABEL))  # 使用更亮的颜色，与端口标签一致
-        self.setFont(QtGui.QFont('Consolas', 8))
+        self.setFont(ui_fonts.monospace_font(8))
         self.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextEditorInteraction)
 
         # 初始化显示文本：将值为字符串 "None" 的常量视为“未填写”，在编辑器中显示为空。
@@ -137,7 +138,7 @@ class ConstantBoolComboBox(QtWidgets.QGraphicsProxyWidget):
         # 创建QComboBox
         self.combo = QtWidgets.QComboBox()
         self.combo.addItems(["否", "是"])
-        self.combo.setFont(QtGui.QFont('Microsoft YaHei UI', 8))
+        self.combo.setFont(ui_fonts.ui_font(8))
         self.combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {GraphPalette.INPUT_BG};
@@ -263,12 +264,12 @@ class ConstantVector3Edit(QtWidgets.QGraphicsProxyWidget):
         
         # 标签（不可编辑）
         label_widget = QtWidgets.QLabel(label)
-        label_widget.setFont(QtGui.QFont('Consolas', 7))
+        label_widget.setFont(ui_fonts.monospace_font(7))
         layout.addWidget(label_widget)
         
         # 输入框（只能输入数字和小数点）
         edit = QtWidgets.QLineEdit(value)
-        edit.setFont(QtGui.QFont('Consolas', 8))
+        edit.setFont(ui_fonts.monospace_font(8))
         edit.setFixedWidth(30)
         # 使用正则表达式验证器，只允许数字、小数点和负号
         validator = QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^-?\d*\.?\d*$"))

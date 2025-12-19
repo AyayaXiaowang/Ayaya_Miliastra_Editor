@@ -21,6 +21,7 @@
 
 ## 注意事项
 - 所有编辑控件在失去焦点时触发保存，并通过 `scene.on_data_changed` 触发自动保存
+- 字体：需要显式设置字体时统一使用 `app.ui.foundation.fonts`（如等宽字体用于代码/数值对齐），避免硬编码 `Consolas` 等平台字体名导致跨平台缺字告警。
 - 文本编辑框使用 `app.ui.debounce.Debouncer` 延迟布局操作，避免焦点切换时的界面跳转
 - 控件 Z-order 设为 25，高于端口（20）和节点（10），确保可交互
 - 使用 `TYPE_CHECKING` 避免循环导入 `NodeGraphicsItem`

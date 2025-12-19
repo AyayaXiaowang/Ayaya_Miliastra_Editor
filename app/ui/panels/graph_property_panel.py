@@ -7,6 +7,7 @@ from typing import Any, Optional, List, Tuple, Dict, Set
 from PyQt6 import QtCore, QtWidgets, QtGui
 
 from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 from app.ui.panels.panel_scaffold import PanelScaffold
 from app.ui.panels.package_membership_selector import build_package_membership_row
@@ -209,7 +210,7 @@ class GraphPropertyPanel(PanelScaffold):
         
         # 说明文字
         info_label = QtWidgets.QLabel(GRAPH_VARIABLE_INFO)
-        info_label.setFont(QtGui.QFont("Microsoft YaHei UI", 9))
+        info_label.setFont(ui_fonts.ui_font(9))
         info_label.setStyleSheet(f"color: {Colors.TEXT_PLACEHOLDER}; padding: 5px; background-color: {Colors.BG_DARK}; border-radius: 4px;")
         info_label.setWordWrap(True)
         layout.addWidget(info_label)

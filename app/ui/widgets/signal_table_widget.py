@@ -8,6 +8,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 
 from engine.graph.models.package_model import SignalConfig
 from app.ui.dialogs.signal_edit_dialog import SignalEditDialog
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 from app.ui.foundation.dialog_utils import ask_yes_no_dialog, show_warning_dialog
 from app.ui.foundation.id_generator import generate_prefixed_id
@@ -318,7 +319,7 @@ class SignalTableWidget(BaseCrudTableWidget):
     ) -> None:
         name_item = QtWidgets.QTableWidgetItem(signal_config.signal_name)
         name_item.setFont(
-            QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold)
+            ui_fonts.ui_font(10, bold=True)
         )
         self.table.setItem(row_index, 0, name_item)
 

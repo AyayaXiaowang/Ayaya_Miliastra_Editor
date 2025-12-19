@@ -11,6 +11,7 @@ from app.ui.dialogs.table_edit_helpers import (
     wrap_click_to_edit_line_edit_for_table_cell,
 )
 from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import Sizes, ThemeManager
 from app.ui.foundation import dialog_utils
 from app.ui.widgets.inline_table_editor_widget import (
@@ -141,7 +142,7 @@ class SignalEditorWidget(QtWidgets.QWidget):
 
         params_label = QtWidgets.QLabel("信号参数")
         params_label.setFont(
-            QtGui.QFont("Microsoft YaHei UI", 10, QtGui.QFont.Weight.Bold)
+            ui_fonts.ui_font(10, bold=True)
         )
         params_label.setStyleSheet(ThemeManager.heading(4))
         layout.addWidget(params_label)
