@@ -25,7 +25,11 @@
     "skill_editor": {
       "graphs": [],
       "graph_variable_overrides": {},
-      "note": "示例：技能节点图可在此挂载 client/技能节点图 下的节点图ID"
+      "note": "示例：技能节点图可在此挂载 client/技能节点图 下的节点图ID",
+      "basic": {},
+      "combo": {},
+      "numeric": {},
+      "lifecycle": {}
     },
     "ui": {
       "icon": "",

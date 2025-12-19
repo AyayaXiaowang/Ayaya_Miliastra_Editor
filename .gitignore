@@ -82,6 +82,10 @@ assets/资源库/**/*.pyd
 !assets/资源库/管理配置/信号/signal_all_supported_types_example.py
 !assets/资源库/地图索引/pkg_示例_信号全参数类型.json
 
+# 明确白名单：模板示例节点图依赖的教学示例信号（用于 CI 回归）
+!assets/资源库/管理配置/信号/signal_example_pedal_switch_state.py
+!assets/资源库/管理配置/信号/signal_example_pedal_switch_activation_ack.py
+
 # 如需额外的测试资源，可以在此处增加精确白名单，例如：
 # !assets/资源库/实例/测试_关卡1.json
 # !assets/资源库/实例/测试用/**
