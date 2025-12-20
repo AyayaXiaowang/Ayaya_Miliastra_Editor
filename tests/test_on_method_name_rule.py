@@ -103,7 +103,7 @@ class on_方法名校验_信号名允许:
         self.game = game
         self.owner_entity = owner_entity
 
-    def on_幸存者波次_开始(self, 事件源实体, 事件源GUID, 信号来源实体):
+    def on_测试信号_全部参数类型(self, 事件源实体, 事件源GUID, 信号来源实体):
         return
 
     def register_handlers(self):
