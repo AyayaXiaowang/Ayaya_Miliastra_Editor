@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+# ============================================================
+# 崩溃诊断：启用 faulthandler 以捕获 C 扩展段错误时的调用栈
+# ============================================================
+import faulthandler
+import sys
+faulthandler.enable(file=sys.stderr, all_threads=True)
+print("[DEBUG] faulthandler 已启用，C 扩展崩溃时将打印调用栈", file=sys.stderr, flush=True)
+
 import os
 import runpy
 from pathlib import Path

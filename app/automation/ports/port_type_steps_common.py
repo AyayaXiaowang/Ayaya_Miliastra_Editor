@@ -45,12 +45,12 @@ def apply_type_setting_with_port_center(
     """在快照缓存基础上，为单个端口执行“定位中心 + 调用 UI 设置回调”的通用流程。
 
     返回:
-        - False: 表示快照获取失败（caller 通常需要整体中止本侧类型设置流程）；
-        - True:  表示本端口的处理已完成（无论是否真正成功设置类型），可以继续后续端口。
+        - True:  表示已成功完成该端口的 UI 类型设置；
+        - False: 表示无法定位端口中心、无法打开设置入口或设置流程未成功。
     """
     if not isinstance(mapped_name, str) or mapped_name == "":
         executor.log("[端口类型] 端口名为空，跳过类型设置流程", log_callback)
-        return True
+        return False
 
     if not snapshot_cache.ensure(reason=ensure_reason, require_bbox=False):
         return False
@@ -71,20 +71,17 @@ def apply_type_setting_with_port_center(
 
     if port_center == (0, 0):
         executor.log(locate_failed_message, log_callback)
-        return True
+        return False
 
     success = apply_ui_callback(screenshot, current_ports, port_center)
 
     keep_cached_frame = is_first_data_port(node, mapped_name, side)
-    snapshot_cache.mark_dirty(
-        require_bbox=False,
-        keep_cached_frame=keep_cached_frame,
-    )
+    snapshot_cache.mark_dirty(require_bbox=False, keep_cached_frame=keep_cached_frame)
 
     if success and is_operation_node:
         typed_side_once[side] = True
 
-    return True
+    return bool(success)
 
 
 __all__ = [

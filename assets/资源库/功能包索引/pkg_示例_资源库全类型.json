@@ -1,0 +1,366 @@
+{
+  "package_id": "pkg_20251129_190700_266546",
+  "name": "示例_资源库全类型",
+  "description": "资源库全资源类型示例存档包：集中展示模板、实例、节点图、复合节点、战斗预设与管理配置等资源在同一功能包内的挂载方式，便于对照学习与后续补齐各类型“示例_”资源文件。",
+  "resources": {
+    "templates": [
+      "template_20251130_190000_000001_signal_all_types_example",
+      "template_20251120_192440_304727_6329",
+      "template_20251120_135743_044453_de17",
+      "template_20251119_224027_875726_65d6",
+      "template_20251206_210500_000001_6d1f",
+      "template_20251206_210500_000002_6d1f",
+      "template_20251206_210500_000003_6d1f",
+      "template_20251206_210500_000004_6d1f",
+      "template_20251206_210500_000005_6d1f",
+      "template_sample_all_fields_01"
+    ],
+    "instances": [
+      "level_pkg_20251129_190700_266546",
+      "instance_20251130_190000_000001_signal_all_types_example",
+      "level_pkg_20251203_122812_479435",
+      "instance_20251120_210431_319110_17ee",
+      "instance_sample_all_fields_01"
+    ],
+    "graphs": [
+      "server_signal_all_types_example_01",
+      "server_delay_composite_example_01",
+      "server_template_local_variable_counter",
+      "server_template_complex_flow_example_01",
+      "server_composite_multibranch_example_01",
+      "server_template_multi_pedals_open_door_receiver_01",
+      "server_multi_pedal_link_example_01",
+      "server_template_local_variable_branch_assign",
+      "server_template_loop_iterate_int_list",
+      "server_struct_all_types_example_01",
+      "server_template_pedal_switch_signal_broadcast_01"
+    ],
+    "composites": [
+      "composite_延迟执行_示例_类格式",
+      "composite_多分支_示例_类格式",
+      "composite_多引脚模板_示例"
+    ],
+    "combat_presets": {
+      "player_templates": [
+        "player_template_sample_all_fields_01"
+      ],
+      "player_classes": [
+        "player_class_sample_all_fields_01"
+      ],
+      "unit_statuses": [
+        "status_20251205_103537_348138_7bbc",
+        "unit_status_sample_all_fields_01"
+      ],
+      "skills": [
+        "skill_sample_all_fields_01",
+        "skill_signal_all_types_debug"
+      ],
+      "projectiles": [
+        "projectile_sample_all_fields_01"
+      ],
+      "items": [
+        "item_1107296259",
+        "item_1107296260",
+        "item_1107296261",
+        "item_1107296262",
+        "item_1107296263",
+        "item_sample_all_fields_01"
+      ]
+    },
+    "management": {
+      "timers": [
+        "timer_20251127_165944_831831_50d3",
+        "timer_sample_all_fields_01"
+      ],
+      "level_variables": [],
+      "preset_points": [
+        "point_20251127_165948_177505_2fca",
+        "示例_预设点_全字段"
+      ],
+      "skill_resources": [
+        "skill_resource_20251127_165949_804591_7978",
+        "skill_resource_sample_all_fields_01"
+      ],
+      "currency_backpack": [
+        "global_view_currency_backpack",
+        "currency_backpack_sample_all_fields_01"
+      ],
+      "equipment_data": [
+        "1132462081",
+        "1132462082",
+        "1132462083",
+        "equipment_20251206_152637_448918_9047",
+        "equipment_entry_20251206_184712_233479_f4d3",
+        "equipment_sample_all_fields_01"
+      ],
+      "shop_templates": [
+        "shop_1",
+        "shop_sample_all_fields_01"
+      ],
+      "ui_layouts": [
+        "layout_default",
+        "layout_sample_all_fields_01"
+      ],
+      "ui_widget_templates": [
+        "builtin_小地图",
+        "builtin_技能区",
+        "builtin_挣扎按钮",
+        "builtin_摇杆",
+        "builtin_网络状态",
+        "builtin_聊天按钮",
+        "builtin_角色生命值条",
+        "builtin_退出按钮",
+        "builtin_选项卡",
+        "builtin_造物生命值条",
+        "builtin_队伍信息",
+        "ui_widget_template_sample_all_fields_01"
+      ],
+      "multi_language": [
+        "text_1",
+        "text_sample_all_fields_01"
+      ],
+      "main_cameras": [
+        "camera_20251127_165941_477676_9e82",
+        "camera_sample_all_fields_01"
+      ],
+      "light_sources": [
+        "light_20251127_170009_446514_0a93",
+        "light_sample_all_fields_01"
+      ],
+      "background_music": [
+        "music_20251127_165951_530861_6b9d",
+        "music_sample_all_fields_01"
+      ],
+      "paths": [
+        "path_20251127_170005_639785_d4fc",
+        "path_sample_all_fields_01"
+      ],
+      "entity_deployment_groups": [
+        "group_1",
+        "group_sample_all_fields_01"
+      ],
+      "unit_tags": [
+        "unit_tag_20251127_165959_772505_b2c6",
+        "unit_tag_sample_all_fields_01"
+      ],
+      "scan_tags": [
+        "1",
+        "scan_tag_sample_all_fields_01"
+      ],
+      "shields": [
+        "shield_20251127_170001_603824_70c9",
+        "shield_sample_all_fields_01"
+      ],
+      "peripheral_systems": [
+        "global_view_peripheral_systems",
+        "peripheral_systems_sample_all_fields_01"
+      ],
+      "save_points": [
+        "ingame_template_sample_all_fields_01"
+      ],
+      "chat_channels": [
+        "chat_channel_20251127_170011_120520_395b",
+        "chat_channel_sample_all_fields_01"
+      ],
+      "level_settings": [
+        "global_view_level_settings",
+        "level_settings_sample_all_fields_01"
+      ],
+      "signals": [],
+      "struct_definitions": [
+        "struct_all_supported_types_example",
+        "示例_局内存档_基础信息",
+        "示例_局内存档_资源账本",
+        "示例_局内存档_状态标记",
+        "示例_局内存档_收集汇总",
+        "示例_局内存档_进度记录条目",
+        "示例_局内存档_事件记录条目"
+      ]
+    }
+  },
+  "resource_names": {
+    "templates": {
+      "template_20251130_190000_000001_signal_all_types_example": "信号全类型_测试台",
+      "template_20251120_192440_304727_6329": "关卡配置表",
+      "template_20251120_135743_044453_de17": "金币",
+      "template_20251119_224027_875726_65d6": "宝石",
+      "template_20251206_210500_000001_6d1f": "单手剑",
+      "template_20251206_210500_000002_6d1f": "魔刀",
+      "template_20251206_210500_000003_6d1f": "龙血剑",
+      "template_20251206_210500_000004_6d1f": "逐暗者",
+      "template_20251206_210500_000005_6d1f": "光辉之剑",
+      "template_sample_all_fields_01": "示例_元件模板_全字段"
+    },
+    "instances": {
+      "level_pkg_20251129_190700_266546": "level_pkg_20251129_190700_266546",
+      "instance_20251130_190000_000001_signal_all_types_example": "信号全类型_测试台实例",
+      "level_pkg_20251203_122812_479435": "关卡实体",
+      "instance_20251120_210431_319110_17ee": "关卡配置表_2",
+      "instance_sample_all_fields_01": "示例_实体实例_全字段"
+    },
+    "graphs": {
+      "server_signal_all_types_example_01": "模板示例_信号全类型_发送与监听",
+      "server_delay_composite_example_01": "模板示例_延迟执行_复合节点用法",
+      "server_template_local_variable_counter": "模板示例_局部变量计数",
+      "server_template_complex_flow_example_01": "模板示例_复杂控制流综合测试",
+      "server_composite_multibranch_example_01": "模板示例_多分支_复合节点用法",
+      "server_template_multi_pedals_open_door_receiver_01": "模板示例_多踏板同时按下_开门_接收端",
+      "server_multi_pedal_link_example_01": "模板示例_多踏板联动",
+      "server_template_local_variable_branch_assign": "模板示例_局部变量_分支设置",
+      "server_template_loop_iterate_int_list": "模板示例_循环遍历整数列表",
+      "server_struct_all_types_example_01": "模板示例_结构体全类型_拆分与拼装",
+      "server_template_pedal_switch_signal_broadcast_01": "模板示例_踏板开关_信号广播"
+    },
+    "composites": {
+      "composite_延迟执行_示例_类格式": "composite_延迟执行_示例_类格式",
+      "composite_多分支_示例_类格式": "composite_多分支_示例_类格式",
+      "composite_多引脚模板_示例": "composite_多引脚模板_示例"
+    },
+    "combat_presets": {
+      "player_templates": {
+        "player_template_sample_all_fields_01": "示例_玩家模板_全字段"
+      },
+      "player_classes": {
+        "player_class_sample_all_fields_01": "示例_职业_全字段"
+      },
+      "unit_statuses": {
+        "status_20251205_103537_348138_7bbc": "单位状态1",
+        "unit_status_sample_all_fields_01": "示例_单位状态_全字段"
+      },
+      "skills": {
+        "skill_sample_all_fields_01": "示例_技能_全字段",
+        "skill_signal_all_types_debug": "信号全类型_调试技能"
+      },
+      "projectiles": {
+        "projectile_sample_all_fields_01": "示例_投射物_全字段"
+      },
+      "items": {
+        "item_1107296259": "单手剑",
+        "item_1107296260": "魔刀",
+        "item_1107296261": "龙血剑",
+        "item_1107296262": "逐暗者",
+        "item_1107296263": "光辉之剑",
+        "item_sample_all_fields_01": "示例_道具_全字段"
+      }
+    },
+    "management": {
+      "timers": {
+        "timer_20251127_165944_831831_50d3": "计时器1",
+        "timer_sample_all_fields_01": "示例_计时器_全字段"
+      },
+      "level_variables": {},
+      "preset_points": {
+        "point_20251127_165948_177505_2fca": "point_20251127_165948_177505_2fca",
+        "示例_预设点_全字段": "示例_预设点_全字段"
+      },
+      "skill_resources": {
+        "skill_resource_20251127_165949_804591_7978": "技能资源1",
+        "skill_resource_sample_all_fields_01": "示例_技能资源_全字段"
+      },
+      "currency_backpack": {
+        "global_view_currency_backpack": "global_view_currency_backpack",
+        "currency_backpack_sample_all_fields_01": "示例_货币背包_全字段"
+      },
+      "equipment_data": {
+        "1132462081": "攻击力",
+        "1132462082": "生命值",
+        "1132462083": "防御力",
+        "equipment_20251206_152637_448918_9047": "装备1",
+        "equipment_entry_20251206_184712_233479_f4d3": "equipment_entry_20251206_184712_233479_f4d3",
+        "equipment_sample_all_fields_01": "示例_装备数据_全字段"
+      },
+      "shop_templates": {
+        "shop_1": "商店1",
+        "shop_sample_all_fields_01": "示例_商店模板_全字段"
+      },
+      "ui_layouts": {
+        "layout_default": "默认布局",
+        "layout_sample_all_fields_01": "示例_UI布局_全字段"
+      },
+      "ui_widget_templates": {
+        "builtin_小地图": "小地图",
+        "builtin_技能区": "技能区",
+        "builtin_挣扎按钮": "挣扎按钮",
+        "builtin_摇杆": "摇杆",
+        "builtin_网络状态": "网络状态",
+        "builtin_聊天按钮": "聊天按钮",
+        "builtin_角色生命值条": "角色生命值条",
+        "builtin_退出按钮": "退出按钮",
+        "builtin_选项卡": "选项卡",
+        "builtin_造物生命值条": "造物生命值条",
+        "builtin_队伍信息": "队伍信息",
+        "ui_widget_template_sample_all_fields_01": "示例_UI控件模板_全字段"
+      },
+      "multi_language": {
+        "text_1": "text_1",
+        "text_sample_all_fields_01": "示例_多语言_全字段"
+      },
+      "main_cameras": {
+        "camera_20251127_165941_477676_9e82": "camera_20251127_165941_477676_9e82",
+        "camera_sample_all_fields_01": "示例_主镜头_全字段"
+      },
+      "light_sources": {
+        "light_20251127_170009_446514_0a93": "光源1",
+        "light_sample_all_fields_01": "示例_光源_全字段"
+      },
+      "background_music": {
+        "music_20251127_165951_530861_6b9d": "背景音乐1",
+        "music_sample_all_fields_01": "示例_背景音乐_全字段"
+      },
+      "paths": {
+        "path_20251127_170005_639785_d4fc": "路径_path_20251127_170005_639785_d4fc",
+        "path_sample_all_fields_01": "示例_路径_全字段"
+      },
+      "entity_deployment_groups": {
+        "group_1": "实体布设组1",
+        "group_sample_all_fields_01": "示例_实体布设组_全字段"
+      },
+      "unit_tags": {
+        "unit_tag_20251127_165959_772505_b2c6": "单位标签1",
+        "unit_tag_sample_all_fields_01": "示例_单位标签_全字段"
+      },
+      "scan_tags": {
+        "1": "扫描标签1",
+        "scan_tag_sample_all_fields_01": "示例_扫描标签_全字段"
+      },
+      "shields": {
+        "shield_20251127_170001_603824_70c9": "护盾1",
+        "shield_sample_all_fields_01": "示例_护盾_全字段"
+      },
+      "peripheral_systems": {
+        "global_view_peripheral_systems": "global_view_peripheral_systems",
+        "peripheral_systems_sample_all_fields_01": "示例_外围系统_全字段"
+      },
+      "save_points": {
+        "ingame_template_sample_all_fields_01": "ingame_template_sample_all_fields_01"
+      },
+      "chat_channels": {
+        "chat_channel_20251127_170011_120520_395b": "聊天频道1",
+        "chat_channel_sample_all_fields_01": "示例_聊天频道_全字段"
+      },
+      "level_settings": {
+        "global_view_level_settings": "关卡设置1",
+        "level_settings_sample_all_fields_01": "示例_关卡设置_全字段"
+      },
+      "signals": {},
+      "struct_definitions": {
+        "struct_all_supported_types_example": "struct_all_supported_types_example",
+        "示例_局内存档_基础信息": "示例_局内存档_基础信息",
+        "示例_局内存档_资源账本": "示例_局内存档_资源账本",
+        "示例_局内存档_状态标记": "示例_局内存档_状态标记",
+        "示例_局内存档_收集汇总": "示例_局内存档_收集汇总",
+        "示例_局内存档_进度记录条目": "示例_局内存档_进度记录条目",
+        "示例_局内存档_事件记录条目": "示例_局内存档_事件记录条目"
+      }
+    }
+  },
+  "level_entity_id": "level_pkg_20251129_190700_266546",
+  "signals": {
+    "signal_all_supported_types_example": {},
+    "signal_example_pedal_switch_activation_ack": {},
+    "signal_example_pedal_switch_state": {},
+    "signal_20251119_103753_007435_f98e": {}
+  },
+  "created_at": "2025-11-29T19:07:00.271544",
+  "updated_at": "2025-12-20T12:42:31.081058"
+}

@@ -23,7 +23,6 @@ class ExecutionControl(QtCore.QObject):
         pause_button: QtWidgets.QPushButton,
         resume_button: QtWidgets.QPushButton,
         next_step_button: QtWidgets.QPushButton,
-        step_mode_checkbox: QtWidgets.QCheckBox,
         stop_button: QtWidgets.QPushButton,
         parent: QtCore.QObject | None = None
     ):
@@ -32,7 +31,6 @@ class ExecutionControl(QtCore.QObject):
             pause_button: 暂停按钮
             resume_button: 继续按钮
             next_step_button: 下一步按钮
-            step_mode_checkbox: 单步模式复选框
             stop_button: 终止按钮
             parent: 父对象
         """
@@ -42,7 +40,6 @@ class ExecutionControl(QtCore.QObject):
         self._pause_button = pause_button
         self._resume_button = resume_button
         self._next_step_button = next_step_button
-        self._step_mode_checkbox = step_mode_checkbox
         self._stop_button = stop_button
         
         # 状态
@@ -58,7 +55,6 @@ class ExecutionControl(QtCore.QObject):
         self._pause_button.clicked.connect(self._on_pause_clicked)
         self._resume_button.clicked.connect(self._on_resume_clicked)
         self._next_step_button.clicked.connect(self._on_next_step_clicked)
-        self._step_mode_checkbox.stateChanged.connect(self._on_step_mode_toggled)
         self._stop_button.clicked.connect(self._on_stop_clicked)
     
     def start_execution(self) -> None:
@@ -67,13 +63,15 @@ class ExecutionControl(QtCore.QObject):
         self.is_paused = False
         self._pause_button.setEnabled(True)
         self._resume_button.setEnabled(False)
-        self._next_step_button.setEnabled(self.step_mode_enabled)
+        # “下一步”作为单步入口：运行中始终可用（点击可进入单步并暂停）
+        self._next_step_button.setEnabled(True)
         self._stop_button.setEnabled(True)
     
     def stop_execution(self) -> None:
         """停止执行"""
         self.is_running = False
         self.is_paused = False
+        self.step_mode_enabled = False
         self._pause_button.setEnabled(False)
         self._resume_button.setEnabled(False)
         self._next_step_button.setEnabled(False)
@@ -124,14 +122,8 @@ class ExecutionControl(QtCore.QObject):
             self._resume_button.setEnabled(False)
             self.log_message.emit("继续执行")
             self.status_changed.emit("执行中...")
-            # 用户选择"继续"，退出单步模式
-            if self.step_mode_enabled:
-                self.step_mode_enabled = False
-                if self._step_mode_checkbox.isChecked():
-                    self._step_mode_checkbox.blockSignals(True)
-                    self._step_mode_checkbox.setChecked(False)
-                    self._step_mode_checkbox.blockSignals(False)
-                self._next_step_button.setEnabled(False)
+            # 用户选择“继续”时退出单步（之后不再在每一步开始前自动暂停）
+            self.step_mode_enabled = False
     
     def _on_stop_clicked(self) -> None:
         """终止按钮点击"""
@@ -144,21 +136,19 @@ class ExecutionControl(QtCore.QObject):
         self.log_message.emit("终止执行")
         self.status_changed.emit("已终止")
     
-    def _on_step_mode_toggled(self, state: int) -> None:
-        """单步模式切换"""
-        enabled = state == Qt.CheckState.Checked.value
-        self.step_mode_enabled = enabled
-        if self.is_running:
-            self._next_step_button.setEnabled(enabled)
-        else:
-            self._next_step_button.setEnabled(False)
-    
     def _on_next_step_clicked(self) -> None:
         """下一步按钮点击"""
         if not self.is_running:
             return
+        # 约定：不再提供“单步勾选框”，单步由“下一步”按钮显式进入。
+        # - 未处于单步：点击一次进入单步并暂停
+        # - 已处于单步且当前暂停：点击继续执行一步（下一步开始前会再次暂停）
         if not self.step_mode_enabled:
+            self.step_mode_enabled = True
+            self.request_pause()
+            self.log_message.emit("进入单步模式")
             return
+
         # 单步模式：允许继续一步，但必须保持 step_mode_enabled 不变，
         # 否则下一步开始时外部的 step_will_start 将不会再次触发暂停。
         if self.is_paused:
@@ -167,5 +157,8 @@ class ExecutionControl(QtCore.QObject):
             self._resume_button.setEnabled(False)
             self.log_message.emit("继续下一步")
             self.status_changed.emit("执行中...")
-        # 若当前未处于暂停但用户点击了"下一步"，忽略（执行线程会在下一步开始前再暂停）
+            return
+
+        # 当前未处于暂停：先暂停，让用户从“明确的暂停点”开始逐步执行
+        self.request_pause()
 

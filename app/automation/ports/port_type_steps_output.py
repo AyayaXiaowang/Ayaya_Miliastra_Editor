@@ -18,6 +18,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 from PIL import Image
 
 from engine.graph.models.graph_model import GraphModel, NodeModel
+from engine.utils.graph.graph_utils import is_flow_port_name
 
 from app.automation.editor.executor_protocol import (
     EditorExecutorProtocol,
@@ -71,18 +72,39 @@ def process_output_ports_type_setting(
         if get_port_category(port_snapshot) == "data_output"
     ]
 
+    node_output_name_candidates: set[str] = set()
+    for output_port in list(getattr(node, "outputs", []) or []):
+        output_port_name = getattr(output_port, "name", None)
+        if isinstance(output_port_name, str) and output_port_name and not is_flow_port_name(output_port_name):
+            node_output_name_candidates.add(output_port_name)
+
+    successful_set_count = 0
+    planned_set_count = 0
+    unresolved_generic_like_count = 0
+
     for port_out in right_data_rows:
         if is_operation_node and typed_side_once.get("right", False):
             executor.log("[端口类型/输出] 运算节点：同侧仅需设置一次，跳过剩余输出端口", log_callback)
             break
 
         port_index = getattr(port_out, "index", None)
-        mapped_name = None
+        mapped_name: Optional[str] = None
         if isinstance(port_index, int):
             mapped_name = map_port_index_to_name(node.title, "right", port_index)
 
         if not isinstance(mapped_name, str) or mapped_name == "":
-            executor.log("[端口类型] 无法映射输出端口名称，跳过该项", log_callback)
+            detected_name_cn = getattr(port_out, "name_cn", None)
+            if isinstance(detected_name_cn, str):
+                mapped_name = detected_name_cn.strip()
+
+        if not isinstance(mapped_name, str) or mapped_name == "":
+            executor.log("[端口类型/输出] 无法解析输出端口名称，跳过该项", log_callback)
+            continue
+        if node_output_name_candidates and mapped_name not in node_output_name_candidates:
+            executor.log(
+                f"[端口类型/输出] 识别到的端口 '{mapped_name}' 不在节点输出端口集合中，跳过",
+                log_callback,
+            )
             continue
 
         # 获取显式声明类型
@@ -98,6 +120,7 @@ def process_output_ports_type_setting(
             )
             continue
 
+        unresolved_generic_like_count += 1
         target_type = infer_effective_output_type(
             executor,
             node,
@@ -114,6 +137,7 @@ def process_output_ports_type_setting(
                 log_callback,
             )
             continue
+        planned_set_count += 1
 
         def apply_output_type(
             screenshot_inner: Image.Image,
@@ -151,6 +175,20 @@ def process_output_ports_type_setting(
         )
         if not ok_output:
             return False
+        successful_set_count += 1
+
+    if planned_set_count > 0 and successful_set_count == 0:
+        executor.log(
+            "✗ [端口类型/输出] 本步未成功设置任何输出端口类型（全部被跳过或无法推断）",
+            log_callback,
+        )
+        return False
+    if planned_set_count == 0 and unresolved_generic_like_count > 0:
+        executor.log(
+            "✗ [端口类型/输出] 本步存在需要设置类型的输出端口，但未能推断出任何具体类型",
+            log_callback,
+        )
+        return False
 
     return True
 

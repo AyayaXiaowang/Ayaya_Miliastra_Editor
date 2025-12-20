@@ -106,10 +106,11 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         self.log_splitter = self._ui_refs.get("log_splitter")
         self.execute_button = self._ui_refs.get("execute_button")
         self.execute_remaining_button = self._ui_refs.get("execute_remaining_button")
+        self.primary_left_stack = self._ui_refs.get("primary_left_stack")
+        self.primary_middle_stack = self._ui_refs.get("primary_middle_stack")
         self.pause_button = self._ui_refs["pause_button"]
         self.resume_button = self._ui_refs["resume_button"]
         self.next_step_button = self._ui_refs["next_step_button"]
-        self.step_mode_checkbox = self._ui_refs["step_mode_checkbox"]
         self.stop_button = self._ui_refs["stop_button"]
         self.inspect_button = self._ui_refs["inspect_button"]
         self.match_focus_button = self._ui_refs["match_focus_button"]
@@ -164,7 +165,6 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
             pause_button=self.pause_button,
             resume_button=self.resume_button,
             next_step_button=self.next_step_button,
-            step_mode_checkbox=self.step_mode_checkbox,
             stop_button=self.stop_button,
             parent=self,
         )
@@ -306,13 +306,24 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         if isinstance(execute_remaining_button, QtWidgets.QWidget):
             execute_remaining_button.setVisible(bool(enabled))
 
+        # 控制区第一行按钮复用：完整模式显示“检查/定位”，精简模式显示“执行/执行剩余”
+        if isinstance(self.primary_left_stack, QtWidgets.QStackedWidget):
+            if enabled:
+                self.primary_left_stack.setCurrentWidget(self.execute_button)
+            else:
+                self.primary_left_stack.setCurrentWidget(self.inspect_button)
+        if isinstance(self.primary_middle_stack, QtWidgets.QStackedWidget):
+            if enabled:
+                self.primary_middle_stack.setCurrentWidget(self.execute_remaining_button)
+            else:
+                self.primary_middle_stack.setCurrentWidget(self.match_focus_button)
+
         # 精简模式进一步收敛：为了让窗口宽度可以缩到“步骤树宽度”，
         # 需要避免控制按钮行的 minimumSizeHint 把底部日志区撑得过宽。
         # 保留执行入口与终止按钮，其余控制仅保留快捷键（Ctrl+P 暂停）与后台逻辑。
         self.pause_button.setVisible(not enabled)
         self.resume_button.setVisible(not enabled)
         self.next_step_button.setVisible(not enabled)
-        self.step_mode_checkbox.setVisible(not enabled)
         # 终止按钮在完整/精简两种模式下都应可见；精简模式仅隐藏“暂停/继续/下一步/单步”。
         self.stop_button.setVisible(True)
 

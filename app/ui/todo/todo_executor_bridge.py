@@ -118,6 +118,8 @@ class TodoExecutorBridge(QtCore.QObject):
             return
 
         executor, graph_model = self._build_executor_and_model(graph_data, monitor)
+        # 根级连续执行入口：清空坐标映射/识别缓存，避免复用上一轮执行残留导致视口对齐与创建位置异常。
+        executor.reset_mapping_state(monitor.log)
         self._inject_context_to_monitor(monitor, graph_model, executor)
 
         if not step_list:
@@ -257,6 +259,8 @@ class TodoExecutorBridge(QtCore.QObject):
             self._notify("未找到执行监控面板，无法启动执行", "error")
             return
         executor, graph_model = self._build_executor_and_model(graph_data, monitor)
+        # 事件流根执行入口：清空坐标映射/识别缓存，确保首个创建类步骤能在“未校准”模式下从画布中心创建锚点。
+        executor.reset_mapping_state(monitor.log)
         self._inject_context_to_monitor(monitor, graph_model, executor)
         if not step_list:
             monitor.start_monitoring()

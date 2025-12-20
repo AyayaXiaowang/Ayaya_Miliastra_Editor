@@ -80,10 +80,13 @@ assets/资源库/**/*.py[cod]
 assets/资源库/**/*.pyo
 assets/资源库/**/*.pyd
 
-# 明确白名单：官方内置“信号/结构体全类型示例”及其功能包
+# 明确白名单：官方内置"信号/结构体全类型示例"及其功能包
 !assets/资源库/管理配置/结构体定义/struct_all_supported_types_example.py
 !assets/资源库/管理配置/信号/signal_all_supported_types_example.py
 !assets/资源库/地图索引/pkg_示例_信号全参数类型.json
+
+# 明确白名单：资源库全类型示例功能包索引
+!assets/资源库/功能包索引/pkg_示例_资源库全类型.json
 
 # 明确白名单：模板示例节点图依赖的教学示例信号（用于 CI 回归）
 !assets/资源库/管理配置/信号/signal_example_pedal_switch_state.py
