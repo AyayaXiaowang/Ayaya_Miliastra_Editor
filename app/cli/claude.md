@@ -19,6 +19,7 @@ CLI 与批处理入口（解析参数→调用 `engine` / `plugins` → 输出�
  - 典型入口：
   - `run_app.py`：启动应用主窗口（推荐命令：`python -X utf8 -m app.cli.run_app`）。
   - `convert_graph_to_executable.py`：将节点图导出为可执行代码（推荐命令：`python -X utf8 -m app.cli.convert_graph_to_executable`）。
+  - `graph_tools.py`：便携版工具入口（校验/诊断），用于打包产物中的 `Graph_Generater_Tools.exe`；冻结运行时默认以 exe 所在目录为工作区根目录（要求 `assets/` 与 exe 同级外置），提供 `validate-graphs` / `validate-file` 等命令。
 - CLI 输出的“运行生成文件”提示需包含 `-X utf8` 且对路径加引号，避免中文路径/空格路径在 PowerShell 下解析异常。
 - 导入规范：默认统一从 `engine` 导入，如 `from engine import GraphCodeParser, get_node_registry, log_info`；UI 相关统一使用 `app.ui.*`（不再制造顶层包名 `ui`，避免同一模块被导入两份）。
 - 所有 CLI 入口应在导入/调用布局、缓存等依赖 workspace_root 的逻辑前调用 `settings.set_config_path(workspace_root)`，避免 settings 未初始化导致布局/注册表上下文构建失败。

@@ -51,7 +51,9 @@ def _scale_pair(pair_px: Tuple[int, int], factor: float) -> Tuple[int, int]:
 
 
 _BASE_PROFILE_NAME = "4K-100-CN"
-_BASE_PORT_HEADER_HEIGHT_PX = 28
+_BASE_PORT_HEADER_HEIGHT_PX = 21
+# 端口识别排除顶部区域的最大像素高度（用户实测 4K125 只需 26px）
+_MAX_PORT_HEADER_HEIGHT_PX = 26
 _BASE_PARAMS = AutomationUiProfileParams(
     profile_name=_BASE_PROFILE_NAME,
     port_header_height_px=_BASE_PORT_HEADER_HEIGHT_PX,
@@ -148,14 +150,15 @@ def resolve_automation_ui_params(*, workspace_root: Optional[Path] = None, prefe
 
     matched_resolution_tag = match_resolution_tag_by_width(screen_width_px)
 
-    # 分辨率档位的“标题栏基准高度”（100% 缩放下）
-    # - 1080@100%：用户实测 20px
-    # - 2K@100%：用户实测 22px
-    # - 4K@100%：现有模板基准 28px
+    # 分辨率档位的"标题栏基准高度"（100% 缩放下）
+    # - 1080@100%：用户实测 17px
+    # - 2K@100%：用户实测 17px
+    # - 4K@100%：用户实测 21px（4K125 应为 26px -> 21 * 1.25 ≈ 26）
+    # 所有分辨率排除区域最大不超过 _MAX_PORT_HEADER_HEIGHT_PX (26px)
     base_header_height_by_resolution_tag = {
-        "1080": 20,
-        "2K": 22,
-        "4K": 28,
+        "1080": 17,
+        "2K": 17,
+        "4K": 21,
     }
 
     resolution_tag = str(matched_resolution_tag or "").strip().upper()
@@ -164,6 +167,8 @@ def resolve_automation_ui_params(*, workspace_root: Optional[Path] = None, prefe
         float(base_header_height) * (float(scale_percent) / 100.0),
         minimum=1,
     )
+    # 强制限制最大高度，确保所有分辨率都不超过上限
+    header_height = min(header_height, _MAX_PORT_HEADER_HEIGHT_PX)
 
     return _build_scaled_from_base(profile_name=profile_name or _BASE_PROFILE_NAME, port_header_height_px=header_height)
 

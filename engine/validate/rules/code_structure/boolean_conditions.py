@@ -246,14 +246,14 @@ class IfBoolEqualityToConstRule(ValidationRule):
                 if test.func.id != "是否相等":
                     continue
 
-                # 是否相等(self.game, 枚举1=..., 枚举2=...)
+                # 是否相等(self.game, 输入1=..., 输入2=...)
                 kw_map = {
                     kw.arg: kw.value
                     for kw in (test.keywords or [])
                     if isinstance(kw, ast.keyword) and isinstance(kw.arg, str)
                 }
-                left = kw_map.get("枚举1")
-                right = kw_map.get("枚举2")
+                left = kw_map.get("输入1")
+                right = kw_map.get("输入2")
                 if left is None or right is None:
                     continue
 

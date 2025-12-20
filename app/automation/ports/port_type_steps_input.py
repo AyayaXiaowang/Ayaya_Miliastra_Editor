@@ -20,6 +20,7 @@ from PIL import Image
 
 from engine.graph.models.graph_model import GraphModel, NodeModel
 from engine.nodes.port_index_mapper import map_port_index_to_name
+from engine.utils.graph.graph_utils import is_flow_port_name
 
 from app.automation.editor.executor_protocol import (
     EditorExecutorProtocol,
@@ -85,25 +86,62 @@ def process_input_ports_type_setting(
     if not snapshot_cache.ensure(reason="输入类型设置/遍历", require_bbox=False):
         return False
 
+    node_input_name_candidates: set[str] = set()
+    for input_port in list(getattr(node, "inputs", []) or []):
+        input_port_name = getattr(input_port, "name", None)
+        if isinstance(input_port_name, str) and input_port_name and not is_flow_port_name(input_port_name):
+            node_input_name_candidates.add(input_port_name)
+
+    expected_input_names: set[str] = set()
+    for name in target_input_names:
+        if name in node_input_name_candidates:
+            expected_input_names.add(name)
+
     left_data_rows = [
         port_snapshot
         for port_snapshot in snapshot_cache.ports
         if is_data_input_port(port_snapshot)
     ]
 
+    handled_expected_inputs: set[str] = set()
+    successful_set_count = 0
+
     # 遍历左侧数据端口行
     for port_in in left_data_rows:
         if is_operation_node and typed_side_once.get("left", False):
-            executor.log("[端口类型/输入] 运算节点：同侧仅需设置一次，跳过剩余输入端口", log_callback)
+            # 运算节点：同侧输入端口通常共享同一类型设置（一次设置即可生效）。
+            # 因此当同侧已成功设置过一次时，后续“期望端口缺失”校验应视为已满足，
+            # 避免出现“已设置一次但仍因未遍历到后续端口名而失败”的假阴性。
+            if expected_input_names:
+                remaining_expected = sorted(expected_input_names - handled_expected_inputs)
+                handled_expected_inputs.update(expected_input_names)
+                if remaining_expected:
+                    executor.log(
+                        "[端口类型/输入] 运算节点：同侧仅需设置一次，跳过剩余输入端口；"
+                        f"视为已满足剩余期望输入端口：{'、'.join(remaining_expected)}",
+                        log_callback,
+                    )
+                else:
+                    executor.log(
+                        "[端口类型/输入] 运算节点：同侧仅需设置一次，跳过剩余输入端口",
+                        log_callback,
+                    )
+            else:
+                executor.log("[端口类型/输入] 运算节点：同侧仅需设置一次，跳过剩余输入端口", log_callback)
             break
 
         port_index = getattr(port_in, "index", None)
-        mapped_name = None
+        mapped_name: Optional[str] = None
         if isinstance(port_index, int):
             mapped_name = map_port_index_to_name(node.title, "left", port_index)
 
         if not isinstance(mapped_name, str) or mapped_name == "":
-            executor.log("[端口类型] 无法映射输入端口名称，跳过该项", log_callback)
+            detected_name_cn = getattr(port_in, "name_cn", None)
+            if isinstance(detected_name_cn, str):
+                mapped_name = detected_name_cn.strip()
+
+        if not isinstance(mapped_name, str) or mapped_name == "":
+            executor.log("[端口类型/输入] 无法解析输入端口名称，跳过该项", log_callback)
             continue
 
         # 若步骤明确给出了需要处理的输入端口集合，则严格尊重该集合；
@@ -114,6 +152,8 @@ def process_input_ports_type_setting(
                 log_callback,
             )
             continue
+        if expected_input_names and mapped_name in expected_input_names:
+            handled_expected_inputs.add(mapped_name)
 
         # 获取显式声明类型
         declared_input_type = ""
@@ -178,6 +218,7 @@ def process_input_ports_type_setting(
             )
             if not ok_dict:
                 return False
+            successful_set_count += 1
             # 无论成功与否，已尝试字典专用流程，不再走通用单一类型设置
             continue
 
@@ -242,6 +283,23 @@ def process_input_ports_type_setting(
             apply_ui_callback=apply_input_type,
         )
         if not ok_input:
+            return False
+        successful_set_count += 1
+
+    if expected_input_names:
+        missing_expected_inputs = expected_input_names - handled_expected_inputs
+        if missing_expected_inputs:
+            missing_list_text = "、".join(sorted(missing_expected_inputs))
+            executor.log(
+                f"✗ [端口类型/输入] 未在当前画面识别到期望输入端口：{missing_list_text}",
+                log_callback,
+            )
+            return False
+        if successful_set_count == 0:
+            executor.log(
+                "✗ [端口类型/输入] 本步未成功设置任何输入端口类型（全部被跳过或无法推断）",
+                log_callback,
+            )
             return False
 
     return True

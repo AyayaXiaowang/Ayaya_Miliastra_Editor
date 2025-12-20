@@ -168,3 +168,4 @@ def _insert_substitutions(source_family: str, target_families: list[str]) -> Non
     QtGui.QFont.insertSubstitutions(source_family, target_families)
 
 
+

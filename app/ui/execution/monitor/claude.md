@@ -20,7 +20,7 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - 精简模式：面板顶部“精简/完整”开关可隐藏截图/测试/拖拽/筛选/事件表，并联动主窗口收起左侧导航栏、缩小窗口与分栏比例；**不隐藏任务清单区域**，保证步骤树与执行入口仍可用
   - 执行入口集中：精简模式下监控面板会显示“执行/执行剩余”按钮，任务清单右侧详情/预览会被收起以释放空间
   - 分栏收敛：精简模式会将主窗口 `main_splitter` 切换为 **上下布局**（上：任务清单步骤树；下：执行监控日志），并临时调整拉伸权重与 handle 宽度；同时临时将 `central_stack` 的 sizePolicy 设为 Ignored，避免 QStackedWidget 以“所有页面最大 sizeHint/minSizeHint”限制最小宽度/高度而产生空白占位
-  - 自动缩窗：进入精简模式会自动**收缩窗口宽度**到“刚好够放得下步骤树”的程度（基于 `QTreeWidget.sizeHintForColumn(0)` 推导列宽），高度保持不变；为避免底部日志区被按钮行撑宽，精简模式会进一步隐藏暂停/继续/下一步/单步控件，仅保留执行入口与终止按钮
+- 自动缩窗：进入精简模式会自动**收缩窗口宽度**到“刚好够放得下步骤树”的程度（基于 `QTreeWidget.sizeHintForColumn(0)` 推导列宽），高度保持不变；为避免底部日志区被按钮行撑宽，精简模式会进一步隐藏暂停/继续/下一步控件，仅保留执行入口与终止按钮
 
 ### visual_overlays.py（~190 行）
 纯绘制函数，负责在 QPixmap 上叠加可视化元素（节点框/端口圆/OCR区域等）：
@@ -126,21 +126,26 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - 筛选匹配（`_record_matches_current_filter`）：类型筛选 + 文本搜索（不区分大小写）
 - 锚点生成（`_tokens_to_anchor_html`）：将分段 tokens 转为可点击的 `<a href='todo:...'>`
 - 信号自动连接：`search_input.textChanged` → `_on_search_text_changed`；`filter_combo.currentIndexChanged` → `_on_filter_changed`
+- 滚动策略：日志追加与重建视图后不再同步滚动到底部，而是通过 `QTimer.singleShot(0)` 做 debounce（同一轮事件循环最多滚动一次），降低 UI 重入风险。
 
-### panel_ui.py（~280 行）
+### panel_ui.py（~300 行）
 面板 UI 组装与样式，提供一次性构建函数：
+- `AspectRatioLabel`：保持 16:9 宽高比的 QLabel 子类，用于截图显示区域；通过 `heightForWidth()` 方法根据宽度自动计算高度
 - `build_monitor_ui(parent)`：构建执行监控面板的所有 UI 控件，返回控件引用字典
   - 返回字典包含所有控件：status_label、progress_label、step_context_label、screenshot_label、各按钮、log_text 等
   - 精简模式开关：`compact_mode_button`（QPushButton，checkable），由面板本体连接并驱动 UI 收敛与主窗口小窗化
   - 精简模式执行入口：`execute_button` / `execute_remaining_button`（仅在精简模式下显示），由任务清单编排层监听并路由到执行桥
-  - 布局：VBoxLayout 包含状态行、步骤上下文与统一滚动容器
-    - 统一滚动容器（`monitorScrollArea`）：将截图/控制区/测试区/拖拽测试区/日志筛选/日志分割区统一放入同一个滚动区域，避免出现“上半区独立滚动条”的割裂体验；日志正文 QTextBrowser 仍保留自身滚动条用于长日志快速滚动
+  - 布局：VBoxLayout 包含状态行、步骤上下文、截图区域与滚动容器
+    - 截图区域（`screenshot_label`）：位于滚动区域外部（主布局中），始终可见，不会被控制区/测试区/拖拽测试区等控件挡住；使用 `AspectRatioLabel` 保持 16:9 宽高比
+    - 滚动容器（`monitorScrollArea`）：将控制区/测试区/拖拽测试区/日志筛选/日志分割区放入滚动区域，避免这些工具控件挤压截图画面；日志正文 QTextBrowser 仍保留自身滚动条用于长日志快速滚动
     - 控制区：分组 + Grid，每行不超过 3 个主要按钮，减少窄宽度截字
-    - 测试区：不在面板内展开，改为“测试工具”菜单按钮弹出 QMenu，避免测试入口数量影响窗口最小尺寸
+    - 测试区：不在面板内展开，改为"测试工具"菜单按钮弹出 QMenu，避免测试入口数量影响窗口最小尺寸
     - 日志筛选：搜索与筛选拆两行（搜索行优先保证输入框可见）
     - 日志分割区：`log_splitter`（执行事件表格 + 日志正文）允许子项折叠，子控件最小高度为 0，便于小窗场景压缩高度
-  - 文案与样式：按钮使用 `kind` 动态属性区分 `primary/secondary/danger`；对 disabled 状态提供统一置灰样式，保证按钮仅在实际可用时呈现“正常颜色”
-  - 初始按钮状态：暂停/继续/下一步/终止默认禁用，单步复选框启用
+  - 注意：`QSplitter.setCollapsible(index, ...)` 需在 `addWidget(...)` 之后调用，否则 Qt 会输出 `QSplitter::setCollapsible: Index X out of range` 警告
+  - 文案与样式：按钮使用 `kind` 动态属性区分 `primary/secondary/danger`；对 disabled 状态提供统一置灰样式，保证按钮仅在实际可用时呈现"正常颜色"
+  - 初始按钮状态：暂停/继续/下一步/终止默认禁用
+  - 截图区域：位于主布局中（非滚动区域），使用 `AspectRatioLabel` 保持 16:9 宽高比；由渲染器按当前尺寸缩放绘制。
 - `_apply_compact_controls_style(parent)`：应用紧凑化控件样式（按钮 font-size:11px、padding:2px 8px；复选框 font-size:11px）
 - 日志文本：日志正文 QTextBrowser 使用等宽字体（通过 `app.ui.foundation.fonts` 统一选择），避免硬编码 `Consolas` 等平台字体名。
 - 不包含信号连接：信号连接由面板在 `_connect_ui_signals()` 中统一处理
@@ -221,7 +226,7 @@ from app.ui.execution import ExecutionMonitorPanel
 ### execution_control.py（~150 行）
 执行控制与单步模式：
 - `ExecutionControl` 类（继承 QObject），管理暂停/继续/单步/终止
-- 构造参数：`pause_button` / `resume_button` / `next_step_button` / `step_mode_checkbox` / `stop_button`
+- 构造参数：`pause_button` / `resume_button` / `next_step_button` / `stop_button`
 - 信号：
   - `stop_requested`：停止执行请求
   - `status_changed(str)`：状态更新（用于通知面板更新状态标签）
@@ -234,7 +239,7 @@ from app.ui.execution import ExecutionMonitorPanel
   - `wait_if_paused()`：等待（阻塞），直到不再暂停
   - `is_execution_allowed()`：检查是否允许继续执行（未终止）；暂停由 `wait_if_paused()` 负责阻塞，不应把 paused 当作“终止”
   - `is_step_mode_enabled()`：检查是否启用单步模式
-- 私有槽：`_on_pause_clicked` / `_on_resume_clicked` / `_on_stop_clicked` / `_on_step_mode_toggled` / `_on_next_step_clicked`
+- 私有槽：`_on_pause_clicked` / `_on_resume_clicked` / `_on_stop_clicked` / `_on_next_step_clicked`
 - 按钮连接：内部自动连接所有控制按钮的信号
 
 ## 边界/细节提示

@@ -11,6 +11,20 @@ from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import Colors, ThemeManager
 
 
+class AspectRatioLabel(QtWidgets.QLabel):
+    """保持 16:9 宽高比的 QLabel，用于截图显示区域"""
+
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent)
+        self._aspect_ratio = 16 / 9  # 宽高比
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, a0: int) -> int:  # 参数名需与 QLabel 基类匹配
+        return int(a0 / self._aspect_ratio)
+
+
 def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     """
     构建执行监控面板的 UI 组装
@@ -28,7 +42,6 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         - pause_button: 暂停按钮
         - resume_button: 继续按钮
         - next_step_button: 下一步按钮
-        - step_mode_checkbox: 单步模式复选框
         - stop_button: 终止按钮
         - inspect_button: 检查按钮
         - match_focus_button: 定位镜头按钮
@@ -78,8 +91,28 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     step_context_label.setWordWrap(True)
     layout.addWidget(step_context_label)
 
-    # 统一滚动：整个执行监控面板共用一条滚动条，避免出现“上半区独立滚动条 + 下半区又一套”的割裂体验。
-    # 注意：日志正文 QTextBrowser 仍保留自身的滚动条（用于长日志快速滚动），此处滚动条用于整体布局在小窗下可访问。
+    # 截图区域：放在滚动区域外部，使其始终可见，不被其他控件挡住
+    # 使用 AspectRatioLabel 保持 16:9 宽高比
+    screenshot_label = AspectRatioLabel()
+    screenshot_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    # 使用 Preferred 高度策略，配合 heightForWidth 自动按宽度计算高度
+    size_policy = QtWidgets.QSizePolicy(
+        QtWidgets.QSizePolicy.Policy.Expanding,
+        QtWidgets.QSizePolicy.Policy.Preferred,
+    )
+    size_policy.setHeightForWidth(True)
+    screenshot_label.setSizePolicy(size_policy)
+    screenshot_label.setMinimumWidth(0)
+    screenshot_label.setMinimumHeight(60)
+    screenshot_label.setStyleSheet(
+        f"border: 1px solid {Colors.BORDER_DARK}; background-color: {Colors.BG_DARK};"
+    )
+    screenshot_label.setText("等待截图...")
+    screenshot_label.setCursor(QtGui.QCursor(Qt.CursorShape.PointingHandCursor))
+    # 截图区域直接加到主布局
+    layout.addWidget(screenshot_label)
+
+    # 控制区与其他工具区域放在滚动区域内，避免挡住截图画面
     monitor_scroll_area = QtWidgets.QScrollArea()
     monitor_scroll_area.setObjectName("monitorScrollArea")
     monitor_scroll_area.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
@@ -96,17 +129,6 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     scroll_layout = QtWidgets.QVBoxLayout(scroll_content_widget)
     scroll_layout.setContentsMargins(0, 0, 0, 0)
     scroll_layout.setSpacing(8)
-
-    # 截图
-    screenshot_label = QtWidgets.QLabel()
-    screenshot_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    screenshot_label.setMinimumHeight(220)
-    screenshot_label.setStyleSheet(
-        f"border: 1px solid {Colors.BORDER_DARK}; background-color: {Colors.BG_DARK};"
-    )
-    screenshot_label.setText("等待截图...")
-    screenshot_label.setCursor(QtGui.QCursor(Qt.CursorShape.PointingHandCursor))
-    scroll_layout.addWidget(screenshot_label)
 
     # 控制区：分组 + 栅格布局，减少长按钮在窄宽度下被挤压的概率
     controls_widget = QtWidgets.QGroupBox("控制")
@@ -129,10 +151,8 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     stop_button = QtWidgets.QPushButton("终止")
     stop_button.setToolTip("终止当前执行（可随时点击）")
 
-    step_mode_checkbox = QtWidgets.QCheckBox("单步")
-    step_mode_checkbox.setToolTip("启用单步模式：每一步开始时自动暂停，点击“下一步”继续")
     next_step_button = QtWidgets.QPushButton("下一步")
-    next_step_button.setToolTip("单步模式下执行下一步（会保持单步模式不退出）")
+    next_step_button.setToolTip("单步执行下一步：点击后进入单步，先暂停；再点一次执行一步并在下一步前自动暂停")
 
     # 检查当前页面（截图→识别→叠加展示）
     inspect_button = QtWidgets.QPushButton("检查")
@@ -142,18 +162,39 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     match_focus_button = QtWidgets.QPushButton("定位")
     match_focus_button.setToolTip("对外部编辑器进行一次识别匹配，并将程序节点图镜头定位到对应区域")
 
-    # 布局：每行尽量不超过 3 个大按钮，避免在窄宽度下强行压缩导致截字
-    controls_layout.addWidget(execute_button, 0, 0)
-    controls_layout.addWidget(execute_remaining_button, 0, 1)
-    controls_layout.addWidget(stop_button, 0, 2)
+    # 布局：
+    # - 完整模式：第一行“终止 + 检查 + 定位”，第二行“暂停 + 继续 + 下一步”
+    # - 精简模式：第一行“执行 + 执行剩余 + 终止”，第二行隐藏
+    # 为了在两种模式间复用同一行高度，使用两个“占位堆栈”在同一格切换显示不同按钮。
+    primary_left_stack = QtWidgets.QStackedWidget()
+    primary_left_stack.setObjectName("monitorPrimaryLeftStack")
+    primary_left_stack.setSizePolicy(
+        QtWidgets.QSizePolicy.Policy.Expanding,
+        QtWidgets.QSizePolicy.Policy.Fixed,
+    )
+    primary_left_stack.addWidget(inspect_button)
+    primary_left_stack.addWidget(execute_button)
+    # 默认完整模式：显示“检查”
+    primary_left_stack.setCurrentWidget(inspect_button)
+
+    primary_middle_stack = QtWidgets.QStackedWidget()
+    primary_middle_stack.setObjectName("monitorPrimaryMiddleStack")
+    primary_middle_stack.setSizePolicy(
+        QtWidgets.QSizePolicy.Policy.Expanding,
+        QtWidgets.QSizePolicy.Policy.Fixed,
+    )
+    primary_middle_stack.addWidget(match_focus_button)
+    primary_middle_stack.addWidget(execute_remaining_button)
+    # 默认完整模式：显示“定位”
+    primary_middle_stack.setCurrentWidget(match_focus_button)
+
+    controls_layout.addWidget(stop_button, 0, 0)
+    controls_layout.addWidget(primary_left_stack, 0, 1)
+    controls_layout.addWidget(primary_middle_stack, 0, 2)
 
     controls_layout.addWidget(pause_button, 1, 0)
     controls_layout.addWidget(resume_button, 1, 1)
     controls_layout.addWidget(next_step_button, 1, 2)
-
-    controls_layout.addWidget(step_mode_checkbox, 2, 0)
-    controls_layout.addWidget(inspect_button, 2, 1)
-    controls_layout.addWidget(match_focus_button, 2, 2)
 
     for column_index in range(3):
         controls_layout.setColumnStretch(column_index, 1)
@@ -183,81 +224,92 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     tests_menu = QtWidgets.QMenu(tests_menu_button)
     tests_menu.setToolTipsVisible(True)
 
-    test_ocr_action = tests_menu.addAction("文字OCR")
+    test_ocr_action = QtGui.QAction("文字OCR", tests_menu)
     test_ocr_action.setToolTip("对顶部标签栏或指定区域执行一次 OCR，并在监控面板叠加展示识别结果")
+    tests_menu.addAction(test_ocr_action)
 
-    test_settings_action = tests_menu.addAction("Settings扫描")
+    test_settings_action = QtGui.QAction("Settings扫描", tests_menu)
     test_settings_action.setToolTip("扫描当前图中节点的 Settings 行，标注并输出映射结果")
+    tests_menu.addAction(test_settings_action)
 
-    test_warning_action = tests_menu.addAction("Warning模板")
+    test_warning_action = QtGui.QAction("Warning模板", tests_menu)
     test_warning_action.setToolTip("在节点图区域内进行 Warning 模板匹配，展示命中结果")
+    tests_menu.addAction(test_warning_action)
 
-    test_ocr_zoom_action = tests_menu.addAction("OCR缩放")
+    test_ocr_zoom_action = QtGui.QAction("OCR缩放", tests_menu)
     test_ocr_zoom_action.setToolTip("对节点图缩放区域执行 OCR，用于验证 50% 缩放识别链路")
+    tests_menu.addAction(test_ocr_zoom_action)
 
-    test_nodes_action = tests_menu.addAction("节点识别")
+    test_nodes_action = QtGui.QAction("节点识别", tests_menu)
     test_nodes_action.setToolTip("对当前画面进行节点识别并叠加边框与中文标题")
+    tests_menu.addAction(test_nodes_action)
 
-    test_ports_action = tests_menu.addAction("端口识别")
+    test_ports_action = QtGui.QAction("端口识别", tests_menu)
     test_ports_action.setToolTip("为识别出的每个节点列出端口并叠加显示（含 kind/side/index）")
+    tests_menu.addAction(test_ports_action)
 
-    test_ports_deep_action = tests_menu.addAction("端口深度识别")
+    test_ports_deep_action = QtGui.QAction("端口深度识别", tests_menu)
     test_ports_deep_action.setToolTip(
         "在端口识别基础上列出置信度≥70%的所有模板命中，包括被去重抑制的候选，并在标签中标注“因XXX被排除”原因"
     )
+    tests_menu.addAction(test_ports_deep_action)
 
-    test_settings_tpl_action = tests_menu.addAction("Settings模板")
+    test_settings_tpl_action = QtGui.QAction("Settings模板", tests_menu)
     test_settings_tpl_action.setToolTip("在节点图区域内匹配 Settings 按钮模板")
+    tests_menu.addAction(test_settings_tpl_action)
 
-    test_add_action = tests_menu.addAction("Add模板")
+    test_add_action = QtGui.QAction("Add模板", tests_menu)
     test_add_action.setToolTip("在节点图区域内匹配 Add / Add_Multi 模板")
+    tests_menu.addAction(test_add_action)
 
-    test_search_action = tests_menu.addAction("搜索框模板")
+    test_search_action = QtGui.QAction("搜索框模板", tests_menu)
     test_search_action.setToolTip("在窗口内匹配搜索框相关模板（search / search2）")
+    tests_menu.addAction(test_search_action)
 
-    test_window_strict_action = tests_menu.addAction("仅窗口截图")
+    test_window_strict_action = QtGui.QAction("仅窗口截图", tests_menu)
     test_window_strict_action.setToolTip(
         "使用实验性的仅窗口截图方式（PrintWindow），在尽量避免遮挡的前提下抓取一帧并展示到监控面板"
     )
+    tests_menu.addAction(test_window_strict_action)
 
     tests_menu_button.setMenu(tests_menu)
     tests_layout.addWidget(tests_menu_button)
     tests_layout.addStretch(1)
     scroll_layout.addWidget(tests_widget)
 
-    # 拖拽测试区：分组 + 表单化布局，避免“同一行塞太多控件”导致文本截断
+    # 拖拽测试区：压缩占用高度（从 4 行收敛到 3 行）
     drag_widget = QtWidgets.QGroupBox("拖拽测试")
     drag_widget.setObjectName("monitorDragTestsGroup")
     drag_layout = QtWidgets.QGridLayout(drag_widget)
     drag_layout.setContentsMargins(0, 0, 0, 0)
     drag_layout.setHorizontalSpacing(6)
-    drag_layout.setVerticalSpacing(6)
+    drag_layout.setVerticalSpacing(4)
 
-    drag_origin_title_label = QtWidgets.QLabel("当前中心:")
+    drag_origin_title_label = QtWidgets.QLabel("中心:")
     drag_origin_title_label.setProperty("muted", "true")
 
     drag_origin_label = QtWidgets.QLabel("未定位")
     drag_origin_label.setToolTip("最近一次“定位镜头”得到的程序视口中心坐标")
     drag_origin_label.setWordWrap(True)
 
-    drag_target_x_title_label = QtWidgets.QLabel("目标X:")
+    drag_target_x_title_label = QtWidgets.QLabel("X:")
     drag_target_x_title_label.setProperty("muted", "true")
     drag_target_x_input = QtWidgets.QLineEdit()
     drag_target_x_input.setPlaceholderText("程序X")
-    drag_target_x_input.setMaximumWidth(140)
+    drag_target_x_input.setMaximumWidth(120)
 
-    drag_target_y_title_label = QtWidgets.QLabel("目标Y:")
+    drag_target_y_title_label = QtWidgets.QLabel("Y:")
     drag_target_y_title_label.setProperty("muted", "true")
     drag_target_y_input = QtWidgets.QLineEdit()
     drag_target_y_input.setPlaceholderText("程序Y")
-    drag_target_y_input.setMaximumWidth(140)
+    drag_target_y_input.setMaximumWidth(120)
 
     drag_layout.addWidget(drag_origin_title_label, 0, 0)
-    drag_layout.addWidget(drag_origin_label, 0, 1)
+    drag_layout.addWidget(drag_origin_label, 0, 1, 1, 3)
     drag_layout.addWidget(drag_target_x_title_label, 1, 0)
     drag_layout.addWidget(drag_target_x_input, 1, 1)
-    drag_layout.addWidget(drag_target_y_title_label, 2, 0)
-    drag_layout.addWidget(drag_target_y_input, 2, 1)
+    drag_layout.addWidget(drag_target_y_title_label, 1, 2)
+    drag_layout.addWidget(drag_target_y_input, 1, 3)
 
     drag_button_row_widget = QtWidgets.QWidget()
     drag_button_row = QtWidgets.QHBoxLayout(drag_button_row_widget)
@@ -277,9 +329,11 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     drag_button_row.addWidget(drag_right_button)
 
     drag_button_row.addStretch(1)
-    drag_layout.addWidget(drag_button_row_widget, 3, 0, 1, 2)
+    drag_layout.addWidget(drag_button_row_widget, 2, 0, 1, 4)
     drag_layout.setColumnStretch(0, 0)
     drag_layout.setColumnStretch(1, 1)
+    drag_layout.setColumnStretch(2, 0)
+    drag_layout.setColumnStretch(3, 1)
 
     scroll_layout.addWidget(drag_widget)
 
@@ -353,10 +407,10 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     scroll_layout.addWidget(filters_widget)
 
     # 日志正文与执行事件表格：垂直分隔
+    # 注意：QSplitter.setCollapsible(index, ...) 只能在 addWidget 之后调用，
+    # 否则会在控制台输出 "QSplitter::setCollapsible: Index X out of range" 警告。
     log_splitter = QtWidgets.QSplitter(Qt.Orientation.Vertical)
     log_splitter.setChildrenCollapsible(True)
-    log_splitter.setCollapsible(0, True)
-    log_splitter.setCollapsible(1, True)
     log_splitter.setMinimumHeight(0)
 
     # 执行事件表格
@@ -364,7 +418,9 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     events_table.setAlternatingRowColors(True)
     events_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
     events_table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-    events_table.horizontalHeader().setStretchLastSection(True)
+    header = events_table.horizontalHeader()
+    if header is not None:
+        header.setStretchLastSection(True)
     palette = events_table.palette()
     palette.setColor(QtGui.QPalette.ColorRole.Base, QtGui.QColor(Colors.BG_CARD))
     palette.setColor(
@@ -397,6 +453,9 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     log_text.setFont(ui_fonts.monospace_font(9))
     log_text.setMinimumHeight(0)
     log_splitter.addWidget(log_text)
+    # 现在 splitter 已有两个 child，允许折叠设置才是有效的
+    log_splitter.setCollapsible(0, True)
+    log_splitter.setCollapsible(1, True)
     log_splitter.setStretchFactor(0, 3)
     log_splitter.setStretchFactor(1, 2)
     scroll_layout.addWidget(log_splitter, 1)
@@ -410,7 +469,6 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     pause_button.setEnabled(False)
     resume_button.setEnabled(False)
     next_step_button.setEnabled(False)
-    step_mode_checkbox.setEnabled(True)
     stop_button.setEnabled(False)
 
     # 样式：执行入口突出，其余为次按钮；终止使用警示色
@@ -458,10 +516,11 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         "controls_widget": controls_widget,
         "execute_button": execute_button,
         "execute_remaining_button": execute_remaining_button,
+        "primary_left_stack": primary_left_stack,
+        "primary_middle_stack": primary_middle_stack,
         "pause_button": pause_button,
         "resume_button": resume_button,
         "next_step_button": next_step_button,
-        "step_mode_checkbox": step_mode_checkbox,
         "stop_button": stop_button,
         "inspect_button": inspect_button,
         "match_focus_button": match_focus_button,

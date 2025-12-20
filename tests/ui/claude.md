@@ -10,6 +10,8 @@
 - `test_save_conflict_policy.py`：保存冲突策略回归：当磁盘文件已被外部修改且提供 expected_mtime 时，保存必须默认拒绝静默覆盖；允许显式开启覆盖策略以对齐 VSCode 的“Overwrite”决策。
 - `test_graph_editor_new_node_ports_policy.py`：节点图编辑器“新建节点初始端口策略”的纯逻辑回归，确保“拼装字典”默认生成 `键0/值0`，避免业务特例回流到控制器。
 - `test_management_special_panel_selection_single_read.py`：管理模式“专用右侧面板刷新”selection 单次解析回归：确保 coordinator 解析当前选中后不会被专用面板二次反查库页选中，避免协议漂移导致右侧面板静默空白。
+- `test_execution_monitor_panel_ui_splitter_no_out_of_range_warning.py`：执行监控面板 UI 组装回归：构造 `log_splitter` 时不应触发 `QSplitter::setCollapsible: Index ... out of range` Qt 警告。
+- `test_execution_monitor_log_view_scroll_debounce_smoke.py`：日志视图高频追加冒烟：连续 append 多行并 `processEvents()`，验证 debounce 滚动逻辑可用且不崩溃。
 
 ## 注意事项
 - 需要创建 `QApplication` 的测试应复用 `QApplication.instance()`，避免多实例导致崩溃。

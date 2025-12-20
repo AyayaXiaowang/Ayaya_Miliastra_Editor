@@ -58,6 +58,7 @@
   执行场景下的图数据解析统一收敛到 `graph_data_resolver.py`，该模块会先根据当前执行上下文解析期望的 `graph_id`，仅在预览面板当前图的 `graph_id` 与之匹配时复用 `current_graph_data`，否则按“预览控制器 → TreeManager 图根加载 → graph_data 缓存”这一顺序解析 graph_data，确保执行始终基于与任务清单一致的图数据。
   - 本目录中的预览/执行数据解析不再直接 import `app.common.in_memory_graph_payload_cache`，所有对 `graph_data_key` 的解析统一通过 `GraphDataService.resolve_payload_graph_data()` 桥接，避免 UI 侧产生新的“缓存失效入口”。
 - 右侧"执行监控"面板与任务清单通过 `TodoExecutorBridge` 以及主窗口的 `right_panel`（tab_id=`execution_monitor`）解耦：执行桥接层负责注入执行上下文并优先复用监控面板内部维护的共享 `EditorExecutor`（工作区一致时），保证执行线程与“检查/定位镜头/拖拽测试”在同一工作区下共用一套坐标映射与识别缓存；识别回填信号统一通过 `TodoPreviewPanel.wire_recognition_from_monitor_panel()` 幂等绑定并透传到 `TodoPreviewPanel.recognition_focus_succeeded`，外层只需监听一次，避免重复回调。
+- 根级连续执行入口（模板图根 / 事件流根 / 剩余事件流）在启动执行前会调用 `EditorExecutor.reset_mapping_state()` 清空坐标映射与识别缓存，确保“首个创建锚点”的居中创建与后续视口拟合基于当前画面重新建立映射，避免跨轮执行残留导致的视口对齐拖拽与创建位置偏移。
 - 任务清单右侧图预览在只读模式下支持“从图到步骤”的反向联动：单击预览中的某个节点，会自动在左侧树中定位到该节点的创建步骤，并高亮所有与该节点相关的配置和连线步骤，同时将与该节点无直接关联的其它步骤统一置灰，强化视觉聚焦；单击预览空白处会清除这类联动高亮与置灰效果，不影响当前树选中项。
   - 置灰与高亮均采用 **role 驱动的差量更新**（`DIMMED_ROLE` + 局部背景/前缀 token），避免每次点击触发整树样式刷新与全量 repaint；富文本委托在 tokens 缺失时同样可按 `DIMMED_ROLE` 绘制置灰，因此不需要通过 `setForeground()` 破坏基础样式。
   - 预览图侧的灰显（opacity）同样以场景缓存做差量更新，避免连续点击时反复全量遍历所有节点/连线。

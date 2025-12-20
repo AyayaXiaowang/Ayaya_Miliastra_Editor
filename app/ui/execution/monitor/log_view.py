@@ -49,6 +49,9 @@ class LogViewController:
         self._search_input.textChanged.connect(self._on_search_text_changed)
         self._filter_combo.currentIndexChanged.connect(self._on_filter_changed)
 
+        # 滚动到底部：用单次事件循环内的 debounce，避免高频 append 时同步滚动造成深调用栈/重入风险
+        self._scroll_to_bottom_scheduled: bool = False
+
     def append(
         self,
         message: str,
@@ -107,7 +110,7 @@ class LogViewController:
             cursor.insertHtml(html)
             cursor.insertBlock()
             self._log_text.setTextCursor(cursor)
-            self._scroll_to_bottom()
+            self._schedule_scroll_to_bottom()
 
     def clear(self) -> None:
         """清空日志记录与显示"""
@@ -134,7 +137,7 @@ class LogViewController:
                 cursor.insertHtml(self._format_log_html(rec))
                 cursor.insertBlock()
         self._log_text.setTextCursor(cursor)
-        self._scroll_to_bottom()
+        self._schedule_scroll_to_bottom()
 
     def set_current_step_context(self, step_title: str, parent_title: str) -> None:
         """
@@ -406,4 +409,15 @@ class LogViewController:
         """滚动日志到底部"""
         from app.ui.foundation.scroll_helpers import scroll_to_bottom
         scroll_to_bottom(self._log_text)
+
+    def _schedule_scroll_to_bottom(self) -> None:
+        """在下一轮事件循环滚动到底部（debounce）。"""
+        if self._scroll_to_bottom_scheduled:
+            return
+        self._scroll_to_bottom_scheduled = True
+        QtCore.QTimer.singleShot(0, self._flush_scroll_to_bottom)
+
+    def _flush_scroll_to_bottom(self) -> None:
+        self._scroll_to_bottom_scheduled = False
+        self._scroll_to_bottom()
 

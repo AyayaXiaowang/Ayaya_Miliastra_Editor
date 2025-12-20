@@ -68,6 +68,11 @@ class OnMethodNameRule(ValidationRule):
             if suffix in builtin_event_names:
                 continue
 
+            # client 技能节点图的“节点图开始”入口并非通过事件节点库暴露，
+            # 但会在运行时作为统一入口被调用；为兼容该约定，这里放行该名称。
+            if scope == "client" and suffix == "节点图开始":
+                continue
+
             # 信号名：允许使用信号“显示名称”
             if signal_repo.resolve_id_by_name(suffix):
                 continue

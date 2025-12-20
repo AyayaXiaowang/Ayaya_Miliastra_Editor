@@ -1140,52 +1140,150 @@ def recognize_scene(canvas_image: Image.Image,
         # Settings / Warning 行内重判规则使用统一的“装饰端口”判定
         y_tolerance = 10
 
-        def is_non_decorative_port(port_obj: RecognizedPort) -> bool:
-            kind_lower = port_obj.kind.lower()
-            return kind_lower not in ("settings", "warning")
+        def is_decorative_port(port_obj: RecognizedPort) -> bool:
+            """判定是否为行内装饰/控件类模板（不可连线）。
 
-        # Settings 侧别重判规则：
-        # - 识别为右侧的 Settings 行，如果同行（±y_tolerance）右侧不存在任何非装饰类端口，
-        #   但左侧存在非装饰类端口，则将该 Settings 强制归为左侧。
+            说明：
+            - 一步式识别的 kind 来源为模板文件名，存在 Settings2 / Warning2 之类变体；
+              因此统一使用 startswith 做归类，避免漏判导致侧别重判与去重策略失效。
+            - Dictionary/Select 与 Settings 同属行内控件，不应参与“可连线端口行”的推断。
+            """
+            kind_lower = str(port_obj.kind or "").lower()
+            return (
+                kind_lower.startswith("settings")
+                or kind_lower.startswith("warning")
+                or kind_lower.startswith("dictionary")
+                or kind_lower.startswith("select")
+            )
+
+        def is_connectable_like_port(port_obj: RecognizedPort) -> bool:
+            return not is_decorative_port(port_obj)
+
+        def is_settings_like_port(port_obj: RecognizedPort) -> bool:
+            return str(port_obj.kind or "").lower().startswith("settings")
+
+        def is_warning_like_port(port_obj: RecognizedPort) -> bool:
+            return str(port_obj.kind or "").lower().startswith("warning")
+
+        def _has_connectable_neighbor_on_side(
+            *,
+            ports: List[RecognizedPort],
+            row_center_y: int,
+            side: str,
+        ) -> bool:
+            return any(
+                (neighbor.side == side)
+                and is_connectable_like_port(neighbor)
+                and (abs(int(neighbor.center[1]) - int(row_center_y)) <= y_tolerance)
+                for neighbor in ports
+            )
+
+        # Settings 侧别归因（绑定到可连线端口行）：
+        # - 若同行（±y_tolerance）仅左侧存在可连线端口：Settings 归为 left
+        # - 若同行（±y_tolerance）仅右侧存在可连线端口：Settings 归为 right
+        # - 若两侧均存在或两侧均不存在：保持原侧别（x 相对节点中心线的初判）
         for settings_port in recognized_ports:
-            if settings_port.kind.lower() != "settings":
+            if not is_settings_like_port(settings_port):
                 continue
-            if settings_port.side != "right":
-                continue
-            has_right_data_or_flow = any(
-                (neighbor.side == "right")
-                and is_non_decorative_port(neighbor)
-                and (abs(int(neighbor.center[1]) - int(settings_port.center[1])) <= y_tolerance)
-                for neighbor in recognized_ports
+            row_center_y = int(settings_port.center[1])
+            has_left_connectable = _has_connectable_neighbor_on_side(
+                ports=recognized_ports,
+                row_center_y=row_center_y,
+                side="left",
             )
-            if has_right_data_or_flow:
-                continue
-            has_left_data_or_flow = any(
-                (neighbor.side == "left")
-                and is_non_decorative_port(neighbor)
-                and (abs(int(neighbor.center[1]) - int(settings_port.center[1])) <= y_tolerance)
-                for neighbor in recognized_ports
+            has_right_connectable = _has_connectable_neighbor_on_side(
+                ports=recognized_ports,
+                row_center_y=row_center_y,
+                side="right",
             )
-            if has_left_data_or_flow:
+            if has_left_connectable and (not has_right_connectable):
                 settings_port.side = "left"
+            elif has_right_connectable and (not has_left_connectable):
+                settings_port.side = "right"
 
         # Warning 侧别重判规则：
         # - 默认均视为左侧；
         # - 仅当节点标题为“多分支”，且同行（±y_tolerance）右侧存在非装饰类端口时，warning 归为右侧。
         if node_title_cn == "多分支":
             for warning_port in recognized_ports:
-                if warning_port.kind.lower() == "warning":
-                    has_right_neighbor = any(
-                        (neighbor.side == "right")
-                        and is_non_decorative_port(neighbor)
-                        and (abs(int(neighbor.center[1]) - int(warning_port.center[1])) <= y_tolerance)
-                        for neighbor in recognized_ports
+                if is_warning_like_port(warning_port):
+                    has_right_neighbor = _has_connectable_neighbor_on_side(
+                        ports=recognized_ports,
+                        row_center_y=int(warning_port.center[1]),
+                        side="right",
                     )
                     warning_port.side = "right" if has_right_neighbor else "left"
         else:
             for warning_port in recognized_ports:
-                if warning_port.kind.lower() == "warning":
+                if is_warning_like_port(warning_port):
                     warning_port.side = "left"
+
+        # Settings 行内装饰去重规则：
+        # - 一个“可连线端口行”（同侧，同 index，同一行）最多保留一个 Settings；
+        # - 若同一行命中多个 Settings 变体模板（如 Settings/Settings2），保留置信度更高者；
+        #   置信度相同时：右侧取更靠右的，左侧取更靠左的。
+        connectable_ports_by_side: Dict[str, List[RecognizedPort]] = {"left": [], "right": []}
+        for port_obj in recognized_ports:
+            if not is_connectable_like_port(port_obj):
+                continue
+            if port_obj.side in ("left", "right"):
+                connectable_ports_by_side[port_obj.side].append(port_obj)
+
+        def _pick_best_settings_candidate(
+            *,
+            existing: RecognizedPort,
+            candidate: RecognizedPort,
+            side: str,
+        ) -> RecognizedPort:
+            if float(candidate.confidence) > float(existing.confidence):
+                return candidate
+            if float(candidate.confidence) < float(existing.confidence):
+                return existing
+            existing_x = int(existing.center[0])
+            candidate_x = int(candidate.center[0])
+            if side == "right":
+                return candidate if candidate_x > existing_x else existing
+            return candidate if candidate_x < existing_x else existing
+
+        kept_settings_by_side_and_index: Dict[Tuple[str, int], RecognizedPort] = {}
+        for settings_port in [p for p in recognized_ports if is_settings_like_port(p)]:
+            side_text = str(settings_port.side or "")
+            if side_text not in ("left", "right"):
+                continue
+            row_center_y = int(settings_port.center[1])
+            same_side_connectables = connectable_ports_by_side.get(side_text, [])
+            best_match: Optional[RecognizedPort] = None
+            best_dy: Optional[int] = None
+            for neighbor in same_side_connectables:
+                dy = abs(int(neighbor.center[1]) - int(row_center_y))
+                if dy > y_tolerance:
+                    continue
+                if best_dy is None or dy < best_dy:
+                    best_dy = int(dy)
+                    best_match = neighbor
+            if best_match is None:
+                # 未能绑定到任何可连线端口行：视为噪声，不输出该 Settings
+                continue
+            if best_match.index is None:
+                continue
+            key = (side_text, int(best_match.index))
+            existing = kept_settings_by_side_and_index.get(key)
+            if existing is None:
+                kept_settings_by_side_and_index[key] = settings_port
+            else:
+                kept_settings_by_side_and_index[key] = _pick_best_settings_candidate(
+                    existing=existing,
+                    candidate=settings_port,
+                    side=side_text,
+                )
+
+        if len(kept_settings_by_side_and_index) > 0:
+            settings_keep_set = set(id(obj) for obj in kept_settings_by_side_and_index.values())
+            recognized_ports = [
+                port_obj
+                for port_obj in recognized_ports
+                if (not is_settings_like_port(port_obj)) or (id(port_obj) in settings_keep_set)
+            ]
 
         # Warning 行内装饰模板去重（仅影响普通端口识别结果）：
         # 若同一行、同一侧已存在非装饰类端口（如流程/数据端口），则在输出端口列表中隐藏该行上的 warning，
@@ -1193,11 +1291,11 @@ def recognize_scene(canvas_image: Image.Image,
         # 深度端口识别依赖 TemplateMatchDebugInfo，不受本处过滤影响。
         filtered_ports: List[RecognizedPort] = []
         for port_obj in recognized_ports:
-            if port_obj.kind.lower() == "warning":
+            if is_warning_like_port(port_obj):
                 has_non_decorative_same_row = any(
                     (neighbor is not port_obj)
                     and (neighbor.side == port_obj.side)
-                    and is_non_decorative_port(neighbor)
+                    and is_connectable_like_port(neighbor)
                     and (abs(int(neighbor.center[1]) - int(port_obj.center[1])) <= y_tolerance)
                     for neighbor in recognized_ports
                 )
