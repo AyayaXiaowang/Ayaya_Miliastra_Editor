@@ -204,7 +204,7 @@ class Settings:
     # 节点图步骤生成模式
     # "human": 人类模式（保持现有逻辑，优先使用「连线并创建」）
     # "ai": AI模式（先创建完所有节点，再逐个连接，不使用「连线并创建」）
-    TODO_GRAPH_STEP_MODE: str = "human"
+    TODO_GRAPH_STEP_MODE: str = "ai"
 
     # ========== 真实执行 ==========
     # 真实执行调试日志（详细打印每一步识别、拖拽、验证信息）

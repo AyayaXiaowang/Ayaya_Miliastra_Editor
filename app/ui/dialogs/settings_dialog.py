@@ -448,9 +448,13 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         idx_theme = self.ui_theme_combo.findData(current_theme_mode)
         self.ui_theme_combo.setCurrentIndex(idx_theme if idx_theme != -1 else 0)
         # 加载步骤模式
-        current_mode = getattr(settings, "TODO_GRAPH_STEP_MODE", "human")
+        current_mode = getattr(settings, "TODO_GRAPH_STEP_MODE", "ai")
         idx = self.todo_mode_combo.findData(current_mode)
-        self.todo_mode_combo.setCurrentIndex(idx if idx != -1 else 0)
+        if idx != -1:
+            self.todo_mode_combo.setCurrentIndex(idx)
+        else:
+            fallback_idx = self.todo_mode_combo.findData("ai")
+            self.todo_mode_combo.setCurrentIndex(fallback_idx if fallback_idx != -1 else 0)
         self.auto_save_spinbox.setValue(settings.AUTO_SAVE_INTERVAL)
         # 鼠标执行模式与混合参数
         current_mouse_mode = getattr(settings, "MOUSE_EXECUTION_MODE", "classic")
