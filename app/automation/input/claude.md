@@ -8,7 +8,7 @@
   - `win_input_lowlevel.py`：SendInput 封装与绝对坐标/按键原语。
   - `win_input.py`：客户区坐标到屏幕坐标的换算、高层拖拽与文本输入，提供 `iter_linear_drag_points()` 等轨迹工具供 capture 模块复用。
   - `subprocess_runner.py`：用于运行子进程（如外部辅助脚本）的工具。
-  - `window_finder.py`：顶层窗口标题匹配与 HWND 查找。
+  - `window_finder.py`：顶层窗口标题匹配与 HWND 查找；Win64 环境下显式声明 WinAPI `argtypes/restype`，避免 HWND 以 32 位默认类型传参导致回调内溢出。
 
 ## 注意事项
 - 鼠标和键盘的具体时序与延时策略应集中在高层输入接口中，低层原语保持不带额外延时。

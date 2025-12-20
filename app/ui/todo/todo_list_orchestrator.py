@@ -161,6 +161,7 @@ class TodoListOrchestrator:
         self.ui_context = ui_context
         self.host = ui_context.host
         self._recognition_coordinator = _RecognitionBackfillCoordinator(self)
+        self._monitor_panel_for_execute_controls = None
         self._setup_subcomponents()
         self._wire_signals()
 
@@ -463,25 +464,29 @@ class TodoListOrchestrator:
         if StepTypeRules.is_template_graph_root(detail_type_for_expand) and not todo.children:
             host.tree_manager.expand_graph_on_demand(todo)
 
-        switched_to_preview = False
-        if host.preview_panel.handle_composite_preview(todo, self.ui_context):
-            switched_to_preview = True
-        elif host.preview_panel.handle_graph_preview(
-            todo,
-            host.tree_manager.todo_map,
-            tree_manager=host.tree_manager,
-            ui_context=self.ui_context,
-        ):
-            switched_to_preview = True
-
-        if switched_to_preview:
-            monitor_panel = self.ui_context.try_get_execution_monitor_panel()
-            workspace_path = self.ui_context.try_get_workspace_path()
-            if monitor_panel is not None and workspace_path is not None:
-                host.preview_panel.bind_monitor_panel(monitor_panel, workspace_path)
-            host.right_stack.setCurrentIndex(1)
-        else:
+        # 执行精简模式下：不加载/不切换节点图预览（避免占用空间与重载共享画布）
+        if getattr(host, "execution_compact_mode_enabled", False):
             host.right_stack.setCurrentIndex(0)
+        else:
+            switched_to_preview = False
+            if host.preview_panel.handle_composite_preview(todo, self.ui_context):
+                switched_to_preview = True
+            elif host.preview_panel.handle_graph_preview(
+                todo,
+                host.tree_manager.todo_map,
+                tree_manager=host.tree_manager,
+                ui_context=self.ui_context,
+            ):
+                switched_to_preview = True
+
+            if switched_to_preview:
+                monitor_panel = self.ui_context.try_get_execution_monitor_panel()
+                workspace_path = self.ui_context.try_get_workspace_path()
+                if monitor_panel is not None and workspace_path is not None:
+                    host.preview_panel.bind_monitor_panel(monitor_panel, workspace_path)
+                host.right_stack.setCurrentIndex(1)
+            else:
+                host.right_stack.setCurrentIndex(0)
 
         detail_type = todo.detail_info.get("type", "") if todo.detail_info else ""
         execution_profile = StepTypeRules.build_execution_profile(detail_type)
@@ -512,6 +517,31 @@ class TodoListOrchestrator:
 
         monitor_panel = self.ui_context.try_get_execution_monitor_panel()
         if monitor_panel is not None:
+            # 精简模式下，执行入口集中在执行监控面板；详情/预览中的执行按钮隐藏以节省空间
+            if getattr(host, "execution_compact_mode_enabled", False):
+                host.detail_panel.set_execute_visible(False)
+                host.preview_panel.set_execute_visible(False)
+                host.detail_panel.set_execute_remaining_visible(False)
+                host.preview_panel.set_execute_remaining_visible(False)
+                if hasattr(monitor_panel, "set_execute_visible"):
+                    monitor_panel.set_execute_visible(bool(execution_profile.is_executable))
+                if hasattr(monitor_panel, "set_execute_text"):
+                    monitor_panel.set_execute_text(execute_button_text)
+                if hasattr(monitor_panel, "set_execute_remaining_visible"):
+                    monitor_panel.set_execute_remaining_visible(bool(show_exec_remaining))
+                if hasattr(monitor_panel, "set_execute_remaining_text"):
+                    monitor_panel.set_execute_remaining_text(execute_remaining_text)
+
+                # 幂等绑定：监控面板“执行/执行剩余”按钮 → 本编排层的执行入口
+                if self._monitor_panel_for_execute_controls is not monitor_panel:
+                    if hasattr(monitor_panel, "execute_clicked"):
+                        monitor_panel.execute_clicked.connect(self.on_execute_clicked)
+                    if hasattr(monitor_panel, "execute_remaining_clicked"):
+                        monitor_panel.execute_remaining_clicked.connect(
+                            self.on_execute_remaining_clicked
+                        )
+                    self._monitor_panel_for_execute_controls = monitor_panel
+
             parent_title = ""
             item = host.tree_manager.get_item_by_id(todo.todo_id)
             if item is not None:

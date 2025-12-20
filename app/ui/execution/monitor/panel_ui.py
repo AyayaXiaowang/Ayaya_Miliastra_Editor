@@ -93,6 +93,11 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     controls_layout.setHorizontalSpacing(6)
     controls_layout.setVerticalSpacing(6)
 
+    execute_button = QtWidgets.QPushButton("执行")
+    execute_button.setToolTip("执行当前选中步骤（与任务清单中的执行按钮一致）")
+    execute_remaining_button = QtWidgets.QPushButton("执行剩余")
+    execute_remaining_button.setToolTip("执行剩余序列（叶子步骤：从此步到末尾；事件流根：执行剩余事件流）")
+
     pause_button = QtWidgets.QPushButton("暂停")
     resume_button = QtWidgets.QPushButton("继续")
     stop_button = QtWidgets.QPushButton("终止")
@@ -108,15 +113,17 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     match_focus_button = QtWidgets.QPushButton("定位镜头")
     match_focus_button.setToolTip("对外部编辑器进行一次识别匹配，并将程序节点图镜头定位到对应区域")
 
-    controls_layout.addWidget(pause_button, 0, 0)
-    controls_layout.addWidget(resume_button, 0, 1)
-    controls_layout.addWidget(stop_button, 0, 2)
+    controls_layout.addWidget(execute_button, 0, 0)
+    controls_layout.addWidget(execute_remaining_button, 0, 1)
+    controls_layout.addWidget(pause_button, 0, 2)
+    controls_layout.addWidget(resume_button, 0, 3)
+    controls_layout.addWidget(stop_button, 0, 4)
 
     controls_layout.addWidget(step_mode_checkbox, 1, 0)
     controls_layout.addWidget(next_step_button, 1, 1)
     controls_layout.addWidget(inspect_button, 1, 2)
     controls_layout.addWidget(match_focus_button, 1, 3)
-    controls_layout.setColumnStretch(4, 1)
+    controls_layout.setColumnStretch(5, 1)
 
     layout.addWidget(controls_widget)
 
@@ -344,6 +351,8 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     layout.addWidget(log_splitter, 1)
 
     # 初始按钮状态
+    execute_button.setEnabled(True)
+    execute_remaining_button.setEnabled(True)
     pause_button.setEnabled(False)
     resume_button.setEnabled(False)
     next_step_button.setEnabled(False)
@@ -362,6 +371,8 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         "step_context_label": step_context_label,
         "screenshot_label": screenshot_label,
         "controls_widget": controls_widget,
+        "execute_button": execute_button,
+        "execute_remaining_button": execute_remaining_button,
         "pause_button": pause_button,
         "resume_button": resume_button,
         "next_step_button": next_step_button,
