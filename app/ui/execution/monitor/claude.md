@@ -17,7 +17,10 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - 可视化渲染：委托给 `VisualRenderer.render_visual()`
 - 属性访问：`is_running` / `is_paused` / `step_mode_enabled` 委托到 `ExecutionControl` 的同名属性（通过 @property）
 - 外部 API 保持不变：start_monitoring/stop_monitoring/log/update_status/update_progress/wait_if_paused/is_execution_allowed/is_step_mode_enabled
-- 精简模式：面板顶部“精简/完整”开关可隐藏截图/测试/拖拽/筛选/事件表，并联动主窗口收起导航与中央区，便于低分辨率下只保留“控制+日志”
+- 精简模式：面板顶部“精简/完整”开关可隐藏截图/测试/拖拽/筛选/事件表，并联动主窗口收起左侧导航栏、缩小窗口与分栏比例；**不隐藏任务清单区域**，保证步骤树与执行入口仍可用
+  - 执行入口集中：精简模式下监控面板会显示“执行/执行剩余”按钮，任务清单右侧详情/预览会被收起以释放空间
+  - 分栏收敛：精简模式会将主窗口 `main_splitter` 切换为 **上下布局**（上：任务清单步骤树；下：执行监控日志），并临时调整拉伸权重与 handle 宽度；同时临时将 `central_stack` 的 sizePolicy 设为 Ignored，避免 QStackedWidget 以“所有页面最大 sizeHint/minSizeHint”限制最小宽度/高度而产生空白占位
+  - 自动缩窗：进入精简模式会自动**收缩窗口宽度**到“刚好够放得下步骤树”的程度（基于 `QTreeWidget.sizeHintForColumn(0)` 推导列宽），高度保持不变；为避免底部日志区被按钮行撑宽，精简模式会进一步隐藏暂停/继续/下一步/单步控件，仅保留执行入口与终止按钮
 
 ### visual_overlays.py（~190 行）
 纯绘制函数，负责在 QPixmap 上叠加可视化元素（节点框/端口圆/OCR区域等）：
@@ -129,6 +132,7 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - `build_monitor_ui(parent)`：构建执行监控面板的所有 UI 控件，返回控件引用字典
   - 返回字典包含所有控件：status_label、progress_label、step_context_label、screenshot_label、各按钮、log_text 等
   - 精简模式开关：`compact_mode_button`（QPushButton，checkable），由面板本体连接并驱动 UI 收敛与主窗口小窗化
+  - 精简模式执行入口：`execute_button` / `execute_remaining_button`（仅在精简模式下显示），由任务清单编排层监听并路由到执行桥
   - 布局：VBoxLayout 包含状态行、步骤上下文、截图、控制按钮行（暂停/继续/下一步/单步/终止/检查/定位镜头）、测试按钮行×3（识别类 / 模板类 / 截图类）、“拖拽测试”区（第一行显示当前中心与目标坐标输入，第二行放置“拖拽到坐标/向左拖拽/向右拖拽”按钮）、日志筛选行、日志文本
   - 初始按钮状态：暂停/继续/下一步/终止默认禁用，单步复选框启用
 - `_apply_compact_controls_style(parent)`：应用紧凑化控件样式（按钮 font-size:11px、padding:2px 8px；复选框 font-size:11px）

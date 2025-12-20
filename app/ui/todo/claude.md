@@ -75,6 +75,9 @@
   - 左侧步骤树默认宽度基于 `ThemeSizes.LEFT_PANEL_WIDTH` 略作放大，相比早期配置适度收窄，避免占用过多空间；相关数值集中在 `LayoutConstants.SPLITTER_LEFT_WIDTH`。
   - 右侧详情/预览区域的初始宽度与伸缩权重由 `LayoutConstants.SPLITTER_RIGHT_WIDTH/SPLITTER_RIGHT_STRETCH` 控制，在窗口整体变宽时优先获得更多宽度，保证详情文本和图预览的可读性。
   - 左右宽度仅作为初始值，用户仍可通过分割条自由拖拽调整。
+  - 执行精简模式：`TodoListWidget.set_execution_compact_mode(True)` 会隐藏右侧详情/预览堆栈（含节点图预览）并压缩头部信息，用于执行场景。
+    - 右侧堆栈会被强制压到宽度=0（min/max=0），避免在 `QSplitter` 中仅隐藏控件导致仍保留占位宽度，从而出现“步骤树两侧空白”。
+    - 左侧步骤树在精简模式下不再被 maxWidth 限死：允许吃满当前可用宽度，避免因最大宽度限制+右侧占位导致中间出现空白区；同时仍通过 `splitter.setSizes([...])` 给出期望的初始窄宽度与更小的层级缩进。
 
 ## 核心 API 与约定
 

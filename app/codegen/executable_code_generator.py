@@ -430,6 +430,7 @@ class ExecutableCodeGenerator:
             data_port_names_in_order = [
                 p.name for p in node.inputs if not is_flow_port(node, p.name, False)
             ]
+            empty_string_literal = '""'
 
             # 动态端口节点：静态端口使用位置参数（不依赖端口名可作为标识符），动态端口必须用关键字参数
             if dynamic_port_type_value and node_def is not None:
@@ -444,7 +445,7 @@ class ExecutableCodeGenerator:
                 ]
 
                 for port_name in static_port_order:
-                    param_segments.append(input_params.get(port_name, '""'))
+                    param_segments.append(input_params.get(port_name, empty_string_literal))
 
                 for port_name in dynamic_ports_in_order:
                     if not self._is_safe_kwarg_name(port_name):
@@ -452,16 +453,20 @@ class ExecutableCodeGenerator:
                             f"无法为节点【{node.title}】生成可执行代码：动态端口名 '{port_name}' 不是合法的关键字参数名。"
                             "节点图规则禁止使用 {} 字面量，无法通过 **{...} 传参，请重命名该端口为合法标识符。"
                         )
-                    param_segments.append(f"{port_name}={input_params.get(port_name, '\"\"')}")
+                    # Python 3.11 及以下：f-string 花括号表达式中不能出现反斜杠
+                    # 因此这里先求值，再拼接字符串（避免把可能含转义的字面量写进花括号表达式）。
+                    param_value = input_params.get(port_name, empty_string_literal)
+                    param_segments.append(f"{port_name}={param_value}")
             else:
                 # 非动态节点：若端口名可作为关键字参数，则保留 keyword= 形式；否则回退为全位置参数，避免生成语法错误。
                 all_safe_as_kw = all(self._is_safe_kwarg_name(n) for n in data_port_names_in_order)
                 if all_safe_as_kw:
                     for port_name in data_port_names_in_order:
-                        param_segments.append(f"{port_name}={input_params.get(port_name, '\"\"')}")
+                        param_value = input_params.get(port_name, empty_string_literal)
+                        param_segments.append(f"{port_name}={param_value}")
                 else:
                     for port_name in data_port_names_in_order:
-                        param_segments.append(input_params.get(port_name, '""'))
+                        param_segments.append(input_params.get(port_name, empty_string_literal))
 
         if include_game:
             call_expr = render_call_expression(func_name, "self.game", param_segments)

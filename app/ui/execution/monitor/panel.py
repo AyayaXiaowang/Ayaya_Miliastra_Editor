@@ -29,6 +29,9 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
 
     # 信号：停止执行
     stop_requested = pyqtSignal()
+    # 信号：请求执行（由任务清单编排层订阅并路由到执行桥）
+    execute_clicked = pyqtSignal()
+    execute_remaining_clicked = pyqtSignal()
     # 信号：点击了步骤标签（跳转左侧步骤）
     step_anchor_clicked = pyqtSignal(str)  # todo_id
     # 信号：定位镜头识别成功后，告知当前图中可见的节点ID列表（GraphModel.node_id）
@@ -99,6 +102,8 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         self.drag_widget = self._ui_refs.get("drag_widget")
         self.filters_widget = self._ui_refs.get("filters_widget")
         self.log_splitter = self._ui_refs.get("log_splitter")
+        self.execute_button = self._ui_refs.get("execute_button")
+        self.execute_remaining_button = self._ui_refs.get("execute_remaining_button")
         self.pause_button = self._ui_refs["pause_button"]
         self.resume_button = self._ui_refs["resume_button"]
         self.next_step_button = self._ui_refs["next_step_button"]
@@ -224,6 +229,14 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         if isinstance(compact_button, QtWidgets.QAbstractButton):
             compact_button.toggled.connect(self._on_compact_mode_toggled)
 
+        # 执行入口（在精简模式中集中提供）
+        execute_button = self._ui_refs.get("execute_button")
+        if isinstance(execute_button, QtWidgets.QAbstractButton):
+            execute_button.clicked.connect(self.execute_clicked.emit)
+        execute_remaining_button = self._ui_refs.get("execute_remaining_button")
+        if isinstance(execute_remaining_button, QtWidgets.QAbstractButton):
+            execute_remaining_button.clicked.connect(self.execute_remaining_clicked.emit)
+
     # === 精简模式（UI 收敛 + 主窗口小窗化）========================================
 
     @property
@@ -275,6 +288,22 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         self.inspect_button.setVisible(not enabled)
         self.match_focus_button.setVisible(not enabled)
 
+        execute_button = self._ui_refs.get("execute_button")
+        if isinstance(execute_button, QtWidgets.QWidget):
+            execute_button.setVisible(bool(enabled))
+        execute_remaining_button = self._ui_refs.get("execute_remaining_button")
+        if isinstance(execute_remaining_button, QtWidgets.QWidget):
+            execute_remaining_button.setVisible(bool(enabled))
+
+        # 精简模式进一步收敛：为了让窗口宽度可以缩到“步骤树宽度”，
+        # 需要避免控制按钮行的 minimumSizeHint 把底部日志区撑得过宽。
+        # 保留执行入口与终止按钮，其余控制仅保留快捷键（Ctrl+P 暂停）与后台逻辑。
+        self.pause_button.setVisible(not enabled)
+        self.resume_button.setVisible(not enabled)
+        self.next_step_button.setVisible(not enabled)
+        self.step_mode_checkbox.setVisible(not enabled)
+        self.stop_button.setVisible(bool(enabled))
+
         tests_widget = self._ui_refs.get("tests_widget")
         if isinstance(tests_widget, QtWidgets.QWidget):
             tests_widget.setVisible(not enabled)
@@ -299,6 +328,60 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
                     splitter.setSizes(self._compact_saved_log_splitter_sizes)
                 self._compact_saved_log_splitter_sizes = None
 
+    def _apply_compact_window_width_to_steps(self, main_window: QtWidgets.QWidget) -> None:
+        """精简模式：只收缩窗口宽度，使其“刚好够放得下步骤树”。高度保持不变。"""
+        if not self.compact_mode_enabled:
+            return
+        if not isinstance(main_window, QtWidgets.QWidget):
+            return
+
+        todo_widget = getattr(main_window, "todo_widget", None)
+        if todo_widget is None:
+            return
+
+        todo_tree = getattr(todo_widget, "tree", None)
+        if not isinstance(todo_tree, QtWidgets.QTreeWidget):
+            return
+
+        # 基于树内容的列宽推导目标宽度；补足滚动条与少量内边距，避免“刚好差一点点”导致水平滚动条出现。
+        column_width = int(todo_tree.sizeHintForColumn(0))
+        scrollbar_extent = int(
+            todo_tree.style().pixelMetric(QtWidgets.QStyle.PixelMetric.PM_ScrollBarExtent)
+        )
+        desired_steps_width = max(240, column_width + scrollbar_extent + 24)
+
+        current_window_width = int(main_window.width())
+        current_window_height = int(main_window.height())
+        # 以“当前 todo_widget 占用宽度”为参照估算窗口额外开销（框架/布局微小差异）
+        todo_widget_width = int(getattr(todo_widget, "width", lambda: 0)())
+        width_overhead = max(0, current_window_width - todo_widget_width)
+        desired_window_width = int(desired_steps_width + width_overhead)
+
+        if current_window_width > desired_window_width and desired_window_width > 0:
+            main_window.resize(desired_window_width, current_window_height)
+
+    # === 执行入口外部控制（供 Todo 编排层同步可见性与文案）===
+
+    def set_execute_visible(self, visible: bool) -> None:
+        button = self._ui_refs.get("execute_button")
+        if isinstance(button, QtWidgets.QAbstractButton):
+            button.setVisible(bool(visible))
+
+    def set_execute_remaining_visible(self, visible: bool) -> None:
+        button = self._ui_refs.get("execute_remaining_button")
+        if isinstance(button, QtWidgets.QAbstractButton):
+            button.setVisible(bool(visible))
+
+    def set_execute_text(self, text: str) -> None:
+        button = self._ui_refs.get("execute_button")
+        if isinstance(button, QtWidgets.QAbstractButton):
+            button.setText(str(text or "执行"))
+
+    def set_execute_remaining_text(self, text: str) -> None:
+        button = self._ui_refs.get("execute_remaining_button")
+        if isinstance(button, QtWidgets.QAbstractButton):
+            button.setText(str(text or "执行剩余"))
+
     def _apply_compact_main_window_layout(self, enabled: bool) -> None:
         """精简模式：联动主窗口，把主要空间让给外部编辑器窗口。"""
         main_window = self.window()
@@ -309,18 +392,36 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         nav_bar = getattr(main_window, "nav_bar", None)
         central_stack = getattr(main_window, "central_stack", None)
         right_panel_container = getattr(main_window, "right_panel_container", None)
+        side_tab = getattr(main_window, "side_tab", None)
+        menu_bar = getattr(main_window, "menuBar", lambda: None)()
 
         if enabled:
             if self._compact_saved_main_window_state is None:
+                toolbars = []
+                if hasattr(main_window, "findChildren"):
+                    toolbars = list(main_window.findChildren(QtWidgets.QToolBar))
+                saved_central_stack_size_policy = (
+                    central_stack.sizePolicy()
+                    if isinstance(central_stack, QtWidgets.QWidget)
+                    else None
+                )
                 self._compact_saved_main_window_state = {
                     "was_maximized": bool(getattr(main_window, "isMaximized", lambda: False)()),
                     "was_fullscreen": bool(getattr(main_window, "isFullScreen", lambda: False)()),
                     "geometry": main_window.geometry(),
                     "main_splitter_sizes": main_splitter.sizes(),
+                    "main_splitter_handle_width": int(main_splitter.handleWidth()),
+                    "main_splitter_orientation": main_splitter.orientation(),
                     "nav_bar_visible": bool(getattr(nav_bar, "isVisible", lambda: True)()),
                     "central_stack_visible": bool(getattr(central_stack, "isVisible", lambda: True)()),
+                    "central_stack_min_width": int(getattr(central_stack, "minimumWidth", lambda: 0)()),
+                    "central_stack_max_width": int(getattr(central_stack, "maximumWidth", lambda: 0)()),
+                    "central_stack_size_policy": saved_central_stack_size_policy,
                     "right_panel_min_width": int(getattr(right_panel_container, "minimumWidth", lambda: 0)()),
                     "right_panel_max_width": int(getattr(right_panel_container, "maximumWidth", lambda: 0)()),
+                    "menu_bar_visible": bool(getattr(menu_bar, "isVisible", lambda: True)()) if menu_bar is not None else True,
+                    "toolbars_visibility": [(tb, bool(getattr(tb, "isVisible", lambda: True)())) for tb in toolbars],
+                    "side_tab_bar_visible": bool(side_tab.tabBar().isVisible()) if hasattr(side_tab, "tabBar") else True,
                 }
 
             if getattr(main_window, "isMaximized", lambda: False)() or getattr(
@@ -330,26 +431,56 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
 
             if isinstance(nav_bar, QtWidgets.QWidget):
                 nav_bar.setVisible(False)
+            # 注意：不要隐藏 central_stack（任务清单步骤树/执行按钮在这里）。
+            # 精简模式仅应收敛“执行监控面板”的内容；主窗口只做尺寸与分栏比例的收敛。
             if isinstance(central_stack, QtWidgets.QWidget):
-                central_stack.setVisible(False)
+                central_stack.setVisible(True)
+                # 关键：QStackedWidget 默认会以“所有页面的最大 sizeHint/minSizeHint”作为自己的最小要求，
+                # 这会导致精简模式下 central_stack 无法被压窄，从而在步骤树两侧产生大量空白占位。
+                # 精简模式下临时将 sizePolicy 设为 Ignored，让 splitters 可以把宽度让给右侧监控面板。
+                central_stack.setMinimumWidth(0)
+                central_stack.setMaximumWidth(QtWidgets.QWIDGETSIZE_MAX)
+                central_stack.setSizePolicy(
+                    QtWidgets.QSizePolicy.Policy.Ignored,
+                    QtWidgets.QSizePolicy.Policy.Ignored,
+                )
             if isinstance(right_panel_container, QtWidgets.QWidget):
                 right_panel_container.setVisible(True)
-                # 右侧容器默认 min=350；精简模式下允许更窄，以便窗口缩小
-                right_panel_container.setMinimumWidth(360)
-                right_panel_container.setMaximumWidth(900)
+                # 精简模式为“单列上下布局”：不限制宽度，避免用户把窗口拉宽后出现右侧空白。
+                right_panel_container.setMinimumWidth(0)
+                right_panel_container.setMaximumWidth(QtWidgets.QWIDGETSIZE_MAX)
 
-            # 让右侧占满，并缩小主窗口尺寸（用户仍可手动调整）
-            main_splitter.setSizes([0, 1])
-            target_width = 540
-            target_height = 620
-            screen = getattr(main_window, "screen", lambda: None)()
-            available = getattr(screen, "availableGeometry", lambda: None)() if screen is not None else None
-            if isinstance(available, QtCore.QRect):
-                if target_width > available.width():
-                    target_width = available.width()
-                if target_height > available.height():
-                    target_height = available.height()
-            main_window.resize(int(target_width), int(target_height))
+            # 隐藏主窗口顶部工具栏/菜单栏，释放高度
+            if menu_bar is not None and hasattr(menu_bar, "setVisible"):
+                menu_bar.setVisible(False)
+            if hasattr(main_window, "findChildren"):
+                for toolbar in main_window.findChildren(QtWidgets.QToolBar):
+                    toolbar.setVisible(False)
+
+            # 右侧 tab bar 在精简模式下隐藏（仅保留内容区域）
+            if hasattr(side_tab, "tabBar"):
+                side_tab.tabBar().setVisible(False)
+
+            # 启用任务清单侧的执行精简布局：隐藏右侧详情/预览（含节点图预览），仅保留步骤树
+            todo_widget = getattr(main_window, "todo_widget", None)
+            if todo_widget is not None and hasattr(todo_widget, "set_execution_compact_mode"):
+                todo_widget.set_execution_compact_mode(True)
+
+            # 缩小主窗口尺寸（用户仍可手动调整）。
+            # 保留任务清单区域：保证“步骤树/执行按钮”仍可见。
+            # 精简模式下，多余宽度应优先让给右侧监控面板；左侧任务区保持可用的最小宽度即可。
+            main_splitter.setHandleWidth(2)
+            main_splitter.setChildrenCollapsible(True)
+            # 需求：上面显示步骤、下面显示日志（单列）
+            main_splitter.setOrientation(Qt.Orientation.Vertical)
+            main_splitter.setStretchFactor(0, 1)  # 步骤区
+            main_splitter.setStretchFactor(1, 2)  # 日志区（更多空间）
+            main_splitter.setSizes([260, 360])
+            # 只收缩宽度，不改变高度：需要等任务树完成一次布局后再计算列宽。
+            QtCore.QTimer.singleShot(
+                0,
+                lambda: self._apply_compact_window_width_to_steps(main_window),
+            )
             return
 
         # disabled: restore
@@ -359,13 +490,44 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
 
         main_window.showNormal()
 
+        # 先恢复任务清单布局，避免右侧容器尺寸恢复后仍处于隐藏堆栈状态
+        todo_widget = getattr(main_window, "todo_widget", None)
+        if todo_widget is not None and hasattr(todo_widget, "set_execution_compact_mode"):
+            todo_widget.set_execution_compact_mode(False)
+
         if isinstance(nav_bar, QtWidgets.QWidget):
             nav_bar.setVisible(bool(saved.get("nav_bar_visible", True)))
         if isinstance(central_stack, QtWidgets.QWidget):
             central_stack.setVisible(bool(saved.get("central_stack_visible", True)))
+            central_stack.setMinimumWidth(int(saved.get("central_stack_min_width", 0)))
+            central_stack.setMaximumWidth(int(saved.get("central_stack_max_width", QtWidgets.QWIDGETSIZE_MAX)))
+            saved_size_policy = saved.get("central_stack_size_policy")
+            if isinstance(saved_size_policy, QtWidgets.QSizePolicy):
+                central_stack.setSizePolicy(saved_size_policy)
         if isinstance(right_panel_container, QtWidgets.QWidget):
             right_panel_container.setMinimumWidth(int(saved.get("right_panel_min_width", 350)))
             right_panel_container.setMaximumWidth(int(saved.get("right_panel_max_width", 1200)))
+
+        if menu_bar is not None and hasattr(menu_bar, "setVisible"):
+            menu_bar.setVisible(bool(saved.get("menu_bar_visible", True)))
+        toolbars_visibility = saved.get("toolbars_visibility")
+        if isinstance(toolbars_visibility, list):
+            for toolbar, was_visible in toolbars_visibility:
+                if isinstance(toolbar, QtWidgets.QToolBar):
+                    toolbar.setVisible(bool(was_visible))
+
+        if hasattr(side_tab, "tabBar"):
+            side_tab.tabBar().setVisible(bool(saved.get("side_tab_bar_visible", True)))
+
+        saved_main_splitter_handle_width = saved.get("main_splitter_handle_width")
+        if isinstance(saved_main_splitter_handle_width, int) and saved_main_splitter_handle_width > 0:
+            main_splitter.setHandleWidth(int(saved_main_splitter_handle_width))
+        saved_orientation = saved.get("main_splitter_orientation")
+        if isinstance(saved_orientation, Qt.Orientation):
+            main_splitter.setOrientation(saved_orientation)
+        # 恢复默认拉伸权重（与 UISetupMixin 初始化一致）
+        main_splitter.setStretchFactor(0, 3)
+        main_splitter.setStretchFactor(1, 1)
 
         splitter_sizes = saved.get("main_splitter_sizes")
         if isinstance(splitter_sizes, list) and len(splitter_sizes) >= 2:

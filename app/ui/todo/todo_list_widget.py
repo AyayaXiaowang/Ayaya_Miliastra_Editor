@@ -81,6 +81,10 @@ class TodoListWidget(QtWidgets.QWidget):
         # 富文本分段角色（避免与 UserRole 冲突）
         self.RICH_SEGMENTS_ROLE: int = int(Qt.ItemDataRole.UserRole) + 1
 
+        # 执行精简模式：尽可能缩小任务清单页占用空间（隐藏右侧详情/预览，仅保留左侧步骤树）
+        self._execution_compact_mode_enabled: bool = False
+        self._execution_compact_saved_state: dict | None = None
+
         self._setup_ui()
 
         # 将领域 wiring 与子组件组装集中到编排层
@@ -101,9 +105,12 @@ class TodoListWidget(QtWidgets.QWidget):
         
         # 使用分割器
         splitter = QtWidgets.QSplitter(Qt.Orientation.Horizontal)
+        splitter.setObjectName("todoMainSplitter")
+        self._splitter = splitter
         
         # 左侧：任务树（卡片式容器）
         left_card = QtWidgets.QWidget()
+        self._left_card = left_card
         # 设为最小宽度，允许通过分割条向更大方向拖拽
         left_card.setMinimumWidth(ThemeSizes.LEFT_PANEL_WIDTH)
         left_card.setObjectName("leftCard")
@@ -115,6 +122,7 @@ class TodoListWidget(QtWidgets.QWidget):
         # 标题和统计容器
         header_widget = QtWidgets.QWidget()
         header_widget.setObjectName("headerWidget")
+        self._header_widget = header_widget
         header_layout = QtWidgets.QVBoxLayout(header_widget)
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
@@ -169,6 +177,104 @@ class TodoListWidget(QtWidgets.QWidget):
         
         self.current_detail_info = None
         self.current_todo_id: Optional[str] = None
+
+    @property
+    def execution_compact_mode_enabled(self) -> bool:
+        return bool(getattr(self, "_execution_compact_mode_enabled", False))
+
+    def set_execution_compact_mode(self, enabled: bool) -> None:
+        """执行精简模式（任务清单页侧）。
+
+        目标：为低分辨率执行场景尽可能节省空间：
+        - 隐藏右侧详情/预览堆栈（含节点图预览）
+        - 压缩左侧步骤树宽度与头部信息
+        """
+        target_enabled = bool(enabled)
+        if target_enabled == self.execution_compact_mode_enabled:
+            return
+        self._execution_compact_mode_enabled = target_enabled
+
+        splitter = getattr(self, "_splitter", None)
+        left_card = getattr(self, "_left_card", None)
+        header_widget = getattr(self, "_header_widget", None)
+
+        if target_enabled:
+            if self._execution_compact_saved_state is None:
+                saved_splitter_sizes = splitter.sizes() if isinstance(splitter, QtWidgets.QSplitter) else []
+                saved_splitter_handle_width = splitter.handleWidth() if isinstance(splitter, QtWidgets.QSplitter) else 0
+                saved_left_min_width = left_card.minimumWidth() if isinstance(left_card, QtWidgets.QWidget) else 0
+                saved_left_max_width = left_card.maximumWidth() if isinstance(left_card, QtWidgets.QWidget) else 0
+                saved_header_visible = header_widget.isVisible() if isinstance(header_widget, QtWidgets.QWidget) else True
+                saved_right_stack_visible = self.right_stack.isVisible()
+                saved_right_stack_min_width = int(self.right_stack.minimumWidth())
+                saved_right_stack_max_width = int(self.right_stack.maximumWidth())
+                saved_tree_indentation = self.tree.indentation() if hasattr(self, "tree") else 0
+                self._execution_compact_saved_state = {
+                    "splitter_sizes": saved_splitter_sizes,
+                    "splitter_handle_width": int(saved_splitter_handle_width),
+                    "left_min_width": int(saved_left_min_width),
+                    "left_max_width": int(saved_left_max_width),
+                    "header_visible": bool(saved_header_visible),
+                    "right_stack_visible": bool(saved_right_stack_visible),
+                    "right_stack_min_width": int(saved_right_stack_min_width),
+                    "right_stack_max_width": int(saved_right_stack_max_width),
+                    "tree_indentation": int(saved_tree_indentation),
+                }
+
+            if isinstance(header_widget, QtWidgets.QWidget):
+                header_widget.setVisible(False)
+
+            # 隐藏右侧详情/预览：节点图预览与长文档占用较大宽高
+            # 注意：在 QSplitter 中仅 setVisible(False) 可能仍会留下占位宽度。
+            # 精简模式下将其宽度硬压到 0，避免出现“步骤树右侧空白区”。
+            self.right_stack.setMinimumWidth(0)
+            self.right_stack.setMaximumWidth(0)
+            self.right_stack.setVisible(False)
+
+            if isinstance(left_card, QtWidgets.QWidget):
+                left_card.setMinimumWidth(220)
+                # 允许左侧树吃满当前可用宽度（避免因 maxWidth 限制导致中间出现空白占位）。
+                left_card.setMaximumWidth(QtWidgets.QWIDGETSIZE_MAX)
+
+            if hasattr(self, "tree"):
+                # 更紧凑的层级缩进，文本过长按右侧省略
+                self.tree.setIndentation(12)
+                if hasattr(self.tree, "setTextElideMode"):
+                    self.tree.setTextElideMode(Qt.TextElideMode.ElideRight)
+
+            if isinstance(splitter, QtWidgets.QSplitter):
+                splitter.setChildrenCollapsible(True)
+                splitter.setCollapsible(1, True)
+                splitter.setHandleWidth(2)
+                splitter.setSizes([260, 0])
+            return
+
+        # restore
+        saved = self._execution_compact_saved_state
+        if not isinstance(saved, dict):
+            return
+
+        if isinstance(header_widget, QtWidgets.QWidget):
+            header_widget.setVisible(bool(saved.get("header_visible", True)))
+
+        self.right_stack.setMinimumWidth(int(saved.get("right_stack_min_width", 0)))
+        self.right_stack.setMaximumWidth(int(saved.get("right_stack_max_width", QtWidgets.QWIDGETSIZE_MAX)))
+        self.right_stack.setVisible(bool(saved.get("right_stack_visible", True)))
+
+        if isinstance(left_card, QtWidgets.QWidget):
+            left_card.setMinimumWidth(int(saved.get("left_min_width", ThemeSizes.LEFT_PANEL_WIDTH)))
+            left_card.setMaximumWidth(int(saved.get("left_max_width", left_card.maximumWidth())))
+
+        if hasattr(self, "tree"):
+            self.tree.setIndentation(int(saved.get("tree_indentation", LayoutConstants.TREE_INDENTATION)))
+
+        if isinstance(splitter, QtWidgets.QSplitter):
+            splitter.setHandleWidth(int(saved.get("splitter_handle_width", 6)))
+            splitter_sizes = saved.get("splitter_sizes")
+            if isinstance(splitter_sizes, list) and splitter_sizes:
+                splitter.setSizes(splitter_sizes)
+
+        self._execution_compact_saved_state = None
     
     def _apply_styles(self):
         """应用现代化样式表"""
