@@ -18,6 +18,11 @@ from ..ast_utils import (
 from ..node_index import event_node_names
 
 
+def _normalize_event_name_for_on_method(event_name: str) -> str:
+    """将内置事件名规约为可用于 `on_XXX` 方法名后缀的形式。"""
+    return str(event_name or "").replace("/", "或")
+
+
 class OnMethodNameRule(ValidationRule):
     """严格校验所有 `on_XXX` 方法名：
 
@@ -43,6 +48,7 @@ class OnMethodNameRule(ValidationRule):
         tree = get_cached_module(ctx)
         scope = infer_graph_scope(ctx)
         builtin_event_names = event_node_names(ctx.workspace_path, scope)
+        builtin_event_suffixes = {_normalize_event_name_for_on_method(name) for name in builtin_event_names}
         signal_repo = get_default_signal_repository()
         issues: List[EngineIssue] = []
 
@@ -65,7 +71,7 @@ class OnMethodNameRule(ValidationRule):
                 continue
 
             # 内置事件名
-            if suffix in builtin_event_names:
+            if suffix in builtin_event_suffixes:
                 continue
 
             # client 技能节点图的“节点图开始”入口并非通过事件节点库暴露，

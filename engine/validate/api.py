@@ -40,6 +40,8 @@ from .rules.code_structure_rules import (
     RequiredInputsRule,
     StructNameRequiredRule,
     LocalVarInitialValueRule,
+    LocalVarUsageRule,
+    NodeCallGameRequiredRule,
 )
 from .rules.code_quality_rules import (
     LongWireRule,
@@ -93,6 +95,8 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
             rules = [
                 CompositeTypesAndNestingRule(),
                 LocalVarInitialValueRule(),
+                LocalVarUsageRule(),
+                NodeCallGameRequiredRule(),
                 NoListDictLiteralRule(),
                 MatchCaseLiteralPatternRule(),
             ]
@@ -129,6 +133,8 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
                 SignalParamNamesRule(),
                 StructNameRequiredRule(),
                 LocalVarInitialValueRule(),
+                LocalVarUsageRule(),
+                NodeCallGameRequiredRule(),
             ]
         )
     if m3_enabled:

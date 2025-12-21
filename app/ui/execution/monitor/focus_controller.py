@@ -15,6 +15,7 @@ from PyQt6 import QtCore
 
 from app.automation.editor.executor_protocol import ViewportController
 from app.runtime.services import get_shared_json_cache_service
+from app.automation.vision import get_last_raw_title_rects as _get_last_raw_title_rects
 
 
 class FocusController:
@@ -308,6 +309,15 @@ class FocusController:
 
             # 为当前可见节点构建覆盖层：在监控截图上为每个识别到的节点绘制矩形并标注节点ID
             def _build_visible_nodes_overlay(image) -> dict:
+                raw_title_by_bbox: dict[tuple[int, int, int, int], str] = {}
+                raw_title_rects = _get_last_raw_title_rects()
+                for raw_title, rect in raw_title_rects:
+                    if not isinstance(rect, (list, tuple)) or len(rect) != 4:
+                        continue
+                    rect_left, rect_top, rect_w, rect_h = rect
+                    key = (int(rect_left), int(rect_top), int(rect_w), int(rect_h))
+                    raw_title_by_bbox[key] = str(raw_title or "").strip()
+
                 rect_items: list[dict] = []
                 for node_id, info in visible_map_after.items():
                     if not bool(info.get("visible")):
@@ -316,14 +326,37 @@ class FocusController:
                     if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
                         continue
                     bbox_left, bbox_top, bbox_width, bbox_height = bbox
+                    bbox_key = (
+                        int(bbox_left),
+                        int(bbox_top),
+                        int(bbox_width),
+                        int(bbox_height),
+                    )
                     node_model = graph_model.nodes.get(node_id)
                     node_title_text = ""
                     if node_model is not None and getattr(node_model, "title", None) is not None:
                         node_title_text = str(node_model.title).strip()
-                    if node_title_text:
-                        label_text = f"{node_title_text} ({node_id})"
-                    else:
-                        label_text = str(node_id)
+
+                    # 识别标题（纠错后）：来自可见性识别结果（list_nodes 的 name_cn）
+                    recognized_title_text = str(info.get("recognized_title", "") or "").strip()
+                    # OCR 原始标题（不映射）：由 vision_backend 缓存提供，按 bbox 对齐
+                    raw_title_text = str(raw_title_by_bbox.get(bbox_key, "") or "").strip()
+
+                    # label 文案策略（保持单行，避免监控画面过度拥挤）：
+                    # - 优先展示模型标题；
+                    # - 若存在 raw!=recognized，则附加 "OCR:raw→recognized"；
+                    # - 若识别标题缺失但 raw 存在，则附加 "OCR:raw"；
+                    # - 无模型标题时至少显示 node_id，避免 label 为空导致完全不显示。
+                    base = node_title_text or recognized_title_text or raw_title_text or str(node_id)
+                    extras = ""
+                    if raw_title_text and recognized_title_text and raw_title_text != recognized_title_text:
+                        extras = f" OCR:{raw_title_text}→{recognized_title_text}"
+                    elif raw_title_text and not recognized_title_text:
+                        extras = f" OCR:{raw_title_text}"
+                    elif recognized_title_text and not raw_title_text and node_title_text and node_title_text != recognized_title_text:
+                        extras = f" 识别:{recognized_title_text}"
+
+                    label_text = f"{base}{extras} ({node_id})" if str(node_id) else f"{base}{extras}"
                     rect_items.append(
                         {
                             "bbox": (

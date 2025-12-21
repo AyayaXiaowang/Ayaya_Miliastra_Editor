@@ -17,6 +17,8 @@ from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinC
 from engine.nodes.composite_node_manager import CompositeNodeManager, get_composite_node_manager
 from engine.nodes.node_registry import get_node_registry
 from engine.resources.resource_manager import ResourceManager
+from engine.resources.package_index import PackageIndex
+from engine.resources.package_index_manager import PackageIndexManager
 from app.codegen import CompositeCodeGenerator
 from app.ui.controllers.graph_editor_controller import GraphEditorController
 from app.ui.foundation import input_dialogs
@@ -165,6 +167,7 @@ class CompositeNodeManagerWidget(
         node_library: dict,
         parent: Optional[QtWidgets.QWidget] = None,
         resource_manager: Optional[ResourceManager] = None,
+        package_index_manager: Optional[PackageIndexManager] = None,
         *,
         edit_session_capabilities: Optional[EditSessionCapabilities] = None,
     ) -> None:
@@ -177,6 +180,13 @@ class CompositeNodeManagerWidget(
         self.workspace_path = workspace_path
         self.node_library = node_library
         self._service = CompositeNodeService(workspace_path)
+        self._package_index_manager: Optional[PackageIndexManager] = package_index_manager
+
+        # 复合节点库过滤上下文：由主窗口“当前存档”注入。
+        # 约定：
+        # - None：不启用过滤（<全部资源>）
+        # - set[str]：仅显示指定 composite_id 集合（具体存档 / <未分类资源>）
+        self._active_composite_id_filter: set[str] | None = None
         # 向下兼容：外部仍可通过 .manager 访问引擎侧 CompositeNodeManager
         self.manager: CompositeNodeManager = self._service.manager
         # 复合节点编辑会话能力（单一真源）：
@@ -219,6 +229,90 @@ class CompositeNodeManagerWidget(
         self._build_panes()
         self._init_graph_editor(resource_manager)
         self._refresh_composite_list()
+
+    # ------------------------------------------------------------------ 存档上下文（过滤）
+
+    def set_context(
+        self,
+        current_package_id: str | None,
+        current_package_index: PackageIndex | None,
+    ) -> None:
+        """注入当前存档上下文，用于过滤左侧复合节点树。
+
+        设计约定：
+        - <全部资源>：显示所有复合节点（不启用过滤）
+        - 具体存档：仅显示 current_package_index.resources.composites
+        - <未分类资源>：显示“未被任何包引用”的复合节点（依赖 PackageIndexManager 汇总）
+        """
+        self._active_composite_id_filter = self._compute_active_composite_id_filter(
+            current_package_id,
+            current_package_index,
+        )
+        self._refresh_composite_list()
+
+    def _compute_active_composite_id_filter(
+        self,
+        current_package_id: str | None,
+        current_package_index: PackageIndex | None,
+    ) -> set[str] | None:
+        package_id = str(current_package_id or "")
+        if not package_id or package_id == "global_view":
+            return None
+        if package_id == "unclassified_view":
+            return self._compute_unclassified_composite_ids()
+        if current_package_index is None:
+            return set()
+        return {
+            composite_id
+            for composite_id in current_package_index.resources.composites
+            if isinstance(composite_id, str) and composite_id
+        }
+
+    def _compute_unclassified_composite_ids(self) -> set[str]:
+        """计算未分类视图下的复合节点集合：未被任何包的 resources.composites 引用。"""
+        # 1) 当前工作区全部复合节点
+        all_composite_ids: set[str] = {
+            str(cfg.composite_id)
+            for cfg in self.manager.list_composite_nodes()
+            if isinstance(getattr(cfg, "composite_id", None), str) and cfg.composite_id
+        }
+
+        # 2) 已归档（被任意存档索引引用）
+        classified_composite_ids: set[str] = set()
+        if self._package_index_manager is not None:
+            packages = self._package_index_manager.list_packages()
+            for pkg_info in packages:
+                package_id_value = ""
+                if isinstance(pkg_info, dict):
+                    package_id_value = str(pkg_info.get("package_id", "") or "")
+                if not package_id_value:
+                    continue
+                resources = self._package_index_manager.get_package_resources(package_id_value)
+                if resources is None:
+                    continue
+                composite_ids = getattr(resources, "composites", [])
+                if isinstance(composite_ids, list):
+                    for composite_id in composite_ids:
+                        if isinstance(composite_id, str) and composite_id:
+                            classified_composite_ids.add(composite_id)
+
+        return {composite_id for composite_id in all_composite_ids if composite_id not in classified_composite_ids}
+
+    @staticmethod
+    def _collect_visible_folder_paths(rows: list[CompositeNodeRow]) -> list[str]:
+        """由可见的复合节点行推导需要构建的文件夹路径集合（含父路径）。"""
+        folder_paths: set[str] = set()
+        for row in rows:
+            raw_folder_path = str(row.folder_path or "")
+            normalized = raw_folder_path.replace("\\", "/").strip("/").strip()
+            if not normalized:
+                continue
+            parts = [part for part in normalized.split("/") if part]
+            accumulated = ""
+            for part in parts:
+                accumulated = part if not accumulated else f"{accumulated}/{part}"
+                folder_paths.add(accumulated)
+        return sorted(folder_paths)
 
     # ------------------------------------------------------------------ 能力（单一真源）
 
@@ -397,16 +491,25 @@ class CompositeNodeManagerWidget(
         self.composite_tree.clear()
         root_item = self.composite_tree.invisibleRootItem()
 
+        allowed_composite_ids = self._active_composite_id_filter
+        all_rows = self._service.iter_rows()
+        visible_rows = (
+            [row for row in all_rows if row.composite_id in allowed_composite_ids]
+            if allowed_composite_ids is not None
+            else all_rows
+        )
+
         folder_builder = FolderTreeBuilder(
             data_factory=lambda folder_path: {"type": "folder", "path": folder_path},
         )
-        folder_items = folder_builder.build(root_item, self.manager.folder_manager.folders)
+        visible_folders = self._collect_visible_folder_paths(visible_rows)
+        folder_items = folder_builder.build(root_item, visible_folders)
 
         preferred_composite_id = self.current_composite_id
         preferred_item: Optional[QtWidgets.QTreeWidgetItem] = None
         first_node_item: Optional[QtWidgets.QTreeWidgetItem] = None
 
-        for row in self._service.iter_rows():
+        for row in visible_rows:
             parent_item = folder_items.get(row.folder_path, root_item)
             node_item = QtWidgets.QTreeWidgetItem(parent_item)
             node_item.setText(0, f"🧩 {row.node_name}")
@@ -431,9 +534,8 @@ class CompositeNodeManagerWidget(
         self.composite_tree.expandAll()
         restore_expanded_paths(self.composite_tree, expanded_state, self._folder_item_key)
 
-        target_item = preferred_item
-        if target_item is None and not self.current_composite_id:
-            target_item = first_node_item
+        # 若当前选中项不在过滤结果中：优先落到“列表第一项”，避免右侧空白。
+        target_item = preferred_item or first_node_item
 
         if target_item is not None:
             self.composite_tree.setCurrentItem(target_item)

@@ -301,33 +301,45 @@ def recognize_visible_nodes(executor, graph_model: GraphModel) -> Dict[str, Dict
         if existing is None or dist2 < existing[1]:
             det_to_best[det_index] = (node_id, dist2)
 
-    assigned_node_to_bbox: Dict[str, tuple[int, int, int, int]] = {}
+    assigned_node_to_detection: Dict[str, Dict[str, Any]] = {}
     for det_index, (best_node_id, _) in det_to_best.items():
         detection = detected_nodes[det_index]
         bx, by, bw, bh = detection.bbox
-        assigned_node_to_bbox[best_node_id] = (
-            int(bx),
-            int(by),
-            int(bw),
-            int(bh),
-        )
+        recognized_title = executor.extract_chinese(getattr(detection, "name_cn", "") or "")
+        assigned_node_to_detection[best_node_id] = {
+            "det_index": int(det_index),
+            "bbox": (int(bx), int(by), int(bw), int(bh)),
+            "recognized_title": str(recognized_title or "").strip(),
+        }
 
     if callable(log):
         log(
-            f"[可见节点] 第二阶段分配完成：参与分配的节点数={int(len(assigned_node_to_bbox))}，"
+            f"[可见节点] 第二阶段分配完成：参与分配的节点数={int(len(assigned_node_to_detection))}，"
             f"检测节点数={int(len(detected_nodes))}"
         )
 
     # 第三步：构建最终可见性映射；未参与分配或无检测的节点一律标记为不可见
     visible_ids: list[str] = []
     for node_id in graph_model.nodes.keys():
-        bbox = assigned_node_to_bbox.get(node_id)
-        if bbox is None:
+        assigned = assigned_node_to_detection.get(node_id)
+        if not isinstance(assigned, dict):
             result[node_id] = {
                 "visible": False,
                 "bbox": None,
                 "center": None,
                 "screen_center": None,
+                "recognized_title": "",
+            }
+            continue
+
+        bbox = assigned.get("bbox")
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            result[node_id] = {
+                "visible": False,
+                "bbox": None,
+                "center": None,
+                "screen_center": None,
+                "recognized_title": "",
             }
             continue
 
@@ -345,6 +357,7 @@ def recognize_visible_nodes(executor, graph_model: GraphModel) -> Dict[str, Dict
             "bbox": (int(bx), int(by), int(bw), int(bh)),
             "center": (int(anchor_x), int(anchor_y)),
             "screen_center": (int(screen_x), int(screen_y)),
+            "recognized_title": str(assigned.get("recognized_title", "") or "").strip(),
         }
         visible_ids.append(node_id)
 

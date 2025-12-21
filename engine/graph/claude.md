@@ -28,6 +28,7 @@
 - 节点图 docstring 元数据解析集中在 `utils/metadata_extractor.py`，支持从“节点图变量”段落中提取变量名/类型/默认值，并识别尾部方括号标签：`[对外暴露]` 用于标记 `is_exposed`，其他标签（如 `[内部状态，说明…]`）会写入变量的 `description` 字段，不再污染默认值；事件流注释提取工具按源码行精确匹配节点并安全扩展事件流注释。
 - `entity_templates.py` 以 `engine.configs.rules.entity_rules.ENTITY_TYPES` 为规则源，集中维护实体/模板与节点图变量共享的“规范中文变量类型”列表，并通过 `get_entity_type_info` 这类函数为 UI 提供实体类型的图标、默认节点图与规则说明，涵盖字符串/整数/浮点数/布尔值/三维向量/实体/GUID/配置ID/元件ID/阵营及其列表形式，以及结构体、结构体列表和字典类型。
 - 图的流程/数据连线路由与默认流程出口策略集中在 `graph/ir` 层，由 `edge_router`、`flow_builder` 等模块协同实现；上层仅通过 Graph API 与 `validate_graph` 观察结果，不直接依赖具体连线推断细节。
+- 常量提取增强：除模块顶层常量外，解析节点图类时也会收集 class body 顶层“类常量”（AnnAssign/Assign 且右值可静态提取），并以 key=`"self.<字段名>"` 注入常量上下文，使 `self._xxx` 这类写法在作为节点入参时可被静态回填到 `node.input_constants`（常见于定时器名称、变量名等标识性参数）。
 
 # 依赖边界
 - 允许依赖：`engine/utils`、`engine/validate`（有限度），其中图语义/算法统一通过 `engine.utils.graph` 子包获取，调试输出统一使用 `engine.utils.logging`.

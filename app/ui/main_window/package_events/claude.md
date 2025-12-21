@@ -5,6 +5,7 @@
 
 ## 当前结构
 - `package_load_save_mixin.py`：存档加载/保存、存档下拉框刷新、战斗预设延迟选中缓存；保存完成时会标记一次“资源库内部写盘”时间，用于抑制资源库自动刷新误触发
+- `package_load_save_mixin.py` 在存档切换后会同步更新复合节点页的上下文（若复合节点页已创建），以保证复合节点左侧列表可按当前存档过滤显示。
 - `library_selection_mixin.py`：库页选中/取消选中、右侧面板收起、模板/实例/关卡实体与战斗预设选中同步
 - `packages_view_mixin.py`：存档库（PACKAGES）右侧详情展示与跳转、全局资源视图、属性面板互斥收起
 - `management_panels_mixin.py`：管理模式右侧面板联动入口（薄壳）。保留对外稳定的 Mixin 方法名，实际编排委托给 coordinator。

@@ -6,6 +6,7 @@
 - `recognition.py`：**兼容层/薄封装**，保留历史导入路径与对外 API（`recognize_visible_nodes()`、`verify_and_update_view_mapping_by_recognition()`、`synchronize_visible_nodes_positions()` 等），具体实现已拆分到更小模块，避免单文件过大。
 - `fallbacks.py` 等辅助模块：封装唯一标题比例对齐、锚点降级匹配等兜底策略，用于在节点文本存在歧义或数量不足时仍尽可能恢复坐标映射。
 - 该子包不直接操作键鼠输入，只依赖 `app.automation.capture` 提供的截图与 OCR、模板匹配能力。
+ - `visible_nodes.py` 的 `recognize_visible_nodes()` 会在返回结果中附带 `recognized_title`（来自检测到的节点标题），便于 UI 在“定位镜头”等场景展示“识别标题 vs 模型标题”的差异。
 
 ## 注意事项
 - 保持识别与几何逻辑的纯函数风格，避免在此层做输入操作或与 UI 直接耦合，所有副作用应通过执行器上的状态字段或日志/可视化回调体现。

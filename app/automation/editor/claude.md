@@ -26,6 +26,8 @@
 - 跨模块访问执行器只用协议/公开方法，禁止访问形如 `executor._xxx` 的私有成员（配合 `tools/check_executor_private_access.py`）。
 - 视口变化（拖拽/缩放/布局变更）后应通过公开接口标记失效，避免复用过期截图/识别缓存。
 - OCR 模板资源路径由执行器的 `ocr_template_profile` 统一决定；新增分辨率/缩放支持优先补充 `assets/ocr_templates/<profile>/` 目录，而不是在代码里新增硬编码路径。
+- 候选列表点击（`candidate_popup.py`）在 OCR 结果中会按 `Node_list.png` 模板命中区域做 X 方向交集过滤：模板命中 X 区间会向右额外扩展 **3×模板宽度**；目标文本框与该 X 区间**无交集则视为无效候选**，用于避免误用来自其他面板/区域的同名 OCR 文本。
+- 缩放控件识别（`editor_zoom.py`）的 OCR 区域位于“节点图布置区域”下方的底部栏；执行步骤通常启用“强制节点图 ROI”，因此缩放 OCR 需在局部临时关闭强制 ROI，避免区域被裁剪成空图导致识别失败。
 - 连线拖拽应尽量提供“结果校验”（例如拖拽后截图差分确认画面发生连线变化），避免静默失败导致后续步骤在错误状态上继续执行。
 - 画布吸附（`snap_screen_point_to_canvas_background`）对可见节点 bbox 默认做外扩避让（默认 **14px**，可用执行器属性 `canvas_node_avoid_padding_px` 调整），避免在节点边缘发起右键拖拽/右键点击导致无效或误触。
 - 视口对齐（`ensure_program_point_visible`）加入“连续拖拽画面无明显变化则中止”的保护，避免在拖拽未生效时按预期位移更新坐标映射造成漂移。可用执行器属性 `view_pan_no_visual_change_abort_consecutive` / `view_pan_no_visual_change_mean_diff_threshold` 调整阈值。

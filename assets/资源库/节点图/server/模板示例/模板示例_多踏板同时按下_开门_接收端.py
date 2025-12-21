@@ -182,10 +182,13 @@ class 模板示例_多踏板同时按下_开门_接收端:
             变量值=False,
             是否触发事件=False,
         )
+        自身GUID: "GUID" = 以实体查询GUID(self.game, 实体=自身实体)
+        当前激活踏板GUID列表初始值: "GUID列表" = 拼装列表(self.game, 自身GUID)
+        清除列表(self.game, 列表=当前激活踏板GUID列表初始值)
         设置节点图变量(
             self.game,
             变量名="当前激活踏板GUID列表",
-            变量值=[],
+            变量值=当前激活踏板GUID列表初始值,
             是否触发事件=False,
         )
         设置节点图变量(

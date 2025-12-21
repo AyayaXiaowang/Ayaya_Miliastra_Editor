@@ -17,6 +17,8 @@ from .code_structure.event_name import EventNameRule
 from .code_structure.graph_vars_declaration import GraphVarsDeclarationRule
 from .code_structure.literal_assignment import NoLiteralAssignmentRule
 from .code_structure.local_var_initial_value import LocalVarInitialValueRule
+from .code_structure.local_var_usage import LocalVarUsageRule
+from .code_structure.node_call_game_required import NodeCallGameRequiredRule
 from .code_structure.on_method_name import OnMethodNameRule
 from .code_structure.unknown_node_call import UnknownNodeCallRule
 from .code_structure.required_inputs import RequiredInputsRule
@@ -41,5 +43,7 @@ __all__ = [
     "RequiredInputsRule",
     "StructNameRequiredRule",
     "LocalVarInitialValueRule",
+    "LocalVarUsageRule",
+    "NodeCallGameRequiredRule",
 ]
 

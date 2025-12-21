@@ -20,6 +20,11 @@ from ..ast_utils import (
 from ..node_index import event_node_names
 
 
+def _normalize_event_name_for_handler(event_name: str) -> str:
+    """将事件名规约为可用于 Python 方法名后缀的形式。"""
+    return str(event_name or "").replace("/", "或")
+
+
 class EventHandlerNameRule(ValidationRule):
     """事件回调命名校验：
 
@@ -101,7 +106,7 @@ class EventHandlerNameRule(ValidationRule):
                     continue
 
                 handler_name = _extract_handler_symbol_name(handler_node)
-                expected_name = f"on_{event_name}"
+                expected_name = f"on_{_normalize_event_name_for_handler(event_name)}"
                 if handler_name == expected_name:
                     continue
 

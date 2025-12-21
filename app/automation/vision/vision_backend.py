@@ -232,9 +232,12 @@ def _map_title_to_library(title_cn: str) -> Tuple[str, Optional[int], bool]:
         return result
 
     # 1) 中文精确匹配（唯一）
+    # 注意：同名节点可能在不同类别/端（client/server）重复注册，导致候选列表里出现重复字符串。
+    # 这里以“唯一字符串”判定是否可安全回退，避免误判为多解从而放弃纠错。
     exact_fulls = chinese_lookup.get(title_cn, [])
-    if len(exact_fulls) == 1:
-        return _finalize(exact_fulls[0], None, True)
+    exact_unique = sorted({str(x) for x in exact_fulls if str(x)})
+    if len(exact_unique) == 1:
+        return _finalize(exact_unique[0], None, True)
 
     # 2) 变长近似匹配（全局唯一最优）
     best_cn: Optional[str] = None
@@ -262,11 +265,13 @@ def _map_title_to_library(title_cn: str) -> Tuple[str, Optional[int], bool]:
         return _finalize(title_cn, None, False)
 
     # 中文名对应的完整库名必须唯一（避免跨类别重名）
+    # 同上：对候选做去重后再判唯一，避免因为重复注册导致 len>1 进而放弃纠错。
     full_candidates = chinese_lookup.get(best_cn, [])
-    if len(full_candidates) != 1:
+    full_unique = sorted({str(x) for x in full_candidates if str(x)})
+    if len(full_unique) != 1:
         return _finalize(title_cn, None, False)
 
-    return _finalize(full_candidates[0], int(best_dist) if best_dist is not None else None, True)
+    return _finalize(full_unique[0], int(best_dist) if best_dist is not None else None, True)
 
 
 def _compute_window_digest(window_image: Image.Image) -> str:

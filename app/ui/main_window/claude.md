@@ -48,6 +48,7 @@
 - 对“新增功能需要多点改动”的场景：优先新增 `features/` 下的 Feature 并在默认安装入口注册；Feature 内负责创建控件、注册右侧 tab、连接信号。旧 wiring/mixin 入口仍可保留以兼容，逐步迁移后再删除。
 - 右侧面板的状态机/标签协议已集中在 `right_panel_protocol.md`，扩展或排查右侧未收起/未刷新的问题时先对照矩阵与约束；`ModeSwitchMixin._enforce_right_panel_contract` 在每次模式切换后会强制收敛标签集合，防止跨模式残留。
 - **模式切换禁止旁路**：任何“切换到某个 ViewMode”的行为都必须走 `ModeSwitchMixin._on_mode_changed → ModeTransitionService.transition(...)`（或 `_navigate_to_mode(...)`），禁止在其它模块里直接调用 `central_stack.setCurrentIndex(...)` 来“实现切换”（唯一例外：复合节点页面的懒加载在进入 `ViewMode.COMPOSITE` 的同一模式内，用“替换占位页”为真实 widget 的结构操作）。
+- **选中回调必须先校验 ViewMode**：节点图库、元件库、实体摆放等库页在切换存档/刷新资源索引时可能在后台重建列表并发出“空选中”事件；对应的主窗口回调（例如 `graph_events_mixin._on_graph_library_selected`）必须先判断当前 `ViewMode`，仅在所属模式下更新右侧面板与文件监控，避免后台刷新抢占 `GRAPH_EDITOR/TODO/MANAGEMENT` 等模式的右侧上下文。
 - 新增或扩展右侧面板时，应在 `ui_setup_mixin._create_property_panels` 中集中创建实例，并通过专门的 Mixin（如 `PackageEventsMixin` 或窗口/导航相关 Mixin）连接其信号与持久化逻辑，保持主窗口初始化路径清晰。
 - `ui_setup_mixin.py` 中创建页面/面板时优先从 `app_state` 读取稳定依赖（`resource_manager/package_index_manager/...`），避免继续扩散兼容别名 `self.resource_manager/...` 的隐式依赖链路。
 - UI 会话状态保存/恢复（`ui_last_session.json`）使用 `main_window.app_state.workspace_path` 作为唯一路径来源；避免依赖 `self.workspace_path` 等旧式兼容别名，减少“静默 return 导致状态不保存/不恢复”的隐蔽问题。

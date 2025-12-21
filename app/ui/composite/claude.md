@@ -5,6 +5,7 @@
 
 ## 当前状态
 - `composite_node_manager_widget.py` 基于 `DualPaneLibraryScaffold` 实现复合节点管理库页面：左侧为按文件夹组织的树，右侧为节点图编辑器内核（`GraphView+GraphScene`），复合节点列表与 CRUD 由 `CompositeNodeService` 封装后注入管理器；页面采用 `EditSessionCapabilities` 作为能力单一真源，并在工具栏提供“允许保存”开关：默认可交互预览（不落盘）；开启后允许保存并对复合节点库执行写入类操作。保存会通过引擎侧 `CompositeNodeManager` 将子图与虚拟引脚写回复合节点文件；当目标文件不是 payload 格式时，会在保存前弹出“覆盖源码并转换为 payload”的确认提示。
+- 复合节点库支持接入“当前存档上下文”过滤：`CompositeNodeManagerWidget.set_context(current_package_id, current_package_index)` 会根据顶部存档选择过滤左侧树，只显示当前存档索引 `resources.composites` 引用的复合节点；在 `<全部资源>` 视图下不启用过滤；在 `<未分类资源>` 视图下会推导“未被任何包索引引用”的复合节点集合，并同时收敛文件夹树以避免出现空文件夹。
 - 复合节点源码生成策略由应用层决定：`CompositeNodeService` 会在创建 `CompositeNodeManager` 时注入 `app.codegen.CompositeCodeGenerator`，使“保存复合节点到文件”的能力不再要求引擎层内置生成器（仍可在只读模式下不触发保存）。
 - 子图加载路径统一复用 `GraphEditorController.load_graph_for_composite`：控制器在内部对复合子图执行一次 `layout_by_event_regions` 预排版，并通过 `composite_edit_context` 将 `composite_id` / `CompositeNodeManager` / `on_virtual_pins_changed` / `can_persist` 等上下文传入 `GraphScene`，使复合页的交互约束与主编辑器保持一致；当未注入 `ResourceManager` 时，管理器退化为本地 `GraphScene` + 手动 `add_node_item/add_edge_item` 的基础实现。
 - 复合节点树的构建/展开状态与文件夹结构仍复用 `app.ui.foundation.folder_tree_helper` 和标准化 `dialog_utils`，与节点图库共享同一套逻辑；当 `EditSessionCapabilities.can_persist=False` 时，左侧工具栏与上下文菜单中的“新建/删除/移动”等具备写入语义的操作会在 UI 层禁用或短路，仅保留浏览、选择与跳转能力。

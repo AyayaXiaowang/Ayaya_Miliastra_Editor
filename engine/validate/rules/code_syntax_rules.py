@@ -34,103 +34,75 @@ class NoListDictLiteralRule(ValidationRule):
         file_path: Path = ctx.file_path
         tree = get_cached_module(ctx)
         issues: List[EngineIssue] = []
+        parent_map = build_parent_map(tree)
 
-        # 1) 类方法内部：禁止列表/字典字面量（保持原有行为）
+        # 1) 类方法内部：禁止列表/字典字面量（包括出现在函数调用参数等任意表达式位置）
         for _, method in iter_class_methods(tree):
             for node in ast.walk(method):
-                if isinstance(node, ast.Assign):
-                    value = node.value
-                    if isinstance(value, ast.List):
-                        issues.append(
-                            create_rule_issue(
-                                self,
-                                file_path,
-                                value,
-                                "CODE_NO_LIST_LITERAL",
-                                f"{line_span_text(value)}: 禁止使用列表字面量 []，请使用【拼装列表】节点",
-                            )
-                        )
-                    if isinstance(value, ast.Dict):
-                        issues.append(
-                            create_rule_issue(
-                                self,
-                                file_path,
-                                value,
-                                "CODE_NO_DICT_LITERAL",
-                                f"{line_span_text(value)}: 禁止使用字典字面量 {{}}, 请使用【建立字典】节点",
-                            )
-                        )
-                if isinstance(node, ast.AnnAssign):
-                    value2 = getattr(node, "value", None)
-                    if isinstance(value2, ast.List):
-                        issues.append(
-                            create_rule_issue(
-                                self,
-                                file_path,
-                                value2,
-                                "CODE_NO_LIST_LITERAL",
-                                f"{line_span_text(value2)}: 禁止使用列表字面量 []，请使用【拼装列表】节点",
-                            )
-                        )
-                    if isinstance(value2, ast.Dict):
-                        issues.append(
-                            create_rule_issue(
-                                self,
-                                file_path,
-                                value2,
-                                "CODE_NO_DICT_LITERAL",
-                                f"{line_span_text(value2)}: 禁止使用字典字面量 {{}}, 请使用【建立字典】节点",
-                            )
-                        )
-
-        # 2) 模块顶层：同样禁止使用列表/字典字面量声明常量（包括带类型注解的常量列表）
-        for node in tree.body:
-            if isinstance(node, ast.Assign):
-                value = getattr(node, "value", None)
-                if isinstance(value, ast.List):
+                if isinstance(node, ast.List):
+                    parent = parent_map.get(node)
+                    if isinstance(parent, (ast.List, ast.Dict)):
+                        continue
                     issues.append(
                         create_rule_issue(
                             self,
                             file_path,
-                            value,
+                            node,
                             "CODE_NO_LIST_LITERAL",
-                            f"{line_span_text(value)}: 禁止使用列表字面量 []，请使用【拼装列表】节点",
+                            f"{line_span_text(node)}: 禁止使用列表字面量 []，请使用【拼装列表】节点",
                         )
                     )
-                if isinstance(value, ast.Dict):
+                    continue
+
+                if isinstance(node, ast.Dict):
+                    parent = parent_map.get(node)
+                    if isinstance(parent, (ast.List, ast.Dict)):
+                        continue
                     issues.append(
                         create_rule_issue(
                             self,
                             file_path,
-                            value,
+                            node,
                             "CODE_NO_DICT_LITERAL",
-                            f"{line_span_text(value)}: 禁止使用字典字面量 {{}}, 请使用【建立字典】节点",
+                            f"{line_span_text(node)}: 禁止使用字典字面量 {{}}, 请使用【建立字典】节点",
                         )
                     )
-            elif isinstance(node, ast.AnnAssign):
-                # 特例放行：GRAPH_VARIABLES 顶层声明允许使用列表字面量承载 GraphVariableConfig 清单
-                target = getattr(node, "target", None)
+
+        # 2) 模块顶层：同样禁止使用列表/字典字面量声明常量（包括出现在赋值右侧表达式内部的情况）
+        for top_level_statement in tree.body:
+            # 特例放行：GRAPH_VARIABLES 顶层声明允许使用列表字面量承载 GraphVariableConfig 清单
+            if isinstance(top_level_statement, ast.AnnAssign):
+                target = getattr(top_level_statement, "target", None)
                 if isinstance(target, ast.Name) and target.id == "GRAPH_VARIABLES":
                     continue
-                value2 = getattr(node, "value", None)
-                if isinstance(value2, ast.List):
+
+            for node in ast.walk(top_level_statement):
+                if isinstance(node, ast.List):
+                    parent = parent_map.get(node)
+                    if isinstance(parent, (ast.List, ast.Dict)):
+                        continue
                     issues.append(
                         create_rule_issue(
                             self,
                             file_path,
-                            value2,
+                            node,
                             "CODE_NO_LIST_LITERAL",
-                            f"{line_span_text(value2)}: 禁止使用列表字面量 []，请使用【拼装列表】节点",
+                            f"{line_span_text(node)}: 禁止使用列表字面量 []，请使用【拼装列表】节点",
                         )
                     )
-                if isinstance(value2, ast.Dict):
+                    continue
+
+                if isinstance(node, ast.Dict):
+                    parent = parent_map.get(node)
+                    if isinstance(parent, (ast.List, ast.Dict)):
+                        continue
                     issues.append(
                         create_rule_issue(
                             self,
                             file_path,
-                            value2,
+                            node,
                             "CODE_NO_DICT_LITERAL",
-                            f"{line_span_text(value2)}: 禁止使用字典字面量 {{}}, 请使用【建立字典】节点",
+                            f"{line_span_text(node)}: 禁止使用字典字面量 {{}}, 请使用【建立字典】节点",
                         )
                     )
 

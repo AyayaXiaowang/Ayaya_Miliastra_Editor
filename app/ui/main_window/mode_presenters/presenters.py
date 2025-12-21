@@ -96,6 +96,7 @@ class CompositeModePresenter(BaseModePresenter):
                 main_window.app_state.workspace_path,
                 main_window.app_state.node_library,
                 resource_manager=main_window.app_state.resource_manager,
+                package_index_manager=main_window.app_state.package_index_manager,
             )
             main_window.composite_widget.composite_library_updated.connect(
                 main_window._on_composite_library_updated
@@ -109,6 +110,13 @@ class CompositeModePresenter(BaseModePresenter):
 
             main_window.composite_property_panel.set_composite_widget(main_window.composite_widget)
             main_window.composite_pin_panel.set_composite_widget(main_window.composite_widget)
+
+        # 进入复合节点页时同步一次当前存档上下文，保证左侧列表始终与顶部存档选择一致。
+        set_context = getattr(main_window.composite_widget, "set_context", None)
+        if callable(set_context):
+            current_package_id = getattr(main_window.package_controller, "current_package_id", None)
+            current_package_index = getattr(main_window.package_controller, "current_package_index", None)
+            set_context(current_package_id, current_package_index)
 
         main_window.property_panel.clear()
 

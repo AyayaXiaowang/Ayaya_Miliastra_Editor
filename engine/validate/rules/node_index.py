@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 import keyword
 
 from engine.nodes.node_registry import get_node_registry
@@ -24,6 +24,15 @@ def _is_safe_call_name(name: str) -> bool:
     return bool(text) and text.isidentifier() and (not keyword.iskeyword(text))
 
 
+def _split_name_scope(name_part: str) -> Tuple[str, Optional[str]]:
+    """拆分 `名称#scope` → (名称, scope)；若无 `#` 则 scope 为 None。"""
+    text = str(name_part or "")
+    if "#" not in text:
+        return text, None
+    base, suffix = text.split("#", 1)
+    return base, (suffix or None)
+
+
 def _iter_callable_nodes(
     lib: Dict[str, object],
     *,
@@ -33,9 +42,10 @@ def _iter_callable_nodes(
 
     约定：
     - callable 名称取自节点库 key 的 “名称部分”（`类别/名称` → `名称`），因为 Graph Code 调用无法携带类别前缀；
-    - 跳过带 `#scope` 的变体键（Graph Code 无法以合法标识符写出 `xxx#client`）。
+    - 若存在 `名称#scope` 变体键：在对应 scope 下，将其映射回可调用名 `名称`（Graph Code 不写 `#scope`）。
+    - 同名冲突时优先级：`名称#scope`（匹配当前 scope）优先于 `名称`。
     """
-    result: List[Tuple[str, object]] = []
+    chosen: Dict[str, Tuple[int, object]] = {}
     for full_key, node_def in (lib.items() if isinstance(lib, dict) else []):
         if not isinstance(full_key, str) or "/" not in full_key:
             continue
@@ -44,12 +54,43 @@ def _iter_callable_nodes(
         if not bool(getattr(node_def, "is_available_in_scope")(scope_text)):
             continue
         _, name_part = full_key.split("/", 1)
-        if "#" in name_part:
+        base_name, scope_suffix = _split_name_scope(name_part)
+        if not _is_safe_call_name(base_name):
             continue
-        if not _is_safe_call_name(name_part):
+
+        # 仅接受：无后缀，或后缀与当前 scope 匹配（其它 scope 的变体在本 scope 下不可调用）
+        if scope_suffix is None:
+            priority = 1
+        elif scope_suffix == scope_text:
+            priority = 2
+        else:
             continue
-        result.append((name_part, node_def))
+
+        existing = chosen.get(base_name)
+        if existing is None or priority > existing[0]:
+            chosen[base_name] = (priority, node_def)
+
+    result: List[Tuple[str, object]] = [(name, pair[1]) for name, pair in chosen.items()]
     return result
+
+
+@lru_cache(maxsize=8)
+def callable_node_defs_by_name(
+    workspace: Path,
+    scope: str,
+    *,
+    include_composite: bool = True,
+) -> Dict[str, object]:
+    """返回 {可调用名: NodeDef} 映射（按 scope 规约 `名称#scope` 变体）。"""
+    scope_text = str(scope or "").strip().lower()
+    if scope_text not in ALLOWED_SCOPES:
+        scope_text = "server"
+    registry = get_node_registry(workspace, include_composite=bool(include_composite))
+    lib = registry.get_library()
+    mapping: Dict[str, object] = {}
+    for call_name, node_def in _iter_callable_nodes(lib, scope_text=scope_text):
+        mapping[str(call_name)] = node_def
+    return mapping
 
 
 @lru_cache(maxsize=8)

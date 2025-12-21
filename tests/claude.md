@@ -27,7 +27,7 @@
   - `test_pull_eval_reevaluation_hazard_rule.py`：构造“简单误用 + 复杂控制流误用（for/match/if）+ 不触发对照”三类 Graph Code，验证校验器会对“读-改-写自定义变量后仍复用同一【获取自定义变量】节点实例”的模式报告 `CODE_PULL_EVAL_REEVAL_AFTER_WRITE` warning，并避免对安全写法产生误报。
   - `test_graph_variable_rules.py`：构造临时 Graph Code 覆盖图变量声明缺失与 GRAPH_VARIABLES 中类型非法的分支，并额外验证 GRAPH_VARIABLES 默认值中包含负数字面量（如 `-1.0`）时元数据提取结果正确，确保代码级声明成为唯一的变量与类型校验来源。
   - `test_type_registry_alignment.py`：回归“类型体系单一事实来源”约束，确保变量类型清单、结构体字段允许类型、验证层与配置层的 datatype_rules、端口常量与别名字典解析等均与 `engine/type_registry.py` 对齐，防止新增/调整类型时出现跨模块漂移。
-  - `test_local_variable_rules.py`：围绕局部变量相关校验规则构造最小 Graph Code 与复合节点示例，验证【获取局部变量→设置局部变量】模式下必须为“初始值”提供有效数据来源。
+  - `test_local_variable_rules.py`：围绕局部变量相关校验规则构造最小 Graph Code 与复合节点示例，验证【获取局部变量】必须提供“初始值”、且必须正确选择二元输出（解包或下标）；同时回归“已知节点必须传 game”的通用规则，避免漏传 `self.game/game` 导致问题潜伏到运行期。
 - 复合节点 pin_type 策略回归：`test_composite_pin_type_policy.py` 通过 `validate_files` 构造最小类格式与 payload 复合节点源码片段，验证“泛型/列表/泛型列表/泛型字典”只能作为编辑期占位，成品校验必须报错；并同时验证 Any/通用旧别名与 Python 内置类型名（int/float/str/bool/list/dict）同样会报错。
 - 复合节点模板校验：`test_composite_multi_pins_template.py` 解析 `composite_多引脚模板_示例.py`，检查虚拟引脚类型/方向、分支流程出口映射和关键计算节点（加法、数值比较、列表长度/取值）均按设计生成。
 - 复合节点文件发现一致性回归：`test_composite_file_discovery_policy.py` 回归“复合节点定义文件筛选规则单一事实来源”，确保 `engine.nodes.composite_file_policy`、复合节点管线 discovery、以及 `CompositeNodeManager` 加载集合一致，避免入口间漂移。

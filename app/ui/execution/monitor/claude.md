@@ -93,7 +93,7 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
     6. 获取编辑器视口矩形（程序坐标，`ViewportController.get_program_viewport_rect`）
     7. 视图聚焦（`GraphView._execute_focus_on_rect` 或 `centerOn`）
     8. 识别当前可见节点（`recognize_visible_nodes`），在最新坐标系下统计哪些节点真正“在画面中”
-    9. 在监控截图上为所有可见节点绘制矩形并标注“节点名（节点ID）”，通过 `update_visual_callback` 推送一帧带 ID 的覆盖层
+    9. 在监控截图上为所有可见节点绘制矩形并标注“节点名（节点ID）”，并在可获取到 OCR 原始标题时附加 `OCR:原始→纠错后/识别后`，用于定位“错别字纠错是否生效”等问题；覆盖层通过 `update_visual_callback` 推送到面板
     10. 发射 `recognition_focus_succeeded` 信号
 - 日志：输出缩放检查、识别拟合、视口矩形、可见节点名称与 X 范围（调试用）
 - `ensure_point_visible(program_x, program_y)`：供右侧“拖拽测试”控件调用，复用执行步骤中的视口对齐逻辑；在每次拖拽测试前后都会记录编辑器视口在程序坐标系中的矩形，便于对比平移效果；调用前会显式检查是否已建立有效的坐标映射（`scale_ratio` / `origin_node_pos` 非空），若尚未成功定位则输出友好提示而非抛出异常；内部通过 `ViewportController.ensure_program_point_visible` 驱动视口平移，不再直接访问执行器的下划线私有方法。

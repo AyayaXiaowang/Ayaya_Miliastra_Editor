@@ -47,6 +47,13 @@ class PackageLoadSaveMixin:
         self.management_widget.set_context(package)
         self.graph_library_widget.set_context(package)
 
+        # 复合节点页为懒加载：若已经创建，则同步注入当前存档上下文用于过滤左侧列表。
+        composite_widget = getattr(self, "composite_widget", None)
+        set_context = getattr(composite_widget, "set_context", None)
+        if callable(set_context):
+            current_package_index = getattr(self.package_controller, "current_package_index", None)
+            set_context(package_id, current_package_index)
+
         self._refresh_package_list()
 
         current_view_mode = ViewMode.from_index(self.central_stack.currentIndex())

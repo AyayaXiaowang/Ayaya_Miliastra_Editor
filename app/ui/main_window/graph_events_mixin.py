@@ -139,12 +139,25 @@ class GraphEventsMixin:
 
     def _on_graph_library_selected(self, graph_id: str) -> None:
         """图库中图选中"""
+        # 重要：图属性面板在不同模式下由不同上下文驱动。
+        # - GRAPH_LIBRARY：由“节点图库列表选中”驱动；
+        # - GRAPH_EDITOR ：由“当前打开的图”驱动（graph_loaded / GraphEditorModePresenter）。
+        # 因此必须先校验 ViewMode，避免后台刷新（例如切换存档触发图库列表重建）
+        # 发出空 graph_id 时，把编辑器右侧图属性面板误清空、并将文件监控切走。
+        from app.models.view_modes import ViewMode
+
+        current_view_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        if current_view_mode != ViewMode.GRAPH_LIBRARY:
+            return
+
         self.graph_property_panel.set_graph(graph_id)
+
         # 同步到 ViewState（单一真源）
         view_state = getattr(self, "view_state", None)
         graph_state = getattr(view_state, "graph", None)
         if graph_state is not None:
             setattr(graph_state, "graph_library_selected_graph_id", str(graph_id or ""))
+
         # 在图库模式下也监控当前选中的节点图，支持外部修改后自动刷新右侧变量视图
         if hasattr(self, "file_watcher_manager"):
             self.file_watcher_manager.setup_file_watcher(graph_id)

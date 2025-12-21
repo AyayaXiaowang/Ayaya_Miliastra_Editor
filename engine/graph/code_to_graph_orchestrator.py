@@ -34,6 +34,8 @@ from engine.graph.utils.ast_utils import (
     collect_module_constants,
     set_module_constants_context,
     clear_module_constants_context,
+    extract_constant_value,
+    NOT_EXTRACTABLE,
 )
 from engine.graph.common import SIGNAL_LISTEN_NODE_TITLE, SIGNAL_NAME_PORT_NAME
 from engine.graph.semantic import GraphSemanticPass, SEMANTIC_SIGNAL_ID_CONSTANT_KEY
@@ -89,9 +91,13 @@ class CodeToGraphParser:
             log_info("[CodeToGraphParser] 开始解析代码...")
 
         module = tree or ast.parse(code)
-        # 模块级命名常量上下文：供 extract_constant_value 在解析时引用
+
+        # 模块级命名常量上下文：供 extract_constant_value 在解析时引用。
+        # 额外：支持“节点图类体内的类常量”通过 `self.<字段>`（尤其是 self._xxx）在调用参数中被静态提取，
+        # 以便 UI 能正确回填到 node.input_constants（例如 定时器名称 / 变量名 等标识性参数）。
         clear_module_constants_context()
-        set_module_constants_context(collect_module_constants(module))
+        module_constants = collect_module_constants(module)
+        set_module_constants_context(module_constants)
 
         # 清理复合节点实例映射，避免跨文件残留
         self._env.composite_instances.clear()
@@ -103,6 +109,36 @@ class CodeToGraphParser:
         class_def = ir_find_graph_class(module)
         if not class_def:
             raise ValueError("未找到节点图类定义")
+
+        # 收集节点图类体内的“类常量”，并注入到模块常量上下文中：
+        # - 仅收集 class body 顶层的 AnnAssign/Assign，且右值可静态提取；
+        # - 写入 key 为 "self.<字段名>"，用于 extract_constant_value 在解析 self.<字段> 时命中。
+        class_self_constants: Dict[str, Any] = {}
+        for stmt in list(getattr(class_def, "body", []) or []):
+            if isinstance(stmt, ast.AnnAssign):
+                target = getattr(stmt, "target", None)
+                value_expr = getattr(stmt, "value", None)
+                if isinstance(target, ast.Name) and isinstance(value_expr, ast.expr):
+                    const_val = extract_constant_value(value_expr)
+                    if const_val is not NOT_EXTRACTABLE:
+                        class_self_constants[f"self.{target.id}"] = const_val
+            elif isinstance(stmt, ast.Assign):
+                targets = list(getattr(stmt, "targets", []) or [])
+                value_expr = getattr(stmt, "value", None)
+                if (
+                    len(targets) == 1
+                    and isinstance(targets[0], ast.Name)
+                    and isinstance(value_expr, ast.expr)
+                ):
+                    const_val = extract_constant_value(value_expr)
+                    if const_val is not NOT_EXTRACTABLE:
+                        class_self_constants[f"self.{targets[0].id}"] = const_val
+
+        if class_self_constants:
+            merged_constants: Dict[str, Any] = dict(module_constants)
+            merged_constants.update(class_self_constants)
+            clear_module_constants_context()
+            set_module_constants_context(merged_constants)
 
         if self.verbose:
             log_info("  找到类定义: {}", class_def.name)

@@ -71,6 +71,23 @@ assets/资源库/**
 !assets/资源库/**/示例_*
 !assets/资源库/**/模板示例_*
 
+# 节点图前导脚本（生成的节点图代码会 `from _prelude import *` 依赖它；必须随仓库分发）
+!assets/资源库/节点图/server/_prelude.py
+!assets/资源库/节点图/server/_prelude.pyi
+!assets/资源库/节点图/client/_prelude.py
+!assets/资源库/节点图/client/_prelude.pyi
+
+# 节点图快速校验脚本（便于只在资源库维度做校验）
+!assets/资源库/节点图/校验节点图.py
+
+# 节点图目录规则文档（只放行节点图相关 claude.md，避免扩大资源库入库范围）
+!assets/资源库/节点图/claude.md
+!assets/资源库/节点图/server/claude.md
+!assets/资源库/节点图/server/模板示例/claude.md
+!assets/资源库/节点图/client/claude.md
+!assets/资源库/节点图/client/技能节点图/claude.md
+!assets/资源库/节点图/client/本地过滤器节点图/claude.md
+
 # 明确白名单：复合节点模板（用于公开测试与示例）
 !assets/资源库/复合节点库/composite_多引脚模板_示例.py
 

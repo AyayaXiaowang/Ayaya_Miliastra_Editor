@@ -203,6 +203,39 @@ class TodoDetailPanel(QtWidgets.QWidget):
         title_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
         layout.addWidget(title_label)
 
+        # 控制区（固定，不随滚动）：执行按钮应始终可见
+        control_section = QtWidgets.QWidget()
+        control_section.setObjectName("detailControlSection")
+        control_layout = QtWidgets.QVBoxLayout(control_section)
+        control_layout.setContentsMargins(0, 0, 0, 0)
+        control_layout.setSpacing(Sizes.SPACING_SMALL)
+
+        control_title = QtWidgets.QLabel("控制")
+        control_title.setTextFormat(Qt.TextFormat.PlainText)
+        control_title_font = control_title.font()
+        control_title_font.setPointSize(Sizes.FONT_TITLE)
+        control_title_font.setBold(True)
+        control_title.setFont(control_title_font)
+        control_title.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
+        control_layout.addWidget(control_title)
+
+        self.execute_button = create_execute_button(
+            control_section,
+            self.execute_clicked.emit,
+            minimum_height=40,
+        )
+        control_layout.addWidget(self.execute_button)
+
+        # 执行剩余步骤按钮（与当前步骤同级从本步到末尾）
+        self.execute_remaining_button = QtWidgets.QPushButton("执行剩余步骤", control_section)
+        self.execute_remaining_button.setMinimumHeight(36)
+        self.execute_remaining_button.setStyleSheet(TodoStyles.execute_button_qss())
+        self.execute_remaining_button.setVisible(False)
+        self.execute_remaining_button.clicked.connect(self.execute_remaining_clicked.emit)
+        control_layout.addWidget(self.execute_remaining_button)
+
+        layout.addWidget(control_section)
+
         scroll = QtWidgets.QScrollArea()
         scroll.setObjectName("detailScrollArea")
         scroll.setWidgetResizable(True)
@@ -233,21 +266,6 @@ class TodoDetailPanel(QtWidgets.QWidget):
         self.detail_desc.setFont(desc_font)
         self.detail_desc.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
         self.detail_layout.addWidget(self.detail_desc)
-
-        self.execute_button = create_execute_button(
-            self,
-            self.execute_clicked.emit,
-            minimum_height=40,
-        )
-        self.detail_layout.addWidget(self.execute_button)
-
-        # 执行剩余步骤按钮（与当前步骤同级从本步到末尾）
-        self.execute_remaining_button = QtWidgets.QPushButton("执行剩余步骤")
-        self.execute_remaining_button.setMinimumHeight(36)
-        self.execute_remaining_button.setStyleSheet(TodoStyles.execute_button_qss())
-        self.execute_remaining_button.setVisible(False)
-        self.execute_remaining_button.clicked.connect(self.execute_remaining_clicked.emit)
-        self.detail_layout.addWidget(self.execute_remaining_button)
 
         self.detail_view = TodoDetailView(self.detail_widget)
         self.detail_view.setObjectName("detailContentText")

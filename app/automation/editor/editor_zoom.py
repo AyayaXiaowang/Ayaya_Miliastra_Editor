@@ -36,26 +36,65 @@ def ensure_zoom_ratio_50(
         visual_callback,
     )
 
+    def _extract_zoom_value_from_text(text: str) -> Optional[int]:
+        import re as _re
+
+        raw = str(text or "")
+        compact = raw.strip().replace(" ", "")
+        if not compact:
+            return None
+        compact = (
+            compact.replace("％", "%")
+            .replace("O", "0")
+            .replace("o", "0")
+            .replace("▼", "")
+            .replace("▽", "")
+            .replace("v", "")
+            .replace("V", "")
+        )
+        match = _re.search(r"(\d{1,3})", compact)
+        if not match:
+            return None
+        return int(match.group(1))
+
+    def _summarize_ocr(text: str, details: list[Any], *, max_items: int = 8) -> str:
+        preview = str(text or "").strip().replace("\n", " ")
+        if len(preview) > 80:
+            preview = preview[:80] + "…"
+        detail_texts: list[str] = []
+        for item in list(details or []):
+            line_text = str(item[1] or "").strip() if isinstance(item, (list, tuple)) and len(item) > 1 else ""
+            if not line_text:
+                continue
+            detail_texts.append(line_text)
+        if len(detail_texts) > max_items:
+            detail_texts = detail_texts[:max_items] + ["…"]
+        return f"text='{preview}' details={detail_texts}"
+
     def _find_numeric_in_details(details: list[Any]) -> tuple[Optional[int], Optional[tuple[int, int, int, int]]]:
+        best_value: Optional[int] = None
+        best_bbox: Optional[tuple[int, int, int, int]] = None
         for item in details:
             bbox = item[0]
-            text = str(item[1] or "").strip()
-            import re as _re
-            if _re.fullmatch(r"\s*\d+\s*%?\s*", text):
-                digits = ''.join([ch for ch in text if ch.isdigit()])
-                if digits == "":
-                    continue
-                value = int(digits)
-                normalized = normalize_ocr_bbox(bbox)
-                if value == 50 and (text.replace(" ", "") in ("50", "50%")):
-                    return (50, normalized)
-                return (value, normalized)
-        return (None, None)
+            text = str(item[1] or "")
+            value = _extract_zoom_value_from_text(text)
+            if value is None:
+                continue
+            normalized = normalize_ocr_bbox(bbox)
+            if int(value) == 50:
+                return (50, normalized)
+            if best_value is None:
+                best_value = int(value)
+                best_bbox = normalized
+        return (best_value, best_bbox)
 
     def _ocr_region_once(img: Image.Image, rx: int, ry: int, rw: int, rh: int, return_details: bool = True):
         if rw <= 0 or rh <= 0:
             return ("", [])
-        text, details = editor_capture.ocr_recognize_region(img, (rx, ry, rw, rh), return_details=True)
+        # 注意：缩放控件位于“节点图布置区域”下方的底部栏中；执行步骤通常启用“强制节点图 ROI”，
+        # 若不在此处临时关闭，OCR 区域会被裁剪到节点图布置区域，导致高度=0 的空截图从而识别失败。
+        with editor_capture.disable_graph_roi_context():
+            text, details = editor_capture.ocr_recognize_region(img, (rx, ry, rw, rh), return_details=True)
         return (str(text or ""), list(details or []))
 
     def _click_editor_xy(ex: int, ey: int, label: str) -> None:
@@ -63,8 +102,14 @@ def ensure_zoom_ratio_50(
         editor_capture.click_left_button(int(sx), int(sy))
         executor.log(f"[鼠标] 点击 {label}：screen=({int(sx)},{int(sy)})", log_callback)
 
+    if int(region_w) <= 0 or int(region_h) <= 0:
+        executor.log(f"✗ 缩放区域 ROI 无效：region=({int(region_x)},{int(region_y)},{int(region_w)},{int(region_h)})", log_callback)
+        return False
+
+    ocr_summary1: Optional[str] = None
     text0, details0 = _ocr_region_once(screenshot, region_x, region_y, region_w, region_h)
     val0, bbox0 = _find_numeric_in_details(details0)
+    ocr_summary0 = _summarize_ocr(text0, details0)
 
     if val0 is None:
         center_x0 = int(region_x + region_w // 2)
@@ -77,6 +122,7 @@ def ensure_zoom_ratio_50(
             return False
         text1, details1 = _ocr_region_once(screenshot, region_x, region_y, region_w, region_h)
         val1, bbox1 = _find_numeric_in_details(details1)
+        ocr_summary1 = _summarize_ocr(text1, details1)
         val0, bbox0 = val1, bbox1
         rects1 = [
             {
@@ -126,7 +172,13 @@ def ensure_zoom_ratio_50(
         executor.emit_visual(screenshot, {"rects": rects1}, visual_callback)
 
     if val0 is None:
-        executor.log("✗ 缩放未识别为数值", log_callback)
+        details_log = (
+            f"✗ 缩放未识别为数值：region=({int(region_x)},{int(region_y)},{int(region_w)},{int(region_h)}) "
+            f"首次OCR({ocr_summary0})"
+        )
+        if ocr_summary1 is not None:
+            details_log += f" 激活后OCR({ocr_summary1})"
+        executor.log(details_log, log_callback)
         return False
 
     if int(val0) == 50:

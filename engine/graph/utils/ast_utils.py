@@ -158,6 +158,15 @@ def extract_constant_value(value_node: ast.expr) -> Any:
             if attribute_name == "owner_entity":
                 return f"self.{attribute_name}"
             if attribute_name.startswith("_"):
+                # 私有字段通常代表运行期状态（不可静态提取）。
+                # 但节点图类中常见“类常量”写法：在 class body 顶层定义 `_xxx = "常量"`，
+                # 然后在方法体内通过 `self._xxx` 传给节点入参（例如 定时器名称）。
+                # 解析阶段若已将该类常量写入模块常量上下文（key: "self._xxx"），则允许静态提取。
+                module_constants = get_module_constants_context()
+                if module_constants is not None:
+                    self_key = f"self.{attribute_name}"
+                    if self_key in module_constants:
+                        return module_constants[self_key]
                 return NOT_EXTRACTABLE
             return f"self.{attribute_name}"
         return NOT_EXTRACTABLE

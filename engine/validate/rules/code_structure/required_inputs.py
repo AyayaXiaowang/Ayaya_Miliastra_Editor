@@ -6,7 +6,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Set
 
-from engine.nodes.node_registry import get_node_registry
 from engine.utils.graph.graph_utils import is_flow_port_name
 
 from ...context import ValidationContext
@@ -19,6 +18,7 @@ from ..ast_utils import (
     iter_class_methods,
     line_span_text,
 )
+from ..node_index import callable_node_defs_by_name
 
 
 @lru_cache(maxsize=8)
@@ -36,22 +36,15 @@ def _required_input_ports_by_func(workspace_path: Path, scope: str) -> Dict[str,
 
     # 仅针对“基础节点函数调用”做缺参校验：
     # 复合节点在 Graph Code 中以“类实例 + 方法调用”形式出现，不以节点函数调用形式传入端口。
-    registry = get_node_registry(workspace_path, include_composite=False)
-    library = registry.get_library()
+    # 关键：同名节点在 server/client 作用域冲突时会生成 `名称#client/#server` 变体键；
+    # Graph Code 仍以“名称”调用，因此这里必须按 scope 做“变体→可调用名”的规约。
+    node_defs_by_name = callable_node_defs_by_name(workspace_path, scope_text, include_composite=False)
     mapping: Dict[str, List[str]] = {}
-    for full_key, node_def in (library.items() if isinstance(library, dict) else []):
-        if bool(getattr(node_def, "is_composite", False)):
-            continue
-        if not bool(getattr(node_def, "is_available_in_scope", lambda _scope: True)(scope_text)):
-            continue
-
-        # 节点在 Graph Code 中的“可调用名”以节点库 key 的名称部分为准：`类别/名称` → `名称`。
-        # 这样可以覆盖 V2 管线注入的别名（例如 make_valid_identifier 派生的可调用别名）。
-        if not isinstance(full_key, str) or "/" not in full_key:
-            continue
-        _, func_name = full_key.split("/", 1)
+    for func_name, node_def in node_defs_by_name.items():
         func_name = str(func_name or "").strip()
-        if (not func_name) or ("#" in func_name) or (not func_name.isidentifier()) or keyword.iskeyword(func_name):
+        if (not func_name) or (not func_name.isidentifier()) or keyword.iskeyword(func_name):
+            continue
+        if bool(getattr(node_def, "is_composite", False)):
             continue
 
         inputs = list(getattr(node_def, "inputs", []) or [])

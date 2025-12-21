@@ -28,9 +28,15 @@ from app.automation.vision.ui_profile_params import (
     get_candidate_popup_size_px,
     get_ocr_exclude_top_pixels_default,
 )
-from app.automation.vision.ocr_utils import fingerprint_region, get_bbox_center
+from app.automation.vision.ocr_utils import (
+    fingerprint_region,
+    get_bbox_center,
+    normalize_ocr_bbox,
+)
 
 NODE_LIST_CONTEXT_LINGER_SECONDS = 0.5
+NODE_LIST_TEMPLATE_X_RIGHT_EXTENSION_WIDTH_MULTIPLIER = 3
+RIGHT_CLICK_BEFORE_CAPTURE_WAIT_SECONDS = 0.5
 
 
 @dataclass(frozen=True)
@@ -181,22 +187,86 @@ class CandidatePopupToolkit:
         details: List,
         popup_rect: Tuple[int, int, int, int],
         target_cn_text: str,
+        *,
+        template_match: Optional[Tuple[int, int, int, int, float]] = None,
     ) -> Tuple[Optional[Tuple[int, int]], Optional[str]]:
         region_x, region_y, _, _ = popup_rect
+
+        template_left: Optional[int] = None
+        template_right: Optional[int] = None
+        template_center_x: Optional[float] = None
+        if isinstance(template_match, (list, tuple)) and len(template_match) >= 4:
+            match_left = int(template_match[0])
+            match_width = int(template_match[2])
+            template_left = int(match_left)
+            base_width = max(0, int(match_width))
+            extended_width = int(base_width * (1 + int(NODE_LIST_TEMPLATE_X_RIGHT_EXTENSION_WIDTH_MULTIPLIER)))
+            template_right = int(match_left + extended_width)
+            template_center_x = float(template_left + float(extended_width) / 2.0)
+
+        best_editor_pos: Optional[Tuple[int, int]] = None
+        best_item_text: Optional[str] = None
+        best_overlap_width: int = -1
+        best_score: float = -1.0
+        best_center_dx: float = float("inf")
+
         for item in details:
             item_text = item[1] if len(item) > 1 else ""
             if not item_text:
                 continue
             box = item[0]
-            center_x, center_y = get_bbox_center(box)
             item_cn_text = self.executor.extract_chinese(item_text)
             if not item_cn_text:
                 continue
             if item_cn_text != target_cn_text:
                 continue
-            best_editor_pos = (int(region_x + center_x), int(region_y + center_y))
-            return best_editor_pos, item_text
-        return None, None
+
+            bbox_left, _bbox_top, bbox_width, _bbox_height = normalize_ocr_bbox(box)
+            abs_left = int(region_x + bbox_left)
+            abs_right = int(abs_left + max(0, int(bbox_width)))
+
+            # 关键过滤：目标文本框必须与 Node_list 模板命中区域在 X 方向有交集
+            overlap_width = 0
+            if template_left is not None and template_right is not None:
+                overlap_width = int(min(abs_right, template_right) - max(abs_left, template_left))
+                if overlap_width <= 0:
+                    continue
+
+            center_x, center_y = get_bbox_center(box)
+            candidate_center_x = float(region_x + center_x)
+            candidate_editor_pos = (int(candidate_center_x), int(region_y + center_y))
+
+            item_score = 0.0
+            if len(item) > 2:
+                maybe_score = item[2]
+                if isinstance(maybe_score, (int, float)):
+                    item_score = float(maybe_score)
+
+            # 当存在 template_match 时，优先挑选 X 交集更大的候选；否则保持“首个命中即返回”的行为
+            if template_left is None or template_right is None:
+                return candidate_editor_pos, item_text
+
+            center_dx = (
+                abs(float(candidate_center_x) - float(template_center_x))
+                if template_center_x is not None
+                else 0.0
+            )
+            better = False
+            if int(overlap_width) > int(best_overlap_width):
+                better = True
+            elif int(overlap_width) == int(best_overlap_width):
+                if float(item_score) > float(best_score):
+                    better = True
+                elif float(item_score) == float(best_score) and float(center_dx) < float(best_center_dx):
+                    better = True
+            if better:
+                best_overlap_width = int(overlap_width)
+                best_score = float(item_score)
+                best_center_dx = float(center_dx)
+                best_editor_pos = candidate_editor_pos
+                best_item_text = str(item_text)
+
+        return best_editor_pos, best_item_text
 
     @staticmethod
     def build_overlay(
@@ -426,6 +496,7 @@ class CandidatePopupFlow:
             details,
             detection.popup_rect,
             self.target_cn_text,
+            template_match=detection.match,
         )
         if best_editor_pos is None:
             self.logger.log("候选", f"OCR 未定位到 '{self.target_text}'，继续轮询")
@@ -497,6 +568,7 @@ class CandidatePopupFlow:
                 verify_details,
                 detection.popup_rect,
                 self.target_cn_text,
+                template_match=detection.match,
             )
             if verify_best_editor_pos is not None:
                 screen_x2, screen_y2 = self.executor.convert_editor_to_screen_coords(
@@ -561,7 +633,7 @@ class CandidatePopupFlow:
             linger_seconds=NODE_LIST_CONTEXT_LINGER_SECONDS,
         ):
             return False
-        return self._wait_with_executor_hooks(0.25)
+        return self._wait_with_executor_hooks(RIGHT_CLICK_BEFORE_CAPTURE_WAIT_SECONDS)
 
     def _record_detection_result(
         self,
@@ -637,7 +709,7 @@ class CandidatePopupFlow:
             linger_seconds=NODE_LIST_CONTEXT_LINGER_SECONDS,
         )
         waited = self.executor.wait_with_hooks(
-            0.25,
+            RIGHT_CLICK_BEFORE_CAPTURE_WAIT_SECONDS,
             self.pause_hook,
             self.allow_continue,
             0.1,

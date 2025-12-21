@@ -65,7 +65,7 @@ NODE_DRAG_UPDATE_MIN_PROGRAM_UNITS: float = 8.0
 # =========================
 
 # 右键呼出上下文菜单后，等待弹窗出现的时间
-CONTEXT_MENU_APPEAR_WAIT_SECONDS: float = 0.3
+CONTEXT_MENU_APPEAR_WAIT_SECONDS: float = 0.5
 
 # 在候选列表中点击目标项后，为界面稳定预留的等待时间
 CANDIDATE_LIST_POST_CLICK_WAIT_SECONDS: float = 0.3
