@@ -14,6 +14,7 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - 信号转发：接收外部调用（start_monitoring/stop_monitoring/log/update_visual），通过信号线程安全更新 UI
 - 按钮绑定：通过 `_connect_ui_signals()` 统一连接控件信号到委托方法（控制按钮由 `ExecutionControl` 内部处理）
 - 步骤上下文注入：对外 API（`set_current_step_context` / `set_current_step_tokens`），委托给 `LogViewController`
+- 会话注入：对外 API（`attach_session`），集中注入 workspace/model/view/executor，避免调用方分散 set_context/set_shared_executor
 - 可视化渲染：委托给 `VisualRenderer.render_visual()`
 - 属性访问：`is_running` / `is_paused` / `step_mode_enabled` 委托到 `ExecutionControl` 的同名属性（通过 @property）
 - 外部 API 保持不变：start_monitoring/stop_monitoring/log/update_status/update_progress/wait_if_paused/is_execution_allowed/is_step_mode_enabled
@@ -48,8 +49,8 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - 缩略图：左侧列表，图标模式，160x90，点击切换
 - 大图：右侧 QScrollArea + QLabel，支持按视口自适应初始缩放
 
-### actions_recognition.py（~350 行）
-一次性识别测试动作集合，回调驱动，不直接持有 UI 状态：
+### actions_recognition.py（兼容入口）
+一次性识别测试动作集合，回调驱动，不直接持有 UI 状态（具体实现位于 `recognition_actions/actions_recognition.py`）：
 - `RecognitionActions` 类，接受回调：
   - `log_callback`：日志输出
   - `update_visual_callback`：可视化更新（截图+叠加）
@@ -65,6 +66,9 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
   - `test_nodes()`：节点识别（叠加矩形与中文标题；若 `list_nodes` 去重抑制了节点，会以红框标注原始矩形，标签包含“被抑制”提示、触发抑制的目标框、IoU/包含率/中心距等具体指标）
   - `test_ports()`：端口识别（为每个检测到的节点列出最终端口结果，按 kind/side/index 标注并叠加显示置信度百分比；同时用红框标注端口识别跳过的节点顶部区域，排除高度来自 `app.automation.vision.get_port_recognition_header_height_px()`）。
   - `test_ports_deep()`：深度端口识别（基于一步式识别模板匹配结果，展示置信度≥70%的模板命中；包括在 NMS 与同行去重阶段被抑制的候选，在标签文本中追加“因NMS重叠被排除 / 因同行去重被排除”等原因说明，并对因 NMS 重叠被抑制的候选在同一模板、同一目标框分组内仅展示置信度最高的一条，同时在标签中显示与其发生重叠的保留命中及 IoU 折算后的重叠率）；端口标题栏排除高度与运行时保持一致（使用 `app.automation.vision.get_port_recognition_header_height_px()`），并在画面上用红框标注被排除区域。
+  - `test_bool_enum_options()`：布尔/枚举选项识别：识别画面中任意一个布尔/枚举输入端口，执行“第一次点击”展开下拉，然后扫描 `D7D7D7` 下拉矩形并对其内容执行 OCR。
+    - 端口判定方式：优先使用端口识别结果自带的 `index`（0-based）并与 `NodeDef.inputs` 顺序对齐，从而直接判断该 index 对应的端口类型是否为布尔/枚举（不依赖端口名识别）；NodeDef 通过 NodeLibrary 按节点名解析，不依赖监控面板当前 GraphModel 是否同步到视口。
+    - 为便于排查端口识别问题：即使失败也会把部分端口候选的 **index→端口名/类型映射**（以及 bbox/center）叠加到监控画面，避免“看起来只识别了节点”的误解。
   - `test_settings_tpl()`：Settings.png 模板匹配
   - `test_add_templates()`：Add.png / Add_Multi.png 模板匹配
   - `test_searchbar_templates()`：search.png / search2.png 模板匹配
@@ -104,6 +108,7 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - 构造参数：`log_text_browser`（QTextBrowser）、`search_input`（QLineEdit）、`filter_combo`（QComboBox）
 - 日志数据管理：
   - `_log_records`：日志记录列表（包含时间戳/消息/分类/成功失败标志/步骤上下文）
+  - **容量上限**：默认最多保留 5000 条；超出会分批截断。同时对底层 `QTextDocument.setMaximumBlockCount(...)` 设上限，避免文档无限增长导致长时间运行后卡顿/假死。
   - `_log_filter_text`：搜索文本
   - `_log_filter_type`：筛选类型（"全部"/"仅点击"/"仅OCR"等）
   - `_log_case_sensitive`：固定为 False（始终不区分大小写）
@@ -125,8 +130,14 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
 - HTML 渲染（`_format_log_html`）：带左侧色条、徽标、时间戳、成功/失败色、行首上下文（可点击锚点）
 - 筛选匹配（`_record_matches_current_filter`）：类型筛选 + 文本搜索（不区分大小写）
 - 锚点生成（`_tokens_to_anchor_html`）：将分段 tokens 转为可点击的 `<a href='todo:...'>`
+- 导出：`build_plain_text_export()` 导出当前会话的全部日志为纯文本（不受筛选/搜索影响），供“日志文本”页签的【导出】按钮写入 txt 文件
 - 信号自动连接：`search_input.textChanged` → `_on_search_text_changed`；`filter_combo.currentIndexChanged` → `_on_filter_changed`
 - 滚动策略：日志追加与重建视图后不再同步滚动到底部，而是通过 `QTimer.singleShot(0)` 做 debounce（同一轮事件循环最多滚动一次），降低 UI 重入风险。
+
+### execution_events.py（~360 行）
+结构化执行事件表格模型（`ExecutionEventModel`）：
+- `_events` 默认最多保留 5000 条；超出会分批截断，避免长时间运行后“仅当前运行”过滤仍需处理过大的历史列表。
+- 事件追加使用 `beginResetModel/endResetModel` 保障过滤正确性（仅错误/仅当前运行等），但因此更依赖“列表有上限”来保持 UI 流畅。
 
 ### panel_ui.py（~300 行）
 面板 UI 组装与样式，提供一次性构建函数：
@@ -137,12 +148,16 @@ ExecutionMonitorPanel 本体，仅负责组装与委托：
   - 精简模式执行入口：`execute_button` / `execute_remaining_button`（仅在精简模式下显示），由任务清单编排层监听并路由到执行桥
   - 布局：VBoxLayout 包含状态行、步骤上下文、截图区域与滚动容器
     - 截图区域（`screenshot_label`）：位于滚动区域外部（主布局中），始终可见，不会被控制区/测试区/拖拽测试区等控件挡住；使用 `AspectRatioLabel` 保持 16:9 宽高比
-    - 滚动容器（`monitorScrollArea`）：将控制区/测试区/拖拽测试区/日志筛选/日志分割区放入滚动区域，避免这些工具控件挤压截图画面；日志正文 QTextBrowser 仍保留自身滚动条用于长日志快速滚动
+    - 滚动容器（`monitorScrollArea`）：将控制区 + 右下角信息区（`info_tabs`：测试/日志表格/日志文本）放入滚动区域，避免这些工具控件挤压截图画面；日志正文 QTextBrowser 仍保留自身滚动条用于长日志快速滚动
     - 控制区：分组 + Grid，每行不超过 3 个主要按钮，减少窄宽度截字
-    - 测试区：不在面板内展开，改为"测试工具"菜单按钮弹出 QMenu，避免测试入口数量影响窗口最小尺寸
-    - 日志筛选：搜索与筛选拆两行（搜索行优先保证输入框可见）
-    - 日志分割区：`log_splitter`（执行事件表格 + 日志正文）允许子项折叠，子控件最小高度为 0，便于小窗场景压缩高度
-  - 注意：`QSplitter.setCollapsible(index, ...)` 需在 `addWidget(...)` 之后调用，否则 Qt 会输出 `QSplitter::setCollapsible: Index X out of range` 警告
+    - 测试区：位于“测试”页签中，直接展示测试按钮列表（不再折叠为菜单）；按钮水平策略为 Ignored，避免撑大最小宽度
+    - 右下角信息区：`info_tabs`（QTabWidget）拆为三个子标签页：
+      - **日志文本**（默认页签，放在第一位）：`log_filters_widget`（搜索/筛选/清空）+ `log_text`
+      - **日志表格**：`event_filters_widget`（仅错误/警告）+ `events_table`
+      - **测试**：`tests_widget`（测试工具按钮列表）+ `drag_widget`（拖拽测试）
+    - QTabBar base 线：`info_tabs.tabBar().setDrawBase(False)` 关闭 Qt 默认 base 分隔线，避免深色主题下出现“莫名其妙的黑线”
+    - 日志筛选：搜索与筛选拆两行（搜索行优先保证输入框可见），仅在“日志文本”页签中显示，避免占用表格/测试页签空间
+    - 日志导出：在“日志文本”页签搜索行提供【导出】按钮，点击后弹出目录选择对话框，导出 `执行监控日志_YYYYMMDD_HHMMSS.txt`
   - 文案与样式：按钮使用 `kind` 动态属性区分 `primary/secondary/danger`；对 disabled 状态提供统一置灰样式，保证按钮仅在实际可用时呈现"正常颜色"
   - 初始按钮状态：暂停/继续/下一步/终止默认禁用
   - 截图区域：位于主布局中（非滚动区域），使用 `AspectRatioLabel` 保持 16:9 宽高比；由渲染器按当前尺寸缩放绘制。
@@ -255,4 +270,5 @@ from app.ui.execution import ExecutionMonitorPanel
 - 状态委托：面板通过 @property 将 `is_running` / `is_paused` / `step_mode_enabled` 委托到 `ExecutionControl`，外部仍可直接访问这些属性
 - 控制器信号：`ExecutionControl` 通过信号（`stop_requested` / `status_changed` / `log_message`）与面板通信，避免直接调用面板方法
 - 快捷暂停统一通过 `ExecutionMonitorPanel.request_pause()` 暴露给外部调用，不再提供额外的兼容别名。
+  - 面板内 Ctrl+P 快捷键作用域为 `WidgetWithChildrenShortcut`：仅在执行监控面板获得焦点时生效，避免 Qt 默认 `WindowShortcut` 造成主窗口范围内抢占 Ctrl+P。
 

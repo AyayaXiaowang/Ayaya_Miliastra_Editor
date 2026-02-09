@@ -17,3 +17,6 @@ from engine.utils.logging.logger import log_info
 def 以键对字典移除键值对(game, 字典, 键):
     """以键移除指定字典中的键值对"""
     log_info(f"[以键对字典移除键值对] 执行")
+    if isinstance(字典, dict):
+        字典.pop(键, None)
+    return

@@ -1,11 +1,20 @@
 ## 目录用途
-- 存放主窗口右侧各类属性编辑面板（模板/实例、战斗预设、管理配置、UI 控件组与 Widget 配置等），统一复用 `PanelScaffold` 与主题 token，只负责 UI 装配与资源字段读写。
+- 存放主窗口右侧各类属性编辑面板（元件/实体摆放、战斗预设、管理配置、UI 控件组与 Widget 配置等），统一复用 `PanelScaffold` 与主题 token，只负责 UI 装配与资源字段读写。
 
 ## 当前状态
-- 面板按领域拆分：模板/实例面板、战斗预设面板（玩家模板/职业/技能/道具）、管理配置面板（Signal/Struct/Equipment/MainCamera/PeripheralSystem 等）、UI 控件组与 `widget_configs/` 子包等；子包 `template_instance/` 与 `widget_configs/` 已分模块维护。
-- 外围系统管理面板已按 Tab 拆分到 `peripheral_system/` 子包：主面板负责上下文/所属存档行与信号编排，三个 Tab 组件负责表单装配与字段读写。
-- 资源的单一真相源由 `ResourceManager` 维护，面板通过视图模型和控制器写回索引/资源文件；全局视图、存档视图与未分类视图共享同一底层对象。
+- 面板按领域拆分：元件/实体摆放面板、战斗预设面板（玩家模板/职业/技能/道具）、管理配置面板（Signal/Struct/Equipment/MainCamera/PeripheralSystem 等）、UI 控件组与 `widget_configs/` 子包等；子包 `template_instance/` 与 `widget_configs/` 已分模块维护。
+- 管理模式下信号/结构体等“类型系统资源”的右侧详情面板（例如 `signal_management_panel.py`）默认以只读方式展示定义与使用情况；实际定义的增删改以代码资源与工具脚本为准。
+- 外围系统管理面板已按 Tab 拆分到 `peripheral_system/` 子包：主面板负责上下文/所属项目存档行与信号编排，三个 Tab 组件负责表单装配与字段读写。
+- 资源的单一真相源由 `ResourceManager` 维护，面板通过视图模型和控制器写回索引/资源文件；全局视图与项目存档视图共享同一底层对象。
 - 图数据加载与缓存已收敛到无 Qt 依赖的 `app.runtime.services.graph_data_service.GraphDataService`：面板与异步加载器应直接依赖 runtime service，避免各自维护图数据与 GraphModel 缓存。
+- `graph_property_panel.py` 支持“预览模式”入口 `set_graph_preview(...)`：用于项目存档页在未切包的情况下预览其它存档的节点图条目；预览时仅读取源文件 docstring/路径推断的轻量元数据，不触发图资源加载与解析，并禁用引用/变量页签与归属下拉，避免误报“节点图不存在”；预览图文件查找会按 `preview_package_id` 首次扫描建立 `graph_id -> Path` 映射缓存，后续 O(1) 查询，命中时做一次 metadata 校验，必要时重建索引以应对外部移动/改 ID。
+- `graph_property_panel.py` 在**节点图库**场景提供轻量预览入口 `set_graph_library_preview(...)`：
+  - 单击节点图卡片时只展示 `load_graph_metadata()` 的轻量信息（名称/类型/目录/描述/修改时间）与**引用次数**，不在单击阶段重建“引用列表”表格，**不触发节点图解析+自动布局**，避免大图单击卡顿。
+  - 节点数/连线数在节点图库预览中**只允许读取持久化 graph_cache**：未命中缓存时保持为空（展示为 `-` 或空白），统计只能在打开节点图后生成缓存再显示。
+  - “引用列表”页签的详情按需后台加载（`GraphAsyncLoader.request_references(...)`），避免 UI 线程同步构建大表格导致卡顿；“节点图变量”页签按需触发完整加载（异步），且变量表格仅在该页签可见时才构建/刷新，避免大图切换选中时同步创建大量表格控件导致卡顿。
+- 节点图库的“图语义引用查看”面板：`graph_used_definitions_panel.py` 提供信号/结构体/自定义变量（关卡变量）只读浏览，复用 `GraphDataService + GraphAsyncLoader` 异步加载图数据，并以“搜索 + 列表 + 详情（含原始 JSON）”形式展示定义内容与使用位置。
+  - **惰性加载（用户体验优先）**：在节点图库列表单击时仅记录 `graph_id`，不在单击阶段执行“按节点规模线性增长”的扫描；仅当用户真正切到该面板（widget 可见）时才触发加载与分析，保证大图下列表点击与滚动始终顺滑。
+  - **后台分析 + 缓存复用**：结构体/信号/变量的使用统计在后台线程完成，并按“图文件 mtime 签名”缓存分析结果；同一张图未发生文件变更时直接复用缓存，避免重复扫描大图。
 - `validation_panel.py` 已支持“双来源校验结果”展示：存档综合校验 + 节点图源码校验（含复合节点结构校验开关），并通过 `issue.detail` 与 `NavigationCoordinator` 支持双击跳转到图/节点/连线/复合节点/管理配置来源。
 - 公共骨架与注入逻辑集中在 `PanelScaffold`、`panel_search_support`、`package_membership_selector` 等模块，现有面板均已拆分 Tab/Mixin 降低单文件复杂度。
 - 战斗预设面板（职业/技能/道具）已将“编辑表单 UI + 写回逻辑”拆分到独立 widget（例如 `combat_skill_edit_widget.py`、`combat_item_edit_widget.py`、`combat_class_edit_widgets.py`），面板类仅负责上下文注入、状态徽章与信号转发；重复的 editor 分组结构抽到 `combat_preset_editor_structs.py`。
@@ -16,19 +25,31 @@
 - 推荐优先使用 `panel_dict_utils.ensure_nested_dict/ensure_nested_list` 处理多级嵌套段落初始化，避免在面板内手写“逐级判断类型并写回默认 dict/list”的样板逻辑。
 - 装备词条面板的“选择属性”使用不可编辑下拉框：预置常用属性项（生命值/攻击力/防御力修正与调整率、各元素抗性与增伤调整率、暴击相关、恢复效果等），默认有“请选择属性”占位，若加载到列表外的旧值会临时加入下拉供选择与保存。
 - 战斗预设玩家模板面板通过 `app.runtime.services.json_cache_service.JsonCacheService` 在 `app/runtime/cache/player_ingame_save_selection.json` 记忆最近的局内存档模板选择（按玩家模板 ID 作为 KV key 存储），优先读取模板 metadata，确保下次打开"自定义变量_局内存档变量"时沿用上次选择；右侧局内存档变量表格基于局内存档管理模板 `entries` 中的 `struct_id` 与 `max_length` 为每个 `1_chip_*` 槽位展示结构体名称与最大条目数，模板概要区域仅保留“当前模板 + 映射数量”等整体说明，具体的“最大条目数”信息以列表形式直接在表格列中呈现，便于按行对照。
-- 玩家模板面板的“所属存档”行使用面板内的反向索引缓存（按 packages 列表签名失效），避免在频繁切换玩家模板选中时反复读取所有存档索引文件导致卡顿。
-- 玩家模板自定义变量匹配逻辑（`_get_external_player_level_variable_payloads`）：优先按 `variable_file_id`（即变量文件的 `VARIABLE_FILE_ID` 常量）匹配，兼容按完整路径或文件名（`source_stem`）匹配。
+- 结构体定义与结构体 ID 下拉（例如节点图变量、玩家模板自定义变量、结构体节点绑定等）应遵循当前 `ResourceManager` 的索引作用域（共享根 + 当前项目存档根），避免在 `<共享资源>` 视图中混入其它项目存档目录下的结构体定义导致误解。
+- “所属项目存档”行已收敛为**单选归属位置**：资源当前位于 `共享/` 或某个 `项目存档/<package_id>/` 根目录；切换选择等价于移动资源文件到目标根目录（不再支持多选归属，也不维护反向索引缓存）。
+  - 交互约定：用户在下拉中切换归属时会弹出二次确认；取消会自动回滚到原归属；“共享”项使用 **`🌐 共享`** 作为醒目标记。
+  - 点击展开：`PackageMembershipSelector` 为 editable + 只读 lineEdit 以支持 placeholder；行构建函数会安装事件过滤器，保证点击文字区域/标签也能展开下拉（不只点右侧小箭头）。
+  - 只读语义：当属性面板处于只读模式（例如任务清单/项目存档页的预览）时，“所属项目存档”下拉会被禁用，仅用于展示当前归属，避免预览场景误触发资源移动与脏标记。
+  - 性能：下拉 items 仅在 packages 列表发生变化时才重建，避免在节点图库“快速切换选中”场景下反复 clear+addItem 造成 UI 卡顿。
+- 玩家模板自定义变量匹配逻辑（`_get_external_player_level_variable_payloads`）：优先按 `variable_file_id`（即变量文件的 `VARIABLE_FILE_ID` 常量）匹配，兼容按完整路径或文件名（`source_stem`）匹配；路径分隔符归一化统一复用 `engine.utils.path_utils.normalize_slash`。
+  - `metadata.custom_variable_file` 允许为字符串或列表：列表表示引用多个变量文件；匹配逻辑应对每个引用逐一判定并合并展示（保持顺序、避免隐式覆盖）。
 - 玩家模板自定义变量表格中的只读结构体字段会显示"查看"按钮，点击后通过 `_on_struct_view_requested` 弹出 `StructViewerDialog` 以只读模式展示结构体定义详情。
+- 玩家模板自定义变量表格的数据值列支持“结构体列表”变量：在只读外部关卡变量视图中也可浏览结构体列表条目与其字段数据（避免显示为“（未选择）”导致无法查看）。
 - 界面控件组相关面板（布局、模板库等）中的新增/编辑对话框统一复用 `BaseDialog`/`FormDialog` 及主题样式，通过表单布局收集输入字段。
+- 界面控件组（布局/模板）面板提供“原始数据”只读视图：以 JSON 形式展示当前条目的完整结构（包含未知字段），用于承载外部生成的结构化 UI 数据。
+- 布局面板的“可见”勾选框会遵循模板的 `supports_layout_visibility_override` 标记：不支持显隐覆盖的模板会在 UI 中禁用可见性切换。
+- **界面控件组（Web-first / 插件化）**：管理模式的“🖼️ 界面控件组”不再维护复杂的 PyQt 预览/编辑；页面提供“打开 UI控件组预览（Web）”按钮，优先走私有扩展 `private_extensions/千星沙箱网页处理工具`，未加载私有扩展时回退到主程序内置 `assets/ui_workbench` 本地静态服务并用系统默认浏览器打开。
 
 ## 注意事项
-- 编辑流程通过控制器或 helper 协调，涉及包索引/所属存档的操作统一委托 `PackageController`/`PackageIndexManager`，不要在面板内手写业务流或直接操作文件。
+- 编辑流程通过控制器或 helper 协调，涉及包索引/所属项目存档的操作统一委托 `PackageController`/`PackageIndexManager`，不要在面板内手写业务流或直接操作文件。
 - 遵循 UI 目录约定：不使用 `try/except` 吞错，异常直接抛出；主题/尺寸统一使用 `ThemeManager` 与 token，避免散落的硬编码 QSS 或颜色。
 - 字体：避免硬编码字体族名（如 `Microsoft YaHei UI`），需要显式设置字体时统一使用 `app.ui.foundation.fonts`；多数场景直接依赖应用级默认字体即可。
 - 面板如需写入运行期缓存或 UI 记忆类状态，统一通过 `app.runtime.services.*`（例如 `JsonCacheService`）完成；不要在面板内自行拼 `app/runtime/cache` 路径或手写 JSON 读写逻辑。
 - 面板需要文本/枚举/整数输入弹窗时，统一从 `app.ui.foundation` 顶层导入 `prompt_text/prompt_item/prompt_int`（实现位于 `ui/foundation/input_dialogs.py`）；`dialog_utils.py` 仅用于消息框类提示。
-- 组件仅操作传入的资源实例，不复制或缓存独立副本，确保多视图下编辑同一资源时状态一致。
+- 面板中的确认/警告/错误提示统一使用 `app.ui.foundation.dialog_utils`，确保弹窗文字可选中复制，便于用户反馈与沟通定位。
+- 组件仅操作传入的资源对象，不复制或缓存独立副本，确保多视图下编辑同一资源时状态一致。
 - 布局保持向上对齐：滚动容器内的表单/编辑器在内部布局添加补充伸缩或 alignment，避免内容在可用高度内居中分散。
 - 战斗预设类面板（职业/技能/道具等）在 `set_context/_load_fields` 中必须严格 `blockSignals(True/False)` 包裹所有会触发 `currentIndexChanged/valueChanged/textChanged` 的控件赋值，避免“加载数据即触发 data_changed → 误保存 → 卡顿”的链路。
 - 布局面板中的“添加界面控件”对话框继承 `BaseDialog`，复用统一的主题样式与按钮。
 - 左侧搜索输入（`panel_search_support.SidebarSearchController`）统一套用 ThemeManager 的输入样式，保证在未显式套用 Panel 样式的父容器中也维持主题一致的输入外观。
+- 异步加载约束：面板侧如使用 `GraphAsyncLoader`（线程池 + Qt 信号回调）加载图数据，退出阶段必须显式停止并取消 pending 任务，避免窗口销毁过程中跨线程 emit Qt 信号触发 native `access violation`；该关闭入口由主窗口 closeEvent 统一调用。

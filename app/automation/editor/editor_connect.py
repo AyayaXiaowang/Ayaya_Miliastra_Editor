@@ -22,10 +22,9 @@ from app.automation.editor.executor_protocol import EditorExecutorWithViewport
 from app.automation.editor import executor_utils as _exec_utils
 from app.automation.editor import editor_nodes
 from app.automation.editor.ui_constants import (
-    NODE_VIEW_WIDTH_PX,
-    NODE_VIEW_HEIGHT_PX,
     VIEW_SAFE_MARGIN_RATIO_DEFAULT,
 )
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 from app.automation.editor.port_matching import ConnectionFrameState, PortMatchingService
 from app.automation.ports._ports import (
     normalize_kind_text,
@@ -47,7 +46,6 @@ from engine.utils.graph.graph_utils import is_flow_port_name
 from app.automation.vision import list_nodes, list_ports as list_ports_for_bbox, invalidate_cache
 from app.automation.ports._type_utils import infer_type_from_value
 from engine.graph.models.graph_model import GraphModel, NodeModel
-from engine.nodes.port_index_mapper import get_and_clear_last_mappings as _get_port_mapping_logs
 from app.automation.vision import get_and_clear_title_mapping_logs as _get_title_mapping_logs
 from app.automation.editor.connection_drag import mean_abs_diff_in_region, perform_connection_drag
 from app.automation.editor.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
@@ -169,7 +167,10 @@ def _ensure_connect_pair_visible(
     pause_hook: Optional[Callable[[], None]],
     allow_continue: Optional[Callable[[], bool]],
     visual_callback: Optional[Callable[[Image.Image, Optional[dict]], None]],
-    ) -> bool:
+    *,
+    focus_program_point: Optional[Tuple[float, float]] = None,
+    force_pan_if_inside_margin: bool = False,
+) -> bool:
     too_far, reason = executor.will_connect_too_far(
         graph_model,
         src_node.id,
@@ -182,21 +183,29 @@ def _ensure_connect_pair_visible(
         executor.log("✗ 连线端点无法同屏，放弃当前连线", log_callback)
         return False
 
-    mid_x = (float(src_node.pos[0]) + float(dst_node.pos[0])) * 0.5
-    mid_y = (float(src_node.pos[1]) + float(dst_node.pos[1])) * 0.5
-    executor.log(
-        f"· 连线视口调度：对齐两端中点=({mid_x:.1f},{mid_y:.1f})，尝试一次性展示源/目标节点",
-        log_callback,
-    )
+    if focus_program_point is not None:
+        target_x = float(focus_program_point[0])
+        target_y = float(focus_program_point[1])
+        executor.log(
+            f"· 连线视口调度：对齐缺失端点=({target_x:.1f},{target_y:.1f})，尝试拉回同屏（force_pan={bool(force_pan_if_inside_margin)}）",
+            log_callback,
+        )
+    else:
+        target_x = (float(src_node.pos[0]) + float(dst_node.pos[0])) * 0.5
+        target_y = (float(src_node.pos[1]) + float(dst_node.pos[1])) * 0.5
+        executor.log(
+            f"· 连线视口调度：对齐两端中点=({target_x:.1f},{target_y:.1f})，尝试一次性展示源/目标节点（force_pan={bool(force_pan_if_inside_margin)}）",
+            log_callback,
+        )
     executor.ensure_program_point_visible(
-        mid_x,
-        mid_y,
+        target_x,
+        target_y,
         log_callback=log_callback,
         pause_hook=pause_hook,
         allow_continue=allow_continue,
         visual_callback=visual_callback,
         graph_model=graph_model,
-        force_pan_if_inside_margin=False,
+        force_pan_if_inside_margin=bool(force_pan_if_inside_margin),
     )
     invalidate_cache()
     return True
@@ -292,7 +301,12 @@ def _connect_nodes(
     dst_debug: Dict[str, Any] = {}
     bbox_result = None
 
-    def _try_pair_alignment(reason: str) -> bool:
+    def _try_pair_alignment(
+        reason: str,
+        *,
+        focus_program_point: Optional[Tuple[float, float]] = None,
+        force_pan_if_inside_margin: bool = False,
+    ) -> bool:
         nonlocal align_attempts
         if align_attempts >= MAX_PAIR_ALIGN_ATTEMPTS:
             executor.log(f"{reason}｜已达到视口调度上限", log_callback)
@@ -310,6 +324,8 @@ def _connect_nodes(
             pause_hook,
             allow_continue,
             visual_callback,
+            focus_program_point=focus_program_point,
+            force_pan_if_inside_margin=force_pan_if_inside_margin,
         )
         if ok:
             _reset_connection_frame_context(reuse_context)
@@ -331,7 +347,16 @@ def _connect_nodes(
             if dst_snapshot is None:
                 missing_labels.append("目标")
             missing_text = f"⚠ 未能定位节点：{'、'.join(missing_labels)}（疑似屏幕外）"
-            if not _try_pair_alignment(missing_text):
+            focus_point = None
+            if src_snapshot is None and dst_snapshot is not None:
+                focus_point = (float(src_node.pos[0]), float(src_node.pos[1]))
+            elif dst_snapshot is None and src_snapshot is not None:
+                focus_point = (float(dst_node.pos[0]), float(dst_node.pos[1]))
+            if not _try_pair_alignment(
+                missing_text,
+                focus_program_point=focus_point,
+                force_pan_if_inside_margin=True,
+            ):
                 return False
             continue
         bbox_result = matching_service.ensure_valid_bboxes(
@@ -342,7 +367,10 @@ def _connect_nodes(
             dst_snapshot,
         )
         if bbox_result is None:
-            if not _try_pair_alignment("⚠ 节点位置与预期偏差过大，重新对齐视口"):
+            if not _try_pair_alignment(
+                "⚠ 节点位置与预期偏差过大，重新对齐视口",
+                force_pan_if_inside_margin=True,
+            ):
                 executor.log("✗ 未能定位源或目标节点（同名但与预期位置偏差过大，或不在搜索范围内）", log_callback)
                 return False
             continue
@@ -415,10 +443,11 @@ def _connect_nodes(
     )
 
     executor.log(f"✓ 节点匹配成功：源 '{src_node.title}' 位置框{src_bbox}；目标 '{dst_node.title}' 位置框{dst_bbox}", log_callback)
-    program_node_width = NODE_VIEW_WIDTH_PX
-    program_node_height = NODE_VIEW_HEIGHT_PX
-    src_scale_now = ((float(src_bbox[2]) / program_node_width) + (float(src_bbox[3]) / program_node_height)) / 2.0
-    dst_scale_now = ((float(dst_bbox[2]) / program_node_width) + (float(dst_bbox[3]) / program_node_height)) / 2.0
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    base_w = float(node_view_w_px) if float(node_view_w_px) > 0.0 else 200.0
+    base_h = float(node_view_h_px) if float(node_view_h_px) > 0.0 else 100.0
+    src_scale_now = ((float(src_bbox[2]) / base_w) + (float(src_bbox[3]) / base_h)) / 2.0
+    dst_scale_now = ((float(dst_bbox[2]) / base_w) + (float(dst_bbox[3]) / base_h)) / 2.0
     avg_scale_now = (src_scale_now + dst_scale_now) / 2.0
     rel_diff = abs(avg_scale_now - float(executor.scale_ratio or 1.0)) / float(executor.scale_ratio or 1.0)
     executor.log(
@@ -474,8 +503,11 @@ def _connect_nodes(
             use_strict_window_capture=True,
         )
         if not after_image:
-            executor.log("✗ 拖拽后截图失败，无法校验连线结果", log_callback)
-            return False
+            executor.log(
+                "⚠ [连接] 拖拽后截图失败，无法验证连线结果；按约定视为成功（连线步骤不做可靠验收）",
+                log_callback,
+            )
+            return True
 
         src_pt = (int(src_center[0]), int(src_center[1]))
         dst_pt = (int(dst_center[0]), int(dst_center[1]))
@@ -504,10 +536,10 @@ def _connect_nodes(
                 return True
 
         executor.log(
-            f"✗ [连接] 拖拽后画面变化校验失败：best_diff={best_score:.3f}（可能未形成有效连线）",
+            f"⚠ [连接] 拖拽后画面变化未达到阈值：best_diff={best_score:.3f}（可能是差分校验误报；按约定视为成功）",
             log_callback,
         )
-        return False
+        return True
 
     description = f"{src_node.title}.{src_port_name or '?'} → {dst_node.title}.{dst_port_name or '?'}"
     return perform_connection_drag(

@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import List
+
+from engine.configs.resource_types import ResourceType
+from engine.configs.specialized.node_graph_configs import STRUCT_TYPE_INGAME_SAVE
 
 from ..comprehensive_types import ValidationIssue
 from .base import BaseComprehensiveRule
+
+
+_STRUCT_ID_10_DIGITS_PATTERN = re.compile(r"^[0-9]{10}$")
 
 
 class ManagementConfigRule(BaseComprehensiveRule):
@@ -22,6 +30,7 @@ def validate_management_configs(validator) -> List[ValidationIssue]:
     issues: List[ValidationIssue] = []
     issues.extend(_validate_layout_widget_templates(management))
     issues.extend(_validate_level_variables(management))
+    issues.extend(_validate_struct_definitions(validator))
     return issues
 
 
@@ -34,19 +43,37 @@ def _validate_layout_widget_templates(management) -> List[ValidationIssue]:
     for layout_id, layout_data in layouts.items():
         if not isinstance(layout_data, dict):
             continue
-        widgets = layout_data.get("widgets", []) or []
-        if not widgets:
+        layout_name = (
+            layout_data.get("layout_name")
+            or layout_data.get("name")
+            or layout_id
+        )
+
+        referenced_ids: List[str] = []
+        builtin_widgets = layout_data.get("builtin_widgets", []) or []
+        custom_groups = layout_data.get("custom_groups", []) or []
+        for bucket in (builtin_widgets, custom_groups):
+            if not isinstance(bucket, list):
+                continue
+            for raw_id in bucket:
+                if isinstance(raw_id, str) and raw_id.strip():
+                    referenced_ids.append(raw_id.strip())
+
+        if not referenced_ids:
             continue
-        layout_name = layout_data.get("name", layout_id)
-        for widget in widgets:
-            if not isinstance(widget, dict):
-                continue
-            template_id = widget.get("template_id")
-            if not template_id:
-                continue
+
+        for template_id in referenced_ids:
             if template_id in templates:
                 continue
-            widget_name = widget.get("name", widget.get("id", "未命名控件"))
+            template_payload = templates.get(template_id, {})
+            template_name = ""
+            if isinstance(template_payload, dict):
+                template_name = (
+                    template_payload.get("template_name")
+                    or template_payload.get("name")
+                    or ""
+                )
+            widget_name = template_name or template_id
             detail = {
                 "type": "management_ui_layout",
                 "management_section_key": "ui_control_groups",
@@ -97,6 +124,114 @@ def _validate_level_variables(management) -> List[ValidationIssue]:
                 detail=detail,
             )
         )
+    return issues
+
+
+def _text_width_chinese_as_two(text: str) -> int:
+    """计算文本“字符宽度”：中文（宽字符）按 2，其余按 1。"""
+    width = 0
+    for ch in str(text or ""):
+        width += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    return width
+
+
+def _validate_struct_definitions(validator) -> List[ValidationIssue]:
+    """校验结构体定义本身的命名约束（与节点图引用无关）。
+
+    约束：结构体 struct_name 最长 30（中文算 2）。
+
+    额外约束：STRUCT_ID 必须为 **10 位纯数字**（UGC 结构体 ID 的唯一合法表示）。
+    """
+    resource_manager = getattr(validator, "resource_manager", None)
+    if resource_manager is None:
+        return []
+
+    file_paths = resource_manager.list_resource_file_paths(ResourceType.STRUCT_DEFINITION)
+
+    issues: List[ValidationIssue] = []
+    struct_ids = resource_manager.list_resources(ResourceType.STRUCT_DEFINITION)
+    for raw_id in struct_ids:
+        if not isinstance(raw_id, str):
+            continue
+        struct_id = raw_id.strip()
+        if not struct_id:
+            continue
+
+        if _STRUCT_ID_10_DIGITS_PATTERN.fullmatch(struct_id) is None:
+            file_path = file_paths.get(struct_id)
+            location = f"结构体定义 STRUCT_ID={struct_id!r}"
+            if file_path is not None:
+                location = f"{location}  ({file_path})"
+            issues.append(
+                ValidationIssue(
+                    level="error",
+                    category="结构体系统",
+                    location=location,
+                    message="STRUCT_ID 必须是 10 位纯数字（例如 1077936129）。",
+                    suggestion="请在结构体定义文件中将 STRUCT_ID 改为 10 位纯数字（不允许额外后缀/前缀/下划线）。",
+                    detail={
+                        "type": "management_struct_definition",
+                        "management_section_key": "struct_definitions",
+                        "management_item_id": struct_id,
+                        "struct_id": struct_id,
+                        "file_path": str(file_path) if file_path is not None else "",
+                    },
+                )
+            )
+            # 结构体 ID 非法时，后续 name/长度等检查意义不大（也避免 load_resource 异常链路）
+            continue
+
+        payload = resource_manager.load_resource(ResourceType.STRUCT_DEFINITION, struct_id)
+        if not isinstance(payload, dict):
+            continue
+
+        raw_name = payload.get("struct_name")
+        struct_name = str(raw_name).strip() if isinstance(raw_name, str) else ""
+        if not struct_name:
+            continue
+
+        width = _text_width_chinese_as_two(struct_name)
+        limit = 30
+        if width <= limit:
+            continue
+
+        struct_type_value = payload.get("struct_ype") or payload.get("struct_type")
+        struct_type_text = str(struct_type_value).strip() if isinstance(struct_type_value, str) else ""
+        section_key = (
+            "ingame_struct_definitions"
+            if struct_type_text == STRUCT_TYPE_INGAME_SAVE
+            else "struct_definitions"
+        )
+
+        file_path = file_paths.get(struct_id)
+        location_name = struct_name or struct_id
+        location = f"结构体 '{location_name}'"
+        if file_path is not None:
+            location = f"{location}  ({file_path})"
+
+        issues.append(
+            ValidationIssue(
+                level="error",
+                category="结构体系统",
+                location=location,
+                message=f"结构体名称过长：{width}/{limit}（中文算2）",
+                suggestion=(
+                    "请缩短结构体定义中的 `name`/`struct_name` 文本，使其长度不超过 30（中文算2）。"
+                ),
+                detail={
+                    "type": "management_struct_definition",
+                    "management_section_key": section_key,
+                    "management_item_id": struct_id,
+                    "struct_id": struct_id,
+                    "struct_name": struct_name,
+                    "name_width": width,
+                    "name_width_limit": limit,
+                    "struct_type": struct_type_text,
+                    "file_path": str(file_path) if file_path is not None else "",
+                },
+            )
+        )
+
     return issues
 
 

@@ -48,6 +48,28 @@ class TableBlock(DetailBlock):
 
 
 @dataclass
+class PreformattedBlock(DetailBlock):
+    """预格式化文本块（用于显示 JSON/日志等多行文本）。
+
+    说明：
+    - 该块不携带 UI 细节（字体/背景色等），由视图层统一渲染为“可复制的等宽文本”。
+    - `max_chars` 仅作为建议：builder 可先自行截断；视图层也可二次截断。
+    """
+
+    text: str
+    max_chars: int = 0
+
+
+@dataclass
+class CollapsibleBlock(DetailBlock):
+    """可折叠内容块：默认折叠，用于承载“技术细节/原始数据”等信息。"""
+
+    title: str
+    blocks: List[DetailBlock] = field(default_factory=list)
+    default_collapsed: bool = True
+
+
+@dataclass
 class DetailSection:
     """详情文档中的一个逻辑分节，对应原来的 h3/h4 标题块。"""
 

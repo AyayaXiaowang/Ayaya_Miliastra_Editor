@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import time
+
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import TYPE_CHECKING, Optional, Tuple, Dict
 
@@ -17,6 +19,7 @@ from app.ui.foundation import dialog_utils
 from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import Colors
 from app.ui.graph.graph_palette import GraphPalette
+from engine.configs.settings import settings as _settings_ui
 
 if TYPE_CHECKING:
     from app.ui.graph.graph_scene import GraphScene, NodeGraphicsItem
@@ -45,6 +48,9 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
         # 调试：仅在复合节点编辑器中打印一次性的角标渲染信息，避免刷屏
         self._printed_exposed_log: bool = False
         self._printed_tooltip_log: bool = False
+        # 虚拟引脚暴露状态缓存（避免在 paint/boundingRect 中反复查询映射服务）
+        self._cached_is_exposed: bool = False
+        self._cached_virtual_pin_name: str = ""
     
     def _update_tooltip(self) -> None:
         """更新工具提示，显示虚拟引脚信息。"""
@@ -57,6 +63,9 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
                 self.node_item.node.id,
                 self.name,
             )
+            # 缓存暴露状态，供 paint/boundingRect 使用（避免重复 find_virtual_pin_for_port）
+            self._cached_is_exposed = bool(context and virtual_pin)
+            self._cached_virtual_pin_name = str(getattr(virtual_pin, "pin_name", "") or "") if virtual_pin else ""
             if context and virtual_pin:
                 mapped_count = len(virtual_pin.mapped_ports)
                 tooltip = f"{self.name}\n⭐ 虚拟引脚: {virtual_pin.pin_name} (共{mapped_count}个映射)"
@@ -72,6 +81,8 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
                     )
                     self._printed_tooltip_log = True
             elif context and not self._printed_tooltip_log:
+                self._cached_is_exposed = False
+                self._cached_virtual_pin_name = ""
                 log_info(
                     "[角标-Tooltip] 节点[{}]({}).{} 未暴露为虚拟引脚, is_flow={}",
                     self.node_item.node.title,
@@ -94,78 +105,99 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
         base_rect = self._get_port_rect()
         
         # 检查是否在复合节点编辑器中且端口已被暴露
-        scene = self.scene()
-        if isinstance(scene, QtWidgets.QGraphicsScene):
-            _context, virtual_pin = find_virtual_pin_for_port(
-                scene,
-                self.node_item.node.id,
-                self.name,
+        if bool(getattr(self, "_cached_is_exposed", False)):
+            # 端口已暴露，需要扩展边界以包含标签区域
+            tag_width = 24
+            tag_height = 20
+            tag_spacing = 8
+
+            # 计算扩展后的矩形
+            left = base_rect.left()
+            top = base_rect.top()
+            right = base_rect.right()
+            bottom = base_rect.bottom()
+
+            if self.is_input:
+                # 输入端口：标签在左侧，向左扩展
+                left = min(left, -tag_width - tag_spacing)
+            else:
+                # 输出端口：标签在右侧，向右扩展
+                right = max(right, tag_width + tag_spacing)
+
+            # 垂直方向扩展以包含标签高度
+            top = min(top, -tag_height / 2)
+            bottom = max(bottom, tag_height / 2)
+
+            return QtCore.QRectF(
+                left,
+                top,
+                right - left,
+                bottom - top,
             )
-            if virtual_pin:
-                # 端口已暴露，需要扩展边界以包含标签区域
-                tag_width = 24
-                tag_height = 20
-                tag_spacing = 8
-
-                # 计算扩展后的矩形
-                left = base_rect.left()
-                top = base_rect.top()
-                right = base_rect.right()
-                bottom = base_rect.bottom()
-
-                if self.is_input:
-                    # 输入端口：标签在左侧，向左扩展
-                    left = min(left, -tag_width - tag_spacing)
-                else:
-                    # 输出端口：标签在右侧，向右扩展
-                    right = max(right, tag_width + tag_spacing)
-
-                # 垂直方向扩展以包含标签高度
-                top = min(top, -tag_height / 2)
-                bottom = max(bottom, tag_height / 2)
-
-                return QtCore.QRectF(
-                    left,
-                    top,
-                    right - left,
-                    bottom - top,
-                )
         
         return base_rect
 
+    def shape(self) -> QtGui.QPainterPath:  # type: ignore[override]
+        """命中测试形状。
+
+        LOD：当缩放低于阈值时返回空 shape，避免“端口不可见但仍可被点击/命中”。
+        """
+        scene_ref_for_perf = self.scene()
+        monitor = getattr(scene_ref_for_perf, "_perf_monitor", None) if scene_ref_for_perf is not None else None
+        inc = getattr(monitor, "inc", None) if monitor is not None else None
+        accum = getattr(monitor, "accum_ns", None) if monitor is not None else None
+        t_total0 = time.perf_counter_ns() if monitor is not None else 0
+        if callable(inc):
+            inc("items.shape.port.calls", 1)
+
+        if bool(getattr(_settings_ui, "GRAPH_LOD_ENABLED", True)):
+            scene_ref = self.scene()
+            scale_hint = float(getattr(scene_ref, "view_scale_hint", 1.0) or 1.0) if scene_ref is not None else 1.0
+            # 端口可见性阈值：端口隐藏应以端口自身的阈值为准（默认 30%），
+            # 不与“节点细节阈值”绑定，避免节点进入低细节模式后端口过早消失。
+            port_min_scale = float(getattr(_settings_ui, "GRAPH_LOD_PORT_MIN_SCALE", 0.30))
+            if scale_hint < port_min_scale:
+                if monitor is not None and callable(accum):
+                    accum("items.shape.port.lod_skip", int(time.perf_counter_ns() - int(t_total0)))
+                return QtGui.QPainterPath()
+
+        rect = self._get_port_rect()
+        path = QtGui.QPainterPath()
+        if self.is_flow:
+            path.addRoundedRect(rect, 4.0, 4.0)
+        else:
+            path.addEllipse(rect)
+        if monitor is not None and callable(accum):
+            accum("items.shape.port.total", int(time.perf_counter_ns() - int(t_total0)))
+        return path
+
     def paint(self, painter: QtGui.QPainter, option, widget=None) -> None:
+        scene_ref_for_perf = self.scene()
+        monitor = getattr(scene_ref_for_perf, "_perf_monitor", None) if scene_ref_for_perf is not None else None
+        inc = getattr(monitor, "inc", None) if monitor is not None else None
+        accum = getattr(monitor, "accum_ns", None) if monitor is not None else None
+        track = getattr(monitor, "track_slowest", None) if monitor is not None else None
+        t_total0 = time.perf_counter_ns() if monitor is not None else 0
+        if callable(inc):
+            inc("items.paint.port.calls", 1)
+
+        # LOD：低倍率缩放时不绘制端口/角标，减少超大图重绘开销
+        if bool(getattr(_settings_ui, "GRAPH_LOD_ENABLED", True)):
+            t0 = time.perf_counter_ns() if monitor is not None else 0
+            scale_hint = float(painter.worldTransform().m11())
+            port_min_scale = float(getattr(_settings_ui, "GRAPH_LOD_PORT_MIN_SCALE", 0.30))
+            if scale_hint < port_min_scale:
+                if monitor is not None and callable(accum):
+                    accum("items.paint.port.lod_gate", int(time.perf_counter_ns() - int(t0)))
+                    dt_total_ns = int(time.perf_counter_ns() - int(t_total0))
+                    accum("items.paint.port.total", dt_total_ns)
+                return
+            if monitor is not None and callable(accum):
+                accum("items.paint.port.lod_gate", int(time.perf_counter_ns() - int(t0)))
+
         # 检查是否在复合节点编辑器中且端口已被暴露
-        is_exposed = False
-        virtual_pin_name = None
-        scene = self.scene()
-        if isinstance(scene, QtWidgets.QGraphicsScene):
-            _context, virtual_pin = find_virtual_pin_for_port(
-                scene,
-                self.node_item.node.id,
-                self.name,
-            )
-            if virtual_pin:
-                is_exposed = True
-                virtual_pin_name = virtual_pin.pin_name
-                # 仅首次打印角标渲染信息
-                if not self._printed_exposed_log:
-                    log_info(
-                        "[角标-渲染] 节点[{}]({}).{} 已暴露 → 引脚='{}', is_flow={}",
-                        self.node_item.node.title,
-                        self.node_item.node.id,
-                        self.name,
-                        virtual_pin_name,
-                        self.is_flow,
-                    )
-                    self._printed_exposed_log = True
-            elif self._printed_exposed_log:
-                log_info(
-                    "[角标-渲染] 节点[{}]({}).{} 角标状态 → 未暴露（之前为已暴露）",
-                    self.node_item.node.title,
-                    self.node_item.node.id,
-                    self.name,
-                )
-                self._printed_exposed_log = False
+        is_exposed = bool(getattr(self, "_cached_is_exposed", False))
+        virtual_pin_name = str(getattr(self, "_cached_virtual_pin_name", "") or "") if is_exposed else ""
         
         # 绘制端口本身（使用固定的端口矩形，不使用扩展后的boundingRect）
         port_rect = self._get_port_rect()
@@ -174,6 +206,8 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
         has_custom_highlight = self.highlight_color is not None
         is_highlight_state = self.is_highlighted or has_custom_highlight
         
+        if monitor is not None and callable(accum):
+            t0 = time.perf_counter_ns()
         if self.is_flow:
             # rounded diamond-like pill
             if is_highlight_state:
@@ -220,9 +254,12 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
             pen.setWidth(pen_width)
             painter.setPen(pen)
             painter.drawEllipse(port_rect)
+        if monitor is not None and callable(accum):
+            accum("items.paint.port.shape", int(time.perf_counter_ns() - int(t0)))
         
         # 绘制引脚编号标记（已暴露的端口）
         if is_exposed and virtual_pin_name:
+            t_tag0 = time.perf_counter_ns() if monitor is not None else 0
             painter.save()
 
             # 获取引脚编号
@@ -283,6 +320,16 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
                 painter.drawText(tag_rect, QtCore.Qt.AlignmentFlag.AlignCenter, number_text)
 
             painter.restore()
+            if monitor is not None and callable(accum):
+                accum("items.paint.port.virtual_pin_tag", int(time.perf_counter_ns() - int(t_tag0)))
+
+        if monitor is not None and callable(accum):
+            dt_total_ns = int(time.perf_counter_ns() - int(t_total0))
+            accum("items.paint.port.total", dt_total_ns)
+            if callable(track):
+                node_obj = getattr(getattr(self, "node_item", None), "node", None)
+                node_id = str(getattr(node_obj, "id", "") or "")
+                track(f"port:{node_id}.{self.name}", dt_total_ns)
     
     def contextMenuEvent(self, event) -> None:
         """右键菜单事件：允许删除多分支节点的分支端口 / 复合节点编辑器中暴露为虚拟引脚"""
@@ -476,17 +523,15 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
     
     def _get_port_type(self, scene: 'GraphScene') -> str:
         """获取端口类型"""
-        if self.is_flow:
-            return "流程"
-        
-        # 从节点定义获取端口类型
-        node_def = scene.get_node_def(self.node_item.node)
-        if node_def:
-            port_type = node_def.get_port_type(self.name, self.is_input)
-            if port_type:
-                return port_type
-        
-        return "泛型"
+        from app.ui.graph.items.port_type_resolver import resolve_effective_port_type_for_scene
+
+        return resolve_effective_port_type_for_scene(
+            scene,
+            self.node_item.node,
+            self.name,
+            is_input=self.is_input,
+            is_flow=self.is_flow,
+        )
     
     def remove_branch_port(self) -> None:
         """删除分支端口"""

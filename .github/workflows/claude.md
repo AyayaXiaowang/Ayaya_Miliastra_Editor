@@ -1,17 +1,15 @@
-# .github/workflows 目录
+# GitHub Actions 工作流目录（.github/workflows）
 
 ## 目录用途
-- 存放 GitHub Actions 工作流，用于在 PR/Push 时自动执行基础回归与质量闸门。
+存放 CI 工作流定义，用于在 PR/Push 时强制执行仓库护栏与回归测试，确保“节点库（SoT）变更”必须显式可见并可机器判定 breaking。
 
 ## 当前状态
-- `ci.yml`：Windows-only 的最小 CI，安装依赖并运行 `pytest`。
+- `ci.yml`：Windows（PowerShell）流水线，按顺序执行：
+  - 自动化静态扫描护栏：`app.automation._static_checks.*`
+  - 节点图/复合节点全量校验：`app.cli.graph_tools validate-graphs --all`
+  - 单测：`pytest`
 
 ## 注意事项
-- PowerShell 不使用 `&&`，脚本请用逐行命令。
-- 工作流应避免运行 UI 主程序入口；仅运行测试与工具脚本的非交互命令。
-- 不在工作流里写入任何私密信息，敏感参数必须通过 Secrets 提供。
-
----
-注意：本文件不记录任何修改历史，仅描述该目录的用途、当前状态与使用注意事项。
-
+- PowerShell 不使用 `&&`；命令以逐行方式执行。
+- 如需恢复“节点库 manifest 快照卡点 / 派生文档一致性检查”，请先将对应工具链模块纳入仓库版本管理，再在 CI 中启用（避免引用不存在的 `tools.*` 模块）。
 

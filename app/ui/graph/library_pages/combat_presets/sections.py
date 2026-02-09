@@ -19,7 +19,7 @@ from engine.configs.combat.combat_presets_model import (
 from engine.configs.resource_types import ResourceType
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
-from engine.resources.unclassified_resource_view import UnclassifiedResourceView
+from engine.utils.resource_library_layout import get_packages_root_dir, get_shared_root_dir
 from app.ui.graph.library_pages.combat_presets.dialogs import (
     NewItemDialog,
     NewPlayerClassDialog,
@@ -31,7 +31,7 @@ from app.ui.graph.library_pages.combat_presets.dialogs import (
 )
 from app.ui.foundation.id_generator import generate_prefixed_id
 
-PresetPackage = Union[PackageView, GlobalResourceView, UnclassifiedResourceView]
+PresetPackage = Union[PackageView, GlobalResourceView]
 
 
 @dataclass
@@ -79,18 +79,49 @@ class BaseCombatPresetSection:
         resource_id: str,
         payload: dict,
     ) -> None:
-        """将战斗预设资源立即写入资源库，而不依赖具体存档视图。
+        """将战斗预设资源立即写入资源库。
 
         设计约定：
-        - `PackageView` / `GlobalResourceView` / `UnclassifiedResourceView`
-          均应暴露 `resource_manager` 属性；
-        - 资源文件一律保存在统一的战斗预设目录下，由索引与视图决定
-          是否以及如何被具体存档引用；
-        - 若当前视图未提供 `resource_manager`，则直接抛错，避免静默失败。
+        - 资源本体以 JSON 文件形式落盘；
+        - 目录即项目存档模式下，需要把“新建资源”的默认落点写入正确的资源根目录：
+          - PackageView：写入当前项目存档根目录；
+          - GlobalResourceView：写入共享根目录；
+        - 若不指定落点，资源层会默认写入“测试项目”等默认归档项目，导致当前视图刷新后不可见。
         """
         resource_manager = getattr(package, "resource_manager", None)
         if resource_manager is None:
             raise ValueError("当前视图未提供 resource_manager，无法保存战斗预设资源")
+
+        existing_file = resource_manager.list_resource_file_paths(resource_type).get(
+            str(resource_id)
+        )
+        if existing_file is None:
+            if isinstance(package, PackageView):
+                package_id = str(getattr(package, "package_id", "") or "").strip()
+                if not package_id:
+                    raise ValueError("无法解析 PackageView.package_id，无法写入战斗预设资源")
+                package_root_dir = (
+                    get_packages_root_dir(resource_manager.resource_library_dir) / package_id
+                )
+                resource_manager.save_resource(
+                    resource_type,
+                    resource_id,
+                    payload,
+                    resource_root_dir=package_root_dir,
+                )
+                return
+
+            if isinstance(package, GlobalResourceView):
+                shared_root_dir = get_shared_root_dir(resource_manager.resource_library_dir)
+                resource_manager.save_resource(
+                    resource_type,
+                    resource_id,
+                    payload,
+                    resource_root_dir=shared_root_dir,
+                )
+                return
+
+        # 已存在资源：保持其原有资源根目录不变。
         resource_manager.save_resource(resource_type, resource_id, payload)
 
 

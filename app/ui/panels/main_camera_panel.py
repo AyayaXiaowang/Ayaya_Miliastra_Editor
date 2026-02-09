@@ -33,7 +33,7 @@ class MainCameraManagementPanel(PanelScaffold):
     约定：
     - 左侧“主镜头管理”列表负责选择具体镜头；
     - 本面板接收 (package, camera_id) 上下文并展示可编辑表单；
-    - 顶部通过统一的“所属存档”多选行维护主镜头与功能包之间的多对多归属关系；
+    - 顶部通过统一的“所属项目存档”行维护主镜头的归属关系；
     - 点击“保存主镜头”按钮后，将修改写回 `package.management.main_cameras[camera_id]`
       并发射 `data_updated` 信号，由主窗口统一刷新与持久化。
     """
@@ -64,7 +64,7 @@ class MainCameraManagementPanel(PanelScaffold):
             self.body_layout,
             self,
             self._on_package_membership_changed,
-            label_text="所属存档:",
+            label_text="所属项目存档:",
         )
         if self._package_selector is not None:
             self._package_selector.setEnabled(False)

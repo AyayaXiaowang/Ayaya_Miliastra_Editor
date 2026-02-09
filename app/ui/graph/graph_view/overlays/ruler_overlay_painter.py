@@ -126,5 +126,8 @@ class RulerOverlayPainter:
         corner_rect = QtCore.QRect(0, 0, ruler_width, ruler_height)
         painter.fillRect(corner_rect, QtGui.QColor(Colors.CANVAS_RULER_CORNER_BACKGROUND))
         painter.setPen(text_color)
-        painter.drawText(corner_rect, QtCore.Qt.AlignmentFlag.AlignCenter, "坐标")
+        # 在左上角显示当前缩放百分比（与 GraphView 同步的缩放口径一致：transform().m11）
+        scale_hint = float(view.transform().m11())
+        zoom_percent = int(round(scale_hint * 100.0))
+        painter.drawText(corner_rect, QtCore.Qt.AlignmentFlag.AlignCenter, f"{zoom_percent}%")
 

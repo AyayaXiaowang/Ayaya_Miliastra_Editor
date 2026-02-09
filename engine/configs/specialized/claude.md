@@ -26,12 +26,13 @@
 
 ### UI 控件配置
 - `ui_widget_configs.py`: **权威定义** - 所有UI控件（交互按钮、卡牌选择器、弹窗、文本框、计分板、计时器、进度条）
+  - 进度条颜色调色板在该文件内集中维护为单一真相源（五色 hex，并与真源 `.gil` 的 `color_code` 0..4 对齐），供 UI 面板与工具脚本复用，避免口径漂移；颜色仅允许五色，不做旧值兼容或近似映射。
 
 ### 扩展配置系统
 - `deployment_configs.py`: 实体布设组、数据复制粘贴
 - `node_graph_configs.py`: 节点图核心、通用功能、调试、结构体（基础结构体与局内存档结构体定义）；结构体字段允许类型集合统一由 `engine/type_registry.py` 提供，避免与验证/端口/UI 出现漂移
-- `struct_definitions_data.py`: 基于代码资源 Schema 视图封装的结构体定义访问接口（提供 `list_struct_ids` / `get_struct_payload` 等函数，数据来源于 `assets/资源库/管理配置/结构体定义` 下的 Python 代码资源）
-- `signal_definitions_data.py`: 基于代码资源 Schema 视图封装的信号定义访问接口（提供 `list_signal_ids` / `get_signal_payload` 等函数，数据来源于 `assets/资源库/管理配置/信号` 下的 Python 代码资源）
+- `struct_definitions_data.py`: 结构体定义访问接口（提供 `list_struct_ids` / `get_struct_payload` 等函数）。支持注入当前 `ResourceManager` 以按“共享根 + 当前存档根”作用域过滤结构体列表；未注入时回退为全库 Schema 聚合视图（适用于校验/诊断等全局场景）。
+- `signal_definitions_data.py`: 基于代码资源 Schema 视图封装的信号定义访问接口（提供 `list_signal_ids` / `get_signal_payload` 等函数，数据来源于 `engine.resources.definition_schema_view` 聚合的代码级信号定义：`assets/资源库/共享/管理配置/信号/**.py` + `assets/资源库/项目存档/<package_id>/管理配置/信号/**.py`）
 - `game_systems_configs.py`: 技能资源、聊天系统、成就、排行榜、竞技段位
 - `creature_info_configs.py`: 单位状态效果、造物技能、行为模式
 - `resource_system_extended_configs.py`: 商店/背包/道具/装备/货币模板（编辑器级）
@@ -84,7 +85,7 @@ from engine.configs.specialized import *
   - `editor_animation_configs.py`: 技能动画、特效资产、预设状态
   - `editor_testing_configs.py`: 多人/单人测试、资产导入导出
 - 统一序列化/反序列化模式（减少样板代码）
-- 在 CI 中集成 `tools/check_duplicate_config_names.py`
+- 在 CI 中集成“重复配置类名检查”（避免同名配置类导致导入/反射歧义）
 
 ---
 注意：本文件不记录任何修改历史。请始终保持对"目录用途、当前状态、注意事项"的实时描述。

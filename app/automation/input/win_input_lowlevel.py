@@ -24,7 +24,9 @@ MOUSEEVENTF_LEFTDOWN: int = 0x0002
 MOUSEEVENTF_LEFTUP: int = 0x0004
 MOUSEEVENTF_RIGHTDOWN: int = 0x0008
 MOUSEEVENTF_RIGHTUP: int = 0x0010
+MOUSEEVENTF_WHEEL: int = 0x0800
 MOUSEEVENTF_ABSOLUTE: int = 0x8000
+WHEEL_DELTA: int = 120
 
 
 class MOUSEINPUT(ctypes.Structure):
@@ -131,5 +133,22 @@ def right_up() -> bool:
     inp.mi.dwExtraInfo = None
     return _send_inputs([inp])
 
+
+def mouse_wheel(delta: int) -> bool:
+    """滚动鼠标滚轮（SendInput）。
+
+    约定：
+    - delta > 0：向上滚动；delta < 0：向下滚动
+    - Windows 推荐每一格滚轮的 delta 为 ±120（WHEEL_DELTA）
+    """
+    inp = INPUT()
+    inp.type = 0
+    inp.mi.dx = 0
+    inp.mi.dy = 0
+    inp.mi.mouseData = int(delta)
+    inp.mi.dwFlags = int(MOUSEEVENTF_WHEEL)
+    inp.mi.time = 0
+    inp.mi.dwExtraInfo = None
+    return _send_inputs([inp])
 
 

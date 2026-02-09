@@ -15,7 +15,12 @@ from engine.configs.resource_types import ResourceType
 from engine.graph.models.graph_model import GraphModel
 from engine.nodes.node_registry import get_node_registry
 from engine.utils.logging.logger import log_error, log_info
+from engine.utils.resource_library_layout import (
+    find_containing_resource_root,
+    get_default_unclassified_package_root_dir,
+)
 
+from .graph_result_data_builder import GraphResultDataBuilder
 from .resource_cache_service import ResourceCacheService
 from .resource_file_ops import ResourceFileOps
 from .resource_state import ResourceIndexState
@@ -39,16 +44,24 @@ class GraphSaver:
         cache_service: ResourceCacheService,
         index_state: ResourceIndexState,
         graph_code_generator: Optional[GraphCodeGenerator],
+        result_data_builder: GraphResultDataBuilder,
     ) -> None:
         self._workspace_path = workspace_path
         self._file_ops = file_ops
         self._cache_service = cache_service
         self._index_state = index_state
         self._graph_code_generator = graph_code_generator
+        self._result_data_builder = result_data_builder
 
         self._roundtrip_validator: Optional["RoundtripValidator"] = None
 
-    def save_graph(self, graph_id: str, data: dict) -> tuple[bool, Optional[Path]]:
+    def save_graph(
+        self,
+        graph_id: str,
+        data: dict,
+        *,
+        resource_root_dir: Path | None = None,
+    ) -> tuple[bool, Optional[Path]]:
         """保存节点图资源，返回 (是否成功, 最终文件路径)。"""
         if self._graph_code_generator is None:
             raise ValueError(
@@ -83,6 +96,19 @@ class GraphSaver:
         generated_code = self._graph_code_generator.generate_code(graph_model, metadata)
 
         resource_name = metadata["graph_name"]
+        old_file = self._index_state.get_file_path(ResourceType.GRAPH, graph_id)
+        resolved_root_dir = None
+        if old_file is not None and old_file.exists():
+            resolved_root_dir = find_containing_resource_root(
+                self._file_ops.resource_library_dir,
+                old_file,
+            )
+        if resolved_root_dir is None and resource_root_dir is not None:
+            resolved_root_dir = resource_root_dir
+        if resolved_root_dir is None:
+            resolved_root_dir = get_default_unclassified_package_root_dir(
+                self._file_ops.resource_library_dir
+            )
         resource_file = self._file_ops.get_resource_file_path(
             ResourceType.GRAPH,
             graph_id,
@@ -90,11 +116,11 @@ class GraphSaver:
             extension=".py",
             graph_metadata=metadata,
             resource_name=resource_name,
+            resource_root_dir=resolved_root_dir,
         )
 
         resource_file.parent.mkdir(parents=True, exist_ok=True)
 
-        old_file = self._index_state.get_file_path(ResourceType.GRAPH, graph_id)
         if old_file and old_file.exists() and old_file != resource_file:
             old_file.unlink()
             log_info("  [移动/重命名] 已删除旧位置文件: {}", old_file)
@@ -118,15 +144,12 @@ class GraphSaver:
         current_mtime = resource_file.stat().st_mtime
         cache_key = (ResourceType.GRAPH, graph_id)
 
-        result_data = {
-            "graph_id": metadata.get("graph_id", graph_id),
-            "name": metadata.get("graph_name", graph_model.graph_name),
-            "graph_type": metadata.get("graph_type", "server"),
-            "folder_path": metadata.get("folder_path", ""),
-            "description": metadata.get("description", ""),
-            "data": graph_model.serialize(),
-            "metadata": {},
-        }
+        result_data = self._result_data_builder.build_result_data(
+            graph_id=graph_id,
+            graph_model=graph_model,
+            parsed_metadata=metadata,
+            resource_file=resource_file,
+        )
 
         self._cache_service.add(cache_key, result_data, current_mtime)
         return True, resource_file

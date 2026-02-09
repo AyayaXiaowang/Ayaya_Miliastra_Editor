@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from engine.nodes.advanced_node_features import SignalDefinition
@@ -8,7 +9,12 @@ from engine.utils.graph.graph_utils import (
     build_node_map,
     get_node_display_info,
 )
-from engine.graph.common import SIGNAL_LISTEN_NODE_TITLE, SIGNAL_SEND_NODE_TITLE, SIGNAL_NAME_PORT_NAME
+from engine.graph.common import SIGNAL_NAME_PORT_NAME
+from engine.validate.node_semantics import (
+    SEMANTIC_SIGNAL_LISTEN,
+    SEMANTIC_SIGNAL_SEND,
+    is_semantic_graph_node,
+)
 
 from ...comprehensive_types import ValidationIssue
 from ..helpers import GraphAttachment, get_graph_snapshot
@@ -24,6 +30,7 @@ from .wire_types import (
 
 
 def validate_signals_in_single_graph(
+    workspace_path: Path,
     attachment: GraphAttachment,
     signal_definitions: Dict[str, SignalDefinition],
     signal_param_types: Dict[str, Dict[str, str]],
@@ -41,7 +48,11 @@ def validate_signals_in_single_graph(
 
     signal_bindings = (graph_data.get("metadata") or {}).get("signal_bindings") or {}
     nodes_by_id = build_node_map(nodes)
-    node_defs_by_id = build_node_defs_for_nodes(nodes, node_library)
+    node_defs_by_id = build_node_defs_for_nodes(
+        nodes,
+        node_library,
+        scope_text=str(getattr(graph_config, "graph_type", "") or "server"),
+    )
     merged_edges = merge_edges_with_connections(snapshot.edges, snapshot.connections)
     incoming_edges, outgoing_edges = build_edge_indices(merged_edges)
 
@@ -52,8 +63,27 @@ def validate_signals_in_single_graph(
 
     issues: List[ValidationIssue] = []
     for node in nodes:
-        node_id, node_title, _ = get_node_display_info(node)
-        if not node_id or node_title not in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE):
+        node_id, node_title, node_category = get_node_display_info(node)
+        if not node_id:
+            continue
+
+        is_send_node = is_semantic_graph_node(
+            workspace_path=workspace_path,
+            node_library=node_library,
+            node_category=str(node_category or ""),
+            node_title=str(node_title or ""),
+            scope_text=str(getattr(graph_config, "graph_type", "") or "server"),
+            semantic_id=SEMANTIC_SIGNAL_SEND,
+        )
+        is_listen_node = is_semantic_graph_node(
+            workspace_path=workspace_path,
+            node_library=node_library,
+            node_category=str(node_category or ""),
+            node_title=str(node_title or ""),
+            scope_text=str(getattr(graph_config, "graph_type", "") or "server"),
+            semantic_id=SEMANTIC_SIGNAL_LISTEN,
+        )
+        if not (is_send_node or is_listen_node):
             continue
 
         node_detail = dict(base_detail)
@@ -75,9 +105,7 @@ def validate_signals_in_single_graph(
 
         if not bound_signal_id:
             message = (
-                "发送信号节点未选择信号"
-                if node_title == SIGNAL_SEND_NODE_TITLE
-                else "监听信号节点未选择信号"
+                "发送信号节点未选择信号" if is_send_node else "监听信号节点未选择信号"
             )
             issues.append(
                 ValidationIssue(
@@ -127,7 +155,7 @@ def validate_signals_in_single_graph(
         )
 
         # 仅对发送信号节点执行 3.3 常量类型校验与 3.4 连线类型兼容性校验
-        if node_title == SIGNAL_SEND_NODE_TITLE:
+        if is_send_node:
             issues.extend(
                 validate_signal_constants_for_send_node(
                     node,
@@ -146,7 +174,7 @@ def validate_signals_in_single_graph(
                     node_defs_by_id,
                 )
             )
-        elif node_title == SIGNAL_LISTEN_NODE_TITLE:
+        elif is_listen_node:
             issues.extend(
                 validate_signal_wire_types_for_listen_node(
                     node,

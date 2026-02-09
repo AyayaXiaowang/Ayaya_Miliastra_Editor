@@ -5,6 +5,7 @@ from .interaction_controls import (  # noqa: F401
     InteractionButtonConfigPanel,
     ItemDisplayConfigPanel,
 )
+from .container_panel import ContainerConfigPanel  # noqa: F401
 from .selection_panel import CardSelectorConfigPanel  # noqa: F401
 from .status_panels import (  # noqa: F401
     ProgressBarConfigPanel,
@@ -23,6 +24,7 @@ __all__ = [
     "VariableSelector",
     "InteractionButtonConfigPanel",
     "ItemDisplayConfigPanel",
+    "ContainerConfigPanel",
     "TextBoxConfigPanel",
     "PopupConfigPanel",
     "ProgressBarConfigPanel",

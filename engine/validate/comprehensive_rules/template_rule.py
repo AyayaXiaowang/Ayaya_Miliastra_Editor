@@ -89,7 +89,7 @@ def validate_single_template(validator, template: TemplateConfig) -> List[Valida
         )
         for attachment in attachments:
             issues.extend(
-                validator.validate_graph_data(
+                validator.validate_graph_cache_data(
                     attachment.graph_config.data,
                     template.entity_type,
                     attachment.location_full,

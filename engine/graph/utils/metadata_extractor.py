@@ -10,6 +10,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from engine.utils.graph_path_inference import infer_graph_type_and_folder_path
+from engine.utils.source_text import read_text
+
+from .ast_utils import NOT_EXTRACTABLE, extract_constant_value
+
 
 @dataclass
 class GraphMetadata:
@@ -28,6 +33,22 @@ class GraphMetadata:
     node_name: str = ""
     node_description: str = ""
     scope: str = "server"
+
+
+def apply_graph_path_inference(metadata: GraphMetadata, *, file_path: Path) -> None:
+    """将节点图在资源库中的路径信息写回到 metadata（单一口径）。
+
+    约定：
+    - `graph_type/folder_path` 以文件路径为准：`.../节点图/<server|client>/<folder...>/<file>.py`；
+    - docstring 中不再要求重复声明 folder_path，且当文件移动/改目录时避免 docstring 滞后。
+    """
+
+    graph_type, folder_path = infer_graph_type_and_folder_path(file_path)
+    if not graph_type:
+        return
+    metadata.graph_type = graph_type
+    metadata.scope = graph_type
+    metadata.folder_path = folder_path
 
 
 def parse_dynamic_ports(ports_str: str) -> Dict[str, List[str]]:
@@ -124,58 +145,6 @@ def extract_metadata_from_docstring(docstring: str) -> GraphMetadata:
     return metadata
 
 
-def _extract_constant_from_ast(value_node: ast.expr) -> Any:
-    """从 AST 表达式节点中提取常量或简单容器值。
-
-    支持的形式：
-    - 常量：整数、浮点数、字符串、布尔值、None
-    - 容器：
-      - 列表/元组：元素本身也需要是可提取的常量
-      - 字典：键和值均需要是可提取的常量
-
-    无法静态提取时返回 None。
-    """
-    if isinstance(value_node, ast.Constant):
-        return value_node.value
-
-    # 处理一元 +/- 数值常量（例如 -1 / +1.0 / -(1.5)）
-    # 注意：在 AST 中，-1.0 并不是 ast.Constant(-1.0)，而是 ast.UnaryOp(USub, Constant(1.0))
-    if isinstance(value_node, ast.UnaryOp):
-        if isinstance(value_node.op, ast.USub):
-            inner_value = _extract_constant_from_ast(value_node.operand)
-            if isinstance(inner_value, (int, float)) and not isinstance(inner_value, bool):
-                return -inner_value
-            return None
-        if isinstance(value_node.op, ast.UAdd):
-            inner_value = _extract_constant_from_ast(value_node.operand)
-            if isinstance(inner_value, (int, float)) and not isinstance(inner_value, bool):
-                return +inner_value
-            return None
-
-    if isinstance(value_node, ast.List):
-        return [_extract_constant_from_ast(element) for element in value_node.elts]
-
-    if isinstance(value_node, ast.Tuple):
-        return tuple(_extract_constant_from_ast(element) for element in value_node.elts)
-
-    if isinstance(value_node, ast.Dict):
-        keys: List[Any] = []
-        values: List[Any] = []
-        for key_node, value_node_item in zip(value_node.keys, value_node.values):
-            if key_node is None or value_node_item is None:
-                return None
-            key_value = _extract_constant_from_ast(key_node)
-            value_value = _extract_constant_from_ast(value_node_item)
-            keys.append(key_value)
-            values.append(value_value)
-        result_dict: Dict[Any, Any] = {}
-        for key_item, value_item in zip(keys, values):
-            result_dict[key_item] = value_item
-        return result_dict
-
-    return None
-
-
 def _extract_graph_variables_from_list(list_node: ast.List) -> List[Dict[str, Any]]:
     """从 GRAPH_VARIABLES 的列表 AST 节点中提取变量配置字典列表。
 
@@ -197,6 +166,7 @@ def _extract_graph_variables_from_list(list_node: ast.List) -> List[Dict[str, An
         default_value_value: Any = None
         description_value: str = ""
         is_exposed_value: bool = False
+        struct_name_value: str = ""
         dict_key_type_value: str = ""
         dict_value_type_value: str = ""
 
@@ -217,7 +187,8 @@ def _extract_graph_variables_from_list(list_node: ast.List) -> List[Dict[str, An
                 continue
 
             if key == "default_value":
-                default_value_value = _extract_constant_from_ast(value_node)
+                extracted = extract_constant_value(value_node)
+                default_value_value = None if extracted is NOT_EXTRACTABLE else extracted
                 continue
 
             if key == "description" and isinstance(
@@ -230,6 +201,12 @@ def _extract_graph_variables_from_list(list_node: ast.List) -> List[Dict[str, An
                 value_node, ast.Constant
             ) and isinstance(value_node.value, bool):
                 is_exposed_value = value_node.value
+                continue
+            
+            if key == "struct_name" and isinstance(
+                value_node, ast.Constant
+            ) and isinstance(value_node.value, str):
+                struct_name_value = value_node.value.strip()
                 continue
 
             if key == "dict_key_type" and isinstance(
@@ -256,6 +233,9 @@ def _extract_graph_variables_from_list(list_node: ast.List) -> List[Dict[str, An
         }
 
         normalized_type = variable_type_value.strip()
+        if normalized_type in {"结构体", "结构体列表"}:
+            if struct_name_value:
+                entry["struct_name"] = struct_name_value
         if normalized_type == "字典":
             if dict_key_type_value:
                 entry["dict_key_type"] = dict_key_type_value
@@ -328,8 +308,15 @@ def extract_metadata_from_code(code: str) -> GraphMetadata:
     return metadata
 
 
-def load_graph_metadata_from_file(file_path: Path, *, encoding: str = "utf-8") -> GraphMetadata:
-    """直接从节点图文件解析元数据。"""
-    code = Path(file_path).read_text(encoding=encoding)
-    return extract_metadata_from_code(code)
+def load_graph_metadata_from_file(file_path: Path, *, encoding: str = "utf-8-sig") -> GraphMetadata:
+    """直接从节点图文件解析元数据。
+
+    说明：
+    - 默认使用 `utf-8-sig` 以兼容带 BOM 的 UTF-8 源文件（Windows 常见）。
+    - 该函数只做静态解析（ast.parse），不会执行任何代码。
+    """
+    code = read_text(Path(file_path), encoding=encoding)
+    metadata = extract_metadata_from_code(code)
+    apply_graph_path_inference(metadata, file_path=file_path)
+    return metadata
 

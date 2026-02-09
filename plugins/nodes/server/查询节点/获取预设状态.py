@@ -13,4 +13,12 @@ from engine.utils.logging.logger import log_info
 )
 def 获取预设状态(game, 目标实体, 预设状态索引):
     """获取目标实体的指定预设状态的预设状态值。如果该实体没有指定的预设状态，则返回0"""
-    return None  # 预设状态值
+    # 本地测试（MockRuntime）最小语义：
+    # - 允许通过自定义变量注入：key = f"预设状态_{index}"
+    # - 未设置时回退为 0
+    key = f"预设状态_{int(预设状态索引)}"
+    get_custom = getattr(game, "get_custom_variable", None)
+    if callable(get_custom):
+        value = get_custom(目标实体, key, 0)
+        return int(value or 0)
+    return 0

@@ -23,11 +23,72 @@ from app.automation.config.config_node_steps import (
     handle_boolean_param,
     handle_enum_param,
     find_warning_region_for_port,
-    handle_regular_param_with_warning,
+    handle_regular_param_by_port_gap,
+    find_vertical_context_for_input_port,
     handle_regular_param_fallback,
 )
+from app.automation.config.config_params_helpers import filter_screen_input_candidates, format_candidates_brief
+from app.automation.config.enum_dropdown_utils import normalize_dropdown_option_text
 from app.automation.ports.vector3_input_handler import input_vector3_by_geometry
 from app.automation.editor.node_snapshot import NodePortsSnapshotCache
+
+
+def _resolve_level_variable_name_from_variable_id(variable_id: str) -> str:
+    variable_id_text = str(variable_id or "").strip()
+    if not variable_id_text:
+        return ""
+    if not variable_id_text.startswith("var_"):
+        return ""
+
+    from engine.resources.level_variable_schema_view import get_default_level_variable_schema_view
+
+    schema_view = get_default_level_variable_schema_view()
+    payload = schema_view.get_all_variables().get(variable_id_text)
+    if not isinstance(payload, dict):
+        return ""
+
+    name_value = payload.get("variable_name", payload.get("name", ""))
+    if not isinstance(name_value, str):
+        return ""
+    return name_value.strip()
+
+
+def _normalize_custom_variable_name_for_execution(*, node_title: str, port_name: str, raw_value: str) -> str:
+    """将旧格式的关卡变量标识（var_xxx）归一化为中文 variable_name，以便真实执行阶段输入更直观。"""
+    from engine.graph.common import VARIABLE_NAME_PORT_NAME
+
+    if str(port_name or "").strip() != VARIABLE_NAME_PORT_NAME:
+        return raw_value
+
+    excluded_titles = {
+        "设置节点图变量",
+        "获取节点图变量",
+        "设置局部变量",
+        "获取局部变量",
+    }
+    if str(node_title or "").strip() in excluded_titles:
+        return raw_value
+
+    raw_text = str(raw_value or "").strip()
+    if not raw_text:
+        return raw_value
+
+    # 1) 直接为 variable_id（典型旧数据）
+    resolved = _resolve_level_variable_name_from_variable_id(raw_text)
+    if resolved:
+        return resolved
+
+    # 2) 兼容旧展示格式：name (var_xxx)
+    if "(" in raw_text and raw_text.endswith(")"):
+        left_text = raw_text[: raw_text.rfind("(")].strip()
+        inside = raw_text[raw_text.rfind("(") + 1 : -1].strip()
+        resolved_inside = _resolve_level_variable_name_from_variable_id(inside)
+        if resolved_inside:
+            return resolved_inside
+        if left_text:
+            return left_text
+
+    return raw_value
 
 
 def execute_config_node_merged(
@@ -44,7 +105,7 @@ def execute_config_node_merged(
     功能：为节点的输入端口注入参数值
     - 布尔类型：点击两次切换
     - 三维向量：OCR识别X/Y/Z标签或几何法定位
-    - 普通类型：查找Warning图标点击后输入
+    - 普通类型：基于端口间距几何定位输入框并输入（不依赖 Warning），失败则端口偏移兜底
     
     Args:
         executor: 执行器实例
@@ -94,6 +155,19 @@ def execute_config_node_merged(
     if not snapshot.ensure(reason="参数配置初始截图", require_bbox=True):
         return False
     node_bbox = snapshot.node_bbox
+
+    # 固定“端口快照”：参数配置过程中保持使用首帧识别到的端口位置，避免输入过程导致每帧识别漂移
+    stable_node_bbox = tuple(int(v) for v in node_bbox)
+    stable_ports_snapshot = list(snapshot.ports)
+    stable_frame_token = getattr(snapshot, "frame_token", None)
+    stable_input_candidates_text = format_candidates_brief(
+        filter_screen_input_candidates(stable_ports_snapshot, "data")
+    )
+    executor.log(
+        f"[参数配置] 固定端口快照: frame_token={stable_frame_token} bbox={stable_node_bbox} ports={len(stable_ports_snapshot)}",
+        log_callback,
+    )
+    executor.log(f"[参数配置] 固定端口候选(输入-从上到下): {stable_input_candidates_text}", log_callback)
     
     # 可视化：节点图区域、所有节点、当前节点端口
     visualize_node_and_ports(executor, snapshot.screenshot, node_bbox, node.title, visual_callback)
@@ -121,14 +195,31 @@ def execute_config_node_merged(
             executor.log("用户终止/暂停，放弃参数配置", log_callback)
             return False
 
-        if not snapshot.ensure(reason=f"参数配置#{param_index}", require_bbox=True):
-            return False
-        screenshot = snapshot.screenshot
-        node_bbox = snapshot.node_bbox
+        # 参数配置阶段不再每个参数都触发“节点 bbox/端口识别”刷新（会导致 1~2s 的额外停顿），
+        # 仅获取一张当前窗口截图用于可视化与模板匹配；端口定位与上下文统一使用首帧快照。
+        screenshot = None
+        window_title = getattr(executor, "window_title", None)
+        if isinstance(window_title, str) and window_title:
+            screenshot = editor_capture.capture_window_strict(window_title)
+            if screenshot is None:
+                screenshot = editor_capture.capture_window(window_title)
+
+        if not screenshot:
+            # 离线/测试执行器：复用首帧快照中的 screenshot（不刷新 bbox/端口）
+            if not snapshot.ensure(reason=f"参数配置#{param_index}", require_bbox=False):
+                return False
+            screenshot = snapshot.screenshot
+
+        node_bbox = stable_node_bbox
         frame_id = id(screenshot)
         
         param_name = str(param.get("param_name") or "")
         param_value = str(param.get("param_value") or "")
+        param_value = _normalize_custom_variable_name_for_execution(
+            node_title=str(getattr(node, "title", "") or ""),
+            port_name=param_name,
+            raw_value=param_value,
+        )
         
         if not param_name:
             continue
@@ -153,14 +244,17 @@ def execute_config_node_merged(
         )
 
         is_enum_type = isinstance(effective_type, str) and ("枚举" in effective_type)
-        enum_index_for_param = None
+        enum_index_for_param: Optional[int] = None
+        options_for_param: Optional[List[str]] = None
         if is_enum_type and node_def is not None:
             input_enum_options = getattr(node_def, "input_enum_options", {}) or {}
-            options_for_param = input_enum_options.get(param_name)
-            if isinstance(options_for_param, list):
+            options_any = input_enum_options.get(param_name)
+            if isinstance(options_any, list):
+                options_for_param = [str(value) for value in options_any]
+                desired_value_normalized = normalize_dropdown_option_text(param_value)
                 for option_position, option_text in enumerate(options_for_param, start=1):
-                    if param_value == str(option_text):
-                        enum_index_for_param = option_position
+                    if normalize_dropdown_option_text(option_text) == desired_value_normalized:
+                        enum_index_for_param = int(option_position)
                         break
 
         is_boolean_type = isinstance(effective_type, str) and ("布尔" in effective_type)
@@ -183,7 +277,7 @@ def execute_config_node_merged(
             'data',
             configured_centers,
             log_callback,
-            ports_snapshot=snapshot.ports
+            ports_snapshot=stable_ports_snapshot,
         )
         
         if port_center is None:
@@ -214,15 +308,17 @@ def execute_config_node_merged(
         # ========== 3. 处理普通/向量/枚举/布尔参数 ==========
         width, height = screenshot.size
         executor.log(f"[截图] 当前画面={width}x{height}", log_callback)
-        
-        # 查找Warning搜索区域
-        cache_key = (frame_id, param_name)
-        cached_region = warning_region_cache.get(cache_key, None)
-        if cached_region is False:
-            warning_region_result = None
-        elif cached_region is not None:
-            warning_region_result = cached_region  # type: ignore[assignment]
-        else:
+
+        open_click_editor = (int(port_center[0]) + 50, int(port_center[1]) + 25)
+
+        def _get_warning_region_for_special_types() -> Optional[tuple]:
+            """仅在三维向量/枚举/布尔需要时计算 Warning 搜索区域（避免普通参数日志误导与无谓开销）。"""
+            cache_key = (frame_id, param_name)
+            cached_region = warning_region_cache.get(cache_key, None)
+            if cached_region is False:
+                return None
+            if cached_region is not None:
+                return cached_region  # type: ignore[return-value]
             warning_region_result = find_warning_region_for_port(
                 executor,
                 screenshot,
@@ -230,28 +326,10 @@ def execute_config_node_merged(
                 port_center,
                 param_name,
                 log_callback,
-                ports_snapshot=snapshot.ports,
+                ports_snapshot=stable_ports_snapshot,
             )
             warning_region_cache[cache_key] = warning_region_result if warning_region_result is not None else False
-
-        if warning_region_result is None:
-            # Warning 搜索失败：布尔参数回退到端口偏移点击逻辑，其它类型视为致命错误
-            if is_boolean_type:
-                executor.log("[参数配置/布尔] Warning 区域未找到，回退端口偏移点击逻辑", log_callback)
-                should_continue_bool = handle_boolean_param(
-                    executor,
-                    port_center,
-                    param_name,
-                    param_value,
-                    log_callback,
-                )
-                snapshot.mark_dirty(require_bbox=False)
-                if not should_continue_bool:
-                    continue
-                continue
-            return False
-        
-        search_region, current_port, next_port = warning_region_result
+            return warning_region_result  # type: ignore[return-value]
         
         # 优先处理布尔/枚举/向量等特殊类型
         if is_boolean_type:
@@ -260,58 +338,111 @@ def execute_config_node_merged(
             value_lower = value_text.lower()
             is_true = (value_text == "是") or (value_lower == "true") or (value_text == "1")
             bool_enum_index = 1 if is_true else 2
+            desired_bool_text = "是" if is_true else "否"
 
             ok_bool_enum = handle_enum_param(
                 executor,
                 screenshot,
-                search_region,
+                None,
                 bool_enum_index,
                 pause_hook,
                 allow_continue,
                 log_callback,
                 visual_callback,
                 log_prefix="[参数配置/布尔]",
+                enum_options=["是", "否"],
+                desired_text=desired_bool_text,
+                open_click_editor=open_click_editor,
             )
-            if ok_bool_enum:
-                snapshot.mark_dirty(require_bbox=True)
-                continue
 
-            executor.log(
-                "[参数配置/布尔] Warning 模板未命中或几何点击失败，回退端口偏移点击逻辑",
-                log_callback,
-            )
-            should_continue_bool = handle_boolean_param(
-                executor,
-                port_center,
-                param_name,
-                param_value,
-                log_callback,
-            )
-            snapshot.mark_dirty(require_bbox=False)
-            if not should_continue_bool:
-                continue
+            if not ok_bool_enum:
+                warning_region_result = _get_warning_region_for_special_types()
+                search_region = None
+                if warning_region_result is not None:
+                    search_region = warning_region_result[0]
+
+            if not ok_bool_enum and search_region is not None:
+                executor.log(
+                    "[参数配置/布尔] 端口偏移展开失败，改用 Warning 展开重试（仍按OCR点击选项）",
+                    log_callback,
+                )
+                ok_bool_enum = handle_enum_param(
+                    executor,
+                    screenshot,
+                    search_region,
+                    bool_enum_index,
+                    pause_hook,
+                    allow_continue,
+                    log_callback,
+                    visual_callback,
+                    log_prefix="[参数配置/布尔]",
+                    enum_options=["是", "否"],
+                    desired_text=desired_bool_text,
+                    open_click_editor=None,
+                )
+
+            if not ok_bool_enum:
+                return False
+
+            snapshot.mark_dirty(require_bbox=True)
+            continue
 
         # 尝试通过Warning模板处理（向量 / 普通参数 / 显式枚举）
         is_vector = isinstance(effective_type, str) and ("三维向量" in effective_type)
 
-        # 优先：若为枚举类型且存在有效枚举序号，则使用枚举几何点击
-        if is_enum_type and enum_index_for_param is not None:
+        # 优先：枚举类型统一走“下拉识别 + OCR 点击”
+        if is_enum_type:
+            enum_index_to_use = int(enum_index_for_param) if enum_index_for_param is not None else 1
             ok_enum = handle_enum_param(
                 executor,
                 screenshot,
-                search_region,
-                enum_index_for_param,
+                None,
+                enum_index_to_use,
                 pause_hook,
                 allow_continue,
                 log_callback,
                 visual_callback,
+                enum_options=list(options_for_param) if isinstance(options_for_param, list) else None,
+                desired_text=str(param_value or ""),
+                open_click_editor=open_click_editor,
             )
+
+            if not ok_enum:
+                warning_region_result = _get_warning_region_for_special_types()
+                search_region = None
+                if warning_region_result is not None:
+                    search_region = warning_region_result[0]
+
+            if not ok_enum and search_region is not None:
+                executor.log(
+                    "[参数配置/枚举] 枚举选择未完成，改用 Warning 展开重试（仍按OCR点击选项）",
+                    log_callback,
+                )
+                ok_enum = handle_enum_param(
+                    executor,
+                    screenshot,
+                    search_region,
+                    enum_index_to_use,
+                    pause_hook,
+                    allow_continue,
+                    log_callback,
+                    visual_callback,
+                    enum_options=list(options_for_param) if isinstance(options_for_param, list) else None,
+                    desired_text=str(param_value or ""),
+                    open_click_editor=None,
+                )
             if not ok_enum:
                 return False
             snapshot.mark_dirty(require_bbox=True)
             continue
         
         if is_vector:
+            warning_region_result = _get_warning_region_for_special_types()
+            if warning_region_result is None:
+                return False
+            search_region, current_port, _next_port = warning_region_result
+            if search_region is None or current_port is None:
+                return False
             # 三维向量：先尝试Warning几何法
             match_cache_key = (frame_id, tuple(int(v) for v in search_region))
             cached_match = warning_match_cache.get(match_cache_key, None)
@@ -362,26 +493,40 @@ def execute_config_node_merged(
             snapshot.mark_dirty(require_bbox=True)
             continue
         
-        # 普通参数：先尝试Warning，失败则Fallback
-        ok_warning = handle_regular_param_with_warning(
-            executor, screenshot, search_region, param_value,
-            pause_hook, allow_continue, log_callback, visual_callback
+        # 普通参数：优先使用“端口间距法”定位输入框，失败则走端口偏移 fallback
+        port_context = find_vertical_context_for_input_port(
+            executor,
+            screenshot,
+            node_bbox,
+            port_center,
+            param_name,
+            log_callback,
+            ports_snapshot=stable_ports_snapshot,
+            log_prefix="[参数配置/非布尔]",
         )
-        
-        if ok_warning:
-            snapshot.mark_dirty(require_bbox=True)
-            continue  # 成功，处理下一个参数
-        
-        # Warning未命中，使用Fallback
-        ok_fallback = handle_regular_param_fallback(
-            executor, port_center, param_value, effective_type, node_bbox, current_port,
-            pause_hook, allow_continue, log_callback, visual_callback
-        )
-        
-        if not ok_fallback:
+        if port_context is None:
             return False
-        
+        current_port, next_port = port_context
+
+        ok_by_ports = handle_regular_param_by_port_gap(
+            executor,
+            screenshot,
+            node_bbox,
+            current_port,
+            next_port,
+            param_value,
+            pause_hook,
+            allow_continue,
+            log_callback,
+            visual_callback,
+            log_prefix="[参数配置/非布尔]",
+        )
+
+        if not ok_by_ports:
+            return False
+
         snapshot.mark_dirty(require_bbox=True)
+        continue
     
     # 所有参数处理完毕
     return True

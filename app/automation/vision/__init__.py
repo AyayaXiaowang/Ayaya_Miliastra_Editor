@@ -18,21 +18,33 @@ from typing import List, Tuple, Optional, Any, Dict
 from PIL import Image
 
 from . import vision_backend as _vb
+from .vision_backend import RegionRecognizedNode as RegionRecognizedNode
 from app.automation.capture import capture_client_image as _capture_client_image
 
 from .ui_profile_params import get_port_header_height_px as _get_port_header_height_px
-
-_NODE_GRID_SIZE = 256
-_DUPLICATE_IOU_THRESHOLD = 0.35
-_DUPLICATE_CONTAINMENT_RATIO = 0.85
-_DUPLICATE_CENTER_DISTANCE_PX = 28.0
-_DUPLICATE_AXIS_OVERLAP_RATIO = 0.65
+from .ui_profile_params import (
+    get_node_dedup_axis_overlap_ratio as _get_node_dedup_axis_overlap_ratio,
+    get_node_dedup_center_distance_px as _get_node_dedup_center_distance_px,
+    get_node_dedup_containment_ratio as _get_node_dedup_containment_ratio,
+    get_node_dedup_grid_size_px as _get_node_dedup_grid_size_px,
+    get_node_dedup_iou_threshold as _get_node_dedup_iou_threshold,
+)
 _last_node_filter_report: Optional[Dict[str, Any]] = None
 
 
 def get_port_recognition_header_height_px() -> int:
     """返回当前环境下端口识别应跳过的节点标题栏高度（像素）。"""
     return int(_get_port_header_height_px())
+
+
+def get_node_header_height_px_for_bbox(image: Image.Image, node_bbox: Tuple[int, int, int, int]) -> int:
+    """返回与给定节点矩形最匹配的“标题栏/顶部区域”高度（像素）。
+
+    说明：
+    - 返回值优先来自一步式识别的动态结果（色块检测阶段的标题栏高度）；
+    - 若缓存未命中或底层不支持，则返回 0，由调用方决定是否回退到 profile 高度。
+    """
+    return int(_vb.get_node_header_height_px(image, node_bbox))
 
 
 def _round4(value: float) -> float:
@@ -85,17 +97,24 @@ def _calc_overlap_metrics(box_a: Tuple[int, int, int, int], box_b: Tuple[int, in
     }
 
 
-def _should_suppress_duplicate(metrics: Dict[str, float]) -> Tuple[bool, Optional[str]]:
+def _should_suppress_duplicate(
+    metrics: Dict[str, float],
+    *,
+    iou_threshold: float,
+    containment_ratio: float,
+    center_distance_px: float,
+    axis_overlap_ratio: float,
+) -> Tuple[bool, Optional[str]]:
     if metrics["intersection_area"] <= 0:
         return False, None
-    if metrics["iou"] >= _DUPLICATE_IOU_THRESHOLD:
+    if metrics["iou"] >= float(iou_threshold):
         return True, "iou"
-    if metrics["containment_ratio"] >= _DUPLICATE_CONTAINMENT_RATIO:
+    if metrics["containment_ratio"] >= float(containment_ratio):
         return True, "containment"
     if (
-        metrics["center_distance"] <= _DUPLICATE_CENTER_DISTANCE_PX
-        and metrics["horizontal_overlap_ratio"] >= _DUPLICATE_AXIS_OVERLAP_RATIO
-        and metrics["vertical_overlap_ratio"] >= _DUPLICATE_AXIS_OVERLAP_RATIO
+        metrics["center_distance"] <= float(center_distance_px)
+        and metrics["horizontal_overlap_ratio"] >= float(axis_overlap_ratio)
+        and metrics["vertical_overlap_ratio"] >= float(axis_overlap_ratio)
     ):
         return True, "center_overlap"
     return False, None
@@ -108,6 +127,11 @@ def list_nodes(canvas_image: Image.Image):
     """
     global _last_node_filter_report
     detections = _vb.list_nodes(canvas_image)
+    grid_size_px = int(_get_node_dedup_grid_size_px())
+    iou_threshold = float(_get_node_dedup_iou_threshold())
+    containment_ratio = float(_get_node_dedup_containment_ratio())
+    center_distance_px = float(_get_node_dedup_center_distance_px())
+    axis_overlap_ratio = float(_get_node_dedup_axis_overlap_ratio())
 
     report: Dict[str, Any] = {
         "raw_count": int(len(detections)),
@@ -128,19 +152,23 @@ def list_nodes(canvas_image: Image.Image):
     cell_map: dict[Tuple[int, int], List[int]] = {}
 
     def _register_cells(index: int, bbox: Tuple[int, int, int, int]) -> None:
-        min_cell_x = int(bbox[0] // _NODE_GRID_SIZE)
-        max_cell_x = int((bbox[0] + bbox[2]) // _NODE_GRID_SIZE)
-        min_cell_y = int(bbox[1] // _NODE_GRID_SIZE)
-        max_cell_y = int((bbox[1] + bbox[3]) // _NODE_GRID_SIZE)
+        if grid_size_px <= 0:
+            return
+        min_cell_x = int(bbox[0] // grid_size_px)
+        max_cell_x = int((bbox[0] + bbox[2]) // grid_size_px)
+        min_cell_y = int(bbox[1] // grid_size_px)
+        max_cell_y = int((bbox[1] + bbox[3]) // grid_size_px)
         for gx in range(min_cell_x, max_cell_x + 1):
             for gy in range(min_cell_y, max_cell_y + 1):
                 cell_map.setdefault((gx, gy), []).append(index)
 
     for det, box, current_area in indexed:
-        min_cell_x = int(box[0] // _NODE_GRID_SIZE)
-        max_cell_x = int((box[0] + box[2]) // _NODE_GRID_SIZE)
-        min_cell_y = int(box[1] // _NODE_GRID_SIZE)
-        max_cell_y = int((box[1] + box[3]) // _NODE_GRID_SIZE)
+        if grid_size_px <= 0:
+            continue
+        min_cell_x = int(box[0] // grid_size_px)
+        max_cell_x = int((box[0] + box[2]) // grid_size_px)
+        min_cell_y = int(box[1] // grid_size_px)
+        max_cell_y = int((box[1] + box[3]) // grid_size_px)
         overlapped = False
         overlap_target_index: Optional[int] = None
         overlap_metrics: Optional[Dict[str, float]] = None
@@ -149,7 +177,13 @@ def list_nodes(canvas_image: Image.Image):
             for gy in range(min_cell_y, max_cell_y + 1):
                 for existing_idx in cell_map.get((gx, gy), []):
                     metrics = _calc_overlap_metrics(box, kept_boxes[existing_idx])
-                    should_suppress, reason = _should_suppress_duplicate(metrics)
+                    should_suppress, reason = _should_suppress_duplicate(
+                        metrics,
+                        iou_threshold=iou_threshold,
+                        containment_ratio=containment_ratio,
+                        center_distance_px=center_distance_px,
+                        axis_overlap_ratio=axis_overlap_ratio,
+                    )
                     if should_suppress:
                         overlapped = True
                         overlap_target_index = existing_idx
@@ -209,6 +243,14 @@ def list_ports(canvas_image: Image.Image, node_bbox: Tuple[int, int, int, int]):
     return _vb.list_ports(canvas_image, node_bbox)
 
 
+def recognize_nodes_with_ports_in_window_region(
+    window_image: Image.Image,
+    window_region: Tuple[int, int, int, int],
+) -> List[RegionRecognizedNode]:
+    """在窗口截图的指定 ROI 内执行一步式识别，返回 ROI 内的节点与端口（窗口坐标系）。"""
+    return _vb.recognize_nodes_with_ports_in_window_region(window_image, window_region)
+
+
 def invalidate_cache() -> None:
     """失效一步式识别缓存。"""
     _vb.invalidate_cache()
@@ -264,6 +306,7 @@ __all__ = [
     "list_ports",
     "invalidate_cache",
     "phase_correlation_delta",
+    "get_node_header_height_px_for_bbox",
     "get_last_raw_titles",
     "get_last_raw_title_rects",
     "get_and_clear_title_mapping_logs",

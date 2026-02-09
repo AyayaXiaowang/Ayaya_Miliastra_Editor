@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
@@ -28,13 +30,105 @@ from engine.graph.common import (
 )
 
 
+def _scan_complete_json_container_end(text: str, start_index: int) -> Optional[int]:
+    """扫描从 start_index 开始的 JSON 容器（object/array）结束位置（end_exclusive）。
+
+    说明：
+    - 仅做“结构完整性”扫描：括号匹配 + 字符串/转义处理；不做语义解析。
+    - 用途：避免 cache 文件被拼接/尾部残留时，直接 json.loads 触发 JSONDecodeError。
+
+    Returns:
+        end_exclusive: 容器结束的下一个索引；若无法确定完整容器，返回 None。
+    """
+    if start_index < 0 or start_index >= len(text):
+        return None
+    if text[start_index] not in "{[":
+        return None
+
+    container_stack: list[str] = []
+    in_string = False
+    is_escaped = False
+
+    for cursor_index in range(start_index, len(text)):
+        current_char = text[cursor_index]
+        if in_string:
+            if is_escaped:
+                is_escaped = False
+                continue
+            if current_char == "\\":
+                is_escaped = True
+                continue
+            if current_char == '"':
+                in_string = False
+            continue
+
+        if current_char == '"':
+            in_string = True
+            continue
+        if current_char in "{[":
+            container_stack.append(current_char)
+            continue
+        if current_char in "}]":
+            if not container_stack:
+                return None
+            open_char = container_stack.pop()
+            if open_char == "{" and current_char != "}":
+                return None
+            if open_char == "[" and current_char != "]":
+                return None
+            if not container_stack:
+                return cursor_index + 1
+    return None
+
+
+def _strip_bom_and_whitespace(text: str) -> str:
+    # BOM 不是 isspace()，但在 JSON 文本中它不应参与“是否有内容”的判定
+    return text.replace("\ufeff", "").strip()
+
+
+def _extract_last_complete_json_container_text(text: str) -> tuple[Optional[str], bool]:
+    """提取文本中最后一个完整 JSON 容器（object/array）的原始片段。
+
+    Returns:
+        - json_text: 最后一个完整容器片段（从 '{' 或 '[' 到对应闭合结束），找不到则 None。
+        - needs_repair: 若原文本除该容器外仍含其它非空白内容（含多段 JSON/尾部残留），为 True。
+    """
+    text_length = len(text)
+    cursor_index = 0
+    while cursor_index < text_length and (text[cursor_index].isspace() or text[cursor_index] == "\ufeff"):
+        cursor_index += 1
+
+    last_start: Optional[int] = None
+    last_end: Optional[int] = None
+
+    while cursor_index < text_length and text[cursor_index] in "{[":
+        container_start = cursor_index
+        container_end = _scan_complete_json_container_end(text, container_start)
+        if container_end is None:
+            break
+        last_start = container_start
+        last_end = container_end
+
+        cursor_index = container_end
+        while cursor_index < text_length and (text[cursor_index].isspace() or text[cursor_index] == "\ufeff"):
+            cursor_index += 1
+
+    if last_start is None or last_end is None:
+        return None, False
+
+    prefix = text[:last_start]
+    suffix = text[last_end:]
+    needs_repair = bool(_strip_bom_and_whitespace(prefix)) or bool(_strip_bom_and_whitespace(suffix))
+    return text[last_start:last_end], needs_repair
+
+
 class PersistentGraphCacheManager:
     """节点图持久化缓存管理器（磁盘）。"""
 
     def __init__(self, workspace_path: Path) -> None:
         """
         Args:
-            workspace_path: 工作空间根目录（Graph_Generater）
+            workspace_path: 工作区根目录（workspace_root）
         """
         self.workspace_path = workspace_path
 
@@ -50,12 +144,9 @@ class PersistentGraphCacheManager:
         if not cache_file.exists():
             return None
 
-        # 兼容：磁盘缓存文件可能在异常中断/并发写入时变为空文件。
-        # 空文件等价于“无缓存”，应直接回退到重新解析/重建流程，避免 JSONDecodeError 阻断启动。
-        cache_text = cache_file.read_text(encoding="utf-8")
-        if not cache_text.strip():
+        data = self._read_cache_payload_dict(cache_file, graph_id=graph_id)
+        if data is None:
             return None
-        data = json.loads(cache_text)
 
         required_keys = {"file_hash", "node_defs_fp", "result_data"}
         if not all(key in data for key in required_keys):
@@ -87,16 +178,30 @@ class PersistentGraphCacheManager:
         if not cache_file.exists():
             return None
 
-        cache_text = cache_file.read_text(encoding="utf-8")
-        if not cache_text.strip():
-            return None
-        payload = json.loads(cache_text)
+        payload = self._read_cache_payload_dict(cache_file, graph_id=graph_id)
         if not isinstance(payload, dict):
             return None
         result = payload.get("result_data")
         if not isinstance(result, dict):
             return None
         return result
+
+    def read_persistent_graph_cache_payload(self, graph_id: str) -> Optional[dict]:
+        """读取持久化缓存文件中的原始 payload（不做哈希/指纹校验）。
+
+        说明：
+        - 与 `read_persistent_graph_cache_result_data()` 的区别在于：该方法返回包含
+          file_hash/node_defs_fp/result_data/cached_at 的完整 payload，便于列表页做轻量判定；
+        - 仍会执行“多段 JSON/尾部残留”的自动修复，避免缓存损坏阻断启动。
+        """
+        cache_dir = self._get_graph_cache_dir()
+        cache_file = cache_dir / f"{graph_id}.json"
+        if not cache_file.exists():
+            return None
+        payload = self._read_cache_payload_dict(cache_file, graph_id=graph_id)
+        if not isinstance(payload, dict):
+            return None
+        return payload
 
     def save_persistent_graph_cache(
         self,
@@ -108,7 +213,6 @@ class PersistentGraphCacheManager:
         cache_dir = self._get_graph_cache_dir()
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_file = cache_dir / f"{graph_id}.json"
-        tmp_file = cache_dir / f"{graph_id}.json.tmp"
         log_info("[缓存][图] 写入持久化缓存：{} -> {}", graph_id, cache_file)
         payload = {
             "file_hash": self._compute_file_md5(file_path),
@@ -116,12 +220,7 @@ class PersistentGraphCacheManager:
             "result_data": result_data,
             "cached_at": datetime.now().isoformat(),
         }
-        # 原子写入：先写临时文件，再替换目标文件，避免中断导致空文件/半写入 JSON。
-        # 额外兜底：在外部工具/并发清缓存的情况下，目录可能在 mkdir 后被删除；写入前再次确保父目录存在。
-        tmp_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(tmp_file, "w", encoding="utf-8") as file_obj:
-            json.dump(payload, file_obj, ensure_ascii=False, indent=2)
-        tmp_file.replace(cache_file)
+        self._atomic_write_cache_payload(cache_file, payload)
         log_info("[缓存][图] 持久化缓存写入完成：{}", graph_id)
 
     def clear_all_persistent_graph_cache(self) -> int:
@@ -157,6 +256,47 @@ class PersistentGraphCacheManager:
     def _get_graph_cache_dir(self) -> Path:
         return get_graph_cache_dir(self.workspace_path)
 
+    def _read_cache_payload_dict(self, cache_file: Path, *, graph_id: str) -> Optional[dict]:
+        """读取 cache_file 中的 payload（dict）。
+
+        兼容策略（无 try/except）：
+        - 空文件：视为无缓存；
+        - 拼接/尾部残留：提取最后一个完整 JSON 容器并“原子重写”为单段 JSON；
+        - 不完整/结构无法闭合：删除该文件并视为无缓存（避免阻断启动）。
+        """
+        cache_text = cache_file.read_text(encoding="utf-8")
+        if not cache_text.strip():
+            return None
+
+        container_text, needs_repair = _extract_last_complete_json_container_text(cache_text)
+        if not container_text:
+            log_warn("[缓存][图] 持久化缓存损坏（无法定位完整 JSON），已删除：{}", graph_id)
+            cache_file.unlink()
+            return None
+
+        payload = json.loads(container_text)
+        if not isinstance(payload, dict):
+            log_warn("[缓存][图] 持久化缓存格式异常（非 dict），已删除：{}", graph_id)
+            cache_file.unlink()
+            return None
+
+        if needs_repair:
+            log_warn("[缓存][图] 持久化缓存检测到拼接/残留，已自动修复：{}", graph_id)
+            self._atomic_write_cache_payload(cache_file, payload)
+        return payload
+
+    @staticmethod
+    def _atomic_write_cache_payload(target_file: Path, payload: dict) -> None:
+        """原子写入 JSON（使用唯一临时文件名，降低并发写入相互覆盖/交错的概率）。"""
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp_file = target_file.with_name(
+            f"{target_file.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        )
+        tmp_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(tmp_file, "w", encoding="utf-8") as file_obj:
+            json.dump(payload, file_obj, ensure_ascii=False, indent=2)
+        tmp_file.replace(target_file)
+
     @staticmethod
     def _compute_file_md5(file_path: Path) -> str:
         md5 = hashlib.md5()
@@ -172,7 +312,7 @@ class PersistentGraphCacheManager:
         - 实现库：`plugins/nodes/`
         - 节点定义/加载核心：`engine/nodes/`
         - 图解析与生成核心：`engine/graph/`
-        - 复合节点库：`assets/资源库/复合节点库/`
+        - 复合节点库：位于任一资源根目录下的 `复合节点库/`
         """
         return compute_node_defs_fingerprint(self.workspace_path)
 

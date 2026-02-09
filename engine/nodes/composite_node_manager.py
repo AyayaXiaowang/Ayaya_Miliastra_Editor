@@ -10,12 +10,14 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig, MappedPort
 from engine.nodes.node_definition_loader import NodeDef
-from engine.nodes.composite_file_policy import discover_composite_definition_files
+from engine.nodes.composite_file_policy import discover_scoped_composite_definition_files
 from engine.nodes.composite_node_loader import CompositeNodeLoader
 from engine.nodes.composite_folder_manager import CompositeFolderManager
 from engine.nodes.composite_virtual_pin_manager import CompositeVirtualPinManager
 from engine.nodes.impl_definition_loader import load_all_nodes_from_impl
 from engine.utils.logging.logger import log_info, log_warn, log_error
+from engine.utils.resource_library_layout import get_default_unclassified_package_root_dir
+from engine.utils.runtime_scope import get_active_package_id
 
 if TYPE_CHECKING:
     from engine.resources.package_index_manager import PackageIndexManager
@@ -42,16 +44,20 @@ class CompositeNodeManager:
         """初始化复合节点管理器
         
         Args:
-            workspace_path: 工作空间路径（Graph_Generater目录）
+            workspace_path: 工作区根目录（workspace_root）
             verbose: 是否打印详细日志（默认False）
             base_node_library: 外部注入的基础节点库（避免循环依赖）
         """
         self.workspace_path = workspace_path
-        self.composite_library_dir = workspace_path / "assets" / "资源库" / "复合节点库"
+        resource_library_root = workspace_path / "assets" / "资源库"
+        default_package_root = get_default_unclassified_package_root_dir(resource_library_root)
+        # 复合节点库目录遵循“资源根目录（共享/项目存档/<package_id>）”约定：不再在 legacy 根
+        # `assets/资源库/复合节点库/` 下创建或写入任何内容。
+        self.composite_library_dir = default_package_root / "复合节点库"
         self.verbose = verbose
-        
-        # 确保目录存在
-        self.composite_library_dir.mkdir(parents=True, exist_ok=True)
+
+        # 当前库加载时使用的作用域（用于避免跨项目存档重复 ID 覆盖）。
+        self._loaded_active_package_id: str | None = None
         
         # 内存中的复合节点库 {composite_id: CompositeNodeConfig}
         self.composite_nodes: Dict[str, CompositeNodeConfig] = {}
@@ -107,8 +113,13 @@ class CompositeNodeManager:
     
     def _load_library(self) -> None:
         """从文件加载复合节点库（类格式）"""
-        # 扫描复合节点定义文件（统一规则：assets/资源库/复合节点库/**/composite_*.py）
-        py_files = discover_composite_definition_files(self.workspace_path)
+        # 扫描复合节点定义文件（按作用域：共享根 + 当前项目存档根）
+        active_package_id = get_active_package_id()
+        self._loaded_active_package_id = active_package_id
+        py_files = discover_scoped_composite_definition_files(
+            self.workspace_path,
+            active_package_id=active_package_id,
+        )
         
         # 扫描并收集所有文件夹
         self.folder_manager.scan_folders()
@@ -126,6 +137,21 @@ class CompositeNodeManager:
         
         if self.verbose:
             log_info(f"加载了 {len(self.composite_nodes)} 个复合节点，{len(self.folder_manager.folders)} 个文件夹")
+
+    def reload_library_from_disk(self) -> None:
+        """重新扫描复合节点库并重建内存索引。
+
+        适用场景：
+        - 外部工具/编辑器直接修改了资源库中的 `复合节点库/**/*.py`；
+        - UI 需要在不重启进程的情况下同步最新的复合节点列表/虚拟引脚。
+
+        注意：
+        - 该方法会清空当前内存索引并重扫全部复合节点定义文件；
+        - 已懒加载的子图（sub_graph）会被丢弃，后续访问会按需从文件重新加载。
+        """
+        self.composite_nodes.clear()
+        self.composite_index.clear()
+        self._load_library()
     
     
     def generate_unique_name(self, base_name: str = "新建复合节点") -> str:
@@ -738,6 +764,10 @@ def get_composite_node_manager(
             existing = next(iter(_global_managers_by_workspace.values()))
             if composite_code_generator is not None:
                 existing.loader.set_code_generator(composite_code_generator)
+            desired_scope = get_active_package_id()
+            loaded_scope = getattr(existing, "_loaded_active_package_id", None)
+            if desired_scope != loaded_scope:
+                existing.reload_library_from_disk()
             return existing
         if len(_global_managers_by_workspace) == 0:
             raise ValueError("workspace_path 不能为空（首次创建 CompositeNodeManager 必须显式传入）")
@@ -769,6 +799,12 @@ def get_composite_node_manager(
 
     if composite_code_generator is not None:
         existing.loader.set_code_generator(composite_code_generator)
+
+    # 作用域可能已切换：确保复合节点库与当前 active_package_id 一致，避免跨包同 ID 覆盖或漏项。
+    desired_scope = get_active_package_id()
+    loaded_scope = getattr(existing, "_loaded_active_package_id", None)
+    if desired_scope != loaded_scope:
+        existing.reload_library_from_disk()
     return existing
 
 

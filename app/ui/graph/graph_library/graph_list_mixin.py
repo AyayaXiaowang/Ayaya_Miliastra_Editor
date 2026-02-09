@@ -1,11 +1,13 @@
+import copy
+
 from PyQt6 import QtCore, QtWidgets
+from pathlib import Path
 from typing import List, Optional, Dict, Callable
 from datetime import datetime
 
 from engine.resources.resource_manager import ResourceType
 from engine.resources.package_view import PackageView
 from engine.resources.global_resource_view import GlobalResourceView
-from engine.resources.unclassified_resource_view import UnclassifiedResourceView
 from engine.graph.models.graph_config import GraphConfig
 from engine.graph.models.graph_model import GraphModel
 from app.ui.dialogs.graph_detail_dialog import GraphDetailDialog
@@ -14,10 +16,43 @@ from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 from app.ui.foundation.id_generator import generate_prefixed_id
 from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.graph.library_pages.graph_card_widget import GraphCardWidget
+from app.ui.graph.graph_library.graph_resource_load_thread import GraphResourceLoadThread
+from app.ui.graph.graph_library.graph_metadata_load_thread import GraphMetadataLoadThread
 
 
 class GraphListMixin:
     """节点图卡片列表与图操作相关逻辑"""
+
+    def _resolve_graph_write_root_dir(self) -> Path:
+        """解析“新建/复制节点图”的写入根目录。
+
+        规则：
+        - 全局视图（GlobalResourceView）：写入共享根目录
+        - 具体存档视图（PackageView）：写入当前存档根目录
+        """
+        roots = list(self.resource_manager.get_current_resource_roots() or [])
+        if not roots:
+            raise ValueError("无法解析资源根目录：ResourceManager.get_current_resource_roots() 为空")
+
+        folder_scope = str(getattr(self, "current_folder_scope", "") or "").strip().lower() or "all"
+        if folder_scope == "shared":
+            return roots[0]
+        if folder_scope == "package":
+            return roots[1] if len(roots) > 1 else roots[0]
+
+        current_package = getattr(self, "current_package", None)
+        if isinstance(current_package, GlobalResourceView):
+            return roots[0]
+        if isinstance(current_package, PackageView):
+            if len(roots) > 1:
+                return roots[1]
+            return roots[0]
+        return roots[1] if len(roots) > 1 else roots[0]
+
+    @staticmethod
+    def _force_invalidate_graph_list_refresh_signature(host: object) -> None:
+        """使 `_refresh_graph_list` 不被 refresh_signature 短路。"""
+        setattr(host, "__graph_list_refresh_signature", None)
 
     @property
     def _graph_metadata_cache(self) -> Dict[str, dict]:
@@ -43,6 +78,79 @@ class GraphListMixin:
             if metadata:
                 self._graph_metadata_cache[graph_id] = metadata
         return metadata
+
+    def _infer_graph_type_and_folder_path_from_file_path(self, file_path: Path) -> tuple[str, str]:
+        """基于物理路径推断 graph_type 与 folder_path（无需读文件/解析 AST）。"""
+        if not isinstance(file_path, Path):
+            return "", ""
+
+        parts = getattr(file_path, "parts", ())
+        if not parts:
+            return "", ""
+
+        graph_type = ""
+        folder_path = ""
+        if "节点图" in parts:
+            idx = parts.index("节点图")
+            if idx + 1 < len(parts):
+                graph_type = str(parts[idx + 1] or "").strip().lower()
+                # 节点图/<server|client>/<folder...>/<file>.py
+                folder_parts = parts[idx + 2 : -1]
+                folder_path = "/".join([str(part) for part in folder_parts if str(part)])
+
+        if graph_type not in {"server", "client"}:
+            graph_type = ""
+        folder_path = self.resource_manager.sanitize_folder_path(folder_path) if folder_path else ""
+        return graph_type, folder_path
+
+    def _ensure_graph_list_loading_label(self) -> QtWidgets.QLabel:
+        """确保列表顶部存在一个“加载中”提示（幂等）。"""
+        label = getattr(self, "_graph_list_loading_label", None)
+        if isinstance(label, QtWidgets.QLabel):
+            return label
+
+        label = QtWidgets.QLabel("正在加载节点图信息…")
+        label.setObjectName("graphListLoadingLabel")
+        label.setWordWrap(True)
+        label.setVisible(False)
+
+        layout = getattr(self, "graph_container_layout", None)
+        if isinstance(layout, QtWidgets.QVBoxLayout):
+            layout.insertWidget(0, label)
+
+        setattr(self, "_graph_list_loading_label", label)
+        return label
+
+    def _set_graph_list_loading_visible(self, visible: bool, *, text: str = "") -> None:
+        label = self._ensure_graph_list_loading_label()
+        if text:
+            label.setText(str(text))
+        label.setVisible(bool(visible))
+
+    def _cancel_async_graph_metadata_load(self) -> None:
+        prev_thread = getattr(self, "_async_graph_metadata_thread", None)
+        if prev_thread is not None and hasattr(prev_thread, "isRunning") and prev_thread.isRunning():
+            prev_thread.requestInterruption()
+        setattr(self, "_async_graph_metadata_thread", None)
+
+    def _resort_current_graph_cards(self) -> None:
+        """基于当前卡片数据重新排序并移动 QWidget（不重建卡片）。"""
+        order = list(getattr(self, "__graph_order", []) or [])
+        if not order:
+            return
+        graph_data_list: List[dict] = []
+        for graph_id in order:
+            card = self.graph_cards.get(graph_id)
+            if not card:
+                continue
+            graph_data_list.append(
+                {"graph_id": graph_id, "data": card.graph_data, "ref_count": int(getattr(card, "reference_count", 0) or 0)}
+            )
+        sorted_list = self._sort_graphs(graph_data_list)
+        desired_ids = [item["graph_id"] for item in sorted_list]
+        if desired_ids != order:
+            self._reorder_graph_cards(desired_ids)
+            setattr(self, "__graph_order", desired_ids)
 
     def _list_graphs_in_folder_tree(self, graph_type: str, folder_path: str) -> List[dict]:
         """在当前类型下列出指定文件夹及其所有子文件夹中的节点图。
@@ -74,14 +182,14 @@ class GraphListMixin:
             current_package_key = ("package", self.current_package.package_id)
         elif isinstance(self.current_package, GlobalResourceView):
             current_package_key = ("global", "")
-        elif isinstance(self.current_package, UnclassifiedResourceView):
-            current_package_key = ("unclassified", "")
 
         resource_fingerprint = self.resource_manager.get_resource_library_fingerprint()
+        current_folder_scope = str(getattr(self, "current_folder_scope", "") or "") or "all"
         refresh_signature = (
             resource_fingerprint,
             current_package_key,
             self.current_graph_type,
+            current_folder_scope,
             self.current_folder,
             self.current_sort_by,
         )
@@ -90,31 +198,103 @@ class GraphListMixin:
             return
         setattr(self, "__graph_list_refresh_signature", refresh_signature)
 
+        # 切目录时取消上一轮后台元数据加载，避免“点进新目录但旧目录还在补数据”造成抖动。
+        generation = int(getattr(self, "_async_graph_list_generation", 0) or 0) + 1
+        setattr(self, "_async_graph_list_generation", generation)
+        self._cancel_async_graph_metadata_load()
+
+        # 共享图集合：用于“当前项目视图”下混入共享资源时标记与过滤。
+        shared_graph_ids: set[str] = set()
+        resource_roots = list(self.resource_manager.get_current_resource_roots() or [])
+        shared_root_dir = resource_roots[0].resolve() if resource_roots else None
+
+        graph_paths = self.resource_manager.list_resource_file_paths(ResourceType.GRAPH)
+        graph_ids = list(self.resource_manager.list_resources(ResourceType.GRAPH) or [])
+        if isinstance(shared_root_dir, Path):
+            for graph_id_value in graph_ids:
+                graph_id = str(graph_id_value or "").strip()
+                if not graph_id:
+                    continue
+                file_path = graph_paths.get(graph_id)
+                if not isinstance(file_path, Path):
+                    continue
+                resolved_file = file_path.resolve()
+                if hasattr(resolved_file, "is_relative_to"):
+                    if resolved_file.is_relative_to(shared_root_dir):
+                        shared_graph_ids.add(graph_id)
+                else:
+                    root_parts = shared_root_dir.parts
+                    file_parts = resolved_file.parts
+                    if len(file_parts) >= len(root_parts) and file_parts[: len(root_parts)] == root_parts:
+                        shared_graph_ids.add(graph_id)
+
         allowed_graph_ids = None
         if isinstance(self.current_package, PackageView):
             pkg_resources = self.package_index_manager.get_package_resources(self.current_package.package_id)
             allowed_graph_ids = set(pkg_resources.graphs) if pkg_resources else set()
+            # “当前项目视图”下仍应可见共享资源（共享根对所有存档可见）。
+            allowed_graph_ids.update(shared_graph_ids)
 
-        if self.current_folder:
-            graphs = self._list_graphs_in_folder_tree(self.current_graph_type, self.current_folder)
-        else:
-            # 根目录：展示当前类型下的所有节点图，不按 folder_path 进行额外过滤；
-            # 具体“是否属于当前视图/存档”的约束交由后续 allowed_graph_ids /
-            # UnclassifiedResourceView 等视图模型负责。
-            graphs = self.resource_manager.list_graphs_by_type(self.current_graph_type)
+        # 关键优化：切目录时先用“文件路径推断”快速列出 graph_id，不在 UI 线程读文件/解析 AST。
+        sanitized_current_folder = (
+            self.resource_manager.sanitize_folder_path(self.current_folder) if self.current_folder else ""
+        )
+        folder_prefix = f"{sanitized_current_folder}/" if sanitized_current_folder else ""
+        current_folder_scope = str(getattr(self, "current_folder_scope", "") or "") or "all"
+        current_graph_type = str(getattr(self, "current_graph_type", "") or "") or "server"
 
-        if isinstance(self.current_package, UnclassifiedResourceView):
-            unclassified_ids = self.current_package.get_unclassified_graph_ids()
-            graphs = [g for g in graphs if g.get("graph_id") in unclassified_ids]
-        elif allowed_graph_ids is not None:
-            graphs = [g for g in graphs if g.get("graph_id") in allowed_graph_ids]
+        fast_graph_entries: List[dict] = []
+        for graph_id_value in graph_ids:
+            graph_id = str(graph_id_value or "").strip()
+            if not graph_id:
+                continue
+            if allowed_graph_ids is not None and graph_id not in allowed_graph_ids:
+                continue
+
+            file_path = graph_paths.get(graph_id)
+            inferred_type = ""
+            inferred_folder = ""
+            if isinstance(file_path, Path):
+                inferred_type, inferred_folder = self._infer_graph_type_and_folder_path_from_file_path(file_path)
+            if current_graph_type != "all":
+                if inferred_type != current_graph_type:
+                    continue
+            else:
+                if inferred_type not in {"server", "client"}:
+                    continue
+
+            # 文件夹树点击：需要支持“子树”过滤
+            if sanitized_current_folder:
+                if inferred_folder != sanitized_current_folder and not inferred_folder.startswith(folder_prefix):
+                    continue
+
+            is_shared = graph_id in shared_graph_ids
+            if current_folder_scope == "shared" and not is_shared:
+                continue
+            if current_folder_scope == "package" and is_shared:
+                continue
+
+            fast_graph_entries.append(
+                {
+                    "graph_id": graph_id,
+                    "graph_type": inferred_type,
+                    "folder_path": inferred_folder,
+                    "file_path": file_path,
+                    "is_shared": is_shared,
+                }
+            )
 
         graph_data_list = []
-        for graph_info in graphs:
-            graph_id = graph_info["graph_id"]
-            metadata = self._load_graph_metadata_with_cache(graph_id)
-            if metadata:
-                ref_count = self.reference_tracker.get_reference_count(graph_id)
+        pending_metadata_ids: List[str] = []
+        for entry in fast_graph_entries:
+            graph_id = entry["graph_id"]
+            is_shared = bool(entry.get("is_shared"))
+            folder_path = str(entry.get("folder_path", "") or "")
+            graph_type = str(entry.get("graph_type", "") or "")
+            file_path = entry.get("file_path")
+
+            metadata = self._graph_metadata_cache.get(graph_id)
+            if isinstance(metadata, dict):
                 modified_time = metadata.get("modified_time", "")
                 if isinstance(modified_time, (int, float)):
                     timestamp_dt = datetime.fromtimestamp(modified_time)
@@ -126,37 +306,55 @@ class GraphListMixin:
                         timestamp_value = datetime.fromisoformat(time_str).timestamp()
                     except ValueError:
                         timestamp_value = 0
-
                 node_count = int(metadata.get("node_count") or 0)
                 edge_count = int(metadata.get("edge_count") or 0)
                 graph_data = {
-                    "graph_id": metadata["graph_id"],
-                    "name": metadata["name"],
-                    "graph_type": metadata["graph_type"],
-                    "folder_path": metadata["folder_path"],
-                    "description": metadata["description"],
+                    "graph_id": metadata.get("graph_id") or graph_id,
+                    "name": metadata.get("name") or graph_id,
+                    "graph_type": metadata.get("graph_type") or graph_type or "server",
+                    "folder_path": metadata.get("folder_path") or folder_path,
+                    "description": metadata.get("description") or "",
                     "last_modified": time_str,
                     "last_modified_ts": timestamp_value,
                     "node_count": node_count,
                     "edge_count": edge_count,
                     "is_corrupted": False,
+                    "is_shared": is_shared,
                 }
-                graph_data_list.append({"graph_id": graph_id, "data": graph_data, "ref_count": ref_count})
             else:
-                ref_count = self.reference_tracker.get_reference_count(graph_id)
+                # 先构建“占位卡片”：展示文件名/mtime 等快信息，避免切目录卡顿。
+                inferred_name = graph_id
+                last_modified_ts = 0.0
+                last_modified_text = "未知"
+                is_corrupted = False
+                if isinstance(file_path, Path):
+                    inferred_name = file_path.stem or graph_id
+                    if file_path.exists():
+                        last_modified_ts = float(file_path.stat().st_mtime)
+                        last_modified_text = datetime.fromtimestamp(last_modified_ts).strftime("%Y-%m-%d %H:%M:%S")
+                    else:
+                        is_corrupted = True
+                else:
+                    is_corrupted = True
+
                 graph_data = {
                     "graph_id": graph_id,
-                    "name": f"⚠️ {graph_id} (损坏)",
-                    "graph_type": self.current_graph_type,
-                    "folder_path": graph_info.get("folder_path", ""),
-                    "description": "节点图文件损坏或无法解析，请检查代码文件",
-                    "last_modified": "未知",
-                    "last_modified_ts": 0,
+                    "name": f"⚠️ {graph_id} (缺失)" if is_corrupted else inferred_name,
+                    "graph_type": graph_type or ("server" if current_graph_type == "all" else current_graph_type),
+                    "folder_path": folder_path,
+                    "description": "节点图文件缺失或索引异常，请检查资源库" if is_corrupted else "",
+                    "last_modified": last_modified_text,
+                    "last_modified_ts": last_modified_ts,
                     "node_count": 0,
                     "edge_count": 0,
-                    "is_corrupted": True,
+                    "is_corrupted": bool(is_corrupted),
+                    "is_shared": is_shared,
                 }
-                graph_data_list.append({"graph_id": graph_id, "data": graph_data, "ref_count": ref_count})
+                if not is_corrupted:
+                    pending_metadata_ids.append(graph_id)
+
+            ref_count = self.reference_tracker.get_reference_count(graph_id)
+            graph_data_list.append({"graph_id": graph_id, "data": graph_data, "ref_count": ref_count})
 
         graph_data_list = self._sort_graphs(graph_data_list)
 
@@ -224,6 +422,86 @@ class GraphListMixin:
             if hasattr(self, "notify_selection_state"):
                 self.notify_selection_state(False, context={"source": "graph"})
 
+        # 后台补全：只对“未命中内存缓存”的条目读取 docstring 元数据（可能触发 AST 解析，放到线程中）。
+        if pending_metadata_ids:
+            self._set_graph_list_loading_visible(
+                True,
+                text=f"正在加载 {len(pending_metadata_ids)} 个节点图的元信息…（大图首次加载可能稍慢）",
+            )
+            thread = GraphMetadataLoadThread(
+                resource_manager=self.resource_manager,
+                graph_ids=list(pending_metadata_ids),
+                parent=self if isinstance(self, QtCore.QObject) else None,
+            )
+            setattr(self, "_async_graph_metadata_thread", thread)
+
+            def _apply_loaded(graph_id: str, metadata_obj: object) -> None:
+                if int(getattr(self, "_async_graph_list_generation", 0) or 0) != int(generation):
+                    return
+                card = self.graph_cards.get(graph_id)
+                if not card:
+                    return
+                ref_count_value = self.reference_tracker.get_reference_count(graph_id)
+                has_error = self.error_tracker.has_error(graph_id)
+                if isinstance(metadata_obj, dict):
+                    self._graph_metadata_cache[graph_id] = metadata_obj
+                    modified_time = metadata_obj.get("modified_time", "")
+                    if isinstance(modified_time, (int, float)):
+                        timestamp_dt = datetime.fromtimestamp(modified_time)
+                        time_str = timestamp_dt.strftime("%Y-%m-%d %H:%M:%S")
+                        timestamp_value = modified_time
+                    else:
+                        time_str = str(modified_time)
+                        try:
+                            timestamp_value = datetime.fromisoformat(time_str).timestamp()
+                        except ValueError:
+                            timestamp_value = 0
+                    graph_data = {
+                        "graph_id": metadata_obj.get("graph_id") or graph_id,
+                        "name": metadata_obj.get("name") or graph_id,
+                        "graph_type": metadata_obj.get("graph_type") or card.graph_data.get("graph_type") or "server",
+                        "folder_path": metadata_obj.get("folder_path") or card.graph_data.get("folder_path") or "",
+                        "description": metadata_obj.get("description") or "",
+                        "last_modified": time_str,
+                        "last_modified_ts": timestamp_value,
+                        "node_count": int(metadata_obj.get("node_count") or 0),
+                        "edge_count": int(metadata_obj.get("edge_count") or 0),
+                        "is_corrupted": False,
+                        "is_shared": bool(card.graph_data.get("is_shared")),
+                    }
+                else:
+                    graph_data = dict(card.graph_data)
+                    graph_data["name"] = f"⚠️ {graph_id} (损坏)"
+                    graph_data["description"] = "节点图文件损坏或无法解析，请检查代码文件"
+                    graph_data["is_corrupted"] = True
+
+                snapshot_entry = self._build_graph_snapshot_entry(graph_data, ref_count_value, has_error)
+                current_snapshot = getattr(self, "__graph_snapshot", {}) or {}
+                if current_snapshot.get(graph_id) != snapshot_entry:
+                    card.update_graph_info(graph_data, ref_count_value, has_error)
+                    current_snapshot = dict(current_snapshot)
+                    current_snapshot[graph_id] = snapshot_entry
+                    setattr(self, "__graph_snapshot", current_snapshot)
+
+            thread.metadata_loaded.connect(_apply_loaded)
+
+            def _on_done() -> None:
+                current_thread = getattr(self, "_async_graph_metadata_thread", None)
+                if current_thread is thread:
+                    setattr(self, "_async_graph_metadata_thread", None)
+                if int(getattr(self, "_async_graph_list_generation", 0) or 0) != int(generation):
+                    return
+                self._set_graph_list_loading_visible(False)
+                # 若当前排序依赖名称/节点数，则在元数据补全后重新排序一次，确保结果准确。
+                if str(getattr(self, "current_sort_by", "") or "") in {"name", "nodes"}:
+                    self._resort_current_graph_cards()
+
+            thread.finished.connect(_on_done)
+            thread.finished.connect(thread.deleteLater)
+            thread.start()
+        else:
+            self._set_graph_list_loading_visible(False)
+
     def _sort_graphs(self, graph_list: List[dict]) -> List[dict]:
         """根据当前排序方式对节点图列表排序"""
         sorters: Dict[str, Callable[[dict], object]] = {
@@ -233,10 +511,24 @@ class GraphListMixin:
             "references": lambda item: item["ref_count"],
         }
         sorter = sorters.get(self.current_sort_by)
-        if sorter:
-            reverse_flag = self.current_sort_by in {"modified", "nodes", "references"}
-            return sorted(graph_list, key=sorter, reverse=reverse_flag)
-        return graph_list
+        if not sorter:
+            return graph_list
+
+        # 约定：无论选择何种排序规则，都要保证“当前项目资源优先、共享资源靠后”。
+        # 即：先按 is_shared 分组，再在各自分组内应用当前排序规则。
+        reverse_flag = self.current_sort_by in {"modified", "nodes", "references"}
+
+        project_graphs = [
+            item for item in graph_list if not bool((item.get("data") or {}).get("is_shared"))
+        ]
+        shared_graphs = [
+            item for item in graph_list if bool((item.get("data") or {}).get("is_shared"))
+        ]
+
+        return (
+            sorted(project_graphs, key=sorter, reverse=reverse_flag)
+            + sorted(shared_graphs, key=sorter, reverse=reverse_flag)
+        )
 
     def _on_graph_card_clicked(self, graph_id: str) -> None:
         """卡片点击"""
@@ -249,33 +541,63 @@ class GraphListMixin:
 
     def _on_graph_card_double_clicked(self, graph_id: str) -> None:
         """卡片双击 - 打开编辑"""
-        if graph_id in self.graph_cards:
-            card_data = None
-            for card in self.graph_cards.values():
-                if hasattr(card, "graph_id") and card.graph_id == graph_id:
-                    metadata = self.resource_manager.load_graph_metadata(graph_id)
-                    if not metadata:
-                        card_data = {"is_corrupted": True}
-                        break
-            if card_data and card_data.get("is_corrupted"):
-                self.show_error(
-                    "无法打开节点图",
-                    f"节点图 '{graph_id}' 已损坏，无法打开编辑。\n\n可能的原因：\n"
-                    "• 代码文件包含语法错误\n"
-                    "• 使用了不存在的节点类型\n"
-                    "• 文件被手动修改导致格式错误\n\n"
+        # selection_mode（例如 GraphSelectionDialog）：双击仅代表“选择该 graph_id”，不应触发重度解析加载。
+        if bool(getattr(self, "selection_mode", False)):
+            self.graph_double_clicked.emit(str(graph_id or ""), {})
+            return
+
+        graph_id_text = str(graph_id or "").strip()
+        if not graph_id_text:
+            return
+
+        # 轻量检查：若无法读取 docstring 元数据，通常意味着文件缺失或已损坏（不进入加载线程）
+        metadata = self.resource_manager.load_graph_metadata(graph_id_text)
+        if not metadata:
+            self.show_error(
+                "无法打开节点图",
+                f"节点图 '{graph_id_text}' 已损坏或无法解析，无法打开编辑。\n\n可能的原因：\n"
+                "• 代码文件包含语法错误\n"
+                "• 使用了不存在的节点类型\n"
+                "• 文件被手动修改导致格式错误\n"
+                "• 文件已被移动/删除\n\n"
+                "建议：\n"
+                "• 检查资源库中的代码文件\n"
+                "• 查看控制台输出中的详细错误信息\n"
+                "• 如果有备份，尝试从备份恢复",
+            )
+            return
+
+        # 后台加载：避免 load_resource(ResourceType.GRAPH, ...) 在 UI 线程阻塞（解析/布局/缓存命中等可能很重）
+        generation = int(getattr(self, "_async_graph_open_generation", 0) or 0) + 1
+        setattr(self, "_async_graph_open_generation", generation)
+
+        prev_thread = getattr(self, "_async_graph_open_thread", None)
+        if prev_thread is not None and hasattr(prev_thread, "isRunning") and prev_thread.isRunning():
+            prev_thread.requestInterruption()
+        setattr(self, "_async_graph_open_thread", None)
+
+        thread = GraphResourceLoadThread(resource_manager=self.resource_manager, graph_id=graph_id_text, parent=self)
+        setattr(self, "_async_graph_open_thread", thread)
+
+        def _on_finished() -> None:
+            if int(getattr(self, "_async_graph_open_generation", 0) or 0) != int(generation):
+                return
+            result = getattr(thread, "result", None)
+            if result is None or not isinstance(result.graph_data, dict):
+                self.show_warning(
+                    "加载失败",
+                    f"无法加载节点图 '{graph_id_text}'。\n\n可能的原因：\n"
+                    "• 文件不存在、已被移动/删除或已损坏\n"
+                    "• 节点图无法通过校验（请检查节点图逻辑并修正后再加载）\n\n"
                     "建议：\n"
-                    "• 检查资源库中的代码文件\n"
                     "• 查看控制台输出中的详细错误信息\n"
-                    "• 如果有备份，尝试从备份恢复",
+                    "• 运行节点图校验：python -X utf8 -m app.cli.graph_tools validate-graphs --all（或 validate-file <图文件路径>）",
                 )
                 return
+            self.graph_double_clicked.emit(str(result.graph_id or graph_id_text), result.graph_data)
 
-        graph_data = self.resource_manager.load_resource(ResourceType.GRAPH, graph_id)
-        if graph_data:
-            self.graph_double_clicked.emit(graph_id, graph_data)
-        else:
-            self.show_warning("加载失败", f"无法加载节点图 '{graph_id}'。\n\n请检查文件是否存在或是否已损坏。")
+        thread.finished.connect(_on_finished)
+        thread.start()
 
     def _on_reference_clicked(self, graph_id: str) -> None:
         """点击引用按钮 - 显示引用详情"""
@@ -323,7 +645,7 @@ class GraphListMixin:
                 self.show_warning(
                     "只读模式",
                     "当前节点图库为只读模式，不能在 UI 中新建节点图；"
-                    "请在 assets/资源库/节点图 下通过 Python 文件定义新图。",
+                    "请在 assets/资源库/项目存档/<项目存档名>/节点图 或 assets/资源库/共享/节点图 下通过 Python 文件定义新图。",
                 )
             return
         name = input_dialogs.prompt_text(self, "新建节点图", "请输入节点图名称:")
@@ -361,13 +683,162 @@ class GraphListMixin:
                 "metadata": {"graph_type": graph_type},
             },
         )
-        self.resource_manager.save_resource(ResourceType.GRAPH, graph_id, graph_config.serialize())
+        write_root_dir = self._resolve_graph_write_root_dir()
+        saved = self.resource_manager.save_resource(
+            ResourceType.GRAPH,
+            graph_id,
+            graph_config.serialize(),
+            resource_root_dir=write_root_dir,
+        )
+        if not saved:
+            self.show_error("新建失败", f"新建节点图 '{name}' 失败：保存被取消（往返校验未通过或存在保存冲突）。")
+            return
+
+        # 新建资源：失效 PackageIndex 派生缓存，确保当前视图能立即看到新图
+        current_package = getattr(self, "current_package", None)
+        if isinstance(current_package, PackageView):
+            invalidate_cache = getattr(self.package_index_manager, "invalidate_package_index_cache", None)
+            if callable(invalidate_cache):
+                invalidate_cache(current_package.package_id)
+
+        self._force_invalidate_graph_list_refresh_signature(self)
         self._invalidate_graph_metadata(graph_id)
         self._refresh_graph_list()
         self.selected_graph_id = graph_id
         if graph_id in self.graph_cards:
             self.graph_cards[graph_id].set_selected(True)
             self.graph_selected.emit(graph_id)
+
+    def _duplicate_selected_graph(self) -> None:
+        """复制当前选中的节点图（生成新 graph_id）。"""
+        if getattr(self, "graph_library_read_only", False):
+            if hasattr(self, "show_warning"):
+                self.show_warning(
+                    "只读模式",
+                    "当前节点图库为只读模式，不能在 UI 中复制节点图；请在资源库中手动复制对应文件。",
+                )
+            return
+        graph_id = str(getattr(self, "selected_graph_id", "") or "").strip()
+        if not graph_id:
+            self.show_warning("提示", "请先选择要复制的节点图")
+            return
+
+        graph_data = self.resource_manager.load_resource(ResourceType.GRAPH, graph_id)
+        if not graph_data:
+            self.show_warning("警告", "无法加载节点图数据")
+            return
+
+        graph_config = GraphConfig.deserialize(graph_data)
+        new_graph_id = generate_prefixed_id("graph")
+        new_name = f"{graph_config.name} - 副本"
+
+        new_data = copy.deepcopy(graph_config.data) if isinstance(graph_config.data, dict) else {}
+        if isinstance(new_data, dict):
+            new_data["graph_id"] = new_graph_id
+            new_data["graph_name"] = new_name
+            metadata = new_data.get("metadata")
+            if isinstance(metadata, dict):
+                metadata.setdefault("graph_type", graph_config.graph_type)
+
+        new_graph_config = GraphConfig(
+            graph_id=new_graph_id,
+            name=new_name,
+            graph_type=graph_config.graph_type,
+            folder_path=str(getattr(graph_config, "folder_path", "") or ""),
+            data=new_data,
+        )
+        new_graph_config.update_timestamp()
+
+        write_root_dir = self._resolve_graph_write_root_dir()
+        saved = self.resource_manager.save_resource(
+            ResourceType.GRAPH,
+            new_graph_id,
+            new_graph_config.serialize(),
+            resource_root_dir=write_root_dir,
+        )
+        if not saved:
+            self.show_error("复制失败", f"复制节点图 '{graph_config.name}' 失败：保存被取消（往返校验未通过或存在保存冲突）。")
+            return
+
+        current_package = getattr(self, "current_package", None)
+        if isinstance(current_package, PackageView):
+            invalidate_cache = getattr(self.package_index_manager, "invalidate_package_index_cache", None)
+            if callable(invalidate_cache):
+                invalidate_cache(current_package.package_id)
+
+        self._force_invalidate_graph_list_refresh_signature(self)
+        self._invalidate_graph_metadata(new_graph_id)
+        self._refresh_graph_list()
+        self.select_graph_by_id(new_graph_id, open_editor=False, sync_folder_filter=False)
+        ToastNotification.show_message(
+            QtWidgets.QApplication.activeWindow(),
+            f"已复制节点图：{new_name}",
+            "info",
+        )
+
+    def _rename_selected_graph(self) -> None:
+        """重命名当前选中的节点图（仅修改 name 字段）。"""
+        if getattr(self, "graph_library_read_only", False):
+            if hasattr(self, "show_warning"):
+                self.show_warning(
+                    "只读模式",
+                    "当前节点图库为只读模式，不能在 UI 中重命名节点图；请在资源库中修改对应文件。",
+                )
+            return
+        graph_id = str(getattr(self, "selected_graph_id", "") or "").strip()
+        if not graph_id:
+            self.show_warning("提示", "请先选择要重命名的节点图")
+            return
+
+        graph_data = self.resource_manager.load_resource(ResourceType.GRAPH, graph_id)
+        if not graph_data:
+            self.show_warning("警告", "无法加载节点图数据")
+            return
+
+        graph_config = GraphConfig.deserialize(graph_data)
+        old_name = str(getattr(graph_config, "name", "") or "").strip() or graph_id
+        new_name = input_dialogs.prompt_text(
+            self,
+            "重命名节点图",
+            "请输入新的节点图名称:",
+            text=old_name,
+        )
+        if not new_name:
+            return
+        new_name = str(new_name).strip()
+        if not new_name or new_name == old_name:
+            return
+
+        graph_config.name = new_name
+        if isinstance(graph_config.data, dict):
+            graph_config.data["graph_name"] = new_name
+        graph_config.update_timestamp()
+        saved = self.resource_manager.save_resource(ResourceType.GRAPH, graph_id, graph_config.serialize())
+        if not saved:
+            self.show_error("重命名失败", f"重命名节点图 '{old_name}' 失败：保存被取消（往返校验未通过或存在保存冲突）。")
+            return
+
+        self._force_invalidate_graph_list_refresh_signature(self)
+        self._invalidate_graph_metadata(graph_id)
+        self._refresh_graph_list()
+        self.select_graph_by_id(graph_id, open_editor=False, sync_folder_filter=False)
+        ToastNotification.show_message(
+            QtWidgets.QApplication.activeWindow(),
+            f"已重命名节点图：{new_name}",
+            "info",
+        )
+
+    def _locate_issues_for_selected_graph(self) -> None:
+        """打开验证页面并定位到与当前节点图相关的问题（若存在）。"""
+        graph_id = str(getattr(self, "selected_graph_id", "") or "").strip()
+        if not graph_id:
+            self.show_warning("提示", "请先选择要定位问题的节点图")
+            return
+        window = getattr(self, "window", None)
+        host = window() if callable(window) else window
+        locate = getattr(host, "_locate_issues_for_resource_id", None) if host is not None else None
+        if callable(locate):
+            locate(graph_id)
 
     def _delete_selected(self) -> None:
         """删除选中的节点图或文件夹"""
@@ -404,6 +875,7 @@ class GraphListMixin:
         if not self.confirm("确认删除", message):
             return
         self.resource_manager.delete_resource(ResourceType.GRAPH, graph_id)
+        self._force_invalidate_graph_list_refresh_signature(self)
         self._invalidate_graph_metadata(graph_id)
         self._refresh_graph_list()
         host_widget: Optional[QtWidgets.QWidget]
@@ -438,7 +910,9 @@ class GraphListMixin:
             return
 
         graph_config = GraphConfig.deserialize(graph_data)
-        folders = self.resource_manager.get_all_graph_folders()
+        folders = self.resource_manager.get_all_graph_folders(
+            resource_roots=self.resource_manager.get_current_resource_roots()
+        )
         type_folders = folders.get(graph_config.graph_type, [])
         folder_choices = ["<根目录>"] + type_folders
         target_folder = input_dialogs.prompt_item(
@@ -454,7 +928,12 @@ class GraphListMixin:
         new_folder_path = "" if target_folder == "<根目录>" else target_folder
         graph_config.folder_path = new_folder_path
         graph_config.update_timestamp()
-        self.resource_manager.save_resource(ResourceType.GRAPH, graph_id, graph_config.serialize())
+        saved = self.resource_manager.save_resource(ResourceType.GRAPH, graph_id, graph_config.serialize())
+        if not saved:
+            self.show_error("移动失败", f"移动节点图 '{graph_config.name}' 失败：保存被取消（往返校验未通过或存在保存冲突）。")
+            return
+
+        self._force_invalidate_graph_list_refresh_signature(self)
         self._refresh_folder_tree()
         self._invalidate_graph_metadata(graph_id)
         self._refresh_graph_list()
@@ -482,18 +961,36 @@ class GraphListMixin:
         read_only = getattr(self, "graph_library_read_only", False)
         if clicked_card:
             graph_id = clicked_card.graph_id
+            # 右键也应视为一次“选中”，确保菜单动作作用于当前卡片。
+            self._on_graph_card_clicked(graph_id)
             if read_only:
                 builder.add_action("查看节点图", lambda: self._on_graph_card_double_clicked(graph_id))
                 builder.add_separator()
                 builder.add_action("查看详情", lambda: self._show_graph_detail_by_id(graph_id))
             else:
+                primary_shortcut = getattr(self, "_primary_shortcut", None)
+                shortcut_dup = (
+                    str(primary_shortcut("library.duplicate") or "") if callable(primary_shortcut) else "Ctrl+D"
+                )
+                shortcut_rename = (
+                    str(primary_shortcut("library.rename") or "") if callable(primary_shortcut) else "F2"
+                )
+                shortcut_move = (
+                    str(primary_shortcut("library.move") or "") if callable(primary_shortcut) else ""
+                )
+                shortcut_delete = (
+                    str(primary_shortcut("library.delete") or "") if callable(primary_shortcut) else ""
+                )
+
                 builder.add_action("编辑节点图", lambda: self._on_graph_card_double_clicked(graph_id))
                 builder.add_separator()
-                builder.add_action("移动到文件夹", self._move_graph)
+                builder.add_action("复制", self._duplicate_selected_graph, shortcut=(shortcut_dup or None))
+                builder.add_action("重命名", self._rename_selected_graph, shortcut=(shortcut_rename or None))
+                builder.add_action("移动到文件夹", self._move_graph, shortcut=(shortcut_move or None))
                 builder.add_separator()
                 builder.add_action("查看详情", lambda: self._show_graph_detail_by_id(graph_id))
                 builder.add_separator()
-                builder.add_action("删除", lambda: self._delete_graph_by_id(graph_id))
+                builder.add_action("删除", lambda: self._delete_graph_by_id(graph_id), shortcut=(shortcut_delete or None))
         else:
             if not read_only:
                 builder.add_action("+ 新建节点图", self._add_graph)
@@ -515,8 +1012,20 @@ class GraphListMixin:
         """处理从详情对话框跳转到实体"""
         self.jump_to_entity_requested.emit(entity_type, entity_id, package_id)
 
-    def select_graph_by_id(self, graph_id: str, open_editor: bool = False) -> None:
-        """程序化选择并（可选）打开指定ID的节点图"""
+    def select_graph_by_id(
+        self,
+        graph_id: str,
+        open_editor: bool = False,
+        *,
+        sync_folder_filter: bool = True,
+    ) -> None:
+        """程序化选择并（可选）打开指定ID的节点图。
+
+        参数：
+        - sync_folder_filter:
+            - True：同步切换左侧目录筛选（current_folder），让中间列表聚焦到目标节点图所在文件夹子树；
+            - False：仅保证类型切换与卡片选中，不改变当前目录筛选（用于启动恢复等场景，避免“列表看起来只剩少量图”）。
+        """
         metadata = self.resource_manager.load_graph_metadata(graph_id)
         if not metadata:
             self._refresh_graph_list()
@@ -533,8 +1042,25 @@ class GraphListMixin:
                     self.type_combo.setCurrentIndex(i)
                     break
 
-        target_folder = metadata.get("folder_path", "") or ""
-        self.current_folder = target_folder
+        if sync_folder_filter:
+            target_folder = metadata.get("folder_path", "") or ""
+            self.current_folder = target_folder
+            # 同步 folder_scope：避免选中共享图时仍停留在“当前存档”分支导致目录高亮与列表 scope 不一致。
+            owner_root_id = ""
+            package_index_manager = getattr(self, "package_index_manager", None)
+            get_owner = getattr(package_index_manager, "get_resource_owner_root_id", None)
+            if callable(get_owner):
+                owner_root_id = str(
+                    get_owner(resource_type="graph", resource_id=graph_id)  # type: ignore[call-arg]
+                    or ""
+                ).strip()
+            if owner_root_id == "shared":
+                inferred_scope = "shared"
+            elif owner_root_id:
+                inferred_scope = "package"
+            else:
+                inferred_scope = "all"
+            setattr(self, "current_folder_scope", inferred_scope)
         self._refresh_graph_list()
 
         if graph_id in self.graph_cards:
@@ -569,12 +1095,21 @@ class GraphListMixin:
         if not layout:
             return
         spacer_index = max(0, layout.count() - 1)
+
+        # layout 顶部可能存在“加载中提示”等固定 widget（例如 _graph_list_loading_label）。
+        # 这些 widget 不属于卡片序列，应保持在卡片之前，避免 reorder 把卡片插到提示之上。
+        base_index = 0
+        loading_label = getattr(self, "_graph_list_loading_label", None)
+        if isinstance(loading_label, QtWidgets.QWidget):
+            label_index = layout.indexOf(loading_label)
+            if label_index != -1:
+                base_index = label_index + 1
         for order_index, graph_id in enumerate(ordered_ids):
             card = self.graph_cards.get(graph_id)
             if not card:
                 continue
             current_index = layout.indexOf(card)
-            target_index = min(order_index, spacer_index)
+            target_index = min(base_index + order_index, spacer_index)
             if current_index != -1 and current_index != target_index:
                 layout.insertWidget(target_index, card)
 

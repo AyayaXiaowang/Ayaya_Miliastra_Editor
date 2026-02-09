@@ -21,18 +21,15 @@ class ViewAssembly:
     @staticmethod
     def attach_scene(view: "GraphView", scene) -> None:
         """重写setScene以创建小地图和overlay管理器"""
-        # 设置一个非常大的场景矩形，允许用户拖动到节点图内容之外
-        # 这样可以将边缘的节点居中显示
         if scene:
-            # 使用一个足够大的场景矩形，以节点图内容为中心扩展
-            items_rect = scene.itemsBoundingRect()
-            if not items_rect.isEmpty():
-                # 在内容周围添加大量空白区域（10倍的扩展）
-                expansion = max(items_rect.width(), items_rect.height()) * 10
-                expanded_rect = items_rect.adjusted(-expansion, -expansion, expansion, expansion)
-                scene.setSceneRect(expanded_rect)
+            # 统一委托给场景自身的矩形更新策略（收敛在 SceneModelOpsMixin._update_scene_rect）：
+            # - 以 itemsBoundingRect 为基础；
+            # - 仅按视口大小补齐必要边距；
+            # - 避免超大图下按内容倍数扩张导致 sceneRect 过大。
+            if hasattr(scene, "_update_scene_rect"):
+                scene._update_scene_rect()
             else:
-                # 如果没有内容，设置一个默认的大场景
+                # 兼容：非 GraphScene 场景
                 scene.setSceneRect(-10000, -10000, 20000, 20000)
             
             # 初始化overlay管理器

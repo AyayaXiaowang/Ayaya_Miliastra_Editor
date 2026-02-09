@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from engine.utils.path_utils import normalize_slash
+
 
 @dataclass(frozen=True)
 class ResourceLibraryAutoRefreshConfig:
@@ -28,7 +30,7 @@ class InternalWriteSuppression:
 
     @staticmethod
     def _normalize_directory_text(directory_path: Path) -> str:
-        return str(directory_path).replace("\\", "/").rstrip("/").lower()
+        return normalize_slash(str(directory_path)).rstrip("/").lower()
 
     def record_internal_write(self, *, wall_time_seconds: float, directory_path: Path | None) -> None:
         self._last_internal_write_wall_time_seconds = float(wall_time_seconds)

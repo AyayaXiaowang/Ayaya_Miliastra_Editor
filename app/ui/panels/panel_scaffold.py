@@ -48,18 +48,16 @@ class PanelScaffold(QtWidgets.QWidget, StyleMixin):
         header_text_layout.setSpacing(2)
 
         self.title_label = QtWidgets.QLabel()
+        self.title_label.setObjectName("PanelScaffoldTitle")
         title_font = self.title_label.font()
         title_font.setPointSize(Sizes.FONT_TITLE)
         title_font.setBold(True)
         self.title_label.setFont(title_font)
-        self.title_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
         header_text_layout.addWidget(self.title_label)
 
         self.description_label = QtWidgets.QLabel()
+        self.description_label.setObjectName("PanelScaffoldDescription")
         self.description_label.setWordWrap(True)
-        self.description_label.setStyleSheet(
-            f"color: {Colors.TEXT_SECONDARY}; font-size: {Sizes.FONT_NORMAL}px;"
-        )
         header_text_layout.addWidget(self.description_label)
 
         header_row.addLayout(header_text_layout, 1)
@@ -73,9 +71,9 @@ class PanelScaffold(QtWidgets.QWidget, StyleMixin):
         header_layout.addLayout(header_row)
 
         divider = QtWidgets.QFrame()
+        divider.setObjectName("PanelScaffoldDivider")
         divider.setFrameShape(QtWidgets.QFrame.Shape.HLine)
         divider.setFrameShadow(QtWidgets.QFrame.Shadow.Plain)
-        divider.setStyleSheet(f"color: {Colors.DIVIDER}; background-color: {Colors.DIVIDER};")
         divider.setFixedHeight(1)
         header_layout.addWidget(divider)
 
@@ -169,15 +167,6 @@ class SectionCard(QtWidgets.QFrame):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("SectionCard")
-        self.setStyleSheet(
-            f"""
-            QFrame#SectionCard {{
-                background-color: {Colors.BG_CARD};
-                border-radius: {Sizes.RADIUS_MEDIUM}px;
-                border: 1px solid {Colors.BORDER_LIGHT};
-            }}
-        """
-        )
 
         self._title_label: QtWidgets.QLabel | None = None
         self._description_label: QtWidgets.QLabel | None = None
@@ -190,19 +179,17 @@ class SectionCard(QtWidgets.QFrame):
 
         if title:
             self._title_label = QtWidgets.QLabel(title)
+            self._title_label.setObjectName("SectionCardTitle")
             title_font = self._title_label.font()
             title_font.setPointSize(Sizes.FONT_LARGE)
             title_font.setBold(True)
             self._title_label.setFont(title_font)
-            self._title_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
             self.main_layout.addWidget(self._title_label)
 
         if description:
             self._description_label = QtWidgets.QLabel(description)
+            self._description_label.setObjectName("SectionCardDescription")
             self._description_label.setWordWrap(True)
-            self._description_label.setStyleSheet(
-                f"color: {Colors.TEXT_SECONDARY}; font-size: {Sizes.FONT_NORMAL}px;"
-            )
             self.main_layout.addWidget(self._description_label)
 
         self.content_layout = QtWidgets.QVBoxLayout()
@@ -226,11 +213,11 @@ class SectionCard(QtWidgets.QFrame):
             if not title:
                 return
             self._title_label = QtWidgets.QLabel(title)
+            self._title_label.setObjectName("SectionCardTitle")
             title_font = self._title_label.font()
             title_font.setPointSize(Sizes.FONT_LARGE)
             title_font.setBold(True)
             self._title_label.setFont(title_font)
-            self._title_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
             self.main_layout.insertWidget(0, self._title_label)
             return
         self._title_label.setText(title)
@@ -242,10 +229,8 @@ class SectionCard(QtWidgets.QFrame):
             if not description:
                 return
             self._description_label = QtWidgets.QLabel(description)
+            self._description_label.setObjectName("SectionCardDescription")
             self._description_label.setWordWrap(True)
-            self._description_label.setStyleSheet(
-                f"color: {Colors.TEXT_SECONDARY}; font-size: {Sizes.FONT_NORMAL}px;"
-            )
             insert_index = 1 if self._title_label is not None else 0
             self.main_layout.insertWidget(insert_index, self._description_label)
             return

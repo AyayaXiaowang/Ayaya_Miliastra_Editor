@@ -4,29 +4,14 @@ from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 from engine.graph import deserialize_graph
-from engine.graph.graph_code_parser import validate_graph as validate_graph_model
+from engine.graph import validate_graph_model
 from engine.graph.composite_code_parser import CompositeCodeParser
 from engine.nodes.composite_file_policy import is_composite_definition_file
 from engine.nodes.node_registry import get_node_registry
 
 from .comprehensive_graph_checks import describe_graph_error
+from .graph_validation_targets import relative_path_for_display
 from .issue import EngineIssue
-
-
-def _normalize_slash(text: str) -> str:
-    return text.replace("\\", "/")
-
-
-def _relative_path_for_display(path: Path, workspace: Path) -> str:
-    resolved_path = path.resolve()
-    resolved_workspace = workspace.resolve()
-    resolved_path_text = _normalize_slash(str(resolved_path))
-    resolved_workspace_text = _normalize_slash(str(resolved_workspace))
-    prefix = resolved_workspace_text + "/"
-    if resolved_path_text.startswith(prefix):
-        return resolved_path_text[len(prefix) :]
-    return resolved_path_text
-
 
 def collect_composite_structural_issues(
     targets: Sequence[Path],
@@ -35,8 +20,8 @@ def collect_composite_structural_issues(
     """对复合节点补齐“图结构校验”，覆盖 UI 报的“缺少数据来源/未连接”等问题。
 
     设计边界：
-    - 仅对复合节点定义文件（`composite_*.py` 或引擎 policy 判定为复合节点定义）执行；
-    - 规则复用底层 `engine.graph.validate_graph`，并使用 `describe_graph_error` 统一映射分类/建议/错误码；
+    - 仅对复合节点定义文件（由引擎 `engine.nodes.composite_file_policy` 判定）执行；
+    - 规则复用底层 `engine.graph.validate_graph_model`，并使用 `describe_graph_error` 统一映射分类/建议/错误码；
     - 返回 `EngineIssue` 列表，不做任何输出。
     """
     workspace_path = Path(workspace)
@@ -70,7 +55,7 @@ def collect_composite_structural_issues(
         if not errors:
             continue
 
-        relative_text = _relative_path_for_display(file_path, workspace_path)
+        relative_text = relative_path_for_display(file_path, workspace_path)
         base_detail = {
             "type": "composite_node",
             "composite_id": str(getattr(composite, "composite_id", "") or ""),

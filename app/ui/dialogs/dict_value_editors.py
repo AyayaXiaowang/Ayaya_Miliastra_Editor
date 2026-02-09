@@ -127,15 +127,25 @@ class _DictTableEditorWidget(QtWidgets.QWidget):
         if self._use_click_to_edit_line_edit:
             line_edit = ClickToEditLineEdit(key_text, self.table)
             line_edit.setPlaceholderText(self._key_placeholder_text)
-            line_edit.setClearButtonEnabled(True)
+            line_edit.setClearButtonEnabled(not self._is_read_only)
             line_edit.setMinimumHeight(Sizes.INPUT_HEIGHT)
+            line_edit.setReadOnly(self._is_read_only)
+            if self._is_read_only:
+                line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+            else:
+                line_edit.setStyleSheet("")
             line_edit.editingFinished.connect(self._on_entries_edited)
             return wrap_click_to_edit_line_edit_for_table_cell(self.table, line_edit)
 
         line_edit = QtWidgets.QLineEdit(key_text, self.table)
         line_edit.setPlaceholderText(self._key_placeholder_text)
-        line_edit.setClearButtonEnabled(True)
+        line_edit.setClearButtonEnabled(not self._is_read_only)
         line_edit.setMinimumHeight(Sizes.INPUT_HEIGHT)
+        line_edit.setReadOnly(self._is_read_only)
+        if self._is_read_only:
+            line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+        else:
+            line_edit.setStyleSheet("")
         line_edit.editingFinished.connect(self._on_entries_edited)
         return line_edit
 
@@ -161,21 +171,33 @@ class _DictTableEditorWidget(QtWidgets.QWidget):
                 enable_collapse=False,
             )
             editor.value_changed.connect(self._on_entries_edited)
+            if self._is_read_only:
+                editor.set_read_only(True)
             return editor
 
         # 普通标量仍使用“点击才能编辑”的单行文本框
         if self._use_click_to_edit_line_edit:
             line_edit = ClickToEditLineEdit(value_text, self.table)
             line_edit.setPlaceholderText(self._value_placeholder_text)
-            line_edit.setClearButtonEnabled(True)
+            line_edit.setClearButtonEnabled(not self._is_read_only)
             line_edit.setMinimumHeight(Sizes.INPUT_HEIGHT)
+            line_edit.setReadOnly(self._is_read_only)
+            if self._is_read_only:
+                line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+            else:
+                line_edit.setStyleSheet("")
             line_edit.editingFinished.connect(self._on_entries_edited)
             return wrap_click_to_edit_line_edit_for_table_cell(self.table, line_edit)
 
         line_edit = QtWidgets.QLineEdit(value_text, self.table)
         line_edit.setPlaceholderText(self._value_placeholder_text)
-        line_edit.setClearButtonEnabled(True)
+        line_edit.setClearButtonEnabled(not self._is_read_only)
         line_edit.setMinimumHeight(Sizes.INPUT_HEIGHT)
+        line_edit.setReadOnly(self._is_read_only)
+        if self._is_read_only:
+            line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+        else:
+            line_edit.setStyleSheet("")
         line_edit.editingFinished.connect(self._on_entries_edited)
         return line_edit
 
@@ -187,6 +209,8 @@ class _DictTableEditorWidget(QtWidgets.QWidget):
         index_item.setFlags(
             QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
         )
+        if self._is_read_only:
+            index_item.setBackground(QtGui.QColor(Colors.BG_DISABLED))
         self.table.setItem(row_index, 0, index_item)
 
         key_widget = self._create_key_editor_widget(key_text)
@@ -207,6 +231,10 @@ class _DictTableEditorWidget(QtWidgets.QWidget):
                 )
                 self.table.setItem(row_index, 0, index_item)
             index_item.setText(str(row_index + 1))
+            if self._is_read_only:
+                index_item.setBackground(QtGui.QColor(Colors.BG_DISABLED))
+            else:
+                index_item.setBackground(QtGui.QBrush())
 
     def _extract_text_from_cell_widget(
         self, widget: Optional[QtWidgets.QWidget]
@@ -243,6 +271,8 @@ class _DictTableEditorWidget(QtWidgets.QWidget):
         return collected_entries
 
     def _on_add_clicked(self) -> None:
+        if self._is_read_only:
+            return
         self._add_row("", "")
         self._refresh_indices()
         self._collect_entries()
@@ -251,6 +281,8 @@ class _DictTableEditorWidget(QtWidgets.QWidget):
         self.entries_changed.emit()
 
     def _on_remove_clicked(self) -> None:
+        if self._is_read_only:
+            return
         current_row_index = self.table.currentRow()
         if current_row_index < 0:
             return
@@ -262,6 +294,8 @@ class _DictTableEditorWidget(QtWidgets.QWidget):
         self.entries_changed.emit()
 
     def _on_entries_edited(self) -> None:
+        if self._is_read_only:
+            return
         self._collect_entries()
         self._ensure_trailing_placeholder_row()
         self.entries_changed.emit()
@@ -335,22 +369,72 @@ class _DictTableEditorWidget(QtWidgets.QWidget):
     def set_read_only(self, read_only: bool) -> None:
         """切换字典子表格的只读状态。
 
-        只读模式下移除尾部用于新增的空白占位行，防止在不可保存视图中出现伪“新建”入口。
+        只读模式下：
+        - 移除尾部用于新增的空白占位行，防止在不可保存视图中出现伪“新建”入口；
+        - 子表格内所有输入框改为只读并应用灰显样式；
+        - 若“值”为内联列表编辑器，则同步将该列表编辑器切到只读；
+        - 禁用右键删除等结构性修改入口。
         """
-        self._is_read_only = bool(read_only)
-        if not self._is_read_only:
+        target_read_only = bool(read_only)
+        if self._is_read_only == target_read_only:
             return
+        self._is_read_only = target_read_only
 
-        row_count = self.table.rowCount()
-        if row_count <= 0:
-            return
+        def set_cell_line_edit_read_only(cell_widget: Optional[QtWidgets.QWidget]) -> None:
+            if cell_widget is None:
+                return
+            line_edit: Optional[QtWidgets.QLineEdit] = None
+            if isinstance(cell_widget, QtWidgets.QLineEdit):
+                line_edit = cell_widget
+            elif isinstance(cell_widget, QtWidgets.QWidget):
+                inner_edit = cell_widget.findChild(QtWidgets.QLineEdit)
+                if isinstance(inner_edit, QtWidgets.QLineEdit):
+                    line_edit = inner_edit
+            if line_edit is None:
+                return
+            line_edit.setReadOnly(self._is_read_only)
+            line_edit.setClearButtonEnabled(not self._is_read_only)
+            if self._is_read_only:
+                line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+            else:
+                line_edit.setStyleSheet("")
 
-        last_row_index = row_count - 1
-        self.table.removeRow(last_row_index)
+        # 更新现有行：键/值单元格只读 + 值为内联列表时同步只读
+        for row_index in range(self.table.rowCount()):
+            key_widget = self.table.cellWidget(row_index, 1)
+            value_widget = self.table.cellWidget(row_index, 2)
+
+            set_cell_line_edit_read_only(key_widget)
+
+            if isinstance(value_widget, ListValueEditor):
+                value_widget.set_read_only(self._is_read_only)
+            elif isinstance(value_widget, QtWidgets.QWidget):
+                inner_list = value_widget.findChild(ListValueEditor)
+                if isinstance(inner_list, ListValueEditor):
+                    inner_list.set_read_only(self._is_read_only)
+            set_cell_line_edit_read_only(value_widget)
+
+        # 只读模式下移除末尾“新增占位行”（仅当该行确实为空时移除，避免误删真实数据）
+        if self._is_read_only:
+            row_count = self.table.rowCount()
+            if row_count > 0:
+                last_row_index = row_count - 1
+                last_key_widget = self.table.cellWidget(last_row_index, 1)
+                last_value_widget = self.table.cellWidget(last_row_index, 2)
+                last_key_text = self._extract_text_from_cell_widget(last_key_widget)
+                last_value_text = self._extract_text_from_cell_widget(last_value_widget)
+                if not last_key_text.strip() and not last_value_text.strip():
+                    self.table.removeRow(last_row_index)
+        else:
+            self._ensure_trailing_placeholder_row()
+
         self._refresh_indices()
+        self._collect_entries()
         self._update_table_height()
 
     def _on_table_context_menu(self, pos: QtCore.QPoint) -> None:
+        if self._is_read_only:
+            return
         index = self.table.indexAt(pos)
         row_index = index.row()
         if row_index < 0:
@@ -502,7 +586,18 @@ class DictValueEditor(QtWidgets.QWidget):
         当前主要用于结构体等场景的“只读预览”模式：上层不再允许写回时，移除尾部用于新增的空白占位行，
         避免给用户造成可以在 UI 中新增条目的错觉；键/值类型与现有条目本身的只读与否仍交由上层控制。
         """
-        self._table_editor.set_read_only(read_only)
+        target_read_only = bool(read_only)
+        self.key_type_combo.setEnabled(not target_read_only)
+        self.value_type_combo.setEnabled(not target_read_only)
+        if target_read_only:
+            self.key_type_combo.setStyleSheet(ThemeManager.readonly_input_style())
+            self.value_type_combo.setStyleSheet(ThemeManager.readonly_input_style())
+        else:
+            self.key_type_combo.setStyleSheet("")
+            self.value_type_combo.setStyleSheet("")
+
+        self._table_editor.set_read_only(target_read_only)
+        self._update_summary_text()
 
     def create_header_proxy(self, parent: QtWidgets.QWidget) -> QtWidgets.QWidget:
         """将“折叠按钮 + 条目摘要”抽离到外层表格的主行中。

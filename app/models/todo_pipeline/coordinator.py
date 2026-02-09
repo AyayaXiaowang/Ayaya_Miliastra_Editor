@@ -45,13 +45,19 @@ class GraphTaskCoordinator:
         suppress_auto_jump: bool = False,
     ) -> List[str]:
         created_ids: List[str] = []
+        seen_graph_ids: set[str] = set()
         for graph_id in graph_ids:
-            if not graph_id:
+            normalized_graph_id = str(graph_id or "")
+            if not normalized_graph_id:
                 continue
-            graph_name = self._package_loader.resolve_graph_name(graph_id)
+            if normalized_graph_id in seen_graph_ids:
+                continue
+            seen_graph_ids.add(normalized_graph_id)
+
+            graph_name = self._package_loader.resolve_graph_name(normalized_graph_id)
             graph_root = self._graph_task_generator.create_graph_root_todo(
                 parent_id=parent_id,
-                graph_id=graph_id,
+                graph_id=normalized_graph_id,
                 graph_name=graph_name,
                 target_id=target_id,
                 template_ctx_id=template_ctx_id,
@@ -74,6 +80,7 @@ class GraphTaskCoordinator:
         suppress_auto_jump: bool = False,
         graph_root: Optional[TodoItem] = None,
         attach_graph_root: bool = True,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
     ) -> List[str]:
         return self._graph_task_generator.generate_graph_tasks(
             parent_id=parent_id,
@@ -84,6 +91,7 @@ class GraphTaskCoordinator:
             suppress_auto_jump=suppress_auto_jump,
             existing_root=graph_root,
             attach_root=attach_graph_root,
+            progress_callback=progress_callback,
         )
 
 

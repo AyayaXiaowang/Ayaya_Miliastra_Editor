@@ -11,7 +11,7 @@ from .helpers import iter_instance_graphs, validate_components_for_entity
 
 class InstanceRule(BaseComprehensiveRule):
     rule_id = "package.instances"
-    category = "实例"
+    category = "实体摆放"
     default_level = "error"
 
     def run(self, ctx) -> List[ValidationIssue]:
@@ -27,16 +27,16 @@ def validate_instances(validator) -> List[ValidationIssue]:
 
 def validate_single_instance(validator, instance: InstanceConfig) -> List[ValidationIssue]:
     issues: List[ValidationIssue] = []
-    location_prefix = f"实例 '{instance.name}' ({instance.instance_id})"
+    location_prefix = f"实体摆放 '{instance.name}' ({instance.instance_id})"
     is_level_entity = instance.metadata.get("is_level_entity", False)
     if not is_level_entity and instance.template_id not in validator.package.templates:
         issues.append(
             ValidationIssue(
                 level="error",
-                category="实例",
+                category="实体摆放",
                 location=location_prefix,
-                message=f"实例引用的模板'{instance.template_id}'不存在",
-                suggestion="请确保模板已创建，或修正实例的 template_id。",
+                message=f"实体摆放引用的模板'{instance.template_id}'不存在",
+                suggestion="请确保模板已创建，或修正实体摆放的 template_id。",
                 detail={"type": "instance", "instance_id": instance.instance_id},
             )
         )
@@ -111,7 +111,7 @@ def _validate_instance_graphs(
     )
     for attachment in attachments:
         issues.extend(
-            validator.validate_graph_data(
+            validator.validate_graph_cache_data(
                 attachment.graph_config.data,
                 entity_type,
                 attachment.location_full,

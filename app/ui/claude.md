@@ -6,7 +6,7 @@
 **重要**：本项目是教学模拟系统，**任务清单系统**(`todo_list_widget.py`)是最核心的功能，它自动生成操作步骤清单，引导用户在真实编辑器中完成相同操作。
 
 ## 分层与依赖约束（双 UI 目录的定位）
-- 本目录（`ui/`）是“应用层 UI 实现”：PyQt 应用与全部交互控件/控制器所在。
+- 本目录（`app/ui/`）是“应用层 UI 实现”：PyQt 应用与全部交互控件/控制器所在。
 - `app/models/` 是“应用层的应用模型抽象”：协议/任务模型/生成器/视图模式配置，不含任何 PyQt 依赖。
 - 依赖方向：仅允许 `app/ui -> app/models`；严禁 `app/models -> app/ui`，避免抽象层反向耦合具体实现。
 - 建议导入模式：
@@ -19,6 +19,10 @@
 - 图编辑器默认只读（节点/连线/端口与常量值不落盘），可写内容由控制器统一保存；避免在控件内绕过控制器直接修改图模型或缓存。
 - 跨页面交互与模式切换统一通过控制器/信号完成，禁止越层调用执行器私有方法或在 Widget 间直接访问内部状态。
 - 主题与样式统一使用 `ThemeManager` / `StyleMixin` / 主题 token，避免硬编码 QSS 或颜色字符串。
+- 界面控件组（Web-first / 插件化）：UI 源码预览页由私有扩展 `private_extensions/千星沙箱网页处理工具` 提供（自带静态资源 + `/api/ui_converter/*`，入口 `ui_app_ui_preview.html`）。主程序 UI 侧仅保留说明与占位，不再内置 `assets/ui_workbench` 的完整前端实现，避免与插件重复维护两份前端。
+- Web Workbench 静态服务：为保证 `<script type="module">` 在 Windows 环境下可靠加载，`ui_workbench_bridge.py` 的 HTTP handler 会显式覆盖 `.js/.mjs` 的 Content-Type，避免出现“预览区一片白/无交互”。
+  - 端口策略：本地静态服务默认固定 `17890`，可用环境变量 `AYAYA_LOCAL_HTTP_PORT` 覆盖；若端口已被占用则向上顺延扫描一段，扫描失败才回退为系统临时端口。
+ - Workbench 变量修复：`ui_workbench_bridge.py` 额外提供 `/api/ui_converter/fix_ui_variables`，用于在 Web 侧一键调用 `validate-ui --fix` 同款 quickfix（自动生成变量文件并追加玩家模板的 `metadata.custom_variable_file` 引用，支持多文件列表）。
 
 ## 异常处理约定
 - UI 层不使用 `try/except`；所有异常应直接抛出（或通过显式的集中处理入口记录/展示），禁止兜底、降级与静默失败。
@@ -36,7 +40,7 @@
   - `event_handler_mixin.py`（约230行）：UI事件和信号响应
   - 向后兼容：`app.ui.main_window` 包的 `__init__.py` 直接导出 `MainWindowV2, APP_TITLE`，外部代码无需修改导入路径
 - **控制器层** (`controllers/`)：包含4个独立控制器，通过信号槽实现松耦合通信
-  - `PackageController`：功能包生命周期管理
+  - `PackageController`：项目存档生命周期管理
   - `GraphEditorController`：节点图编辑核心逻辑
   - `NavigationCoordinator`：跳转协调
   - `FileWatcherManager`：文件监控和冲突解决
@@ -55,13 +59,13 @@
 
 详见 `main_window/claude.md` 和 `controllers/claude.md`。
 
-• 主窗口顶部工具栏：提供功能包选择/基础存档操作/设置/保存状态指示等；不包含“执行任务清单(真实)”按钮（真实执行能力通过任务清单与执行监控面板配合使用）。
+• 主窗口顶部工具栏：提供项目存档选择/基础存档操作/设置/保存状态指示等；不包含“执行任务清单(真实)”按钮（真实执行能力通过任务清单与执行监控面板配合使用）。
 
 ### 分层与模式约定（State / Controller / View + 命令与事件）
 - UI 层在整体上遵循轻量版的 **State / Controller / View** 模式：
   - **State / 视图模型**：由 `engine` 与 `app/models` 提供的资源视图与任务模型充当状态层（如 `PackageView`、`GraphModel` 及 Todo 相关模型），UI 组件仅持有这些对象的引用，不在内部复制业务状态。
-  - **Controller**：`ui/controllers/` 与各领域子包内的控制器（如 `GraphEditorController`、`NavigationCoordinator`、`app.ui.todo.todo_preview_controller.TodoPreviewController` 等）负责在状态与 UI 之间做转换与调度，集中承载业务流程，不直接依赖具体 Widget 结构。
-  - **View**：`ui/` 下的各类 Widget、Panel、Dialog 负责呈现与交互，将用户操作转换为对控制器方法的调用与信号发射，不直接操作磁盘或引擎内部细节。
+  - **Controller**：`controllers/` 与各领域子包内的控制器（如 `GraphEditorController`、`NavigationCoordinator`、`app.ui.todo.todo_preview_controller.TodoPreviewController` 等）负责在状态与 UI 之间做转换与调度，集中承载业务流程，不直接依赖具体 Widget 结构。
+  - **View**：`app/ui/` 下的各类 Widget、Panel、Dialog 负责呈现与交互，将用户操作转换为对控制器方法的调用与信号发射，不直接操作磁盘或引擎内部细节。
 - **命令与事件**：
   - 图编辑领域的可撤销操作统一封装为 `app.ui.graph.graph_undo` 中的命令对象，通过 `UndoRedoManager` 管理；控制器与场景不在多处手写“修改模型 + 更新视图”的组合逻辑。
   - 跨页面跳转与模式切换统一通过 `NavigationCoordinator` 与主窗口事件 Mixin（如 `window_navigation_events_mixin.py`）以信号形式表达，避免组件之间的直接函数调用耦合。
@@ -72,7 +76,7 @@
 
 ### 节点图编辑模式
 - 目前为**交互可用但不落盘**：允许拖拽、添加、删除、连线等所有编辑操作，用于预览与尝试；但逻辑内容不会写回文件。
-- **可保存内容**：节点图变量、节点图名称、所属功能包等元信息仍可保存（变量保存仅合并，不改动逻辑）。
+- **可保存内容**：节点图变量、节点图名称、所属项目存档等元信息仍可保存（变量保存仅合并，不改动逻辑）。
 - **不保存内容**：节点、连线、端口、常量值等逻辑内容不写盘；离开页面或重载后恢复为文件中的版本。
 - **复用编辑核心**：复合节点页面加载内部子图时，同样复用 `GraphEditorController` 的加载与交互能力（通过 `composite_edit_context` 传入上下文）；保存路径仍独立由复合节点管理器负责。
 - 复合节点被选中并加载时，控制台会额外打印该复合节点的虚拟引脚统计（流程入/流程出数量），便于快速核对映射是否生效。
@@ -92,7 +96,7 @@
 ### 核心视图组件
 
 #### 模块结构
-- **图形项** (`items/`)：端口、节点、连线的图形渲染类（QGraphicsItem）
+- **图形项** (`graph/items/`)：端口、节点、连线的图形渲染类（QGraphicsItem）
   - `port_item.py`：端口显示、虚拟引脚映射、右键菜单、多分支编辑框
   - `node_item.py`：节点显示、标题栏渲染、端口布局、常量编辑控件管理、变参/多分支"+"按钮
   - `edge_item.py`：连线图形项
@@ -103,27 +107,27 @@
   - 核心职责：初始化、add_node_item、get_node_def、布局辅助（_promote_flow_outputs_for_layout）、虚拟引脚清理、端口刷新
   - 继承/MRO 注意：为确保 mixin 覆盖 Qt 的事件与前/后景绘制，建议将 mixin 置于 `QGraphicsScene` 之前；如必须将 `QGraphicsScene` 置于首位，则需在 `GraphScene` 内显式转发 `drawBackground/drawForeground/mouse*` 至对应 mixin 方法，避免覆盖失效
   - **场景子模块**：
-    - `overlays/`：叠加渲染（网格/基本块/Y调试图标绘制/文本避让）详见 `ui/overlays/claude.md`
-    - `scene/`：交互、模型操作与 Y 调试三大职责 Mixin，详见 `ui/scene/claude.md`
+    - `overlays/`：叠加渲染（网格/基本块/Y调试图标绘制/文本避让）详见 `overlays/claude.md`
+    - `scene/`：交互、模型操作与 Y 调试三大职责 Mixin，详见 `scene/claude.md`
       - `interaction_mixin.py`：鼠标事件/端口高亮/自动连接/Y调试图标点击
       - `model_ops_mixin.py`：边管理/复制粘贴/删除/高亮/验证更新
       - `ydebug_interaction_mixin.py`：布局Y调试 Tooltip/链路高亮（单链/多链4色轮换）/分页导航
-- **视图** (`graph_view.py`)：图视图、键鼠交互、焦点管理、动画过渡
-  - **视图子模块** (`graph_view/`)：视图组件按职责拆分到 `graph_view/` 子目录
-    - `animation/`：视图变换动画辅助类（`ViewTransformAnimation`）
-    - `overlays/`：叠层组件（小地图 `MiniMapWidget`、标尺绘制器 `RulerOverlayPainter`）
-    - `popups/`：弹出窗口（添加节点菜单 `AddNodePopup`）
-    - `controllers/`：交互控制器（事件处理、状态管理、帧设置优化）
-    - `navigation/`：视口导航器（居中、聚焦、适应、动画过渡）
-    - `highlight/`：高亮服务（节点/连线/端口高亮与灰显）
-    - `context/`：上下文菜单桥接（添加节点菜单显示逻辑）
-    - `top_right/`：右上角控件管理器（自动排版按钮与额外按钮）
-    - `auto_layout/`：自动排版控制器（验证、克隆布局、差异合并、同步）
-    - `assembly/`：视图装配器（setScene/resize 联动）
-    - 外部仍从 `ui/graph_view.py` 导入 `GraphView`，保持 API 稳定；主文件仅保留薄层入口，将视图行为委托给各子模块
-    - 详见 `ui/graph_view/claude.md`
+- **视图** (`graph/graph_view.py`)：图视图、键鼠交互、焦点管理、动画过渡
+  - **视图子模块** (`graph/graph_view/`)：视图组件按职责拆分到 `graph/graph_view/` 子目录
+    - `graph/graph_view/animation/`：视图变换动画辅助类（`ViewTransformAnimation`）
+    - `graph/graph_view/overlays/`：叠层组件（小地图 `MiniMapWidget`、标尺绘制器 `RulerOverlayPainter`）
+    - `graph/graph_view/popups/`：弹出窗口（添加节点菜单 `AddNodePopup`）
+    - `graph/graph_view/controllers/`：交互控制器（事件处理、状态管理、帧设置优化）
+    - `graph/graph_view/navigation/`：视口导航器（居中、聚焦、适应、动画过渡）
+    - `graph/graph_view/highlight/`：高亮服务（节点/连线/端口高亮与灰显）
+    - `graph/graph_view/context/`：上下文菜单桥接（添加节点菜单显示逻辑）
+    - `graph/graph_view/top_right/`：右上角控件管理器（自动排版按钮与额外按钮）
+    - `graph/graph_view/auto_layout/`：自动排版控制器（验证、克隆布局、差异合并、同步）
+    - `graph/graph_view/assembly/`：视图装配器（setScene/resize 联动）
+    - 外部仍从 `graph/graph_view.py` 导入 `GraphView`，保持 API 稳定；主文件仅保留薄层入口，将视图行为委托给各子模块
+    - 详见 `graph/graph_view/claude.md`
 
-- `graph_view.py`：图视图，键鼠快捷键与焦点管理，支持平滑动画过渡，删除连线等编辑动作通过 `app.ui.graph.graph_undo` 的命令对象进入撤销/重做链
+- `graph/graph_view.py`：图视图，键鼠快捷键与焦点管理，支持平滑动画过渡，删除连线等编辑动作通过 `app.ui.graph.graph_undo` 的命令对象进入撤销/重做链
   - 高亮策略：提供批量高亮 API（一次性高亮两个节点与连线），避免逐个高亮相互清除
   - 端口高亮回退：当步骤未提供端口名时，视图将从边数据推断源/目标端口并进行高亮
   - 右上角浮动控件：仅保留“自动排版”按钮；如有需要，可通过 `set_extra_top_right_button()` 放置一个自定义操作按钮（例如预览页的“编辑”）
@@ -145,7 +149,7 @@
   - 复合节点分组：额外提供“复合节点”分组，展示所有带 `is_composite=True` 的节点（不影响其在功能类别分组下的展示与筛选）；
   - 搜索/端口类型/作用域等过滤条件同样作用于"复合节点"分组，确保与其它分组行为一致。
 - `GraphEditorController.load_graph()` 会在加载后根据图的 `metadata.graph_type` 设置 `GraphView.current_scope`，确保"添加节点"列表与当前图类型一致。
-  - 自动排版完成后的行为：通过主窗口注入的回调，在排版完成后将当前 `GraphModel` 写入持久化缓存（默认 `app/runtime/cache/graph_cache/`），并调用 `GraphView.fit_all()` 自动适配全图并居中视图，使再次打开时直接使用最新位置（不改动 .py 文件）。
+  - 自动排版完成后的行为：通过主窗口注入的回调，在排版完成后将当前 `GraphModel` 写入持久化缓存（默认 `app/runtime/cache/graph_cache/`）；默认不强制调用 `GraphView.fit_all()` 改变镜头（避免大图自动进入“压缩状态”），如用户在设置中开启 `settings.GRAPH_AUTO_FIT_ALL_ENABLED` 则会在进入编辑器/排版完成后自动适配全图；手动总览默认 Ctrl+0。
 - `graph_scene.py`：图场景，图形项与命令触发（通过 `app.ui.graph.graph_undo.UndoRedoManager` 及一组 UI 命令封装），基本块可视化绘制；引擎侧仅暴露纯模型命令（`engine.utils.undo_redo_core`），UI 命令集中在 `app.ui.graph.graph_undo`，避免引擎层依赖 `GraphScene`
   - **节点颜色**：`NodeGraphicsItem._category_color_start/end()` 决定节点标题栏的渐变颜色
     - 优先级：虚拟引脚 > 复合节点（通过`composite_id`判断）> category映射
@@ -181,9 +185,8 @@
 - `navigation_bar.py`：导航栏
 
 ### 功能页面组件
-- `package_library_widget.py`：功能包总览与管理（查看包含内容、重命名、删除）。包含两个特殊视图：
-  - 全部功能包（global_view）：显示全部资源，仅浏览；不可重命名/删除
-  - 未分类功能包（unclassified_view）：显示未被任何功能包纳入的资源；不可重命名/删除
+- `package_library_widget.py`：存档总览与管理（查看包含内容、重命名、删除）。包含一个特殊视图：
+  - 共享资源（global_view）：显示共享资源，仅浏览；不可重命名/删除
 - 详情页"节点图"列表以中文名展示（读取图元数据中的 `graph_name`）；第二列表格单元的 tooltip 显示对应的图 ID，便于定位与复制。
 - `template_library_widget.py`、`entity_placement_widget.py`：元件库与实体摆放页面在刷新时会保持用户之前选中的元件或实例，当用户在右侧属性面板添加节点图、自定义变量等内容后，左侧列表刷新会恢复之前的选中状态并重新触发选中事件，确保右侧属性面板立即显示更新后的内容（包含新增的节点图数量、变量数量等统计信息），无需用户手动切换选择。元件/实体属性面板的基础信息页统一通过 `metadata["guid"]` 存储 GUID，模板、实例与关卡实体各自维护独立的 metadata 字典；实体摆放页修改实例 GUID 只写入对应实例资源，存档库页面通过 `ResourceManager.get_resource_metadata()` 的 `guid` 字段展示当前落盘状态。
 - `graph_library_widget.py`：节点图库与检索
@@ -192,16 +195,15 @@
     - `graph_list_mixin.py`：卡片列表渲染/筛选/排序/编辑与删除/详情/变量
   - 主组件仅负责装配 UI（_setup_ui/_apply_styles）、信号绑定与基础状态（current_*）
   - 节点图库过滤规则：
-    - 全局视图：显示全部节点图（按类型/文件夹组织）
-    - 未分类视图：仅显示未被任何功能包引用的节点图
-    - 具体功能包：仅显示该包索引 `PackageIndex.resources.graphs` 中的节点图
+    - 共享资源视图：显示共享节点图（按类型/文件夹组织）
+    - 具体存档：仅显示该包索引 `PackageIndex.resources.graphs` 中的节点图，并自动包含 `assets/资源库/共享/节点图/` 下的公共节点图
 - `template_library_widget.py`：元件库
 - `combat_presets_widget.py`：战斗预设（文件列表形式）
 - `entity_placement_widget.py`：实体摆放（文件列表形式）
   - 模板/实例/关卡实体与存档归属（“所属存档”行）统一通过 `PackageEventsMixin` 与 `PackageController.current_package_index` 协调：
     - 右侧属性面板中勾选/取消某个存档，只更新对应存档的索引对象（当前存档使用内存副本，其它存档通过 `PackageIndexManager` 即时落盘），再由 `save_package()` 统一写回索引文件；
     - 当前存档下的元件/实体列表依赖 `PackageView.templates` / `PackageView.instances`，勾选状态变更会同步失效其内部缓存并调用 `refresh_templates()` / `refresh_instances()`，保证列表与“所属存档”选择始终一致，不出现“列表没变或切换存档后勾选被还原”的情况；
-    - 结构体定义、战斗玩家模板等管理项的归属同样以“每个存档自己的索引字段”为唯一来源，全局/未分类视图仅作只读聚合，不直接写入资源或索引。
+    - 结构体定义、战斗玩家模板等管理项的归属同样以“每个存档自己的索引字段”为唯一来源，全局视图仅作只读聚合，不直接写入资源或索引。
 - 管理配置库与管理面板相关组件：
   - `graph/library_pages/management_library_widget.py`：管理配置库主界面，使用“左侧管理类型列表 + 右侧列表”的双栏布局展示计时器、变量、预设点、外围系统等管理资源，并通过 `active_section_changed` / `data_changed` 信号与主窗口及持久化链路解耦。
   - `management/section_registry.py`：集中声明各管理 section 的 `key/title/group/resources` 等元数据，为管理配置库与存档库等视图提供统一的中文标题与聚合规则来源。
@@ -212,7 +214,7 @@
 - `management/` - 管理配置元数据与 Section 注册表目录
   - `section_registry.py` - 管理 section 元数据注册表（仅描述标题/分组/资源 key 与聚合模式，不再维护旧式页面类映射），供管理配置库页面与存档库等视图共享。
   - 旧版配置页面基类（`BaseConfigPage/StandardTablePage/FormTablePage/DualPaneConfigPage` 等）已下线，管理模式入口与编辑体验统一由 `app.ui.graph.library_pages.management_library_widget.ManagementLibraryWidget` + 各 `BaseManagementSection` 与右侧属性/专用 Panel 承担；表单类编辑对话框统一复用 `app.ui.foundation.base_widgets.FormDialog` 与 `app.ui.forms.schema_dialog.FormDialogBuilder` 等辅助工具。
-- `composite_node_manager_widget.py`：复合节点管理库页面（基于 `DualPaneLibraryScaffold` 的“左树+右编辑区”骨架，左侧树由 `CompositeNodeService` 提供扁平行数据并支持按文件夹组织，右侧通过 `GraphEditorController.load_graph_for_composite` 复用节点图编辑核心，在默认逻辑只读模式下仅在内存中加载和尝试编辑复合子图，不写回源码）
+- `composite_node_manager_widget.py`：复合节点管理库页面（浏览页：左侧文件夹树 + 中间复合节点列表；双击条目进入预览页并加载子图到 `GraphView`。返回列表不在页内提供按钮，与节点图库一致通过再次点击左侧导航“复合节点”回到列表；库页只读浏览，不提供“允许保存/保存”入口）
 - `todo_list_widget.py`：任务清单组件（组装与依赖注入）
   - 结构化子模块（职责内聚）：
     - `todo_tree.py`：树构建、懒加载、增量刷新、三态/样式
@@ -384,11 +386,11 @@
 ## 面向开发者的要点
 
 ### 依赖与耦合
-- 依赖 `engine` 提供的模型/资源/图代码 API（例如 `GraphModel`、`validate_graph` 等）
+- 依赖 `engine` 提供的模型/资源/图代码 API（例如 `GraphModel`、`validate_graph_model`、`validate_files` 等）
 - 所有导入置于文件开头，类型提示循环依赖用 `TYPE_CHECKING`
 - 禁止延迟导入；保持 import 顺序（标准库→第三方→本地）
-  - 性能例外：`graph_view.py` 的自动排版点击处理内按需导入 `engine.graph_code.validate_graph` 与 `engine.layout.LayoutService`，用于降低主窗口启动时的初始化开销。
- - 资源访问：统一使用 `engine.resources.*`（`PackageView/GlobalResourceView/UnclassifiedResourceView/GraphReferenceTracker`）。
+  - 性能例外：自动排版点击处理（`graph_view_impl.py` → `graph_view/auto_layout/auto_layout_controller.py`）内按需导入 `engine.layout.LayoutService`，用于降低主窗口启动时的初始化开销；图结构校验统一使用 `engine.graph.validate_graph_model`，不要导入歧义名 `validate_graph`。
+ - 资源访问：统一使用 `engine.resources.*`（`PackageView/GlobalResourceView/GraphReferenceTracker`）。
 - 执行监控的截图能力通过 `app.automation.AutomationFacade.capture_window()` 获取，避免 UI 层直接耦合内部 `editor_capture` 实现；区域计算仍复用 `editor_capture.get_region_rect()`。
 - 节点库访问统一：UI 层如需节点定义，统一通过 `engine.nodes.node_registry.get_node_registry(workspace).get_library()` 获取；不要直接在 UI 中调用 `load_all_nodes`，以避免与核心缓存/索引分叉。
  - 端口规则统一入口（避免重复实现）：

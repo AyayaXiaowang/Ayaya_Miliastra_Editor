@@ -21,6 +21,9 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, List, Callable, TYPE_CHECKING
 
+from app.models.todo_detail_info_accessors import get_detail_type, get_graph_id
+from app.ui.todo.todo_config import StepTypeRules
+
 if TYPE_CHECKING:
     from app.models import TodoItem
     from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem
@@ -108,7 +111,7 @@ def resolve_current_todo_for_leaf(context: CurrentTodoContext) -> Optional["Todo
 
     # 4) 兜底：基于 graph_id 查找一个可执行叶子步骤
     if context.current_detail_info and context.find_first_todo_for_graph:
-        graph_identifier = str(context.current_detail_info.get("graph_id") or "")
+        graph_identifier = get_graph_id(context.current_detail_info)
         if graph_identifier:
             fallback_todo = context.find_first_todo_for_graph(graph_identifier)
             if fallback_todo is not None:
@@ -164,11 +167,11 @@ def resolve_current_todo_for_root(
 
     # 检查是否需要回溯到根
     detail_info = getattr(current_todo, "detail_info", None) or {}
-    detail_type = detail_info.get("type", "")
+    detail_type = get_detail_type(detail_info)
 
     if root_type == "template":
         # 模板图根执行：如果当前不是模板图根，优先沿树项回溯，其次沿 parent_id 回溯。
-        if detail_type != "template_graph_root":
+        if not StepTypeRules.is_template_graph_root(detail_type):
             # 1) 若调用方提供了树项回调，则优先使用（保持与 UI 行为一致）
             if find_template_root_for_item and context.get_item_by_id:
                 item = context.get_item_by_id(current_todo.todo_id)
@@ -194,8 +197,8 @@ def resolve_current_todo_for_root(
                 if parent is None:
                     break
                 parent_detail = getattr(parent, "detail_info", None) or {}
-                parent_type = parent_detail.get("type", "")
-                if parent_type == "template_graph_root":
+                parent_type = get_detail_type(parent_detail)
+                if StepTypeRules.is_template_graph_root(parent_type):
                     return parent
                 cursor = parent
 
@@ -205,7 +208,7 @@ def resolve_current_todo_for_root(
 
     elif root_type == "flow":
         # 事件流根执行：如果当前不是事件流根，查找对应的事件流根
-        if detail_type != "event_flow_root":
+        if not StepTypeRules.is_event_flow_root(detail_type):
             if find_event_flow_root_for_todo:
                 flow_root = find_event_flow_root_for_todo(current_todo.todo_id)
                 if flow_root is not None:

@@ -8,7 +8,8 @@ import ast
 import uuid
 from typing import Dict, List, Optional, Tuple, Set
 
-from engine.graph.models import NodeModel, PortModel
+from engine.graph.models import NodeModel, PortModel, NodeDefRef
+from engine.nodes import get_canonical_node_def_key
 from engine.graph.utils.ast_utils import extract_constant_value, NOT_EXTRACTABLE
 from .arg_normalizer import normalize_call_arguments
 
@@ -258,11 +259,17 @@ def create_composite_node_from_instance_call(call_node: ast.Call, node_library: 
         id=node_id,
         title=target_node_def.name,
         category=target_node_def.category,
+        node_def_ref=NodeDefRef(
+            kind="composite",
+            key=str(getattr(target_node_def, "composite_id", "") or "").strip(),
+        ),
         pos=(100.0, 100.0),
         inputs=input_ports,
         outputs=output_ports,
         composite_id=target_node_def.composite_id if hasattr(target_node_def, 'composite_id') else ""
     )
+    if not str(getattr(node, "node_def_ref", None).key or "").strip():
+        raise ValueError(f"复合节点 NodeDef 缺少 composite_id：{getattr(target_node_def, 'name', '')}")
     
     # 重建端口映射
     node._rebuild_port_maps()
@@ -278,12 +285,12 @@ def create_composite_node_from_instance_call(call_node: ast.Call, node_library: 
     for dst_port, expr in norm.positional:
         val = extract_constant_value(expr)
         if val is not NOT_EXTRACTABLE:
-            node.input_constants[dst_port] = str(val)
+            node.input_constants[dst_port] = val
     # 关键字参数
     for pname, expr in norm.keywords.items():
         val = extract_constant_value(expr)
         if val is not NOT_EXTRACTABLE:
-            node.input_constants[pname] = str(val)
+            node.input_constants[pname] = val
     
     # 记录实例属性关联（用于后续匹配）
     if hasattr(target_node_def, 'composite_id'):

@@ -30,11 +30,16 @@ from .constants import (
     INITIAL_Y_DEFAULT,
     EVENT_Y_GAP_DEFAULT,
     BLOCK_COLORS_DEFAULT,
+    DATA_STACK_GAP_DEFAULT,
+    compute_slot_width_from_node_width,
+    scale_layout_gap_x,
+    scale_layout_gap_y,
 )
 from ..utils.graph_query_utils import (
     get_node_order_key,
     build_event_title_lookup,
     resolve_event_title,
+    estimate_node_height_ui_exact_with_context,
 )
 from ..flow.event_flow_analyzer import find_event_roots
 from .layout_context import LayoutContext, get_or_build_layout_context_for_model
@@ -46,6 +51,8 @@ from ..blocks.block_relationship_analyzer import (
 from ..blocks.block_positioning_engine import BlockPositioningEngine
 from ..utils.position_applicator import PositionApplicator
 from ..blocks.block_identification_coordinator import BlockIdentificationCoordinator
+from ..utils.data_graph_utils import compute_data_components_layers_for_nodes
+from ..utils.local_variable_relay_inserter import insert_local_variable_relays_after_global_copy
 from .layout_models import LayoutBlock
 
 
@@ -70,11 +77,12 @@ class LayoutOrchestrator:
         self.node_width = NODE_WIDTH_DEFAULT
         self.node_height = NODE_HEIGHT_DEFAULT
         self.block_padding = BLOCK_PADDING_DEFAULT
-        self.block_x_spacing = BLOCK_X_SPACING_DEFAULT
-        self.block_y_spacing = BLOCK_Y_SPACING_DEFAULT
+        # 注意：间距倍率只缩放“相邻节点之间的空隙”，不改变节点本身的宽高估算
+        self.block_x_spacing = scale_layout_gap_x(BLOCK_X_SPACING_DEFAULT)
+        self.block_y_spacing = scale_layout_gap_y(BLOCK_Y_SPACING_DEFAULT)
         self.initial_x = INITIAL_X_DEFAULT
         self.initial_y = INITIAL_Y_DEFAULT
-        self.event_y_gap = EVENT_Y_GAP_DEFAULT
+        self.event_y_gap = scale_layout_gap_y(EVENT_Y_GAP_DEFAULT)
         self.block_colors = BLOCK_COLORS_DEFAULT
 
         # 全局只读布局上下文（索引缓存），避免每个块重复构建边索引
@@ -94,6 +102,10 @@ class LayoutOrchestrator:
         self._coordinator: Optional[BlockIdentificationCoordinator] = None
         self._global_visited: Set[str] = set()
 
+        # 长连线中转（获取局部变量）节点：强制放置映射（用于在阶段2覆盖 GlobalCopyManager 的归属结果）
+        self._forced_local_var_relay_nodes_by_block_id: Dict[str, Set[str]] = {}
+        self._forced_local_var_relay_node_ids: Set[str] = set()
+
     def execute_layout(self) -> None:
         """执行完整的布局流程（新流程）"""
         # 步骤1：发现事件节点
@@ -108,8 +120,14 @@ class LayoutOrchestrator:
         # 步骤3：全局复制阶段
         self._execute_global_copy()
 
+        # 步骤3.5：长连线中转（跨块复制后、块内排版前）
+        self._insert_local_var_relays_before_data_placement()
+
         # 步骤4：为每个块放置数据节点并计算坐标
         self._place_all_blocks_data_nodes()
+
+        # 步骤4.5：识别“完全不与流程/事件块相连”的纯数据组件，并单独成块布局
+        self._layout_orphan_pure_data_components_as_blocks()
 
         # 步骤5：块间排版
         self._layout_block_tree_stage()
@@ -206,6 +224,38 @@ class LayoutOrchestrator:
             # 同时阶段1缓存的 BlockLayoutContext 也需要切换到新的全局索引视图，避免后续阶段读取过期边索引。
             self._refresh_global_layout_context_after_model_mutation()
 
+    def _insert_local_var_relays_before_data_placement(self) -> None:
+        """跨块复制完成后、块内排版前：按设置自动插入【获取局部变量】中转节点以拆分长数据边。"""
+        self._forced_local_var_relay_nodes_by_block_id = {}
+        self._forced_local_var_relay_node_ids = set()
+
+        if self._global_copy_manager is None:
+            return
+
+        if not bool(getattr(settings, "LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY", False)):
+            return
+
+        threshold = int(getattr(settings, "LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE", 5) or 5)
+
+        registry_context = getattr(self.global_layout_context, "registry_context", None)
+        node_registry = getattr(registry_context, "node_registry", None) if registry_context is not None else None
+        if node_registry is None:
+            return
+
+        forced_by_block, all_relay_nodes, did_mutate = insert_local_variable_relays_after_global_copy(
+            model=self.model,
+            layout_blocks=self.layout_blocks,
+            global_copy_manager=self._global_copy_manager,
+            max_block_distance=threshold,
+            node_registry=node_registry,
+        )
+        self._forced_local_var_relay_nodes_by_block_id = forced_by_block
+        self._forced_local_var_relay_node_ids = all_relay_nodes
+
+        if did_mutate:
+            # 插入/改线会修改 model.nodes/model.edges，必须刷新 LayoutContext 与阶段1缓存的块上下文索引
+            self._refresh_global_layout_context_after_model_mutation()
+
     def _refresh_global_layout_context_after_model_mutation(self) -> None:
         registry_context = getattr(self.global_layout_context, "registry_context", None)
         if registry_context is None:
@@ -230,10 +280,96 @@ class LayoutOrchestrator:
             # 获取该块应放置的数据节点
             block_data_nodes: Set[str] = set()
             if self._global_copy_manager:
-                block_data_nodes = self._global_copy_manager.get_block_data_nodes(block_id)
+                block_data_nodes = set(self._global_copy_manager.get_block_data_nodes(block_id) or set())
+
+            # 强制放置：relay 节点以“编码的 block_id”为准，避免被依赖分析归属到消费者块导致长线回退
+            if self._forced_local_var_relay_node_ids:
+                block_data_nodes -= self._forced_local_var_relay_node_ids
+                block_data_nodes |= set(self._forced_local_var_relay_nodes_by_block_id.get(block_id, set()) or set())
             
             # 执行阶段2：放置数据节点并计算坐标
             self._coordinator.layout_block_data_phase(block, block_data_nodes)
+
+    def _layout_orphan_pure_data_components_as_blocks(self) -> None:
+        """将未被任何流程块放置的纯数据节点组件作为独立块布局。
+
+        典型场景：
+        - 复合节点子图中存在“仅参与虚拟输出拼装”的纯数据链；
+        - 这些节点不作为任何流程节点的输入，因此不会被依赖分析挂载到某个流程块；
+        - 但用户仍希望它们在 UI 中作为独立块可见（而不是被强行塞进某个流程块或完全不显示）。
+        """
+        if not self.model.nodes:
+            return
+
+        placed_node_ids: Set[str] = set()
+        for layout_block in self.layout_blocks:
+            local_pos = getattr(layout_block, "node_local_pos", None) or {}
+            placed_node_ids.update(local_pos.keys())
+
+        # 仅处理“纯数据节点”且尚未被任何块放置的节点集合
+        unplaced_pure_data_ids: Set[str] = set()
+        for node_id in self.model.nodes.keys():
+            if node_id in placed_node_ids:
+                continue
+            if self.global_layout_context.is_pure_data_node(node_id):
+                unplaced_pure_data_ids.add(node_id)
+
+        if not unplaced_pure_data_ids:
+            return
+
+        components = compute_data_components_layers_for_nodes(self.model, unplaced_pure_data_ids)
+        if not components:
+            return
+
+        # 追加块：保持稳定序号与颜色分配
+        max_order_index = 0
+        for layout_block in self.layout_blocks:
+            max_order_index = max(max_order_index, int(getattr(layout_block, "order_index", 0) or 0))
+        next_order_index = max_order_index + 1
+
+        color_index = len(self.layout_blocks)
+        block_padding_local = float(self.block_padding)
+        slot_width = compute_slot_width_from_node_width(float(self.node_width))
+        data_stack_gap = float(scale_layout_gap_y(DATA_STACK_GAP_DEFAULT))
+
+        for component in components:
+            if not component.nodes:
+                continue
+
+            layers: List[List[str]] = component.layers or [list(component.nodes)]
+            node_local_pos: Dict[str, Tuple[float, float]] = {}
+            max_y_end = 0.0
+
+            for layer_index, layer_nodes in enumerate(layers):
+                x_coord = block_padding_local + float(layer_index) * float(slot_width)
+                current_y = block_padding_local
+                for data_node_id in layer_nodes:
+                    node_local_pos[data_node_id] = (x_coord, current_y)
+                    node_height_est = float(
+                        estimate_node_height_ui_exact_with_context(self.global_layout_context, data_node_id)
+                    )
+                    current_y += node_height_est + data_stack_gap
+                max_y_end = max(max_y_end, current_y)
+
+            # 简单块边界：slot_width 已包含节点宽度与横向间距，下方预留 block_padding
+            block_width = float(len(layers)) * float(slot_width) + 2.0 * block_padding_local
+            block_height = float(max_y_end) + block_padding_local
+
+            data_only_block = LayoutBlock()
+            data_only_block.flow_nodes = []
+            data_only_block.data_nodes = list(component.nodes)
+            data_only_block.node_local_pos = node_local_pos
+            data_only_block.width = block_width
+            data_only_block.height = block_height
+            data_only_block.node_width = float(self.node_width)
+            data_only_block.last_node_branches = []
+            data_only_block.event_root_id = None
+            data_only_block.order_index = int(next_order_index)
+            data_only_block.color = self.block_colors[color_index % len(self.block_colors)]
+
+            next_order_index += 1
+            color_index += 1
+            self.layout_blocks.append(data_only_block)
 
     def _build_event_metadata_lookup(self) -> Dict[str, Tuple[Optional[str], Optional[str]]]:
         """预计算事件ID与标题映射，供块识别阶段复用。"""

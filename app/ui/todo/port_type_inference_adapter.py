@@ -2,15 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from app.automation.ports._type_utils import infer_type_from_value
-from app.automation.ports.port_type_inference import (
-    build_edge_lookup as build_type_edge_lookup,
-    infer_input_type_from_edges,
-    infer_output_type_from_edges,
-    infer_output_type_from_self_inputs,
-    is_generic_type_name,
-    lookup_struct_field_type_by_name,
-)
+from app.automation.ports.port_type_inference import is_generic_type_name, lookup_struct_field_type_by_name
+from app.automation.ports.port_type_resolver import resolve_effective_port_type_for_model
 from app.models import TodoItem
 from app.models.todo_node_type_helper import NodeTypeHelper
 from engine.graph.models.graph_model import GraphModel
@@ -86,13 +79,9 @@ def infer_concrete_port_type_for_step(
 ) -> str:
     """为类型设置步骤推断端口的具体数据类型。
 
-    优先使用示例值；若无示例值，则基于节点定义与连线结构推断类型。
+    统一以 GraphModel 级“有效端口类型”推断为准（单一真源）。
     该函数不依赖 Qt，仅依赖 TodoItem 与 GraphModel。
     """
-    value_text = str(raw_value) if raw_value is not None else ""
-    if isinstance(value_text, str) and value_text.strip():
-        return infer_type_from_value(value_text)
-
     detail_info = todo.detail_info or {}
     node_identifier = str(detail_info.get("node_id", "") or "")
     if not node_identifier:
@@ -103,17 +92,6 @@ def infer_concrete_port_type_for_step(
     node_model = graph_model.nodes.get(node_identifier)
     if node_model is None:
         return ""
-
-    # 若 GraphModel.metadata 中存在端口类型覆盖信息，则在进入通用推断逻辑前优先采用
-    overrides_raw = graph_model.metadata.get("port_type_overrides")
-    if isinstance(overrides_raw, dict):
-        node_overrides_raw = overrides_raw.get(node_identifier)
-        if isinstance(node_overrides_raw, dict):
-            override_type_raw = node_overrides_raw.get(param_name)
-            if isinstance(override_type_raw, str):
-                override_type = override_type_raw.strip()
-                if override_type and not is_generic_type_name(override_type):
-                    return override_type
 
     # 判定端口属于输入侧还是输出侧
     side = ""
@@ -135,33 +113,19 @@ def infer_concrete_port_type_for_step(
     if node_def is None:
         return ""
 
-    edge_lookup = build_type_edge_lookup(graph_model)
-
     if side == "input":
-        declared_input_type = ""
-        input_types: Dict[str, Any] = getattr(node_def, "input_types", {}) or {}
-        if isinstance(input_types, dict) and param_name in input_types:
-            declared_input_type = str(input_types.get(param_name, "") or "")
-        if declared_input_type and not is_generic_type_name(declared_input_type):
-            return declared_input_type
-
-        inferred_input = infer_input_type_from_edges(
-            param_name,
-            node_model,
-            graph_model,
-            type_helper_executor,
-            edge_lookup=edge_lookup,
+        resolved = resolve_effective_port_type_for_model(
+            port_name=param_name,
+            node_model=node_model,
+            graph_model=graph_model,
+            executor=type_helper_executor,
+            is_input=True,
+            is_flow=False,
+            default_when_unknown="",
         )
-        if isinstance(inferred_input, str) and inferred_input.strip() and not is_generic_type_name(inferred_input):
-            return inferred_input
-
-        if declared_input_type and not is_generic_type_name(declared_input_type):
-            return declared_input_type
-
-        dynamic_type = str(getattr(node_def, "dynamic_port_type", "") or "")
-        if dynamic_type and not is_generic_type_name(dynamic_type):
-            return dynamic_type
-
+        resolved_text = str(resolved or "").strip()
+        if resolved_text and not is_generic_type_name(resolved_text):
+            return resolved_text
         return "字符串"
 
     # 输出端口
@@ -173,38 +137,18 @@ def infer_concrete_port_type_for_step(
     if struct_based_type:
         return struct_based_type
 
-    declared_output_type = ""
-    output_types: Dict[str, Any] = getattr(node_def, "output_types", {}) or {}
-    if isinstance(output_types, dict) and param_name in output_types:
-        declared_output_type = str(output_types.get(param_name, "") or "")
-
-    inferred_output: Optional[str] = None
-    if declared_output_type:
-        inferred_output = infer_output_type_from_self_inputs(
-            node_model,
-            node_def,
-            declared_output_type,
-            type_helper_executor,
-        )
-
-    if not inferred_output:
-        inferred_output = infer_output_type_from_edges(
-            param_name,
-            node_model,
-            graph_model,
-            type_helper_executor,
-            edge_lookup=edge_lookup,
-        )
-
-    if isinstance(inferred_output, str) and inferred_output.strip() and not is_generic_type_name(inferred_output):
-        return inferred_output
-
-    if declared_output_type and not is_generic_type_name(declared_output_type):
-        return declared_output_type
-
-    dynamic_output_type = str(getattr(node_def, "dynamic_port_type", "") or "")
-    if dynamic_output_type and not is_generic_type_name(dynamic_output_type):
-        return dynamic_output_type
+    resolved = resolve_effective_port_type_for_model(
+        port_name=param_name,
+        node_model=node_model,
+        graph_model=graph_model,
+        executor=type_helper_executor,
+        is_input=False,
+        is_flow=False,
+        default_when_unknown="",
+    )
+    resolved_text = str(resolved or "").strip()
+    if resolved_text and not is_generic_type_name(resolved_text):
+        return resolved_text
 
     return "字符串"
 

@@ -20,7 +20,7 @@ class LocalVarUsageRule(ValidationRule):
     """【获取局部变量】调用规范校验：
 
     - 调用结果必须显式选择输出：
-      - 二元解包：`局部句柄, 当前值 = 获取局部变量(self.game, 初始值=0)`
+      - 二元拆分赋值：`局部句柄, 当前值 = 获取局部变量(self.game, 初始值=0)`
       - 或下标取值：`当前值 = 获取局部变量(self.game, 初始值=0)[1]`
     """
 
@@ -79,13 +79,13 @@ class LocalVarUsageRule(ValidationRule):
                 msg,
             )
 
-        # 2) 允许二元解包：句柄, 值 = 获取局部变量(...)
+        # 2) 允许二元拆分赋值：句柄, 值 = 获取局部变量(...)
         if isinstance(parent, ast.Assign) and getattr(parent, "value", None) is call:
             if self._is_two_target_unpack(parent):
                 return None
             msg = (
                 f"{line_span_text(parent)}: 【获取局部变量】有 2 个输出（局部变量句柄, 值），"
-                "必须使用二元解包（`句柄, 当前值 = 获取局部变量(...)`），"
+                "必须使用二元拆分赋值（`句柄, 当前值 = 获取局部变量(...)`），"
                 "或显式下标取值（`获取局部变量(...)[0/1]`）。"
             )
             return create_rule_issue(
@@ -99,7 +99,7 @@ class LocalVarUsageRule(ValidationRule):
         # 3) 其余上下文视为未显式选择输出
         msg = (
             f"{line_span_text(call)}: 【获取局部变量】有 2 个输出（局部变量句柄, 值），"
-            "调用结果必须二元解包或显式下标取值；"
+            "调用结果必须二元拆分赋值或显式下标取值；"
             "禁止直接把调用结果当作单个值使用。"
         )
         return create_rule_issue(

@@ -35,6 +35,16 @@ def log_info(message: str, *args: Any) -> None:
             print(f"[INFO { _now() }] {message}")
 
 
+def log_debug(message: str, *args: Any) -> None:
+    """调试日志。由 settings.DEBUG_LOG_VERBOSE 控制是否输出。"""
+    settings = _get_settings()
+    if getattr(settings, "DEBUG_LOG_VERBOSE", False):
+        if args:
+            print(f"[DBG  { _now() }] " + message.format(*args))
+        else:
+            print(f"[DBG  { _now() }] {message}")
+
+
 def log_print(message: str, *args: Any) -> None:
     """打印日志。始终输出（用于节点图调试节点，如“打印字符串”）。"""
     if args:

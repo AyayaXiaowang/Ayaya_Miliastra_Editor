@@ -22,6 +22,8 @@ from engine.type_registry import (
     TYPE_FLOAT,
     TYPE_BOOLEAN,
     TYPE_STRING,
+    TYPE_STRUCT,
+    TYPE_STRUCT_LIST,
     TYPE_VECTOR3,
     is_dict_type_name,
     is_list_type_name,
@@ -82,9 +84,36 @@ def can_connect_ports(src_type: str, dst_type: str) -> bool:
         other = dst if src == TYPE_GENERIC_LIST else src
         return _is_list_type(other)
 
-    # 泛型类型可以接受任何类型
+    # 泛型/任意：可以接受任何类型
+    # 注意：必须放在“结构体家族”规则之前，否则会把『泛型 ↔ 结构体』误判为不兼容。
     if src in (ANY_PORT_TYPE, GENERIC_PORT_TYPE) or dst in (ANY_PORT_TYPE, GENERIC_PORT_TYPE):
         return True
+
+    # 结构体家族：
+    # - "结构体" 代表“泛型结构体”占位；
+    # - 具体结构体类型使用 "结构体<结构体名>" 表示（由 UI/类型代理生成）；
+    # - 连线规则：仅允许 **同名互连**（避免未绑定结构体名时的“泛型结构体”误连到任意具体结构体）。
+    struct_prefix = f"{TYPE_STRUCT}<"
+    if src == TYPE_STRUCT or dst == TYPE_STRUCT or src.startswith(struct_prefix) or dst.startswith(struct_prefix):
+        src_is_struct_family = src == TYPE_STRUCT or src.startswith(struct_prefix)
+        dst_is_struct_family = dst == TYPE_STRUCT or dst.startswith(struct_prefix)
+        if not (src_is_struct_family and dst_is_struct_family):
+            return False
+        return src == dst
+
+    # 结构体列表家族：与结构体同口径（仅同名互连）
+    struct_list_prefix = f"{TYPE_STRUCT_LIST}<"
+    if (
+        src == TYPE_STRUCT_LIST
+        or dst == TYPE_STRUCT_LIST
+        or src.startswith(struct_list_prefix)
+        or dst.startswith(struct_list_prefix)
+    ):
+        src_is_struct_list_family = src == TYPE_STRUCT_LIST or src.startswith(struct_list_prefix)
+        dst_is_struct_list_family = dst == TYPE_STRUCT_LIST or dst.startswith(struct_list_prefix)
+        if not (src_is_struct_list_family and dst_is_struct_list_family):
+            return False
+        return src == dst
 
     # 完全匹配
     if src == dst:

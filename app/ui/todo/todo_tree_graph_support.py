@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from PyQt6 import QtGui, QtWidgets
 from PyQt6.QtCore import Qt
@@ -9,8 +9,9 @@ from app.models import TodoItem
 from app.models.todo_node_type_helper import NodeTypeHelper
 from engine.graph.models.graph_model import GraphModel
 from app.automation.ports.port_type_inference import infer_dict_key_value_types_for_input
+from engine.configs.settings import settings
 
-from app.runtime.services.graph_data_service import get_shared_graph_data_service
+from app.runtime.services.graph_data_service import GraphDataService
 from app.runtime.services.graph_model_cache import GraphModelCacheEntry, get_or_build_graph_model
 from app.ui.todo.port_type_inference_adapter import (
     PortTypeExecutorAdapter,
@@ -34,9 +35,12 @@ class TodoTreeGraphSupport:
         self,
         tree: QtWidgets.QTreeWidget,
         rich_segments_role: int,
+        *,
+        graph_data_service_getter: Optional[Callable[[], GraphDataService]] = None,
     ) -> None:
         self._tree = tree
         self._rich_segments_role = rich_segments_role
+        self._graph_data_service_getter = graph_data_service_getter
         self._graph_model_cache: Dict[str, GraphModelCacheEntry] = {}
         self._type_helper = NodeTypeHelper()
         self._type_helper_executor = PortTypeExecutorAdapter(self._type_helper)
@@ -96,6 +100,43 @@ class TodoTreeGraphSupport:
                 child.setForeground(0, QtGui.QBrush(QtGui.QColor(color)))
                 child.setData(0, Qt.ItemDataRole.UserRole, "")
                 item.addChild(child)
+            return
+
+        # 连线步骤：为每条边生成“源端口 → 目标端口”的只读子项，便于在树中快速总览。
+        if detail_type in {"graph_connect", "graph_connect_merged"}:
+            def _add_virtual_child(text: str) -> None:
+                child = QtWidgets.QTreeWidgetItem()
+                child.setData(0, Qt.ItemDataRole.UserRole + 1, "virtual_detail_child")
+
+                flags = child.flags()
+                flags &= ~Qt.ItemFlag.ItemIsUserCheckable
+                child.setFlags(flags)
+
+                child.setText(0, str(text or ""))
+                color = ThemeColors.TEXT_SECONDARY
+                child.setForeground(0, QtGui.QBrush(QtGui.QColor(color)))
+                child.setData(0, Qt.ItemDataRole.UserRole, "")
+                item.addChild(child)
+
+            if detail_type == "graph_connect":
+                src_port = str(info.get("src_port") or "")
+                dst_port = str(info.get("dst_port") or "")
+                src_display = src_port if src_port else "(未指定)"
+                dst_display = dst_port if dst_port else "(未指定)"
+                _add_virtual_child(f"连接「{src_display}」→「{dst_display}」")
+                return
+
+            edges = info.get("edges") or []
+            if not isinstance(edges, list) or not edges:
+                return
+            for edge_info in edges:
+                if not isinstance(edge_info, dict):
+                    continue
+                src_port = str(edge_info.get("src_port") or "")
+                dst_port = str(edge_info.get("dst_port") or "")
+                src_display = src_port if src_port else "(未指定)"
+                dst_display = dst_port if dst_port else "(未指定)"
+                _add_virtual_child(f"连接「{src_display}」→「{dst_display}」")
             return
 
         params = info.get("params") or []
@@ -363,9 +404,36 @@ class TodoTreeGraphSupport:
         graph_model, _graph_id = self.get_graph_model_for_item(
             item, todo.todo_id, todo_map
         )
+        # 图步骤在缺少 GraphModel 时保持“轻量 tokens”（避免退化/闪烁，并避免触发任何重计算）。
+        if graph_model is None:
+            detail_type = str((todo.detail_info or {}).get("type", "") or "")
+            if StepTypeRules.is_graph_step(detail_type):
+                return
         tokens = build_rich_tokens_for_todo(
             todo,
             graph_model=graph_model,
+            get_task_icon=get_task_icon,
+        )
+        if tokens is None:
+            item.setData(0, self._rich_segments_role, None)
+        else:
+            item.setData(0, self._rich_segments_role, tokens)
+
+    def update_item_rich_tokens_lightweight(
+        self,
+        item: QtWidgets.QTreeWidgetItem,
+        todo: TodoItem,
+        *,
+        get_task_icon,
+    ) -> None:
+        """轻量 tokens：不加载 GraphModel，仅基于 detail_info/todo.title 生成富文本。
+
+        用于“首次打开任务树”场景，保证默认就有彩色样式，但不会触发大图 GraphModel 反序列化。
+        当用户选中某一步需要更精确的“节点类别配色”时，再由 `update_item_rich_tokens` 使用 GraphModel 刷新。
+        """
+        tokens = build_rich_tokens_for_todo(
+            todo,
+            graph_model=None,
             get_task_icon=get_task_icon,
         )
         if tokens is None:
@@ -388,16 +456,27 @@ class TodoTreeGraphSupport:
             return (None, "")
         root_info = root_todo.detail_info or {}
         graph_identifier = str(root_info.get("graph_id", "") or "")
-        graph_data_service = self._resolve_graph_data_service()
+        graph_data_service = self._get_graph_data_service()
         graph_data = (
             graph_data_service.resolve_payload_graph_data(root_info)
             if graph_data_service is not None
             else None
         )
-        if graph_data is None:
-            graph_data = self.load_graph_data_for_root(root_todo)
+        # 重要：此处不允许在 UI 线程同步触发磁盘加载。
+        # - 图数据应由预览面板/执行链路在后台线程加载，并写回 graph_data_key；
+        # - 任务树的富文本/虚拟子项在缺少 payload 时应降级展示，而不是卡住 UI。
         if not graph_identifier or not isinstance(graph_data, dict):
-            return (None, "")
+            return (None, graph_identifier)
+
+        # 超大图：避免在 UI 线程反序列化 GraphModel（可显著阻塞 UI）
+        nodes_value = graph_data.get("nodes")
+        edges_value = graph_data.get("edges")
+        node_count = len(nodes_value) if isinstance(nodes_value, (list, dict)) else 0
+        edge_count = len(edges_value) if isinstance(edges_value, (list, dict)) else 0
+        node_threshold = int(getattr(settings, "GRAPH_ASYNC_LOAD_NODE_THRESHOLD", 300) or 300)
+        edge_threshold = int(getattr(settings, "GRAPH_ASYNC_LOAD_EDGE_THRESHOLD", 600) or 600)
+        if node_count >= node_threshold or edge_count >= edge_threshold:
+            return (None, graph_identifier)
         model = get_or_build_graph_model(
             graph_identifier,
             graph_data=graph_data,
@@ -407,7 +486,7 @@ class TodoTreeGraphSupport:
 
     def load_graph_data_for_root(self, root_todo: TodoItem) -> Optional[dict]:
         info = root_todo.detail_info or {}
-        graph_data_service = self._resolve_graph_data_service()
+        graph_data_service = self._get_graph_data_service()
         if graph_data_service is not None:
             cached = graph_data_service.resolve_payload_graph_data(info)
             if isinstance(cached, dict) and ("nodes" in cached or "edges" in cached):
@@ -428,13 +507,10 @@ class TodoTreeGraphSupport:
         root_todo.detail_info = new_info
         return graph_data
 
-    def _resolve_graph_data_service(self):
-        top_widget = self._tree.window()
-        if top_widget is None:
+    def _get_graph_data_service(self) -> Optional[GraphDataService]:
+        if self._graph_data_service_getter is None:
             return None
-        resource_manager = getattr(top_widget, "resource_manager", None)
-        package_index_manager = getattr(top_widget, "package_index_manager", None)
-        return get_shared_graph_data_service(resource_manager, package_index_manager)
+        return self._graph_data_service_getter()
 
     # === 图根定位 ===
 

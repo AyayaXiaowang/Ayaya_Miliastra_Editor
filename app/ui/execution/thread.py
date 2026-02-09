@@ -25,6 +25,7 @@ from .strategies import (
 from app.automation.editor.executor_protocol import EditorExecutorProtocol
 from engine.graph.models.graph_model import GraphModel
 from engine.configs.settings import settings
+from app.models.todo_detail_info_accessors import get_detail_type, get_node_id
 from app.automation import capture as editor_capture
 from app.automation.vision import list_nodes
 from app.automation.vision.ocr_template_profile import build_ocr_template_profile_mismatch_hint
@@ -122,10 +123,9 @@ class ExecutionThread(QtCore.QThread):
         mapping: Dict[str, int] = {}
         for step_index, todo in enumerate(steps):
             detail_info = getattr(todo, "detail_info", None) or {}
-            step_type = str(detail_info.get("type", ""))
+            step_type = get_detail_type(detail_info)
             if step_type == "graph_create_node" or step_type == "graph_create_and_connect":
-                node_id_value = detail_info.get("node_id")
-                node_id = str(node_id_value or "")
+                node_id = get_node_id(detail_info)
                 if node_id and node_id not in mapping:
                     mapping[node_id] = step_index
                     if callable(log_callback):
@@ -183,8 +183,34 @@ class ExecutionThread(QtCore.QThread):
 
             quick_mapped = self.coordinator.try_quick_mapping()
 
-            # 阶段5: 单步模式的识别与几何校验（仅在快速映射失败时生效）
+            # 阶段5: 快速映射失败 → 退化为“锚点校准”（使用图模板自带的锚点节点）
+            #
+            # 说明：
+            # - client 节点图在新建时会自带若干锚点节点（如技能图的【节点图开始】、过滤器图的【节点图结束】）；
+            # - 这些节点不应通过步骤再创建，而应作为坐标校准与后续创建的结构锚点。
             skip_first_create_after_calibration = False
+            if not quick_mapped and (getattr(self.executor, "scale_ratio", None) is None):
+                if bool(getattr(anchor_info, "is_valid", False)):
+                    # 若锚点来自“首个创建步骤”，则沿用旧逻辑：校准时创建锚点节点，并跳过后续首个创建避免重复。
+                    # 若锚点为 client 图的模板内置节点（skip_first_todo_id 为空），则必须禁止创建。
+                    should_create_anchor = bool(getattr(anchor_info, "skip_first_todo_id", None))
+                    ok_anchor, anchor_title, anchor_prog_pos = self.coordinator.calibrate_with_anchor(
+                        anchor_info.title,
+                        anchor_info.prog_pos,
+                        should_create_anchor=should_create_anchor,
+                    )
+                    if not ok_anchor:
+                        return
+                    if should_create_anchor:
+                        anchor_node_id = str(getattr(anchor_info, "node_id", "") or "")
+                        skip_first_create_after_calibration = self.coordinator.check_skip_first_create_after_calibration(
+                            anchor_node_id,
+                            anchor_prog_pos,
+                        )
+                else:
+                    self.monitor.log("⚠ 快速映射失败且未找到可用锚点节点：后续步骤可能无法定位节点")
+
+            # 阶段6: 单步模式的识别与几何校验（仅在快速映射失败时生效）
             if (len(self.steps) == 1) and (not quick_mapped):
                 # 单步执行时，无论步骤类型，都先进行一次识别+几何校验；
                 # 对于“仅此一步且为创建类”的场景，识别失败视为软失败：给出警告但继续尝试创建，
@@ -196,7 +222,15 @@ class ExecutionThread(QtCore.QThread):
                 if not check_ok and (not is_create_step):
                     return
 
-            # 阶段6: 逐步执行
+            # 将“模板锚点节点”写入执行器的 created tracking，供后续创建步骤优先用其做创建锚点
+            seed_created_nodes = getattr(self.executor, "seed_created_nodes", None)
+            if callable(seed_created_nodes):
+                anchor_node_id = str(getattr(anchor_info, "node_id", "") or "")
+                is_builtin_anchor = anchor_node_id and not bool(getattr(anchor_info, "skip_first_todo_id", None))
+                if is_builtin_anchor:
+                    seed_created_nodes([anchor_node_id], log_callback=self.monitor.log)
+
+            # 阶段7: 逐步执行
             self._execute_steps_loop(anchor_info, skip_first_create_after_calibration)
             
         finally:

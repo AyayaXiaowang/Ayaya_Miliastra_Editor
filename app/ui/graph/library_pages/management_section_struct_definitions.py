@@ -6,21 +6,17 @@ from engine.configs.specialized.node_graph_configs import (
     STRUCT_TYPE_INGAME_SAVE,
     InGameSaveStructDefinition,
 )
-from engine.resources.definition_schema_view import (
-    get_default_definition_schema_view,
-)
-
 
 class StructDefinitionSection(BaseManagementSection):
     """结构体定义管理 Section（对应资源类型 `STRUCT_DEFINITION`）。
 
     新设计约定：
-    - 数据来源：结构体定义 Schema 视图（`DefinitionSchemaView`）中的代码级结构体定义；
-    - 过滤规则：
-      - `<全部资源>` 视图：展示全部结构体定义；
-      - 具体存档视图：仅展示该存档索引 `resources.management["struct_definitions"]`
-        中声明包含的结构体 ID；
-      - `<未分类资源>` 视图：展示未被任何存档纳入的结构体（基于索引反查）。
+    - 数据来源：当前视图绑定的 `ResourceManager` 索引（目录即存档模式：共享根 + 当前项目存档根）。
+      - `<共享资源>` 视图下 `ResourceManager` 仅扫描共享根目录；
+      - 具体存档视图下 `ResourceManager` 扫描（共享根 + 当前存档根目录）。
+    - 展示规则：
+      - 仅展示当前视图作用域内的结构体定义（避免“共享视图混入其他存档结构体”导致归属与徽章失真）；
+      - 列表展示名以 `struct_name` 为主，但当 `struct_name != struct_id` 时会附带 `struct_id` 以消除同名歧义。
     - 结构体定义的增删改需在 Python 模块中完成，本 Section 在当前版本中仅提供浏览与归属管理。
     """
 
@@ -29,54 +25,73 @@ class StructDefinitionSection(BaseManagementSection):
     type_name = "基础结构体"
     struct_type: str = STRUCT_TYPE_BASIC
 
-    # 基于 ResourceManager 实例的结构体记录缓存：
-    # id(resource_manager) -> List[(struct_id, payload)]
-    _STRUCT_RECORDS_CACHE: Dict[int, List[Tuple[str, Dict[str, object]]]] = {}
+    @staticmethod
+    def _invalidate_struct_records_cache(resource_manager: ResourceManager) -> None:
+        """兼容入口：用于在资源库刷新时失效结构体记录缓存。
 
-    @classmethod
-    def _invalidate_struct_records_cache(cls, resource_manager: ResourceManager) -> None:
-        """当结构体定义被增删改时，显式失效对应 ResourceManager 的缓存。"""
-        cache_key = id(resource_manager)
-        if cache_key in cls._STRUCT_RECORDS_CACHE:
-            del cls._STRUCT_RECORDS_CACHE[cache_key]
+        当前版本结构体定义列表不在 UI 层做额外缓存；保留该方法以兼容旧调用方。
+        """
+        _ = resource_manager
+        return
+
+    def _load_struct_records(
+        self,
+        resource_manager: ResourceManager,
+    ) -> List[Tuple[str, Dict[str, object]]]:
+        """读取当前 ResourceManager 可见范围内的结构体定义记录（按 struct_id 排序）。
+
+        注意：
+        - 本方法不做结构体类型过滤；调用方可使用 `_matches_struct_type` 自行筛选。
+        """
+        struct_ids = resource_manager.list_resources(ResourceType.STRUCT_DEFINITION)
+        normalized_ids = [
+            str(value).strip()
+            for value in struct_ids
+            if isinstance(value, str) and str(value).strip()
+        ]
+        normalized_ids.sort(key=lambda text: text.casefold())
+
+        records: List[Tuple[str, Dict[str, object]]] = []
+        for struct_id in normalized_ids:
+            payload = resource_manager.load_resource(
+                ResourceType.STRUCT_DEFINITION,
+                struct_id,
+            )
+            if not isinstance(payload, dict):
+                continue
+            records.append((struct_id, payload))
+        return records
 
     def iter_rows(self, package: ManagementPackage) -> Iterable[ManagementRowData]:
         resource_manager = self._get_resource_manager_from_package(package)
         if resource_manager is None:
             return []
 
-        all_records = self._load_struct_records(resource_manager)
-        package_id_value = getattr(package, "package_id", "") or ""
-        package_id = str(package_id_value)
-
-        if package_id in ("", "global_view"):
-            for struct_id, payload in all_records:
-                if not self._matches_struct_type(payload):
-                    continue
-                yield self._build_row_data(struct_id, payload)
-            return
-
-        if package_id == "unclassified_view":
-            membership_index = self._build_struct_membership_index_for_unclassified_view(package)
-            for struct_id, payload in all_records:
-                if not self._matches_struct_type(payload):
-                    continue
-                if not membership_index.get(struct_id):
-                    yield self._build_row_data(struct_id, payload)
-            return
-
-        package_index = getattr(package, "package_index", None)
-        if package_index is None:
-            return []
-        struct_ids_for_package = set(
-            package_index.resources.management.get("struct_definitions", [])
-        )
-
-        for struct_id, payload in all_records:
+        entries: List[Tuple[str, Dict[str, object], str]] = []
+        records = self._load_struct_records(resource_manager)
+        for struct_id, payload in records:
             if not self._matches_struct_type(payload):
                 continue
-            if struct_id in struct_ids_for_package:
-                yield self._build_row_data(struct_id, payload)
+            base_name = self._get_struct_display_name(struct_id, payload)
+            entries.append((struct_id, payload, base_name))
+
+        # 仅当存在同名结构体时才在显示名中做消歧：避免“名字（完整ID）”导致过长且重复。
+        name_counts: Dict[str, int] = {}
+        for _struct_id, _payload, base_name in entries:
+            key = str(base_name or "").strip().casefold()
+            if not key:
+                continue
+            name_counts[key] = name_counts.get(key, 0) + 1
+
+        for struct_id, payload, base_name in entries:
+            key = str(base_name or "").strip().casefold()
+            needs_disambiguation = bool(key) and name_counts.get(key, 0) > 1
+            yield self._build_row_data(
+                struct_id,
+                payload,
+                base_name=base_name,
+                needs_disambiguation=needs_disambiguation,
+            )
 
     def create_item(
         self,
@@ -124,79 +139,66 @@ class StructDefinitionSection(BaseManagementSection):
             return candidate
         return None
 
-    @classmethod
-    def _load_struct_records(
-        cls,
-        resource_manager: ResourceManager,
-    ) -> Iterable[Tuple[str, Dict[str, object]]]:
-        """加载所有结构体定义记录，并在进程内按 ResourceManager 维度做缓存。
+    def _build_row_data(
+        self,
+        struct_id: str,
+        payload: Mapping[str, object],
+        *,
+        base_name: str,
+        needs_disambiguation: bool,
+    ) -> ManagementRowData:
+        base_name_text = str(base_name or "").strip()
+        if not base_name_text:
+            base_name_text = struct_id
 
-        设计目标：
-        - 避免在管理页面每次切换到“结构体定义”时都重新遍历代码级定义；
-        - 返回结构与旧实现保持一致（返回 payload 副本），
-          通过显式失效缓存的方式与增删改操作保持一致（虽然当前版本不再支持增删改）。
-        """
-        cache_key = id(resource_manager)
-        cached_records = cls._STRUCT_RECORDS_CACHE.get(cache_key)
-        if cached_records is not None:
-            return cached_records
-
-        records: List[Tuple[str, Dict[str, object]]] = []
-        schema_view = get_default_definition_schema_view()
-        all_structs = schema_view.get_all_struct_definitions()
-
-        for struct_id, payload in all_structs.items():
-            if not isinstance(payload, dict):
-                continue
-            records.append((struct_id, dict(payload)))
-
-        cls._STRUCT_RECORDS_CACHE[cache_key] = records
-        return records
-
-    @staticmethod
-    def _build_struct_membership_index_for_unclassified_view(
-        unclassified_view: ManagementPackage,
-    ) -> Dict[str, set[str]]:
-        if not isinstance(unclassified_view, UnclassifiedResourceView):
-            return {}
-        package_index_manager = getattr(unclassified_view, "package_index_manager", None)
-        if package_index_manager is None:
-            return {}
-
-        membership: Dict[str, set[str]] = {}
-        packages = package_index_manager.list_packages()
-        for package_info in packages:
-            package_id_value = package_info.get("package_id")
-            if not isinstance(package_id_value, str) or not package_id_value:
-                continue
-            package_index = package_index_manager.load_package_index(package_id_value)
-            if not package_index:
-                continue
-            struct_ids_value = package_index.resources.management.get("struct_definitions", [])
-            if not isinstance(struct_ids_value, list):
-                continue
-            for struct_id in struct_ids_value:
-                if not isinstance(struct_id, str) or not struct_id:
-                    continue
-                bucket = membership.setdefault(struct_id, set())
-                bucket.add(package_id_value)
-        return membership
-
-    def _build_row_data(self, struct_id: str, payload: Mapping[str, object]) -> ManagementRowData:
-        display_name = self._get_struct_display_name(struct_id, payload)
+        display_name = base_name_text
+        if needs_disambiguation:
+            suffix = self._extract_struct_id_suffix(base_name_text, struct_id)
+            if suffix:
+                display_name = f"{base_name_text}（{suffix}）"
+            else:
+                display_name = f"{base_name_text}（{struct_id}）"
         field_count = self._calculate_field_count(payload)
         attr1_text = f"字段数量: {field_count}"
+        attr2_text = f"ID: {struct_id}"
         description_text = str(payload.get("description", ""))
         return ManagementRowData(
             name=display_name,
             type_name=self.type_name,
             attr1=attr1_text,
-            attr2="",
+            attr2=attr2_text,
             attr3="",
             description=description_text,
             last_modified="",
             user_data=(self.section_key, struct_id),
         )
+
+    @staticmethod
+    def _extract_struct_id_suffix(base_name: str, struct_id: str) -> str:
+        """从 struct_id 中提取用于 UI 消歧的短后缀。
+
+        目标：
+        - 对形如 `<name>__后缀` 的 STRUCT_ID，仅展示 “后缀”，避免重复显示 `<name>`；
+        - 对不符合约定的 ID，尽量提取最后一段 `__xxx` 作为后缀；若仍无法提取则返回空。
+        """
+        base = str(base_name or "").strip()
+        sid = str(struct_id or "").strip()
+        if not base or not sid or sid == base:
+            return ""
+
+        if sid.startswith(base):
+            suffix = sid[len(base) :].strip()
+            suffix = suffix.lstrip("_-").strip()
+            if suffix:
+                return suffix
+
+        if "__" in sid:
+            suffix = sid.split("__")[-1].strip()
+            suffix = suffix.lstrip("_-").strip()
+            if suffix and suffix != base:
+                return suffix
+
+        return ""
 
     @staticmethod
     def _get_struct_display_name(struct_id: str, payload: Mapping[str, object]) -> str:
@@ -381,9 +383,30 @@ class InGameSaveStructDefinitionSection(StructDefinitionSection):
             normalized_types.append(canonical_name)
         return normalized_types
 
-    def _build_row_data(self, struct_id: str, payload: Mapping[str, object]) -> ManagementRowData:
-        """在列表中为局内存档结构体额外展示“列表字段与长度定义”摘要。"""
-        display_name = self._get_struct_display_name(struct_id, payload)
+    def _build_row_data(
+        self,
+        struct_id: str,
+        payload: Mapping[str, object],
+        *,
+        base_name: str,
+        needs_disambiguation: bool,
+    ) -> ManagementRowData:
+        """在列表中为局内存档结构体额外展示“列表字段与长度定义”摘要。
+
+        注意：该方法签名必须与 StructDefinitionSection._build_row_data 对齐，
+        因为 iter_rows 会以关键字参数方式传入 base_name/needs_disambiguation。
+        """
+        base_name_text = str(base_name or "").strip()
+        if not base_name_text:
+            base_name_text = struct_id
+
+        display_name = base_name_text
+        if needs_disambiguation:
+            suffix = self._extract_struct_id_suffix(base_name_text, struct_id)
+            if suffix:
+                display_name = f"{base_name_text}（{suffix}）"
+            else:
+                display_name = f"{base_name_text}（{struct_id}）"
         field_count = self._calculate_field_count(payload)
         attr1_text = f"字段数量: {field_count}"
 
@@ -418,13 +441,14 @@ class InGameSaveStructDefinitionSection(StructDefinitionSection):
         else:
             attr2_text = "无列表字段"
 
+        attr3_text = f"ID: {struct_id}"
         description_text = str(payload.get("description", ""))
         return ManagementRowData(
             name=display_name,
             type_name=self.type_name,
             attr1=attr1_text,
             attr2=attr2_text,
-            attr3="",
+            attr3=attr3_text,
             description=description_text,
             last_modified="",
             user_data=(self.section_key, struct_id),

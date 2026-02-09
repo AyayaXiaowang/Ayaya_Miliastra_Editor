@@ -11,14 +11,21 @@ V2 节点解析管线的分层实现与对外检索封装。包含：
 
 ## 当前状态
 - 已与实现加载流程对接，且作为唯一实现启用：走“只解析不导入”的快速路径（discovery → extractor_ast → normalizer → validator → merger → indexer → lookup）。
+- `@node_spec` 装饰器的 AST 识别与关键字参数读取提供公共工具：`node_spec_ast_utils.py`（支持 `@node_spec(...)` 与 `@engine.node_spec(...)` 等形态），供 extractor 与工具脚本复用，避免在多处重复维护判定逻辑。
+- discovery 支持“外置工作区”场景：当 `workspace_root/plugins/nodes` 不存在时，会回退到“工具链根目录”的 `plugins/nodes`（源码仓库根目录或 PyInstaller 便携版 exe 目录），用于让工具链在不复制源码到工作区的前提下仍可静态解析节点实现库。
 - 查找能力既可通过 `lookup` 函数使用，也可通过 `NodeLibrary` 封装使用。
 - V1 回退路径已移除（以 V2 为唯一实现）。
-- 已引入轻量类型化数据结构（`types.py`）：`ExtractedSpec`/`NormalizedSpec`，便于单测与类型提示（向下兼容 dict 结构）。
+- 已引入轻量类型化数据结构（`types.py`）：`ExtractedSpec`/`NormalizedSpec`，便于单测与类型提示（向下兼容 dict 结构）；`NormalizedSpec` 会透传 `function_name` 到 `by_key` 产物，供工具链导出 origin 与改名识别使用。
 - indexer 会为节点显示名自动注入“可调用别名”（如 `name.replace("/", "")` 与 `make_valid_identifier(name)`），用于支持 Graph Code/导出代码在遇到 `/`、`：`、括号等字符时仍能以合法 Python 标识符形式调用节点。
+- lookup 查询侧额外兼容“或”变体：当 `类别/名称` 未命中且名称包含“或”时，会尝试将“或”替换为“/”再次查询，用于对齐真实编辑器/导出链路中少量命名差异（例如 `实体移除销毁时` vs `实体移除/销毁时`）。
 - 复合节点子管线（`composite_runner.py`：discovery/parse/validate/expand/augment）已直接使用 `CompositeCodeParser` 解析复合节点文件（payload / 类格式）并构建 `NodeDef`，不再委托 `CompositeNodeManager`；管理器仅用于编辑/运行期的库管理与懒加载。解析器会注入 `workspace_path` 并在解析期派生布局上下文，避免在节点库构建中反向触发 `NodeRegistry`。旧函数式复合节点格式不再支持。
-- 复合节点文件发现规则由 `engine.nodes.composite_file_policy` 统一维护：仅解析 `assets/资源库/复合节点库/**/composite_*.py`，避免不同入口看到的复合集合不一致。
+- 复合节点文件发现规则由 `engine.nodes.composite_file_policy` 统一维护：节点库构建阶段按运行期 `active_package_id` 收敛到（共享根 + 当前项目存档根）下的 `复合节点库/**/*.py`（仅跳过 `__init__.py`），避免跨项目存档全量聚合导致冲突；复合节点文件名不再要求特定前缀，是否为复合节点由目录位置语义决定。
+  - active_package_id=None 时仅加载共享根（工具/CI 默认如此），避免跨项目复合节点冲突导致输出漂移。
 - 目录内不再保留 `composite_validator.py` 这类容易被误用的旧占位入口，复合节点校验以 `composite_validate.py` 为唯一通路。
 - 管线会解析并透传 `@node_spec` 的 `input_generic_constraints`/`output_generic_constraints` 与 `input_enum_options`/`output_enum_options` 等元数据字段，在 `NodeDef` 中统一保留泛型约束与枚举候选项，供 UI、自动化与验证层复用。
+- 管线会解析并透传 `@node_spec` 的 `semantic_id` 字段，并在校验阶段做格式与冲突检查，供校验/工具链稳定识别语义节点，避免依赖显示名字符串。
+- 管线会解析并透传 `@node_spec` 的 `input_port_aliases`/`output_port_aliases` 字段，并在校验阶段阻断端口别名冲突（别名不得与当前端口名冲突、同一别名不得指向多个端口），用于兼容端口改名与迁移工具链。
+- 管线会解析并透传 `@node_spec` 的 `input_defaults` 字段（输入端口默认值），并在校验阶段确保其 key 必须引用已声明的静态输入端口（禁止流程口与变参占位口），供验证层与图解析/导出层实现“可选输入端口”的闭环语义。
 
 ## 注意事项
 - 保持“只解析不导入”，避免导入副作用；全程使用 UTF-8 编码。
@@ -50,6 +57,6 @@ V2 节点解析管线的分层实现与对外检索封装。包含：
 - 校验阶段采用阻断式错误上报（不包裹 try/except）。
 - 命名与键规范统一为内部标准键 `类别/名称`，变体通过 `#{scope}` 后缀表达。
 - 校验器的类别/作用域合法值统一来自常量定义模块，避免分散维护。
-- 实现发现路径：扫描 `plugins/nodes/**.py`（排除 `__init__.py` 与 `shared/` 以及静态注册表 `registry.py`）。
+- 实现发现路径：扫描 `plugins/nodes/**.py`（排除 `__init__.py` 与 `shared/`；不导入实现模块）。
 
 

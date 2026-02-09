@@ -20,8 +20,6 @@ from app.automation.editor.candidate_popup import (
     select_from_search_popup,
 )
 from app.automation.editor.ui_constants import (
-    NODE_VIEW_WIDTH_PX,
-    NODE_VIEW_HEIGHT_PX,
     VIEW_SAFE_MARGIN_RATIO_DEFAULT,
     VIEW_MAX_PAN_STEPS_DEFAULT,
     VIEW_PAN_STEP_PX_CREATION_ANCHOR,
@@ -30,11 +28,150 @@ from app.automation.editor.ui_constants import (
     POST_INPUT_STABILIZE_SECONDS_DEFAULT,
     NODE_VISIBILITY_ACCEPT_DISTANCE_PX,
 )
-from app.automation.input.common import sleep_seconds, compute_position_thresholds
+from app.automation.input.common import sleep_seconds, compute_position_thresholds_for_node_view
+from app.automation.vision.ui_profile_params import get_node_view_size_px
+from app.automation.vision import recognize_nodes_with_ports_in_window_region
 from engine.graph.models.graph_model import GraphModel, NodeModel
 
 # 向外暴露保持原名的稳定常量，供其他模块通过 editor_nodes.POST_INPUT_STABILIZE_SECONDS 访问
 POST_INPUT_STABILIZE_SECONDS = POST_INPUT_STABILIZE_SECONDS_DEFAULT
+
+
+def _try_prefill_created_node_snapshot_from_click(
+    executor: EditorExecutorWithViewport,
+    node_title: str,
+    node_id: str,
+    log_callback,
+    visual_callback,
+) -> bool:
+    """创建节点后：基于“右键点击点→右下ROI”做局部识别验收，并预热节点快照（bbox+ports）。"""
+    click_pos = executor.get_last_context_click_editor_pos()
+    if click_pos is None:
+        return False
+    click_editor_x, click_editor_y = click_pos
+
+    node_view_width_px, node_view_height_px = get_node_view_size_px()
+    roi_width_px = int(float(node_view_width_px) * 3.2)
+    roi_height_px = int(float(node_view_height_px) * 8.0)
+    roi_left_px = int(float(click_editor_x) - float(node_view_width_px) * 0.25)
+    roi_top_px = int(float(click_editor_y) - float(node_view_height_px) * 0.25)
+    roi_rect_px = (roi_left_px, roi_top_px, roi_width_px, roi_height_px)
+
+    target_cn = executor.extract_chinese(node_title)
+    if not target_cn:
+        return False
+
+    max_attempts = 2
+    for attempt_index in range(max_attempts):
+        screenshot = editor_capture.capture_window_strict(executor.window_title)
+        if screenshot is None:
+            screenshot = editor_capture.capture_window(executor.window_title)
+        if screenshot is None:
+            return False
+
+        clipped_roi_rect_px = editor_capture.clip_to_graph_region(screenshot, roi_rect_px)
+        clipped_roi_rect_px = editor_capture.clip_to_image_bounds(
+            screenshot, clipped_roi_rect_px
+        )
+        clipped_roi_left_px, clipped_roi_top_px, clipped_roi_width_px, clipped_roi_height_px = clipped_roi_rect_px
+        if int(clipped_roi_width_px) <= 0 or int(clipped_roi_height_px) <= 0:
+            return False
+
+        recognized_nodes = recognize_nodes_with_ports_in_window_region(
+            screenshot,
+            clipped_roi_rect_px,
+        )
+
+        best_recognized_node = None
+        best_distance_square = 1e18
+        # 先尝试中文精确匹配；若未命中再用包含关系做一次回退
+        for match_pass_index in range(2):
+            for candidate_node in recognized_nodes:
+                candidate_cn_text = executor.extract_chinese(
+                    getattr(candidate_node, "title_cn", "") or ""
+                )
+                if not candidate_cn_text:
+                    continue
+                if match_pass_index == 0:
+                    if candidate_cn_text != target_cn:
+                        continue
+                else:
+                    if not (
+                        (target_cn in candidate_cn_text) or (candidate_cn_text in target_cn)
+                    ):
+                        continue
+                center_x_px, center_y_px = candidate_node.center
+                delta_x = float(center_x_px) - float(click_editor_x)
+                delta_y = float(center_y_px) - float(click_editor_y)
+                distance_square = delta_x * delta_x + delta_y * delta_y
+                if distance_square < best_distance_square:
+                    best_distance_square = distance_square
+                    best_recognized_node = candidate_node
+            if best_recognized_node is not None:
+                break
+
+        overlay_payload = None
+        if visual_callback is not None:
+            overlay_rects = [
+                {
+                    "bbox": (
+                        int(clipped_roi_left_px),
+                        int(clipped_roi_top_px),
+                        int(clipped_roi_width_px),
+                        int(clipped_roi_height_px),
+                    ),
+                    "color": (120, 200, 255),
+                    "label": f"创建验收ROI#{attempt_index + 1}/{max_attempts}",
+                }
+            ]
+            overlay_circles = [
+                {
+                    "center": (int(click_editor_x), int(click_editor_y)),
+                    "radius": 6,
+                    "color": (255, 200, 0),
+                    "label": "右键点",
+                }
+            ]
+            if best_recognized_node is not None:
+                bbox_left_px, bbox_top_px, bbox_width_px, bbox_height_px = best_recognized_node.bbox
+                overlay_rects.append(
+                    {
+                        "bbox": (
+                            int(bbox_left_px),
+                            int(bbox_top_px),
+                            int(bbox_width_px),
+                            int(bbox_height_px),
+                        ),
+                        "color": (120, 255, 120),
+                        "label": f"命中: {executor.extract_chinese(best_recognized_node.title_cn)}",
+                    }
+                )
+            overlay_payload = {"rects": overlay_rects, "circles": overlay_circles}
+            executor.emit_visual(screenshot, overlay_payload, visual_callback)
+
+        if best_recognized_node is not None:
+            executor.prefill_node_ports_snapshot(
+                node_id=str(node_id),
+                screenshot=screenshot,
+                node_bbox=best_recognized_node.bbox,
+                ports=list(best_recognized_node.ports),
+            )
+            executor.log(
+                f"[创建验收] ROI识别命中：{executor.extract_chinese(best_recognized_node.title_cn)} "
+                f"bbox={best_recognized_node.bbox} ports={len(best_recognized_node.ports)}",
+                log_callback,
+            )
+            return True
+
+        # 首次未命中时短暂等待再重试，避免“候选点击后 UI 还未完成落点渲染”导致漏检
+        if attempt_index < max_attempts - 1:
+            sleep_seconds(0.12)
+
+    executor.log(
+        "[创建验收] ⚠ ROI识别未命中，后续步骤将回退到常规整屏识别定位（可能更慢但更稳）",
+        log_callback,
+    )
+    return False
 
 
 def _collect_neighbor_node_ids(graph_model: GraphModel, node_id: str) -> set[str]:
@@ -464,7 +601,12 @@ def _adjust_program_position_with_creation_anchor(
     actual_editor_x = float(bbox[0])
     actual_editor_y = float(bbox[1])
     scale = float(executor.scale_ratio)
-    threshold_editor_x, threshold_editor_y = compute_position_thresholds(scale)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    threshold_editor_x, threshold_editor_y = compute_position_thresholds_for_node_view(
+        scale=float(scale),
+        node_view_width_px=float(node_view_w_px),
+        node_view_height_px=float(node_view_h_px),
+    )
     tolerance_editor_x = float(max(NODE_VISIBILITY_ACCEPT_DISTANCE_PX, threshold_editor_x * 0.6))
     tolerance_editor_y = float(max(NODE_VISIBILITY_ACCEPT_DISTANCE_PX, threshold_editor_y * 0.6))
     offset_editor_x = abs(actual_editor_x - float(expected_editor_x))
@@ -596,6 +738,13 @@ def _run_node_creation_popup_flow(
         return False
     executor.log(f"等待 {CANDIDATE_LIST_POST_CLICK_WAIT_SECONDS:.2f} 秒", log_callback)
     sleep_seconds(CANDIDATE_LIST_POST_CLICK_WAIT_SECONDS)
+    _try_prefill_created_node_snapshot_from_click(
+        executor=executor,
+        node_title=node_title,
+        node_id=node_id,
+        log_callback=log_callback,
+        visual_callback=visual_callback,
+    )
     executor.log(f"✓ 节点创建完成：{node_title} (id={node_id})", log_callback)
     _record_node_creation(executor, node_id)
     return True

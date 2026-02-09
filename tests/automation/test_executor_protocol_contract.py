@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.automation.editor.editor_executor import EditorExecutor
 from app.automation.editor.executor_protocol import EditorExecutorProtocol, ViewportController
+from tests._helpers.project_paths import get_repo_root
 
 
 def _get_signature_param_names(signature: inspect.Signature) -> list[str]:
@@ -66,7 +67,7 @@ def test_key_automation_modules_use_protocol_type_annotations() -> None:
     """
     冒烟级回归：关键 automation 模块使用协议类型注解，避免回退到具体实现类导致耦合膨胀。
     """
-    workspace_root = Path(__file__).resolve().parents[2]
+    workspace_root = get_repo_root()
 
     module_paths = [
         workspace_root / "app" / "automation" / "ports" / "port_type_steps.py",

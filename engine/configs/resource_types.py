@@ -3,7 +3,7 @@ from enum import Enum
 
 class ResourceType(Enum):
     TEMPLATE = "元件库"
-    INSTANCE = "实例"
+    INSTANCE = "实体摆放"
     GRAPH = "节点图"
 
     # 战斗预设
@@ -24,6 +24,7 @@ class ResourceType(Enum):
     SHOP_TEMPLATE = "管理配置/商店模板"
     UI_LAYOUT = "管理配置/UI布局"
     UI_WIDGET_TEMPLATE = "管理配置/UI控件模板"
+    UI_PAGE = "管理配置/UI页面"
     MULTI_LANGUAGE = "管理配置/多语言"
     MAIN_CAMERA = "管理配置/主镜头"
     LIGHT_SOURCE = "管理配置/光源"

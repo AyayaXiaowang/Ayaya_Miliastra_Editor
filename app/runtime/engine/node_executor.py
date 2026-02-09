@@ -4,6 +4,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from app.runtime.engine.trace_logging import TraceRecorder
+from engine.utils.loop_protection import LoopProtection
 
 
 class NodeExecutor:
@@ -107,25 +108,4 @@ class NodeExecutor:
         """获取当前执行栈"""
         return self.execution_stack.copy()
 
-
-class LoopProtection:
-    """循环保护 - 防止无限循环"""
-    
-    MAX_ITERATIONS = 10000  # 最大迭代次数
-    
-    def __init__(self):
-        self.iteration_count = 0
-    
-    def check(self):
-        """检查是否超过最大迭代次数"""
-        self.iteration_count += 1
-        if self.iteration_count > self.MAX_ITERATIONS:
-            raise RuntimeError(
-                f"检测到可能的无限循环！已迭代 {self.iteration_count} 次。"
-                f"如果这是预期行为，请修改 LoopProtection.MAX_ITERATIONS"
-            )
-    
-    def reset(self):
-        """重置计数器"""
-        self.iteration_count = 0
 

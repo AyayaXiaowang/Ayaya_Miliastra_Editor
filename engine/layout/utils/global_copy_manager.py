@@ -34,6 +34,14 @@ if TYPE_CHECKING:
     from ..internal.layout_context import LayoutContext
 
 
+# 某些“查询节点”虽然没有流程端口，但其语义与块内作用域/状态绑定；
+# 一旦在跨块复制阶段被复制，会产生“同名但不同实例”的状态分叉（例如局部变量句柄）。
+# 这些节点必须禁止跨块复制，只允许保留单一原始实例，并在非 owner 块通过跨块数据边共享引用。
+FORBIDDEN_CROSS_BLOCK_COPY_NODE_TITLES: Set[str] = {
+    "获取局部变量",
+}
+
+
 @dataclass
 class BlockDataDependency:
     """块的数据依赖信息"""
@@ -152,6 +160,20 @@ class GlobalCopyManager:
 
         # 最近一次生成的“纯计划”
         self._application_plan: Optional[GlobalCopyApplicationPlan] = None
+
+        # 禁止跨块复制的 canonical 节点 → owner block_id（仅用于闭包扩展的“上游截断”）
+        # 说明：语义敏感节点（如【获取局部变量】）不会被复制；在非 owner 块中不应继续
+        # 将其纯数据上游闭包计入本块依赖，否则会触发“上游被复制但下游未复制”的孤立副本。
+        self._forbidden_owner_block_by_canonical: Dict[str, str] = {}
+        # 块列索引（column）缓存：block_id -> column_index。
+        #
+        # 背景：
+        # - block_index(order_index) 是稳定编号，但不等同于块在布局中的横向列位置；
+        # - 对“禁止跨块复制”的语义敏感纯数据节点（如【获取局部变量】），只能保留单一实例，
+        #   因此必须选择一个 owner 块来放置该节点；
+        # - 若按 block_index 选 owner，可能出现 owner 位于更右侧列，从而在 UI 中产生跨块回头线（右→左）。
+        # - 这里预计算 column_index，并在 owner 选择/排序中优先使用它，确保跨块数据边尽量从左到右。
+        self._block_column_index_by_block_id: Dict[str, int] = {}
     
     def _build_existing_copy_index(self) -> None:
         """扫描现有副本节点，构建 (canonical_original_id, block_id) -> copy_node_id 映射。"""
@@ -251,18 +273,48 @@ class GlobalCopyManager:
         """分析所有块的数据依赖"""
         # 步骤1：构建流程节点到块的映射
         self._build_flow_to_block_mapping()
+
+        # 步骤1.1：预计算块的横向列索引（column），供“禁止跨块复制”节点的 owner 选择使用。
+        # 注意：该列索引与阶段5块间排版使用同一套 solver 逻辑，但不依赖像素坐标。
+        self._block_column_index_by_block_id = self._compute_block_column_index_by_block_id()
         
         # 步骤2：收集每个块直接消费的数据节点
         self._collect_direct_consumers()
-        
-        # 步骤3：扩展到完整的上游闭包
-        self._expand_to_full_closure()
+
+        # 步骤2.1：为禁止跨块复制的语义敏感节点确定 owner 块（用于闭包扩展截断）
+        #
+        # 重要：此处采用“两段式”确定 owner：
+        # - Pass A：先在所有块中“遇到语义敏感节点即停止向上游扩展”（不依赖 owner），
+        #          以收集“哪些块引用了该敏感节点”（包含间接引用）；
+        # - Pass B：再按 (block_column, block_index) 选出真正的 owner 块，并仅在 owner 块内
+        #          穿透敏感节点继续展开其纯数据上游闭包。
+        #
+        # 背景：仅用“直接被流程节点消费”的集合来选 owner 会遗漏“间接引用”（例如 结束裁剪值→比较→双分支），
+        # 从而把敏感节点的初始化上游误归属到更右侧的 set 块，导致 data 线出现右→左回头线。
+        self._clear_full_closures()
+        self._expand_to_full_closure(
+            forbidden_expansion_mode="stop_all",
+            attach_unassigned_output_subgraphs=False,
+        )
+        self._build_forbidden_owner_block_mapping()
+
+        # 步骤3：扩展到完整的上游闭包（按 owner 允许穿透敏感节点）
+        self._clear_full_closures()
+        self._expand_to_full_closure(
+            forbidden_expansion_mode="respect_owner",
+            attach_unassigned_output_subgraphs=True,
+        )
         
         # 步骤4：识别跨块共享的数据节点
         self._identify_shared_nodes()
         
         # 步骤5：生成复制计划
         self._generate_copy_plans()
+
+    def _clear_full_closures(self) -> None:
+        """清空每个块的 full_data_closure，便于多轮闭包扩展复用同一批 BlockDataDependency。"""
+        for dependency in self.block_dependencies.values():
+            dependency.full_data_closure = set()
     
     def _build_flow_to_block_mapping(self) -> None:
         """构建流程节点到块的映射"""
@@ -270,6 +322,77 @@ class GlobalCopyManager:
             block_id = f"block_{block.order_index}"
             for flow_id in block.flow_nodes:
                 self._flow_to_block[flow_id] = block_id
+
+    @staticmethod
+    def _parse_block_index_from_block_id(block_id: str) -> int:
+        if not isinstance(block_id, str) or not block_id.startswith("block_"):
+            return 0
+        suffix = block_id.split("_", 1)[-1]
+        return int(suffix) if suffix.isdigit() else 0
+
+    def _compute_block_column_index_by_block_id(self) -> Dict[str, int]:
+        """计算每个块的横向列索引（column_index）。
+
+        说明：
+        - 该列索引用于“禁止跨块复制”的节点归属（owner）选择，避免跨块回头线（右→左）。
+        - 不依赖块的像素坐标，只依赖块间有向关系（按端口顺序）与稳定编号。
+        """
+        if not self.layout_blocks:
+            return {}
+
+        from ..blocks.block_relationship_analyzer import BlockRelationshipAnalyzer
+        from ..blocks.block_positioning_engine import BlockPositioningEngine
+
+        # 构建 flow_node_id → LayoutBlock 的映射（与 BlockRelationshipAnalyzer 同源）
+        flow_to_block_map: Dict[str, object] = {}
+        for layout_block in self.layout_blocks:
+            for flow_node_id in getattr(layout_block, "flow_nodes", None) or []:
+                flow_to_block_map[str(flow_node_id)] = layout_block
+
+        analyzer = BlockRelationshipAnalyzer(self.model, self.layout_blocks)
+        ordered_children = analyzer.analyze_relationships()
+        parent_sets = analyzer.parent_map
+
+        # spacing / initial 对列索引计算无影响，这里使用极简值即可。
+        engine = BlockPositioningEngine(
+            self.model,
+            self.layout_blocks,
+            flow_to_block_map,  # type: ignore[arg-type]
+            initial_x=0.0,
+            initial_y=0.0,
+            block_x_spacing=1.0,
+            block_y_spacing=1.0,
+            parents_map=parent_sets,
+        )
+        column_map = engine.compute_column_indices(
+            set(self.layout_blocks),
+            ordered_children,
+            parent_sets=parent_sets,
+        )
+
+        block_to_column: Dict[str, int] = {}
+        for block_obj, col in (column_map or {}).items():
+            order_index = int(getattr(block_obj, "order_index", 0) or 0)
+            if order_index <= 0:
+                continue
+            block_to_column[f"block_{order_index}"] = int(col)
+
+        # 兜底：缺失映射的块回退到其稳定编号，保证排序稳定且可复现。
+        for layout_block in self.layout_blocks:
+            block_id = f"block_{int(getattr(layout_block, 'order_index', 0) or 0)}"
+            if block_id and block_id not in block_to_column:
+                block_to_column[block_id] = int(getattr(layout_block, "order_index", 0) or 0)
+
+        return block_to_column
+
+    def _block_column(self, block_id: str) -> int:
+        """将 block_id 映射为列索引（越小越靠左）；无映射时回退到块序号。"""
+        if not block_id:
+            return 0
+        cached = self._block_column_index_by_block_id.get(block_id)
+        if cached is not None:
+            return int(cached)
+        return self._parse_block_index_from_block_id(block_id)
     
     def _collect_direct_consumers(self) -> None:
         """收集每个块直接消费的数据节点"""
@@ -295,8 +418,21 @@ class GlobalCopyManager:
             
             self.block_dependencies[block_id] = dependency
     
-    def _expand_to_full_closure(self) -> None:
-        """将直接消费扩展到完整的上游闭包"""
+    def _expand_to_full_closure(
+        self,
+        *,
+        forbidden_expansion_mode: str,
+        attach_unassigned_output_subgraphs: bool,
+    ) -> None:
+        """将直接消费扩展到完整的上游闭包。
+
+        Args:
+            forbidden_expansion_mode:
+                - "stop_all": 遇到“禁止跨块复制”的语义敏感节点时，所有块均停止向上游扩展；
+                - "respect_owner": 仅在 owner 块内穿透敏感节点继续扩展，其它块在该节点处终止。
+            attach_unassigned_output_subgraphs:
+                是否在闭包扩展完成后执行尾部纯数据子图挂载（仅最终一轮需要）。
+        """
         for block_id, dependency in self.block_dependencies.items():
             visited: Set[str] = set()
             traversal_queue: deque[str] = deque(sorted(dependency.direct_data_consumers))
@@ -311,14 +447,48 @@ class GlobalCopyManager:
                     continue
                 dependency.full_data_closure.add(current_canonical_id)
 
+                # 语义敏感节点（禁止跨块复制）：对其上游闭包扩展必须是“端点可控”的，否则会产生孤立副本。
+                if self._is_cross_block_copy_forbidden(current_canonical_id):
+                    mode = str(forbidden_expansion_mode or "").strip().lower()
+                    if mode == "stop_all":
+                        continue
+                    if mode == "respect_owner":
+                        owner_block_id = self._forbidden_owner_block_by_canonical.get(current_canonical_id, "")
+                        if owner_block_id and owner_block_id != block_id:
+                            continue
+
                 upstream_candidates = self._logical_upstream_by_data_dst.get(current_canonical_id, set())
                 for upstream_canonical in sorted(upstream_candidates):
                     if upstream_canonical and upstream_canonical not in visited:
                         traversal_queue.append(upstream_canonical)
 
-        # 兜底：将“仅由输出引脚消费/未被任何流程节点直接消费”的纯数据尾部子图挂载到合适的块上，
-        # 避免这些节点在阶段2未被放置，从而在 UI 中显示为“不属于任何块”。
-        self._attach_unassigned_output_data_subgraphs()
+        if attach_unassigned_output_subgraphs:
+            # 兜底：将“仅由输出引脚消费/未被任何流程节点直接消费”的纯数据尾部子图挂载到合适的块上，
+            # 避免这些节点在阶段2未被放置，从而在 UI 中显示为“不属于任何块”。
+            self._attach_unassigned_output_data_subgraphs()
+
+    def _build_forbidden_owner_block_mapping(self) -> None:
+        """为禁止跨块复制的语义敏感节点推断 owner block_id（确定性）。
+
+        说明：
+        - owner 选择必须覆盖“间接引用”的场景（例如：敏感节点 -> 比较/拼装 -> flow），
+          因此以 full_data_closure 为依据，而不是仅依赖 direct_data_consumers。
+        - 采用 rank=(block_column, block_index) 的稳定选择，避免跨块回头线（右→左）。
+        """
+        owner_map: Dict[str, str] = {}
+        owner_rank_map: Dict[str, Tuple[int, int]] = {}
+        for block_id, dependency in self.block_dependencies.items():
+            block_index = int(getattr(dependency, "block_index", 0) or 0)
+            block_column = int(self._block_column(block_id))
+            for canonical_id in sorted(dependency.full_data_closure):
+                if not self._is_cross_block_copy_forbidden(canonical_id):
+                    continue
+                candidate_rank = (block_column, block_index)
+                existing_rank = owner_rank_map.get(canonical_id)
+                if existing_rank is None or candidate_rank < existing_rank:
+                    owner_map[canonical_id] = block_id
+                    owner_rank_map[canonical_id] = candidate_rank
+        self._forbidden_owner_block_by_canonical = owner_map
 
     def _attach_unassigned_output_data_subgraphs(self) -> None:
         """
@@ -474,11 +644,12 @@ class GlobalCopyManager:
             目标块选择规则（避免回头线）：
             - 对整段尾部纯数据链（tail_node_ids），收集其与外部相连的“边界节点”（入边来源/出边去向）；
             - 取这些边界节点所在块的最大 block_index；
-            - 若无法解析任何边界块，则回退到最后一个块。
+            - 若无法解析任何边界块，则保持“未归属”，由编排器在后续阶段将其作为独立纯数据块布局。
 
             这样可以覆盖用户期望的情况：
             - 某个尾部节点（如 拼装列表）被块7内节点消费 → tail 挂到块7；
-            - 多个块都连接 tail → tail 挂到最右侧那个块，避免回头线。
+            - 多个块都连接 tail → tail 挂到最右侧那个块，避免回头线；
+            - 与任何流程块都不相连（例如仅由虚拟输出引脚消费）→ tail 单独成块，避免被强行塞进末尾流程块。
             """
             best_block_id = ""
             best_column = -1
@@ -517,7 +688,8 @@ class GlobalCopyManager:
 
             if best_block_id:
                 return str(best_block_id)
-            return f"block_{int(max_block_index)}"
+            # 无任何边界块：保持未归属，交由布局编排器在后续阶段生成“纯数据孤立块”。
+            return ""
 
         for sink_canonical in unassigned_sinks:
             if sink_canonical in newly_assigned or sink_canonical in assigned:
@@ -566,7 +738,18 @@ class GlobalCopyManager:
         
         # 按块序号排序（首个块保留原始节点）
         for data_id, block_ids in self.data_node_consumers.items():
-            block_ids.sort(key=lambda bid: self.block_dependencies[bid].block_index)
+            # 对“禁止跨块复制”的语义敏感节点：
+            # - owner 块应尽量选择最靠左的列，避免跨块数据边出现右→左回头线；
+            # - 列内再按稳定编号（order_index）排序，保证可复现。
+            if self._is_cross_block_copy_forbidden(data_id):
+                block_ids.sort(
+                    key=lambda bid: (
+                        int(self._block_column(bid)),
+                        int(self.block_dependencies[bid].block_index),
+                    )
+                )
+            else:
+                block_ids.sort(key=lambda bid: self.block_dependencies[bid].block_index)
     
     def _generate_copy_plans(self) -> None:
         """生成复制计划"""
@@ -584,6 +767,12 @@ class GlobalCopyManager:
                 owner_block_id=owner_block_id,
                 owner_block_index=owner_index,
             )
+
+            # 语义敏感节点：即便跨块共享也禁止复制，避免副本破坏局部状态/作用域语义。
+            # 仍然保留 CopyPlan 用于“单一 owner 块归属”，从而避免同一原始节点被多个块同时放置。
+            if self._is_cross_block_copy_forbidden(data_id):
+                self.copy_plans[data_id] = plan
+                continue
             
             # 其他块需要创建/复用副本（每个块只创建一个副本）
             for block_id in block_ids[1:]:
@@ -594,6 +783,19 @@ class GlobalCopyManager:
                     plan.copy_targets[block_id] = f"{data_id}_copy_{block_id}_1"
             
             self.copy_plans[data_id] = plan
+
+    def _is_cross_block_copy_forbidden(self, canonical_original_id: str) -> bool:
+        """判断某 canonical 数据节点是否禁止跨块复制。
+
+        注意：这里的 canonical_original_id 必须是根原始节点 ID（非副本）。
+        """
+        if not isinstance(canonical_original_id, str) or not canonical_original_id:
+            return False
+        node_obj = self.model.nodes.get(canonical_original_id)
+        if node_obj is None:
+            return False
+        title_value = getattr(node_obj, "title", "") or ""
+        return str(title_value) in FORBIDDEN_CROSS_BLOCK_COPY_NODE_TITLES
     
     def execute_copy_plan(self) -> None:
         """执行复制计划：创建副本并重定向边"""

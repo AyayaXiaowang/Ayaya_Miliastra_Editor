@@ -29,7 +29,8 @@ def find_window_handle(window_title: str, *, case_sensitive: bool = False) -> in
 
     # 先尝试精确匹配
     exact_hwnd = user32.FindWindowW(None, ctypes.c_wchar_p(window_title))
-    if int(exact_hwnd) != 0 and user32.IsWindowVisible(exact_hwnd):
+    # c_void_p 在返回 NULL 时会变成 None（而不是 0），因此这里不能直接 int(exact_hwnd)
+    if exact_hwnd and user32.IsWindowVisible(exact_hwnd):
         return int(exact_hwnd)
 
     target = window_title if case_sensitive else window_title.lower()
@@ -52,5 +53,6 @@ def find_window_handle(window_title: str, *, case_sensitive: bool = False) -> in
         return True
 
     user32.EnumWindows(enum_proc, 0)
-    return int(found.value) if int(found.value) != 0 else 0
+    found_value = int(found.value or 0)
+    return found_value if found_value != 0 else 0
 

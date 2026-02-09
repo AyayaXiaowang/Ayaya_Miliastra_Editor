@@ -23,22 +23,11 @@ import zlib
 from engine.nodes.pipeline.discovery import discover_implementation_files
 from engine.nodes.pipeline.extractor_ast import extract_specs
 from engine.utils.name_utils import make_valid_identifier
+from engine.utils.workspace import resolve_workspace_root
 
 
 _CACHED_MODULES_BY_FILE: Dict[Path, ModuleType] = {}
 _CACHED_EXPORTS_BY_SCOPE: Dict[str, Dict[str, Callable[..., object]]] = {}
-
-
-def _find_workspace_root() -> Path:
-    """从当前文件位置向上推导项目根目录。"""
-    candidate = Path(__file__).resolve()
-    for _ in range(12):
-        if (candidate / "pyrightconfig.json").exists():
-            return candidate
-        if (candidate / "engine").exists() and (candidate / "app").exists():
-            return candidate
-        candidate = candidate.parent
-    return Path(__file__).resolve().parents[3]
 
 
 def _ensure_import_roots_on_sys_path(workspace_root: Path) -> None:
@@ -91,7 +80,7 @@ def load_node_exports_for_scope(scope: str) -> Dict[str, Callable[..., object]]:
     if cached is not None:
         return cached
 
-    workspace_root = _find_workspace_root().resolve()
+    workspace_root = resolve_workspace_root(start_paths=[Path(__file__).resolve()])
     _ensure_import_roots_on_sys_path(workspace_root)
 
     impl_root = (workspace_root / "plugins" / "nodes" / scope_text).resolve()

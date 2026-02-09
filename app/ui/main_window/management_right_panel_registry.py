@@ -153,8 +153,11 @@ def update_signal_management_panel_for_selection(
     main_window.signal_management_panel.set_usage_text(usage_text)
 
     packages = main_window.app_state.package_index_manager.list_packages()
-    membership_index = main_window._build_signal_membership_index()
-    membership = membership_index.get(signal_id, set())
+    owner_id = main_window.app_state.package_index_manager.get_resource_owner_root_id(
+        resource_type="management_signals",
+        resource_id=signal_id,
+    )
+    membership = {owner_id} if owner_id else set()
     main_window.signal_management_panel.set_current_signal_id(signal_id)
     main_window.signal_management_panel.set_signal_membership(packages, membership)
 
@@ -193,7 +196,7 @@ def update_struct_definition_panel_for_selection(
 
     from engine.configs.specialized.struct_definitions_data import get_struct_payload
 
-    payload = get_struct_payload(struct_id)
+    payload = get_struct_payload(struct_id, resource_manager_candidate)
     if not isinstance(payload, dict):
         main_window.struct_definition_panel.reset()
         return
@@ -229,8 +232,11 @@ def update_struct_definition_panel_for_selection(
     )
 
     packages = main_window.app_state.package_index_manager.list_packages()
-    membership_index = main_window._build_struct_membership_index()
-    membership = membership_index.get(struct_id, set())
+    owner_id = main_window.app_state.package_index_manager.get_resource_owner_root_id(
+        resource_type="management_struct_definitions",
+        resource_id=struct_id,
+    )
+    membership = {owner_id} if owner_id else set()
     main_window.struct_definition_panel.set_current_struct_id(struct_id)
     main_window.struct_definition_panel.set_packages_and_membership(packages, membership)
 

@@ -50,6 +50,11 @@ VIEW_PAN_NO_VISUAL_CHANGE_ABORT_CONSECUTIVE_DEFAULT: int = 2
 # 该值用于多点采样的 mean_abs_diff（0 表示完全一致）。
 VIEW_PAN_NO_VISUAL_CHANGE_MEAN_DIFF_THRESHOLD_DEFAULT: float = 1.0
 
+# 当检测到“拖拽未生效/疑似卡顿”（画面几乎无变化或位移异常）时，
+# 后续视口拖拽将切换为更慢的步进拖拽，以提高拖拽生效概率。
+VIEW_PAN_LAG_SLOW_DRAG_DURATION_SECONDS_DEFAULT: float = 1.0
+VIEW_PAN_LAG_SLOW_DRAG_STEPS_DEFAULT: int = 40
+
 # =========================
 # 节点拖拽与位置更新阈值
 # =========================
@@ -68,7 +73,7 @@ NODE_DRAG_UPDATE_MIN_PROGRAM_UNITS: float = 8.0
 CONTEXT_MENU_APPEAR_WAIT_SECONDS: float = 0.5
 
 # 在候选列表中点击目标项后，为界面稳定预留的等待时间
-CANDIDATE_LIST_POST_CLICK_WAIT_SECONDS: float = 0.3
+CANDIDATE_LIST_POST_CLICK_WAIT_SECONDS: float = 0.6
 
 # 节点搜索框输入完成后，为候选列表稳定预留的等待时间
 POST_INPUT_STABILIZE_SECONDS_DEFAULT: float = 0.8

@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
-from app.automation.input.common import compute_position_thresholds
+from app.automation.input.common import compute_position_thresholds_for_node_view
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 from engine.graph.models.graph_model import GraphModel
 
 from .visible_nodes import recognize_visible_nodes
@@ -61,7 +62,12 @@ def synchronize_visible_nodes_positions(
     else:
         position_deltas = {}
 
-    auto_threshold_x, _ = compute_position_thresholds(scale)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    auto_threshold_x, _ = compute_position_thresholds_for_node_view(
+        scale=float(scale),
+        node_view_width_px=float(node_view_w_px),
+        node_view_height_px=float(node_view_h_px),
+    )
     adjust_threshold = float(max(threshold_px, auto_threshold_x * 0.5))
 
     updated = 0

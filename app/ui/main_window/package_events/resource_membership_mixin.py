@@ -1,10 +1,62 @@
-"""图/复合节点/模板/实例等资源的“所属存档”变更与当前包索引内存同步。"""
+"""图/复合节点/模板/实体摆放等资源的“所属存档”变更与当前包索引内存同步。"""
 
 from __future__ import annotations
 
 
 class ResourceMembershipMixin:
     """处理资源归属变更，并在命中当前包时同步内存索引与视图缓存。"""
+
+    def _move_resource_to_owner_root_and_sync_current(
+        self,
+        *,
+        resource_type: str,
+        resource_id: str,
+        target_owner_root_id: str,
+    ) -> bool:
+        """将资源移动到目标归属根目录，并同步“当前包”的内存索引快照。
+
+        约定：
+        - target_owner_root_id == "shared" 表示移动到共享根目录；
+        - 其它值视为项目存档目录名。
+        """
+        manager = getattr(self.app_state, "package_index_manager", None)
+        if manager is None:
+            return False
+
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type=resource_type,
+            resource_id=resource_id,
+        )
+        target_owner_text = str(target_owner_root_id or "").strip()
+        if not target_owner_text:
+            return False
+
+        if previous_owner and previous_owner == target_owner_text:
+            return True
+
+        moved = manager.move_resource_to_root(target_owner_text, resource_type, resource_id)
+        if not moved:
+            return False
+
+        if previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                resource_type,
+                resource_id,
+                False,
+            )
+        self._sync_current_package_index_for_membership(
+            target_owner_text,
+            resource_type,
+            resource_id,
+            True,
+        )
+
+        current_package_id = getattr(self.package_controller, "current_package_id", None)
+        if current_package_id and current_package_id != "global_view":
+            if current_package_id in {previous_owner, target_owner_text}:
+                self._on_immediate_persist_requested(index_dirty=True)
+        return True
 
     def _sync_current_package_index_for_membership(
         self,
@@ -52,9 +104,10 @@ class ResourceMembershipMixin:
                 current_index.add_instance(resource_id)
             else:
                 current_index.remove_instance(resource_id)
-        elif resource_type == "combat_player_templates":
-            # 战斗玩家模板：复用 combat_presets.player_templates 列表
-            preset_ids = current_index.resources.combat_presets.setdefault("player_templates", [])
+        elif resource_type.startswith("combat_"):
+            # 战斗预设：维护 PackageIndex.resources.combat_presets 下的对应 bucket 列表
+            bucket_key = resource_type[len("combat_") :]
+            preset_ids = current_index.resources.combat_presets.setdefault(bucket_key, [])
             if is_checked:
                 if resource_id not in preset_ids:
                     preset_ids.append(resource_id)
@@ -98,34 +151,17 @@ class ResourceMembershipMixin:
         package_id: str,
         is_checked: bool,
     ) -> None:
-        """节点图所属存档变更"""
+        """节点图所属存档变更（单选归属根目录）。"""
         if not graph_id or not package_id:
             return
+        if not bool(is_checked):
+            return
 
-        # 非当前存档：立即通过 PackageIndexManager 更新并落盘
-        if getattr(self.package_controller, "current_package_id", None) != package_id:
-            if is_checked:
-                self.app_state.package_index_manager.add_resource_to_package(
-                    package_id,
-                    "graph",
-                    graph_id,
-                )
-            else:
-                self.app_state.package_index_manager.remove_resource_from_package(
-                    package_id,
-                    "graph",
-                    graph_id,
-                )
-
-        # 当前存档：同步内存索引与视图缓存，并标记 index_dirty 以便后续按脏块落盘
-        self._sync_current_package_index_for_membership(
-            package_id,
-            "graph",
-            graph_id,
-            is_checked,
+        self._move_resource_to_owner_root_and_sync_current(
+            resource_type="graph",
+            resource_id=graph_id,
+            target_owner_root_id=package_id,
         )
-        if getattr(self.package_controller, "current_package_id", None) == package_id:
-            self._on_immediate_persist_requested(index_dirty=True)
 
         self.graph_property_panel.graph_updated.emit(graph_id)
 
@@ -135,32 +171,17 @@ class ResourceMembershipMixin:
         package_id: str,
         is_checked: bool,
     ) -> None:
-        """复合节点所属存档变更"""
+        """复合节点所属存档变更（单选归属根目录）。"""
         if not composite_id or not package_id:
             return
+        if not bool(is_checked):
+            return
 
-        if getattr(self.package_controller, "current_package_id", None) != package_id:
-            if is_checked:
-                self.app_state.package_index_manager.add_resource_to_package(
-                    package_id,
-                    "composite",
-                    composite_id,
-                )
-            else:
-                self.app_state.package_index_manager.remove_resource_from_package(
-                    package_id,
-                    "composite",
-                    composite_id,
-                )
-
-        self._sync_current_package_index_for_membership(
-            package_id,
-            "composite",
-            composite_id,
-            is_checked,
+        self._move_resource_to_owner_root_and_sync_current(
+            resource_type="composite",
+            resource_id=composite_id,
+            target_owner_root_id=package_id,
         )
-        if getattr(self.package_controller, "current_package_id", None) == package_id:
-            self._on_immediate_persist_requested(index_dirty=True)
 
     def _on_template_package_membership_changed(
         self,
@@ -168,37 +189,19 @@ class ResourceMembershipMixin:
         package_id: str,
         is_checked: bool,
     ) -> None:
-        """模板（含掉落物）所属存档变更。"""
+        """模板（含掉落物）所属存档变更（单选归属根目录）。"""
         if not template_id or not package_id:
             return
+        if not bool(is_checked):
+            return
 
-        if getattr(self.package_controller, "current_package_id", None) != package_id:
-            if is_checked:
-                self.app_state.package_index_manager.add_resource_to_package(
-                    package_id,
-                    "template",
-                    template_id,
-                )
-            else:
-                self.app_state.package_index_manager.remove_resource_from_package(
-                    package_id,
-                    "template",
-                    template_id,
-                )
-
-        self._sync_current_package_index_for_membership(
-            package_id,
-            "template",
-            template_id,
-            is_checked,
+        moved = self._move_resource_to_owner_root_and_sync_current(
+            resource_type="template",
+            resource_id=template_id,
+            target_owner_root_id=package_id,
         )
-
-        # 当前存档元件归属变更：立即刷新元件库列表并触发持久化
-        if getattr(self.package_controller, "current_package_id", None) == package_id:
-            # 归属变化仅影响 PackageIndex，不应将模板对象本身视为“脏”并写回资源文件；
-            # 这里刷新库页列表，并仅标记 index_dirty 以落盘索引。
+        if moved:
             self._refresh_library_pages_after_property_panel_update()
-            self._on_immediate_persist_requested(index_dirty=True)
 
     def _on_instance_package_membership_changed(
         self,
@@ -206,34 +209,18 @@ class ResourceMembershipMixin:
         package_id: str,
         is_checked: bool,
     ) -> None:
-        """实例所属存档变更。"""
+        """实体摆放所属存档变更（单选归属根目录）。"""
         if not instance_id or not package_id:
             return
+        if not bool(is_checked):
+            return
 
-        if getattr(self.package_controller, "current_package_id", None) != package_id:
-            if is_checked:
-                self.app_state.package_index_manager.add_resource_to_package(
-                    package_id,
-                    "instance",
-                    instance_id,
-                )
-            else:
-                self.app_state.package_index_manager.remove_resource_from_package(
-                    package_id,
-                    "instance",
-                    instance_id,
-                )
-
-        self._sync_current_package_index_for_membership(
-            package_id,
-            "instance",
-            instance_id,
-            is_checked,
+        moved = self._move_resource_to_owner_root_and_sync_current(
+            resource_type="instance",
+            resource_id=instance_id,
+            target_owner_root_id=package_id,
         )
-
-        # 当前存档实体归属变更：刷新实体摆放/元件库并立即持久化
-        if getattr(self.package_controller, "current_package_id", None) == package_id:
+        if moved:
             self._refresh_library_pages_after_property_panel_update()
-            self._on_immediate_persist_requested(index_dirty=True)
 
 

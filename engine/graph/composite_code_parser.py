@@ -20,6 +20,10 @@ from engine.graph.utils.metadata_extractor import (
     GraphMetadata,
     extract_metadata_from_code,
 )
+from engine.graph.utils.graph_code_rewrite_config import build_graph_code_rewrite_config
+from engine.graph.utils.list_literal_rewriter import rewrite_graph_code_list_literals
+from engine.graph.utils.dict_literal_rewriter import rewrite_graph_code_dict_literals
+from engine.graph.utils.syntax_sugar_rewriter import rewrite_graph_code_syntax_sugars
 from engine.graph.ir.virtual_pin_builder import build_virtual_pins_from_class
 from engine.graph.composite.class_format_parser import ClassFormatParser
 from engine.utils.logging.logger import log_info
@@ -98,7 +102,29 @@ class CompositeCodeParser:
         # 仅支持类格式：使用AST检测并解析带有 @composite_class 装饰器的类
         if not self._detect_class_format(tree):
             raise ValueError("复合节点仅支持 payload 或类格式定义：未找到 COMPOSITE_PAYLOAD_JSON 且未找到 @composite_class")
+
         metadata_obj = extract_metadata_from_code(code)
+        scope = str((metadata_obj.scope or metadata_obj.graph_type or "server") or "server").strip().lower()
+
+        # 类格式复合节点：常见语法糖（下标读取/len/比较/and-or/+= 等）改写，保证 IR 解析与校验口径一致。
+        rewrite_config = build_graph_code_rewrite_config(is_composite=True)
+        tree, _syntax_rewrite_issues = rewrite_graph_code_syntax_sugars(
+            tree,
+            scope=scope,
+            enable_shared_composite_sugars=rewrite_config.enable_shared_composite_sugars,
+        )
+
+        # 类格式复合节点：在解析前对类方法体中的 `[...]` 列表字面量做语法糖改写，
+        # 将其等价转换为【拼装列表】节点调用，保证 IR 解析与校验口径一致。
+        tree, _rewrite_issues = rewrite_graph_code_list_literals(
+            tree,
+            max_elements=rewrite_config.max_list_literal_elements,
+        )
+        # 类格式复合节点：字典字面量 `{k: v}` 语法糖改写，等价转换为【拼装字典】节点调用。
+        tree, _dict_rewrite_issues = rewrite_graph_code_dict_literals(
+            tree,
+            max_pairs=rewrite_config.max_dict_literal_pairs,
+        )
         return self.parse_class_format(code, file_path, tree=tree, metadata_obj=metadata_obj)
     
     def parse_class_format(
@@ -187,6 +213,13 @@ class CompositeCodeParser:
 
         # 7.1 将虚拟引脚映射扩展到布局阶段创建的"数据节点副本"上，保持映射与最终子图一致
         self._propagate_virtual_pin_mappings_to_copies(virtual_pins, graph_model)
+
+        # 7.2 虚拟引脚类型 → 子图端口类型覆盖（port_type_overrides）：
+        # 类格式复合节点的子图内部通常不会显式生成“入口形参 → 节点端口”的数据连线，
+        # 而是通过 VirtualPinConfig.mapped_ports 表达“外部引脚绑定到内部端口”的事实。
+        # 为满足 strict 结构校验（禁止任何数据端口仍为泛型家族）与 UI 端口类型推断一致性，
+        # 需要将虚拟引脚的 pin_type 回填为对应内部端口的类型覆盖。
+        self._apply_virtual_pin_port_type_overrides(virtual_pins, graph_model)
         
         # 8. 构建CompositeNodeConfig
         class_name = class_def.name
@@ -208,6 +241,89 @@ class CompositeCodeParser:
             )
         
         return composite
+
+    def _apply_virtual_pin_port_type_overrides(
+        self,
+        virtual_pins,
+        graph_model,
+    ) -> None:
+        """将虚拟引脚类型写入子图 metadata.port_type_overrides。
+
+        目的：
+        - strict 结构校验要求子图内所有数据端口的有效类型必须可确定（禁止仍为泛型家族）；
+        - 类格式复合节点的“入口形参/数据入引脚”通常不通过 data edge 建模，而是通过虚拟引脚映射表达；
+        - 因此需要将 virtual_pins[].pin_type 回填到 mapped_ports 指向的内部端口，作为类型推断的稳定锚点。
+        """
+        if not virtual_pins or graph_model is None:
+            return
+
+        # 懒初始化 metadata
+        metadata = getattr(graph_model, "metadata", None)
+        if not isinstance(metadata, dict):
+            graph_model.metadata = {}
+            metadata = graph_model.metadata
+
+        from engine.graph.port_type_effective_resolver import is_generic_type_name, safe_get_port_type_from_node_def
+
+        overrides_raw = metadata.get("port_type_overrides")
+        overrides: Dict[str, Dict[str, str]] = dict(overrides_raw) if isinstance(overrides_raw, dict) else {}
+
+        def _resolve_node_def_for_node(node) -> NodeDef | None:
+            node_def_ref = getattr(node, "node_def_ref", None)
+            if node_def_ref is None:
+                return None
+            kind = str(getattr(node_def_ref, "kind", "") or "").strip()
+            key = str(getattr(node_def_ref, "key", "") or "").strip()
+            if kind == "builtin":
+                return self.node_library.get(key)
+            if kind == "composite":
+                # key 为 composite_id：node_library 的 key 可能为 canonical key，这里按 composite_id 回查一次
+                for node_def in (self.node_library or {}).values():
+                    if not getattr(node_def, "is_composite", False):
+                        continue
+                    if str(getattr(node_def, "composite_id", "") or "") == key:
+                        return node_def
+                return None
+            return None
+
+        for pin in list(virtual_pins or []):
+            pin_type = str(getattr(pin, "pin_type", "") or "").strip()
+            if (not pin_type) or is_generic_type_name(pin_type) or pin_type == "流程":
+                continue
+
+            mapped_ports = list(getattr(pin, "mapped_ports", None) or [])
+            if not mapped_ports:
+                continue
+
+            for mapped in mapped_ports:
+                if bool(getattr(mapped, "is_flow", False)):
+                    continue
+                node_id = str(getattr(mapped, "node_id", "") or "").strip()
+                port_name = str(getattr(mapped, "port_name", "") or "").strip()
+                if not node_id or not port_name:
+                    continue
+
+                # 若已有更具体覆盖则不重复写入
+                existing_node_overrides = overrides.get(node_id)
+                if isinstance(existing_node_overrides, dict):
+                    existing = str(existing_node_overrides.get(port_name, "") or "").strip()
+                    if existing and (not is_generic_type_name(existing)):
+                        continue
+
+                node = (getattr(graph_model, "nodes", None) or {}).get(node_id)
+                node_def = _resolve_node_def_for_node(node) if node is not None else None
+                is_input = bool(getattr(mapped, "is_input", True))
+                declared = safe_get_port_type_from_node_def(node_def, port_name, is_input=is_input) if node_def is not None else ""
+                if declared and (not is_generic_type_name(declared)):
+                    # 已声明为具体类型的端口无需覆盖
+                    continue
+
+                node_overrides = dict(existing_node_overrides) if isinstance(existing_node_overrides, dict) else {}
+                node_overrides[port_name] = pin_type
+                overrides[node_id] = node_overrides
+
+        if overrides:
+            metadata["port_type_overrides"] = overrides
 
     def _propagate_virtual_pin_mappings_to_copies(
         self,

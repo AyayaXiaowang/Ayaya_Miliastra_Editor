@@ -6,61 +6,94 @@ from typing import Any, Dict
 
 from app.models.view_modes import ViewMode
 from engine.resources.global_resource_view import GlobalResourceView
+from engine.resources.package_view import PackageView
 from engine.utils.logging.logger import log_info
 from app.ui.management.section_registry import (
     MANAGEMENT_RESOURCE_BINDINGS,
     MANAGEMENT_RESOURCE_TITLES,
+)
+from app.ui.main_window.right_panel_contracts import (
+    CONTRACT_HIDE_ALL,
+    CONTRACT_SHOW_GRAPH_PROPERTY,
+    CONTRACT_SHOW_MANAGEMENT_PROPERTY,
+    CONTRACT_SHOW_PROPERTY,
+    CONTRACT_SHOW_ITEM_EDITOR,
+    CONTRACT_SHOW_PLAYER_CLASS_EDITOR,
+    CONTRACT_SHOW_PLAYER_EDITOR,
+    CONTRACT_SHOW_SKILL_EDITOR,
 )
 
 
 class PackagesViewMixin:
     """处理存档库页面的资源激活事件与右侧面板互斥逻辑。"""
 
-    def _get_global_resource_view(self) -> GlobalResourceView:
-        """获取（懒加载）全局资源视图，用于在存档库/任务清单等上下文中只读预览资源。
+    def _on_packages_page_package_load_requested(self, package_id: str) -> None:
+        """存档库页面点击左侧存档条目时，请求切换主窗口当前存档上下文。
 
         设计约定：
-        - 不依赖当前存档选择，直接基于 ResourceManager 聚合全部资源；
+        - 仅在 ViewMode.PACKAGES 下生效，避免后台刷新/会话恢复等程序性选中导致意外切包；
+        - 允许切换到 "global_view"。
+        """
+        current_view_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        if current_view_mode != ViewMode.PACKAGES:
+            return
+        if not isinstance(package_id, str) or not package_id:
+            return
+        if not hasattr(self, "package_controller"):
+            return
+
+        current_package_id = getattr(self.package_controller, "current_package_id", None)
+        if package_id != current_package_id:
+            request_method = getattr(self, "_request_load_package", None)
+            if callable(request_method):
+                request_method(package_id)
+            else:
+                self.package_controller.load_package(package_id)
+
+    def _get_global_resource_view(self) -> GlobalResourceView:
+        """获取（懒加载）共享资源视图，用于在存档库/任务清单等上下文中只读预览资源。
+
+        设计约定：
+        - 不依赖当前项目存档选择，直接基于 ResourceManager 聚合共享资源；
         - 仅在需要只读预览模板/实例/关卡实体时使用，写入仍通过控制器与 PackageView 完成。
         """
         if not hasattr(self, "_global_resource_view") or self._global_resource_view is None:
             self._global_resource_view = GlobalResourceView(self.app_state.resource_manager)
         return self._global_resource_view
 
-    def _hide_packages_basic_property_panel(self) -> None:
-        """在存档库模式下收起模板/实例/关卡实体通用属性标签。
+    def _get_packages_page_selected_package_id(self) -> str:
+        """返回存档库页面当前选中的 package_id（来自 PackageLibraryWidget）。"""
+        package_library_widget = getattr(self, "package_library_widget", None)
+        raw_value = getattr(package_library_widget, "_current_package_id", "")
+        return raw_value if isinstance(raw_value, str) else ""
 
-        仅在 ViewMode.PACKAGES 下生效，避免影响元件库/实体摆放等模式中
-        正常使用的属性面板与标签状态。
+    def _get_packages_scoped_resource_view(self) -> PackageView | GlobalResourceView:
+        """在存档库（PACKAGES）页面中，为“点击某个资源条目”提供最合适的资源视图。
+
+        设计动机：
+        - 在具体存档被选中时，应优先使用 `PackageView`，避免 `GlobalResourceView` 为获取单条资源
+          而全量加载全部模板/实例导致 UI 卡顿；
+        - 在“共享资源（global_view）”视图或无法判定包上下文时，回退使用 `GlobalResourceView`。
         """
-        current_view_mode = ViewMode.from_index(self.central_stack.currentIndex())
-        if current_view_mode != ViewMode.PACKAGES:
-            return
+        package_id = self._get_packages_page_selected_package_id()
+        if not package_id or package_id == "global_view":
+            return self._get_global_resource_view()
 
-        property_panel = getattr(self, "property_panel", None)
-        if property_panel is not None:
-            clear_method = getattr(property_panel, "clear", None)
-            if callable(clear_method):
-                clear_method()
-        self.right_panel.ensure_visible("property", visible=False)
+        cached_id = getattr(self, "_packages_scoped_view_package_id", "")
+        cached_view = getattr(self, "_packages_scoped_view", None)
+        if isinstance(cached_id, str) and cached_id == package_id and isinstance(cached_view, PackageView):
+            return cached_view
 
-    def _hide_packages_management_property_panel(self) -> None:
-        """在存档库模式下收起管理配置通用属性标签。
+        package_index_manager = self.app_state.package_index_manager
+        resource_manager = self.app_state.resource_manager
+        package_index = package_index_manager.load_package_index(package_id)
+        if package_index is None:
+            return self._get_global_resource_view()
 
-        用于在“信号/其它管理配置”与“模板/实例”等资源类型之间切换时，
-        确保右侧不会同时保留两套属性视图，避免用户误以为仍在编辑之前
-        的管理资源。
-        """
-        current_view_mode = ViewMode.from_index(self.central_stack.currentIndex())
-        if current_view_mode != ViewMode.PACKAGES:
-            return
-
-        management_panel = getattr(self, "management_property_panel", None)
-        if management_panel is not None:
-            clear_method = getattr(management_panel, "clear", None)
-            if callable(clear_method):
-                clear_method()
-        self.right_panel.ensure_visible("management_property", visible=False)
+        view = PackageView(package_index, resource_manager)
+        self._packages_scoped_view_package_id = package_id
+        self._packages_scoped_view = view
+        return view
 
     def _on_package_resource_activated(self, kind: str, resource_id: str) -> None:
         """存档库页面中点击资源条目时，在右侧属性或图属性面板中展示详情。
@@ -85,40 +118,60 @@ class PackagesViewMixin:
 
         # 模板 / 实例 / 关卡实体：使用 TemplateInstancePanel 展示，并允许直接编辑属性。
         if kind in ("template", "instance", "level_entity"):
-            # 从“信号/其它管理配置”等管理类详情切换到模板/实例/关卡实体时，
-            # 主动收起管理属性标签，避免右侧同时残留两套属性视图。
-            self._hide_packages_management_property_panel()
-
             if not hasattr(self, "property_panel"):
                 return
-            global_view = self._get_global_resource_view()
+            resource_view = self._get_packages_scoped_resource_view()
 
             if kind == "template":
-                if not global_view.get_template(resource_id):
+                if not resource_view.get_template(resource_id):
                     return
-                self.property_panel.set_template(global_view, resource_id)
+                self.property_panel.set_template(resource_view, resource_id)
             elif kind == "instance":
-                if not global_view.get_instance(resource_id):
+                if not resource_view.get_instance(resource_id):
                     return
-                self.property_panel.set_instance(global_view, resource_id)
+                self.property_panel.set_instance(resource_view, resource_id)
             else:
-                # 关卡实体只要全局视图中存在即可；resource_id 仅用于过滤展示。
-                if not global_view.level_entity:
+                # 关卡实体：在具体存档视图下应直接取该存档的 level_entity。
+                if not resource_view.level_entity:
                     return
-                self.property_panel.set_level_entity(global_view)
+                self.property_panel.set_level_entity(resource_view)
 
             if hasattr(self.property_panel, "set_read_only"):
-                # 存档库页面现在允许直接编辑属性，因此显式切换为可编辑模式。
-                self.property_panel.set_read_only(False)
-            self.right_panel.ensure_visible("property", visible=True, switch_to=True)
+                # 存档库页面作为“预览与跳转”入口：默认只读，避免在未切包时编辑导致脏标记串包。
+                self.property_panel.set_read_only(True)
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_PROPERTY)
             return
 
         # 节点图：使用图属性面板，允许在此页面管理“所属存档”，其它字段保持只读展示。
         if kind == "graph":
             if not hasattr(self, "graph_property_panel"):
                 return
-            self.graph_property_panel.set_graph(resource_id)
-            self.right_panel.ensure_visible("graph_property", visible=True, switch_to=True)
+            # 存档库页面左侧“选中”仅用于预览：当用户在“预览存档 B”时点击节点图，
+            # 不能直接用“当前存档 A”的 ResourceManager 作用域去加载（会误报“不存在”）。
+            selected_package_id = self._get_packages_page_selected_package_id()
+            current_package_id = str(getattr(self.package_controller, "current_package_id", "") or "")
+
+            should_preview_only = (
+                isinstance(selected_package_id, str)
+                and bool(selected_package_id)
+                and selected_package_id != "global_view"
+                and bool(current_package_id)
+                and selected_package_id != current_package_id
+            )
+
+            if should_preview_only:
+                set_preview = getattr(self.graph_property_panel, "set_graph_preview", None)
+                if callable(set_preview):
+                    set_preview(
+                        resource_id,
+                        preview_package_id=selected_package_id,
+                        current_package_id=current_package_id,
+                    )
+                else:
+                    self.graph_property_panel.set_graph(resource_id)
+            else:
+                self.graph_property_panel.set_graph(resource_id)
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_GRAPH_PROPERTY)
             return
 
         if hasattr(self, "_schedule_ui_session_state_save"):
@@ -132,24 +185,24 @@ class PackagesViewMixin:
                 if not hasattr(self, "player_editor_panel"):
                     return
                 self.player_editor_panel.set_context(global_view, resource_id)
-                self.right_panel.set_combat_detail_tabs_visible(player_template=True)
-                self.right_panel.switch_to("player_editor")
+                self.right_panel.apply_visibility_contract(CONTRACT_SHOW_PLAYER_EDITOR)
             elif kind == "combat_player_class":
                 if not hasattr(self, "player_class_panel"):
                     return
                 self.player_class_panel.set_context(global_view, resource_id)
-                self.right_panel.set_combat_detail_tabs_visible(player_class=True)
-                self.right_panel.switch_to("player_class_editor")
+                self.right_panel.apply_visibility_contract(CONTRACT_SHOW_PLAYER_CLASS_EDITOR)
             elif kind == "combat_skill":
                 if not hasattr(self, "skill_panel"):
                     return
                 self.skill_panel.set_context(global_view, resource_id)
-                self.right_panel.set_combat_detail_tabs_visible(skill=True)
-                self.right_panel.switch_to("skill_editor")
+                self.right_panel.apply_visibility_contract(CONTRACT_SHOW_SKILL_EDITOR)
+            elif kind == "combat_item":
+                if not hasattr(self, "item_panel"):
+                    return
+                self.item_panel.set_context(global_view, resource_id)
+                self.right_panel.apply_visibility_contract(CONTRACT_SHOW_ITEM_EDITOR)
             else:
                 return
-
-            self.right_panel.update_visibility()
             return
 
     def _on_package_management_resource_activated(
@@ -174,14 +227,10 @@ class PackagesViewMixin:
         if not hasattr(self, "management_property_panel"):
             return
 
-        # 从模板/实例/图/战斗预设等资源切换到管理配置（含信号）时，
-        # 收起通用属性面板，保证右侧仅展示当前管理资源的属性摘要。
-        self._hide_packages_basic_property_panel()
-
         # 分类节点或上下文不完整时，视为“无有效选中对象”，清空并收起属性标签。
         if not resource_key or not resource_id:
             self.management_property_panel.clear()
-            self.right_panel.ensure_visible("management_property", visible=False)
+            self.right_panel.apply_visibility_contract(CONTRACT_HIDE_ALL)
             return
 
         # 构建“所属存档”多选行上下文。
@@ -228,8 +277,7 @@ class PackagesViewMixin:
         self.management_property_panel.set_header(title, description)
         self.management_property_panel.set_rows(rows)
 
-        self.right_panel.ensure_visible("management_property", visible=True, switch_to=True)
-        self.right_panel.update_visibility()
+        self.right_panel.apply_visibility_contract(CONTRACT_SHOW_MANAGEMENT_PROPERTY)
 
         self.schedule_ui_session_state_save()
 
@@ -243,7 +291,7 @@ class PackagesViewMixin:
 
         - section_key: 管理页面内部 key（如 "equipment_data" / "save_points" / "signals"）。
         - item_id    : 管理记录 ID；为空字符串时仅切换到对应 section。
-        - package_id : 目标视图使用的存档 ID 或特殊视图 ID（"global_view" / "unclassified_view"）。
+        - package_id : 目标视图使用的存档 ID 或特殊视图 ID（"global_view"）。
         """
         if not section_key or not package_id:
             return

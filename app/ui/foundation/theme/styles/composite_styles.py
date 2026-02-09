@@ -137,6 +137,14 @@ def global_style() -> str:
             component_styles.spin_box_style(),
             component_styles.group_box_style(),
             component_styles.dialog_style(),
+            # objectName/属性选择器：仅作用于目标控件，安全加入全局样式表
+            component_styles.toast_content_style(),
+            component_styles.navigation_bar_style(),
+            component_styles.panel_scaffold_style(),
+            component_styles.graph_card_widget_style(),
+            component_styles.composite_pin_widgets_style(),
+            component_styles.execution_monitor_style(),
+            component_styles.conflict_resolution_dialog_style(),
         ]
     )
 

@@ -15,7 +15,6 @@ from engine.graph.models import GraphModel, NodeModel
 from engine.nodes.node_definition_loader import NodeDef
 from engine.graph.common import (
     apply_layout_quietly,
-    format_constant,
     is_branch_node_name,
     is_flow_port,
     is_loop_node_name,
@@ -102,6 +101,17 @@ class GraphBuilder:
         # 处理数据输入连接
         data_input_ports = [p for p in node_def.inputs if not is_flow_port_name(p)]
         self._connect_data_inputs(node, data_input_ports, input_values)
+
+        # 为声明了默认值的输入端口补齐默认常量（允许调用方不传该参数）
+        input_defaults = dict(getattr(node_def, "input_defaults", {}) or {})
+        if input_defaults:
+            for port_name, default_value in input_defaults.items():
+                port_text = str(port_name or "").strip()
+                if not port_text:
+                    continue
+                if is_flow_port_name(port_text):
+                    continue
+                node.input_constants.setdefault(port_text, default_value)
         
         # 返回节点ID和输出端口列表（过滤掉所有流程端口）
         data_output_ports = [p for p in node_def.outputs if not is_flow_port_name(p)]
@@ -193,7 +203,7 @@ class GraphBuilder:
                     port_name,
                 )
             else:
-                node.input_constants[port_name] = format_constant(value)
+                node.input_constants[port_name] = value
     
     def to_graph_model(self, apply_layout: bool = False) -> GraphModel:
         """
@@ -213,8 +223,8 @@ class GraphBuilder:
         如果需要完整的存档验证（包括节点挂载、端口定义等），
         请使用 ComprehensiveValidator.validate_all()
         """
-        from engine.graph.graph_code_parser import validate_graph
-        return validate_graph(self.model)
+        from engine.graph import validate_graph_model
+        return validate_graph_model(self.model)
 
 
 # 全局上下文（单例栈）

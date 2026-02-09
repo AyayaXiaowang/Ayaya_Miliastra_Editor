@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Mapping, Optional, Sequence, List
 
 from PyQt6 import QtWidgets
@@ -112,7 +113,7 @@ class StructListItemEditDialog(BaseDialog):
             self._set_empty_state("未选择结构体，无法加载字段列表。")
             return
 
-        payload = get_struct_payload(self._struct_id)
+        payload = get_struct_payload(self._struct_id, self._resource_manager)
         if not isinstance(payload, Mapping):
             self._set_empty_state(f"找不到结构体定义：{self._struct_id}")
             return
@@ -195,7 +196,7 @@ class StructListItemEditDialog(BaseDialog):
 
     def _apply_struct_id_options(self) -> None:
         """为结构体/结构体列表字段提供可选的结构体 ID 列表。"""
-        struct_ids_raw = list_struct_ids()
+        struct_ids_raw = list_struct_ids(self._resource_manager)
         if not isinstance(struct_ids_raw, Sequence):
             return
 
@@ -253,7 +254,77 @@ class StructListItemEditDialog(BaseDialog):
     def get_result(self) -> Dict[str, Any]:
         return dict(self._result)
 
+class StructListItemViewerDialog(BaseDialog):
+    """结构体列表条目的只读查看对话框（展示原始 fields）。"""
 
-__all__ = ["StructListItemEditDialog"]
+    def __init__(
+        self,
+        *,
+        struct_id: str,
+        item_name: str,
+        fields: Mapping[str, Any],
+        parent: Optional[QtWidgets.QWidget] = None,
+    ) -> None:
+        self._struct_id = str(struct_id or "").strip()
+        self._item_name = str(item_name or "").strip()
+        self._fields: Dict[str, Any] = dict(fields) if isinstance(fields, Mapping) else {}
+
+        title_name = self._item_name or "结构体条目"
+        super().__init__(
+            title=f"查看：{title_name}",
+            width=760,
+            height=560,
+            buttons=QtWidgets.QDialogButtonBox.StandardButton.Ok,
+            parent=parent,
+        )
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        layout = self.content_layout
+        layout.setContentsMargins(
+            Sizes.PADDING_MEDIUM,
+            Sizes.PADDING_MEDIUM,
+            Sizes.PADDING_MEDIUM,
+            Sizes.PADDING_MEDIUM,
+        )
+        layout.setSpacing(Sizes.SPACING_MEDIUM)
+
+        info_label = QtWidgets.QLabel(self)
+        if self._struct_id:
+            info_label.setText(f"结构体：{self._struct_id}\n条目：{self._item_name or '（未命名）'}")
+        else:
+            info_label.setText(f"条目：{self._item_name or '（未命名）'}")
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet(ThemeManager.subtle_info_style())
+        layout.addWidget(info_label)
+
+        self._text_edit = QtWidgets.QPlainTextEdit(self)
+        self._text_edit.setReadOnly(True)
+        self._text_edit.setLineWrapMode(QtWidgets.QPlainTextEdit.LineWrapMode.NoWrap)
+
+        payload = {
+            "struct_id": self._struct_id,
+            "name": self._item_name,
+            "fields": self._fields,
+        }
+        text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+        self._text_edit.setPlainText(text)
+        layout.addWidget(self._text_edit, 1)
+
+        ok_button = self.button_box.button(QtWidgets.QDialogButtonBox.StandardButton.Ok)
+        if ok_button is not None:
+            ok_button.setText("关闭")
+
+    def _apply_styles(self) -> None:
+        self.setStyleSheet(
+            ThemeManager.dialog_surface_style(
+                include_inputs=True,
+                include_tables=True,
+                include_scrollbars=True,
+            )
+        )
+
+
+__all__ = ["StructListItemEditDialog", "StructListItemViewerDialog"]
 
 

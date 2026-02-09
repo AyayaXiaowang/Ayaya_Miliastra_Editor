@@ -14,6 +14,14 @@
   - Windows 文件名清洗：`sanitize_windows_filename` / `sanitize_resource_filename` / `sanitize_package_filename` / `sanitize_composite_filename`
   - 通用“唯一名称”生成：`generate_unique_name(base_name, existing_names, separator="_", start_index=1)`，用于在 UI 或引擎层根据已有名称集合生成如 `名称` / `名称_1` / `名称_2`… 等不重复名称
   - 顺序去重小工具：`dedupe_preserve_order(items)`，在保持首次出现顺序的前提下对任意可哈希元素序列做去重，供端口类型推断、事件流任务与 Graph Code 解析等模块统一复用，避免在各处手写 `dict.fromkeys` 或 `seen` 集合逻辑
+- `workspace.py`：工作区根目录解析与 settings 初始化（唯一真源）：统一覆盖源码仓库/便携版/直接运行节点图脚本场景，并提供 `resolve_workspace_root` / `ensure_settings_workspace_root` / `init_settings_for_workspace`；其中 `ensure_settings_workspace_root(load_user_settings=True)` 即使在 workspace_root 已注入时也会加载用户设置，保证“先注入根目录、后加载设置”的入口不会口径漂移；同时提供代码生成器复用的 bootstrap 片段生成 `render_workspace_bootstrap_lines(...)`，避免多处复制“向上找根”的代码。
+- `path_utils.py`：路径文本归一化（统一真源）：提供 `normalize_slash(text)` 将 `\` 统一为 `/`，用于 UI/CLI 展示与稳定 key，避免各处手写 `replace("\\", "/")`。
+- `source_text.py`：源码读取单一真源：提供 `read_text(...)`（默认 `utf-8-sig`，兼容 UTF-8 BOM）与 `read_source_text(...)`（bytes+text+md5），供解析/校验/工具层复用，避免各处重复写 `encoding="utf-8-sig"` 与 md5 逻辑。
+- `graph_path_inference.py`：节点图路径推断单一真源：提供 `infer_graph_type_and_folder_path(...)`（从 `.../节点图/<server|client>/...` 推断分类与 folder_path）与 `sanitize_folder_path(...)`，供解析/资源层/校验层复用，避免“folder_path 推断口径”在不同入口漂移。
+- `id_digits.py`：数字 ID 文本工具：提供 `is_digits_1_to_10(value)` 用于判断 `GUID/配置ID/元件ID` 等数字标识是否为 **1~10 位纯数字**（允许用字符串包裹数字，允许前导 0）。
+- `loop_protection.py`：循环保护工具：提供 `LoopProtection`（纯逻辑、无 I/O），用于防止节点执行/生成代码出现意外无限循环。
+- `resource_library_layout.py`：资源库目录布局工具：提供 `共享/` 与 `项目存档/<package_id>/` 的根目录枚举、文件归属判断，以及“默认未归属项目存档”（当前约定为 `测试项目/`）落点函数，供资源索引/校验/迁移与保存策略复用。
+- `runtime_scope.py`：运行期作用域（进程内全局）：维护 `active_package_id`（共享根 / 共享+当前存档）这一上下文，供复合节点扫描、节点定义指纹与代码级 Schema 等模块读取，避免跨项目存档全量聚合导致重复 ID 或串包。
 - `__init__.py`：延迟导出 `UndoRedoManager` / `Command`，其余功能请直接从子包导入。
 
 ## 子包结构

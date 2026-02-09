@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from engine.configs.resource_types import ResourceType
+from engine.utils.graph_path_inference import infer_graph_type_and_folder_path
 from engine.utils.name_utils import sanitize_resource_filename
+from engine.utils.path_utils import normalize_slash
 from .resource_filename_policy import resource_type_prefers_name_over_cached_filename
 
 
@@ -24,7 +26,7 @@ class ResourceFileOps:
     @staticmethod
     def sanitize_folder_path(folder_path: str) -> str:
         """标准化文件夹路径（统一使用 / 作为分隔符）。"""
-        return folder_path.replace("\\", "/").strip("/")
+        return normalize_slash(folder_path).strip("/")
 
     @staticmethod
     def is_valid_folder_name(name: str) -> bool:
@@ -42,9 +44,10 @@ class ResourceFileOps:
 
         return True
 
-    def get_resource_directory(self, resource_type: ResourceType) -> Path:
+    def get_resource_directory(self, resource_type: ResourceType, resource_root_dir: Path | None = None) -> Path:
         """获取资源类型对应的根目录。"""
-        return self.resource_library_dir / resource_type.value
+        base_root = resource_root_dir or self.resource_library_dir
+        return base_root / resource_type.value
 
     def get_resource_file_path(
         self,
@@ -54,12 +57,13 @@ class ResourceFileOps:
         extension: Optional[str] = None,
         graph_metadata: Optional[dict] = None,
         resource_name: Optional[str] = None,
+        resource_root_dir: Optional[Path] = None,
     ) -> Path:
         """获取资源文件的完整路径（优先使用 name，其次使用 ID）。
 
         对于节点图，会结合 graph_type 和 folder_path 生成分层目录。
         """
-        resource_dir = self.get_resource_directory(resource_type)
+        resource_dir = self.get_resource_directory(resource_type, resource_root_dir=resource_root_dir)
 
         if extension is None:
             extension = ".py" if resource_type == ResourceType.GRAPH else ".json"
@@ -94,23 +98,58 @@ class ResourceFileOps:
 
         return resource_dir / f"{filename}{extension}"
 
-    def ensure_graph_folder(self, graph_type: str, folder_path: str) -> Path:
+    def infer_graph_type_and_folder_path(self, graph_file: Path) -> tuple[str, str]:
+        """从节点图文件路径推断 (graph_type, folder_path)。
+
+        约定节点图位于：
+        - `<resource_library_dir>/节点图/<server|client>/<folder...>/<file>.py`
+
+        返回：
+        - graph_type: "server"/"client"（若无法推断则返回空字符串）
+        - folder_path: 相对 type 目录的文件夹路径（例如 "模板示例/子目录"，根目录返回空字符串）
+        """
+        graph_type, folder_path = infer_graph_type_and_folder_path(graph_file)
+        return graph_type, folder_path
+
+    def ensure_graph_folder(
+        self,
+        graph_type: str,
+        folder_path: str,
+        *,
+        resource_root_dir: Path | None = None,
+    ) -> Path:
         """创建（或确保存在）给定 graph_type 与 folder_path 对应的文件夹。"""
-        folder_dir = self.resource_library_dir / "节点图" / graph_type / folder_path
+        base_root = resource_root_dir or self.resource_library_dir
+        folder_dir = base_root / "节点图" / graph_type / folder_path
         folder_dir.mkdir(parents=True, exist_ok=True)
         return folder_dir
 
-    def rename_graph_directory(self, graph_type: str, old_folder_path: str, new_folder_path: str) -> None:
+    def rename_graph_directory(
+        self,
+        graph_type: str,
+        old_folder_path: str,
+        new_folder_path: str,
+        *,
+        resource_root_dir: Path | None = None,
+    ) -> None:
         """物理重命名节点图目录结构（不触碰图数据本身）。"""
-        old_dir = self.resource_library_dir / "节点图" / graph_type / old_folder_path
-        new_dir = self.resource_library_dir / "节点图" / graph_type / new_folder_path
+        base_root = resource_root_dir or self.resource_library_dir
+        old_dir = base_root / "节点图" / graph_type / old_folder_path
+        new_dir = base_root / "节点图" / graph_type / new_folder_path
         if old_dir.exists():
             new_dir.parent.mkdir(parents=True, exist_ok=True)
             old_dir.rename(new_dir)
 
-    def remove_empty_graph_folder_tree(self, graph_type: str, folder_path: str) -> bool:
+    def remove_empty_graph_folder_tree(
+        self,
+        graph_type: str,
+        folder_path: str,
+        *,
+        resource_root_dir: Path | None = None,
+    ) -> bool:
         """尝试删除空的节点图文件夹及其空父目录。"""
-        folder_dir = self.resource_library_dir / "节点图" / graph_type / folder_path
+        base_root = resource_root_dir or self.resource_library_dir
+        folder_dir = base_root / "节点图" / graph_type / folder_path
         if not folder_dir.exists():
             return False
 
@@ -120,7 +159,7 @@ class ResourceFileOps:
         folder_dir.rmdir()
 
         parent = folder_dir.parent
-        type_dir = self.resource_library_dir / "节点图" / graph_type
+        type_dir = base_root / "节点图" / graph_type
         while parent != type_dir and parent.exists():
             if any(parent.iterdir()):
                 break

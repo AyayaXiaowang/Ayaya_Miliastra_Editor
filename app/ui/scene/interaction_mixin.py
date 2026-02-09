@@ -6,9 +6,13 @@
 
 from __future__ import annotations
 
+import time
+
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, TYPE_CHECKING
-from engine.nodes.port_type_system import can_connect_ports
+
+from engine.nodes.port_type_system import can_connect_ports, GENERIC_PORT_TYPE
+from engine.type_registry import can_convert_type
 from app.ui.foundation.theme_manager import Colors
 
 if TYPE_CHECKING:
@@ -36,6 +40,276 @@ class SceneInteractionMixin:
     - read_only: bool
     - get_node_def(node): method
     """
+
+    _TYPE_CONVERSION_NODE_TITLE = "数据类型转换"
+    _TYPE_CONVERSION_INPUT_PORT_NAME = "输入"
+    _TYPE_CONVERSION_OUTPUT_PORT_NAMES = ("输出", "转换结果")
+
+    # ===== 节点拖拽时的连线路径刷新节流（大图性能优化）=====
+    #
+    # 说明：节点在拖拽过程中会频繁触发 ItemPositionHasChanged；若每个像素都同步刷新关联边的路径，
+    # 在超大图下会导致明显卡顿。这里提供一个保守的节流策略：
+    # - fast_preview_mode 下始终节流；
+    # - 非 fast_preview_mode 时，仅在节点/连线数量达到阈值后启用节流。
+    _EDGE_PATH_UPDATE_THROTTLE_NODE_THRESHOLD: int = 500
+    _EDGE_PATH_UPDATE_THROTTLE_EDGE_THRESHOLD: int = 900
+    _EDGE_PATH_UPDATE_THROTTLE_INTERVAL_MS: int = 16  # ~60 FPS
+
+    def _normalize_port_type(self, port_type: str) -> str:
+        return str(port_type or "").strip()
+
+    def _is_generic_port_type(self, port_type: str) -> bool:
+        return self._normalize_port_type(port_type) == GENERIC_PORT_TYPE
+
+    def _pick_unique_specific_type(self, types: list[str]) -> tuple[str, bool]:
+        """从类型列表中提取唯一具体类型。
+
+        Returns:
+            (type_text, is_conflicting)
+            - type_text: 若存在且仅存在一个具体类型则返回该类型；否则返回空字符串
+            - is_conflicting: 若存在多个不同具体类型则为 True
+        """
+        normalized = [self._normalize_port_type(t) for t in (types or [])]
+        specific_types = [
+            t for t in normalized if t and (t != GENERIC_PORT_TYPE) and (t != "流程")
+        ]
+        unique_types = sorted(set(specific_types))
+        if len(unique_types) == 1:
+            return unique_types[0], False
+        if len(unique_types) > 1:
+            return "", True
+        return "", False
+
+    def _get_connected_types_for_node_port(
+        self,
+        *,
+        node_id: str,
+        port_name: str,
+        is_input: bool,
+    ) -> list[str]:
+        """获取某个节点端口当前已连接的“对端端口类型”列表（用于类型联动校验）。"""
+        connected_types: list[str] = []
+        if not node_id or not port_name:
+            return connected_types
+
+        for edge in (getattr(self.model, "edges", {}) or {}).values():
+            if is_input:
+                if getattr(edge, "dst_node", "") != node_id or getattr(edge, "dst_port", "") != port_name:
+                    continue
+                src_node_id = getattr(edge, "src_node", "")
+                src_port_name = getattr(edge, "src_port", "")
+                src_node = self.model.nodes.get(src_node_id) if src_node_id else None
+                src_node_def = self.get_node_def(src_node) if src_node else None
+                if src_node_def:
+                    connected_types.append(
+                        self._normalize_port_type(
+                            src_node_def.get_port_type(src_port_name, is_input=False)
+                        )
+                    )
+                else:
+                    connected_types.append(GENERIC_PORT_TYPE)
+            else:
+                if getattr(edge, "src_node", "") != node_id or getattr(edge, "src_port", "") != port_name:
+                    continue
+                dst_node_id = getattr(edge, "dst_node", "")
+                dst_port_name = getattr(edge, "dst_port", "")
+                dst_node = self.model.nodes.get(dst_node_id) if dst_node_id else None
+                dst_node_def = self.get_node_def(dst_node) if dst_node else None
+                if dst_node_def:
+                    connected_types.append(
+                        self._normalize_port_type(
+                            dst_node_def.get_port_type(dst_port_name, is_input=True)
+                        )
+                    )
+                else:
+                    connected_types.append(GENERIC_PORT_TYPE)
+
+        return connected_types
+
+    def _is_connection_allowed_by_generic_constraints(
+        self,
+        *,
+        src_node_def: object | None,
+        src_port_name: str,
+        src_type: str,
+        dst_node_def: object | None,
+        dst_port_name: str,
+        dst_type: str,
+    ) -> bool:
+        """在 can_connect_ports 之外，额外检查 NodeDef 声明的泛型约束。"""
+        normalized_src_type = self._normalize_port_type(src_type)
+        normalized_dst_type = self._normalize_port_type(dst_type)
+
+        # “泛型家族”端口（泛型/泛型列表/泛型字典…）统一视为泛型端口参与约束判定。
+        src_is_generic = normalized_src_type.startswith(GENERIC_PORT_TYPE)
+        dst_is_generic = normalized_dst_type.startswith(GENERIC_PORT_TYPE)
+
+        # 目标为泛型：若声明了 allowed，则要求源类型落在 allowed 内（源为泛型时无法收敛，不在此处阻断）
+        if dst_is_generic and dst_node_def and hasattr(dst_node_def, "get_generic_constraints"):
+            allowed = list(dst_node_def.get_generic_constraints(dst_port_name, True) or [])
+            if allowed and (not src_is_generic) and normalized_src_type:
+                return normalized_src_type in allowed
+
+        # 源为泛型：若声明了 allowed，则要求目标类型落在 allowed 内（目标为泛型时无法收敛，不在此处阻断）
+        if src_is_generic and src_node_def and hasattr(src_node_def, "get_generic_constraints"):
+            allowed = list(src_node_def.get_generic_constraints(src_port_name, False) or [])
+            if allowed and (not dst_is_generic) and normalized_dst_type:
+                return normalized_dst_type in allowed
+
+        # 泛型 ↔ 泛型：若双方均声明了 allowed，则要求交集非空（表示存在可满足的具体类型）
+        if src_is_generic and dst_is_generic:
+            if (
+                src_node_def
+                and dst_node_def
+                and hasattr(src_node_def, "get_generic_constraints")
+                and hasattr(dst_node_def, "get_generic_constraints")
+            ):
+                src_allowed = list(src_node_def.get_generic_constraints(src_port_name, False) or [])
+                dst_allowed = list(dst_node_def.get_generic_constraints(dst_port_name, True) or [])
+                if src_allowed and dst_allowed:
+                    return bool(set(src_allowed).intersection(dst_allowed))
+
+        return True
+
+    def _is_connection_allowed_for_type_conversion_node(
+        self,
+        *,
+        src_node,
+        src_port_name: str,
+        src_type: str,
+        dst_node,
+        dst_port_name: str,
+        dst_type: str,
+    ) -> bool:
+        """对【数据类型转换】节点做输入/输出联动校验（基于 TYPE_CONVERSIONS）。"""
+        src_title = getattr(src_node, "title", "")
+        dst_title = getattr(dst_node, "title", "")
+        src_node_id = getattr(src_node, "id", "")
+        dst_node_id = getattr(dst_node, "id", "")
+
+        normalized_src_type = self._normalize_port_type(src_type)
+        normalized_dst_type = self._normalize_port_type(dst_type)
+
+        is_src_conversion_output = (
+            (src_title == self._TYPE_CONVERSION_NODE_TITLE)
+            and (src_port_name in self._TYPE_CONVERSION_OUTPUT_PORT_NAMES)
+        )
+        is_dst_conversion_input = (
+            (dst_title == self._TYPE_CONVERSION_NODE_TITLE)
+            and (dst_port_name == self._TYPE_CONVERSION_INPUT_PORT_NAME)
+        )
+
+        # 当前连线与数据类型转换节点无关
+        if (not is_src_conversion_output) and (not is_dst_conversion_input):
+            return True
+
+        # 统一定位“转换节点 ID”
+        conversion_node_id = src_node_id if is_src_conversion_output else dst_node_id
+        if not conversion_node_id:
+            return True
+
+        # 1) 输出类型一致性：同一个转换节点的输出只能被消费为同一种具体类型
+        if is_src_conversion_output and normalized_dst_type and normalized_dst_type != GENERIC_PORT_TYPE:
+            existing_output_types = []
+            for output_port_name in self._TYPE_CONVERSION_OUTPUT_PORT_NAMES:
+                existing_output_types.extend(
+                    self._get_connected_types_for_node_port(
+                        node_id=conversion_node_id,
+                        port_name=output_port_name,
+                        is_input=False,
+                    )
+                )
+            existing_output_type, output_conflict = self._pick_unique_specific_type(existing_output_types)
+            if output_conflict:
+                return False
+            if existing_output_type and existing_output_type != normalized_dst_type:
+                return False
+
+        # 2) 输入类型一致性：同一个转换节点的输入不应出现多个不同具体类型
+        if is_dst_conversion_input and normalized_src_type and normalized_src_type != GENERIC_PORT_TYPE:
+            existing_input_types = self._get_connected_types_for_node_port(
+                node_id=conversion_node_id,
+                port_name=self._TYPE_CONVERSION_INPUT_PORT_NAME,
+                is_input=True,
+            )
+            existing_input_type, input_conflict = self._pick_unique_specific_type(existing_input_types)
+            if input_conflict:
+                return False
+            if existing_input_type and existing_input_type != normalized_src_type:
+                return False
+
+        # 3) 联动校验：若输入/输出两侧类型都已确定为具体类型，则必须存在转换规则
+        # - 若本次连线决定了输出类型，则输出=dst_type；输入从既有连线推断
+        # - 若本次连线决定了输入类型，则输入=src_type；输出从既有连线推断
+        if is_src_conversion_output:
+            desired_output_type = normalized_dst_type
+            existing_input_types = self._get_connected_types_for_node_port(
+                node_id=conversion_node_id,
+                port_name=self._TYPE_CONVERSION_INPUT_PORT_NAME,
+                is_input=True,
+            )
+            desired_input_type, input_conflict = self._pick_unique_specific_type(existing_input_types)
+            if input_conflict:
+                return False
+        else:
+            desired_input_type = normalized_src_type
+            existing_output_types = []
+            for output_port_name in self._TYPE_CONVERSION_OUTPUT_PORT_NAMES:
+                existing_output_types.extend(
+                    self._get_connected_types_for_node_port(
+                        node_id=conversion_node_id,
+                        port_name=output_port_name,
+                        is_input=False,
+                    )
+                )
+            desired_output_type, output_conflict = self._pick_unique_specific_type(existing_output_types)
+            if output_conflict:
+                return False
+
+        if (
+            desired_input_type
+            and desired_output_type
+            and desired_input_type != GENERIC_PORT_TYPE
+            and desired_output_type != GENERIC_PORT_TYPE
+            and desired_input_type != "流程"
+            and desired_output_type != "流程"
+        ):
+            can_convert, _ = can_convert_type(desired_input_type, desired_output_type)
+            return bool(can_convert)
+
+        return True
+
+    def _can_connect_ports_with_constraints(
+        self,
+        *,
+        src_port: "PortGraphicsItem",
+        dst_port: "PortGraphicsItem",
+        src_node_def: object | None,
+        dst_node_def: object | None,
+        src_type: str,
+        dst_type: str,
+    ) -> bool:
+        if not can_connect_ports(src_type, dst_type):
+            return False
+        if not self._is_connection_allowed_by_generic_constraints(
+            src_node_def=src_node_def,
+            src_port_name=src_port.name,
+            src_type=src_type,
+            dst_node_def=dst_node_def,
+            dst_port_name=dst_port.name,
+            dst_type=dst_type,
+        ):
+            return False
+        if not self._is_connection_allowed_for_type_conversion_node(
+            src_node=src_port.node_item.node,
+            src_port_name=src_port.name,
+            src_type=src_type,
+            dst_node=dst_port.node_item.node,
+            dst_port_name=dst_port.name,
+            dst_type=dst_type,
+        ):
+            return False
+        return True
     
     def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
         """统一入口：按职责委托给 Y 调试逻辑与连线起手逻辑。"""
@@ -165,10 +439,17 @@ class SceneInteractionMixin:
             src_type = src_port.port_type
             dst_type = dst_port.port_type
 
-        # 类型不兼容时直接终止，不落地任何连线
-        if not can_connect_ports(src_type, dst_type):
+        # 类型/约束不兼容时直接终止，不落地任何连线
+        if not self._can_connect_ports_with_constraints(
+            src_port=src_port,
+            dst_port=dst_port,
+            src_node_def=src_node_def,
+            dst_node_def=dst_node_def,
+            src_type=src_type,
+            dst_type=dst_type,
+        ):
             if getattr(_settings_ui, "GRAPH_UI_VERBOSE", False):
-                print(f"[连接] 类型不匹配: {src_type} -> {dst_type}")
+                print(f"[连接] 连接不允许: {src_type} -> {dst_type}")
             return
 
         src_node_id = src_port.node_item.node.id
@@ -285,6 +566,12 @@ class SceneInteractionMixin:
 
         tracking.clear()
 
+        # 结束拖拽时补齐一次连线路径刷新（若启用了节流，避免最终位置仍停留在上一帧）。
+        self._flush_scheduled_edge_path_updates()
+        timer = getattr(self, "_edge_path_update_timer", None)
+        if isinstance(timer, QtCore.QTimer) and timer.isActive():
+            timer.stop()
+
     def mouseMoveEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
         # 记录鼠标位置,用于粘贴
         self.last_mouse_scene_pos = event.scenePos()
@@ -301,8 +588,6 @@ class SceneInteractionMixin:
     
     def auto_connect_new_node(self, new_node_id: str = None) -> None:
         """自动连接新创建的节点到待连接的端口"""
-        from app.ui.graph.graph_undo import AddEdgeCommand
-
         if not self.pending_src_node_id or not self.pending_connection_scene_pos:
             self._clear_pending_connection()
             return
@@ -325,12 +610,34 @@ class SceneInteractionMixin:
         source_port_type = self._get_pending_source_port_type()
         new_node_def = self.get_node_def(latest_node) if hasattr(self, "get_node_def") else None
         candidate_ports = latest_node_item._ports_in if self.pending_is_src_output else latest_node_item._ports_out
-        compatible_port = self._find_compatible_port(
-            candidate_ports,
-            new_node_def,
-            source_port_type,
-            expect_input=self.pending_is_src_output,
-        )
+        pending_source_port = getattr(self, "pending_connection_port", None)
+        compatible_port = None
+        if pending_source_port is not None:
+            for port in candidate_ports:
+                if port is pending_source_port:
+                    continue
+                # _try_commit_edge_between_ports 会做最终拦截，这里尽量选择一个“可连”的端口
+                # （包含泛型约束与数据类型转换节点的联动规则）
+                tentative_src = pending_source_port if not pending_source_port.is_input else port
+                tentative_dst = port if port.is_input else pending_source_port
+                tentative_src_def = self.get_node_def(tentative_src.node_item.node)
+                tentative_dst_def = self.get_node_def(tentative_dst.node_item.node)
+                if tentative_src_def and tentative_dst_def:
+                    tentative_src_type = tentative_src_def.get_port_type(tentative_src.name, is_input=False)
+                    tentative_dst_type = tentative_dst_def.get_port_type(tentative_dst.name, is_input=True)
+                else:
+                    tentative_src_type = tentative_src.port_type
+                    tentative_dst_type = tentative_dst.port_type
+                if self._can_connect_ports_with_constraints(
+                    src_port=tentative_src,
+                    dst_port=tentative_dst,
+                    src_node_def=tentative_src_def,
+                    dst_node_def=tentative_dst_def,
+                    src_type=tentative_src_type,
+                    dst_type=tentative_dst_type,
+                ):
+                    compatible_port = port
+                    break
 
         if compatible_port is None:
             from engine.configs.settings import settings as _settings_ui
@@ -340,28 +647,12 @@ class SceneInteractionMixin:
             self._clear_pending_connection()
             return
 
-        if self.pending_is_src_output:
-            src_node_id = self.pending_src_node_id
-            src_port_name = self.pending_src_port_name
-            dst_node_id = target_node_id
-            dst_port_name = compatible_port.name
-        else:
-            src_node_id = target_node_id
-            src_port_name = compatible_port.name
-            dst_node_id = self.pending_src_node_id
-            dst_port_name = self.pending_src_port_name
-
-        edge_id = self.model.gen_id("edge")
-        cmd = AddEdgeCommand(
-            self.model,
-            self,
-            edge_id,
-            src_node_id,
-            src_port_name,
-            dst_node_id,
-            dst_port_name,
-        )
-        self.undo_manager.execute_command(cmd)
+        # 复用统一连线入口，确保与手工连线的约束/联动规则完全一致
+        if pending_source_port is not None:
+            self._try_commit_edge_between_ports(
+                source_port=pending_source_port,
+                target_port=compatible_port,
+            )
         self._clear_pending_connection()
     
     def _clear_pending_connection(self) -> None:
@@ -456,8 +747,15 @@ class SceneInteractionMixin:
                         else:
                             target_type = port.port_type
                         
-                        # 使用与实际连接完全相同的判断逻辑
-                        if can_connect_ports(source_type, target_type):
+                        # 使用与实际连接完全相同的判断逻辑（含泛型约束与转换节点联动）
+                        if self._can_connect_ports_with_constraints(
+                            src_port=source_port,
+                            dst_port=port,
+                            src_node_def=source_node_def,
+                            dst_node_def=target_node_def,
+                            src_type=source_type,
+                            dst_type=target_type,
+                        ):
                             port.is_highlighted = True
                             port.update()
                             highlight_count += 1
@@ -472,8 +770,15 @@ class SceneInteractionMixin:
                         else:
                             target_type = port.port_type
                         
-                        # 使用与实际连接完全相同的判断逻辑
-                        if can_connect_ports(target_type, source_type):
+                        # 使用与实际连接完全相同的判断逻辑（含泛型约束与转换节点联动）
+                        if self._can_connect_ports_with_constraints(
+                            src_port=port,
+                            dst_port=source_port,
+                            src_node_def=target_node_def,
+                            dst_node_def=source_node_def,
+                            src_type=target_type,
+                            dst_type=source_type,
+                        ):
                             port.is_highlighted = True
                             port.update()
                             highlight_count += 1
@@ -488,6 +793,76 @@ class SceneInteractionMixin:
                 if port.is_highlighted:
                     port.is_highlighted = False
                     port.update()
+
+    def _should_throttle_edge_path_updates(self) -> bool:
+        """是否对节点拖拽期间的连线路径刷新启用节流。"""
+        if bool(getattr(self, "fast_preview_mode", False)):
+            return True
+        node_count = len(getattr(self, "node_items", {}) or {})
+        # edge_count 以模型为准：在“批量渲染边（无 per-edge item）”时 edge_items 无法反映真实规模。
+        model = getattr(self, "model", None)
+        model_edges = getattr(model, "edges", None) if model is not None else None
+        if isinstance(model_edges, dict):
+            edge_count = len(model_edges)
+        else:
+            edge_count = len(getattr(self, "edge_items", {}) or {})
+        return bool(
+            node_count >= self._EDGE_PATH_UPDATE_THROTTLE_NODE_THRESHOLD
+            or edge_count >= self._EDGE_PATH_UPDATE_THROTTLE_EDGE_THRESHOLD
+        )
+
+    def _ensure_edge_path_update_timer(self) -> QtCore.QTimer:
+        timer = getattr(self, "_edge_path_update_timer", None)
+        if isinstance(timer, QtCore.QTimer):
+            return timer
+        timer = QtCore.QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(self._flush_scheduled_edge_path_updates)
+        self._edge_path_update_timer = timer
+        return timer
+
+    def _schedule_edge_path_update_for_node(self, node_id: str) -> None:
+        pending = getattr(self, "_pending_edge_path_update_node_ids", None)
+        if not isinstance(pending, set):
+            pending = set()
+            self._pending_edge_path_update_node_ids = pending
+        pending.add(str(node_id or ""))
+
+        timer = self._ensure_edge_path_update_timer()
+        if not timer.isActive():
+            timer.start(int(self._EDGE_PATH_UPDATE_THROTTLE_INTERVAL_MS))
+
+    def _flush_scheduled_edge_path_updates(self) -> None:
+        pending = getattr(self, "_pending_edge_path_update_node_ids", None)
+        if not isinstance(pending, set) or not pending:
+            return
+        node_ids: set[str] = set(pending)
+        pending.clear()
+
+        # 批处理去重：同一条边可能同时属于多个移动节点的邻接集合
+        edges_by_obj_id: dict[int, object] = {}
+        if hasattr(self, "get_edges_for_node"):
+            for node_id in node_ids:
+                for edge_item in self.get_edges_for_node(node_id):  # type: ignore[call-arg]
+                    edges_by_obj_id[id(edge_item)] = edge_item
+        else:
+            edge_map = getattr(self, "edge_items", {}) or {}
+            for edge_item in edge_map.values():
+                src_item = getattr(getattr(edge_item, "src", None), "node_item", None)
+                dst_item = getattr(getattr(edge_item, "dst", None), "node_item", None)
+                src_id = str(getattr(getattr(src_item, "node", None), "id", "") or "")
+                dst_id = str(getattr(getattr(dst_item, "node", None), "id", "") or "")
+                if src_id in node_ids or dst_id in node_ids:
+                    edges_by_obj_id[id(edge_item)] = edge_item
+
+        for edge_item in edges_by_obj_id.values():
+            if hasattr(edge_item, "update_path"):
+                edge_item.update_path()
+
+        # 批量渲染边：GraphScene 提供增量刷新入口（内部会做局部 update 失效，避免残影）
+        update_batched = getattr(self, "update_batched_edges_for_node_ids", None)
+        if callable(update_batched):
+            update_batched(node_ids)
 
     def on_node_item_position_change_started(
         self,
@@ -519,6 +894,14 @@ class SceneInteractionMixin:
         _ = new_pos  # 预留参数，便于后续扩展对齐/吸附等行为
         node_id = node_item.node.id
 
+        # fast_preview_mode 下用于“选中自动展开”的防抖：节点移动期间不做重建
+        if bool(getattr(self, "fast_preview_mode", False)):
+            setattr(self, "_fast_preview_last_node_move_ts", time.perf_counter())
+
+        if self._should_throttle_edge_path_updates():
+            self._schedule_edge_path_update_for_node(str(node_id or ""))
+            return
+
         # 优先使用 GraphScene 提供的邻接索引接口（O(度数)）
         edges_for_node = []
         if hasattr(self, "get_edges_for_node"):
@@ -535,4 +918,8 @@ class SceneInteractionMixin:
 
         for edge_item in edges_for_node:
             edge_item.update_path()
+
+        update_batched = getattr(self, "update_batched_edges_for_node_ids", None)
+        if callable(update_batched):
+            update_batched([str(node_id or "")])
 

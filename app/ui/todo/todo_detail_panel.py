@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from PyQt6 import QtCore, QtWidgets, QtGui
+from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtCore import Qt
 
 from app.models import TodoItem
@@ -37,6 +38,184 @@ class TodoDetailView(QtWidgets.QWidget):
                 widget.setParent(None)
                 widget.deleteLater()
 
+    def _render_block(self, block: object, layout: QtWidgets.QVBoxLayout) -> None:
+        from app.ui.todo.todo_detail_model import (
+            BulletListBlock,
+            CollapsibleBlock,
+            ParagraphBlock,
+            ParagraphStyle,
+            PreformattedBlock,
+            TableBlock,
+        )
+
+        if isinstance(block, ParagraphBlock):
+            label = QtWidgets.QLabel(block.text)
+            label.setTextFormat(Qt.TextFormat.PlainText)
+            label.setWordWrap(True)
+            label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            font = label.font()
+            font.setPointSize(Sizes.FONT_NORMAL)
+            color_hex = Colors.TEXT_PRIMARY
+            if block.style == ParagraphStyle.EMPHASIS:
+                font.setPointSize(Sizes.FONT_LARGE)
+                font.setBold(True)
+            elif block.style == ParagraphStyle.HINT:
+                font.setPointSize(Sizes.FONT_SMALL)
+                color_hex = Colors.TEXT_HINT
+            label.setFont(font)
+            label.setStyleSheet(f"color: {color_hex};")
+            layout.addWidget(label)
+            return
+
+        if isinstance(block, BulletListBlock):
+            for item_text in block.items:
+                bullet_label = QtWidgets.QLabel(f"• {item_text}")
+                bullet_label.setTextFormat(Qt.TextFormat.PlainText)
+                bullet_label.setWordWrap(True)
+                bullet_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+                bullet_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
+                bullet_label.setContentsMargins(Sizes.PADDING_SMALL, 0, 0, 0)
+                layout.addWidget(bullet_label)
+            return
+
+        if isinstance(block, TableBlock):
+            headers = list(block.headers)
+            rows = list(block.rows)
+            if not rows:
+                return
+            row_count = len(rows)
+            column_count = len(rows[0]) if rows[0] else 0
+            if column_count == 0:
+                return
+            table = QtWidgets.QTableWidget(row_count, column_count, self)
+            table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+            table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            if headers and len(headers) == column_count:
+                table.setHorizontalHeaderLabels(headers)
+            else:
+                table.horizontalHeader().hide()
+            vertical_header = table.verticalHeader()
+            if vertical_header is not None:
+                vertical_header.setVisible(False)
+                vertical_header.setDefaultSectionSize(
+                    Sizes.INPUT_HEIGHT + Sizes.PADDING_SMALL
+                )
+            table.setAlternatingRowColors(True)
+            for row_index, row in enumerate(rows):
+                for column_index, cell_text in enumerate(row):
+                    item = QtWidgets.QTableWidgetItem(str(cell_text))
+                    table.setItem(row_index, column_index, item)
+            table.resizeRowsToContents()
+            header = table.horizontalHeader()
+            header.setStretchLastSection(False)
+            header.setSectionResizeMode(
+                QtWidgets.QHeaderView.ResizeMode.ResizeToContents
+            )
+            palette = table.palette()
+            palette.setColor(QtGui.QPalette.ColorRole.Base, QtGui.QColor(Colors.BG_CARD))
+            palette.setColor(
+                QtGui.QPalette.ColorRole.AlternateBase,
+                QtGui.QColor(Colors.BG_MAIN),
+            )
+            palette.setColor(
+                QtGui.QPalette.ColorRole.Text,
+                QtGui.QColor(Colors.TEXT_PRIMARY),
+            )
+            palette.setColor(
+                QtGui.QPalette.ColorRole.Highlight,
+                QtGui.QColor(Colors.BG_SELECTED),
+            )
+            palette.setColor(
+                QtGui.QPalette.ColorRole.HighlightedText,
+                QtGui.QColor(Colors.TEXT_PRIMARY),
+            )
+            table.setPalette(palette)
+            table.setStyleSheet(ThemeManager.table_style())
+            table.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Expanding,
+                QtWidgets.QSizePolicy.Policy.Fixed,
+            )
+            # 允许横向滚动：避免在右侧面板变窄时把列硬挤压到不可读。
+            table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            table.setMinimumHeight(table.sizeHint().height())
+            layout.addWidget(table)
+            return
+
+        if isinstance(block, PreformattedBlock):
+            text = str(block.text or "")
+            max_chars = int(getattr(block, "max_chars", 0) or 0)
+            if max_chars > 0 and len(text) > max_chars:
+                text = text[:max_chars] + "\n...（已截断）"
+
+            label = QtWidgets.QLabel(text)
+            label.setTextFormat(Qt.TextFormat.PlainText)
+            label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            label.setWordWrap(False)
+            mono_font = QtGui.QFontDatabase.systemFont(
+                QtGui.QFontDatabase.SystemFont.FixedFont
+            )
+            mono_font.setPointSize(max(Sizes.FONT_SMALL, mono_font.pointSize()))
+            label.setFont(mono_font)
+            label.setStyleSheet(
+                "\n".join(
+                    [
+                        f"color: {Colors.TEXT_PRIMARY};",
+                        f"background-color: {Colors.BG_MAIN};",
+                        f"border: 1px solid {Colors.BORDER};",
+                        f"padding: {Sizes.PADDING_SMALL}px;",
+                        "border-radius: 6px;",
+                    ]
+                )
+            )
+            layout.addWidget(label)
+            return
+
+        if isinstance(block, CollapsibleBlock):
+            wrapper = QtWidgets.QWidget(self)
+            wrapper_layout = QtWidgets.QVBoxLayout(wrapper)
+            wrapper_layout.setContentsMargins(0, 0, 0, 0)
+            wrapper_layout.setSpacing(Sizes.SPACING_SMALL)
+
+            header_button = QtWidgets.QToolButton(wrapper)
+            header_button.setText(str(block.title or "详情"))
+            header_button.setToolButtonStyle(
+                Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+            )
+            header_button.setCheckable(True)
+
+            expanded = not bool(getattr(block, "default_collapsed", True))
+            header_button.setChecked(expanded)
+            header_button.setArrowType(
+                Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
+            )
+            header_button.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
+            wrapper_layout.addWidget(header_button)
+
+            content = QtWidgets.QWidget(wrapper)
+            content_layout = QtWidgets.QVBoxLayout(content)
+            content_layout.setContentsMargins(
+                Sizes.PADDING_MEDIUM, 0, 0, 0
+            )
+            content_layout.setSpacing(Sizes.SPACING_SMALL)
+            wrapper_layout.addWidget(content)
+
+            for child in list(getattr(block, "blocks", []) or []):
+                self._render_block(child, content_layout)
+
+            content.setVisible(expanded)
+
+            def _on_toggled(checked: bool) -> None:
+                header_button.setArrowType(
+                    Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow
+                )
+                content.setVisible(bool(checked))
+
+            header_button.toggled.connect(_on_toggled)
+            layout.addWidget(wrapper)
+            return
+
     def render(self, document: DetailDocument) -> None:
         """根据给定的 DetailDocument 重建视图内容。"""
         self.clear()
@@ -63,109 +242,7 @@ class TodoDetailView(QtWidgets.QWidget):
                 self._layout.addWidget(title_label)
 
             for block in section.blocks:
-                from app.ui.todo.todo_detail_model import (
-                    ParagraphBlock,
-                    ParagraphStyle,
-                    TableBlock,
-                    BulletListBlock,
-                )
-
-                if isinstance(block, ParagraphBlock):
-                    label = QtWidgets.QLabel(block.text)
-                    label.setTextFormat(Qt.TextFormat.PlainText)
-                    label.setWordWrap(True)
-                    label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                    font = label.font()
-                    font.setPointSize(Sizes.FONT_NORMAL)
-                    color_hex = Colors.TEXT_PRIMARY
-                    if block.style == ParagraphStyle.EMPHASIS:
-                        font.setPointSize(Sizes.FONT_LARGE)
-                        font.setBold(True)
-                    elif block.style == ParagraphStyle.HINT:
-                        font.setPointSize(Sizes.FONT_SMALL)
-                        color_hex = Colors.TEXT_HINT
-                    label.setFont(font)
-                    label.setStyleSheet(f"color: {color_hex};")
-                    self._layout.addWidget(label)
-                elif isinstance(block, BulletListBlock):
-                    for item_text in block.items:
-                        bullet_label = QtWidgets.QLabel(f"• {item_text}")
-                        bullet_label.setTextFormat(Qt.TextFormat.PlainText)
-                        bullet_label.setWordWrap(True)
-                        bullet_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                        bullet_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
-                        bullet_label.setContentsMargins(Sizes.PADDING_SMALL, 0, 0, 0)
-                        self._layout.addWidget(bullet_label)
-                elif isinstance(block, TableBlock):
-                    headers = list(block.headers)
-                    rows = list(block.rows)
-                    if not rows:
-                        continue
-                    row_count = len(rows)
-                    column_count = len(rows[0]) if rows[0] else 0
-                    if column_count == 0:
-                        continue
-                    table = QtWidgets.QTableWidget(row_count, column_count, self)
-                    table.setEditTriggers(
-                        QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
-                    )
-                    table.setSelectionMode(
-                        QtWidgets.QAbstractItemView.SelectionMode.NoSelection
-                    )
-                    table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-                    if headers and len(headers) == column_count:
-                        table.setHorizontalHeaderLabels(headers)
-                    else:
-                        table.horizontalHeader().hide()
-                    vertical_header = table.verticalHeader()
-                    if vertical_header is not None:
-                        vertical_header.setVisible(False)
-                        vertical_header.setDefaultSectionSize(
-                            Sizes.INPUT_HEIGHT + Sizes.PADDING_SMALL
-                        )
-                    table.setAlternatingRowColors(True)
-                    for row_index, row in enumerate(rows):
-                        for column_index, cell_text in enumerate(row):
-                            item = QtWidgets.QTableWidgetItem(str(cell_text))
-                            table.setItem(row_index, column_index, item)
-                    table.resizeRowsToContents()
-                    header = table.horizontalHeader()
-                    header.setStretchLastSection(True)
-                    header.setSectionResizeMode(
-                        QtWidgets.QHeaderView.ResizeMode.ResizeToContents
-                    )
-                    palette = table.palette()
-                    palette.setColor(QtGui.QPalette.ColorRole.Base, QtGui.QColor(Colors.BG_CARD))
-                    palette.setColor(
-                        QtGui.QPalette.ColorRole.AlternateBase,
-                        QtGui.QColor(Colors.BG_MAIN),
-                    )
-                    palette.setColor(
-                        QtGui.QPalette.ColorRole.Text,
-                        QtGui.QColor(Colors.TEXT_PRIMARY),
-                    )
-                    palette.setColor(
-                        QtGui.QPalette.ColorRole.Highlight,
-                        QtGui.QColor(Colors.BG_SELECTED),
-                    )
-                    palette.setColor(
-                        QtGui.QPalette.ColorRole.HighlightedText,
-                        QtGui.QColor(Colors.TEXT_PRIMARY),
-                    )
-                    table.setPalette(palette)
-                    table.setStyleSheet(ThemeManager.table_style())
-                    table.setSizePolicy(
-                        QtWidgets.QSizePolicy.Policy.Expanding,
-                        QtWidgets.QSizePolicy.Policy.Fixed,
-                    )
-                    table.setHorizontalScrollBarPolicy(
-                        Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-                    )
-                    table.setVerticalScrollBarPolicy(
-                        Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-                    )
-                    table.setMinimumHeight(table.sizeHint().height())
-                    self._layout.addWidget(table)
+                self._render_block(block, self._layout)
 
         # 在末尾增加少量伸缩空间，令滚动体验更自然
         self._layout.addStretch(1)
@@ -267,6 +344,29 @@ class TodoDetailPanel(QtWidgets.QWidget):
         self.detail_desc.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
         self.detail_layout.addWidget(self.detail_desc)
 
+        # 生成进度提示：用于超大节点图的“步骤生成/展开”期间，避免用户误以为卡死。
+        self._generation_loading_widget = QtWidgets.QWidget(self.detail_widget)
+        self._generation_loading_widget.setObjectName("detailGenerationLoading")
+        generation_layout = QtWidgets.QVBoxLayout(self._generation_loading_widget)
+        generation_layout.setContentsMargins(0, 0, 0, 0)
+        generation_layout.setSpacing(Sizes.SPACING_SMALL)
+
+        self._generation_loading_label = QtWidgets.QLabel("正在生成节点图步骤…")
+        self._generation_loading_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._generation_loading_label.setWordWrap(True)
+        self._generation_loading_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
+        generation_layout.addWidget(self._generation_loading_label)
+
+        self._generation_progress_bar = QtWidgets.QProgressBar(self._generation_loading_widget)
+        # 百分比进度：超大图生成时必须可见，避免用户误判“卡死”
+        self._generation_progress_bar.setRange(0, 100)
+        self._generation_progress_bar.setValue(0)
+        self._generation_progress_bar.setTextVisible(True)
+        generation_layout.addWidget(self._generation_progress_bar)
+
+        self._generation_loading_widget.setVisible(False)
+        self.detail_layout.addWidget(self._generation_loading_widget)
+
         self.detail_view = TodoDetailView(self.detail_widget)
         self.detail_view.setObjectName("detailContentText")
         self.detail_view.setMinimumHeight(LayoutConstants.DETAIL_TEXT_MIN_HEIGHT)
@@ -311,6 +411,7 @@ class TodoDetailPanel(QtWidgets.QWidget):
         return host.resource_manager
 
     def set_detail(self, todo: TodoItem) -> None:
+        self.set_generation_loading_visible(False)
         self.current_detail_info = todo.detail_info
         self.detail_title.setText(todo.title)
         self.detail_desc.setText(todo.description)
@@ -328,5 +429,39 @@ class TodoDetailPanel(QtWidgets.QWidget):
 
     def set_execute_remaining_text(self, text: str) -> None:
         self.execute_remaining_button.setText(text)
+
+    def set_generation_loading_visible(
+        self,
+        visible: bool,
+        message: str = "正在生成节点图步骤…",
+    ) -> None:
+        widget = getattr(self, "_generation_loading_widget", None)
+        label = getattr(self, "_generation_loading_label", None)
+        progress_bar = getattr(self, "_generation_progress_bar", None)
+        if widget is None:
+            return
+        if label is not None:
+            label.setText(str(message or ""))
+        if isinstance(progress_bar, QtWidgets.QProgressBar):
+            if visible:
+                progress_bar.setRange(0, 100)
+                progress_bar.setValue(0)
+                progress_bar.setTextVisible(True)
+            else:
+                progress_bar.setRange(0, 100)
+                progress_bar.setValue(0)
+        widget.setVisible(bool(visible))
+
+    def set_generation_progress(self, percent: int, message: str = "正在生成节点图步骤…") -> None:
+        """更新节点图步骤生成进度（百分比 0~100）。"""
+        clamped = int(percent)
+        if clamped < 0:
+            clamped = 0
+        if clamped > 100:
+            clamped = 100
+        self.set_generation_loading_visible(True, message=message)
+        progress_bar = getattr(self, "_generation_progress_bar", None)
+        if isinstance(progress_bar, QtWidgets.QProgressBar):
+            progress_bar.setValue(clamped)
 
 

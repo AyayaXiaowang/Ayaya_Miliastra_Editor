@@ -29,7 +29,7 @@ class ViewMode(Enum):
     GRAPH_LIBRARY = 6      # 节点图库
     VALIDATION = 7         # 验证面板
     GRAPH_EDITOR = 8       # 节点图编辑器
-    PACKAGES = 9           # 存档页面
+    PACKAGES = 9           # 项目存档页面
     
     @classmethod
     def from_string(cls, mode_str: str) -> Optional['ViewMode']:
@@ -189,7 +189,7 @@ VIEW_MODE_CONFIG = {
     ),
     ViewMode.PACKAGES: ViewModeConfig(
         mode=ViewMode.PACKAGES,
-        display_name="存档",
+        display_name="项目存档",
         icon="🗂️",
         show_property_panel=False,
         show_graph_property=False,
@@ -224,7 +224,7 @@ RIGHT_PANEL_TABS: Dict[ViewMode, Tuple[str, ...]] = {
     # 任务清单模式下的“执行监控”标签由 UI 根据当前选中的 Todo 类型按需插入
     ViewMode.TODO: tuple(),
     ViewMode.COMPOSITE: ("composite_pins", "composite_property"),
-    ViewMode.GRAPH_LIBRARY: ("graph_property",),
+    ViewMode.GRAPH_LIBRARY: ("graph_property", "graph_used_definitions"),
     ViewMode.VALIDATION: ("validation_detail",),
     ViewMode.GRAPH_EDITOR: ("graph_property",),
     ViewMode.PACKAGES: tuple(),

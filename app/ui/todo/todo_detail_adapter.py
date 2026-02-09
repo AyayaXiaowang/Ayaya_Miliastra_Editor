@@ -14,6 +14,7 @@ from typing import Any, Dict, List
 from engine.resources.resource_manager import ResourceType
 
 from app.models.todo_item import TodoItem
+from app.models.todo_detail_info_accessors import get_detail_type
 from app.ui.todo.todo_config import StepTypeRules
 
 
@@ -83,13 +84,13 @@ class TodoDetailAdapter:
                 for subchild_id in child_todo.children:
                     subchild = self.widget.todo_map.get(subchild_id)
                     if subchild:
-                        if "variables" in subchild.detail_info.get("type", ""):
+                        if "variables" in get_detail_type(subchild):
                             var_count = len(subchild.detail_info.get("variables", []))
                             config_parts.append(f"{var_count}个变量")
-                        elif "components" in subchild.detail_info.get("type", ""):
+                        elif "components" in get_detail_type(subchild):
                             comp_count = len(subchild.detail_info.get("components", []))
                             config_parts.append(f"{comp_count}个组件")
-                        elif "graph" in subchild.detail_info.get("type", ""):
+                        elif "graph" in get_detail_type(subchild):
                             config_parts.append("节点图")
 
                 items.append(
@@ -106,9 +107,9 @@ class TodoDetailAdapter:
                 for subchild_id in child_todo.children:
                     subchild = self.widget.todo_map.get(subchild_id)
                     if subchild:
-                        if "properties" in subchild.detail_info.get("type", ""):
+                        if "properties" in get_detail_type(subchild):
                             config_parts.append("属性配置")
-                        elif "graph" in subchild.detail_info.get("type", ""):
+                        elif "graph" in get_detail_type(subchild):
                             config_parts.append("节点图")
 
                 items.append(
@@ -120,7 +121,12 @@ class TodoDetailAdapter:
                 )
 
             elif category_type in ["combat", "management"]:
-                items.append({"name": item_info.get("name", child_todo.title), "type": item_info.get("type", "")})
+                items.append(
+                    {
+                        "name": item_info.get("name", child_todo.title),
+                        "type": get_detail_type(child_todo),
+                    }
+                )
 
             elif category_type == "standalone_graphs":
                 # 节点图总览：统计每个图的变量数、节点数、类型与文件夹
@@ -180,7 +186,7 @@ class TodoDetailAdapter:
             if not child_todo:
                 continue
 
-            child_type = child_todo.detail_info.get("type", "")
+            child_type = get_detail_type(child_todo)
 
             if child_type == "template_basic":
                 config_count = len(child_todo.detail_info.get("config", {}))
@@ -207,7 +213,7 @@ class TodoDetailAdapter:
             if not child_todo:
                 continue
 
-            child_type = child_todo.detail_info.get("type", "")
+            child_type = get_detail_type(child_todo)
 
             if child_type == "instance_properties_table":
                 summary["位置与旋转"] = 1

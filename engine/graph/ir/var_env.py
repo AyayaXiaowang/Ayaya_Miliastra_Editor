@@ -6,6 +6,14 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from engine.graph.models import NodeModel
 
 
+@dataclass(frozen=True)
+class VarEnvSnapshot:
+    """VarEnv 的快照（用于分支/循环体解析的作用域隔离）。"""
+
+    var_map: Dict[str, Tuple[str, str]]
+    var_types: Dict[str, str]
+
+
 @dataclass
 class VarEnv:
     """变量/作用域与循环上下文环境。
@@ -38,6 +46,8 @@ class VarEnv:
     # 用途：当节点调用参数引用这些变量时，将其视为“输入常量”回填到 node.input_constants，
     #       不再通过数据连线表达。
     local_const_values: Dict[str, Any] = field(default_factory=dict)
+    # 变量类型（来自中文类型注解或轻量推断）：变量名 → 规范中文类型名
+    var_types: Dict[str, str] = field(default_factory=dict)
 
     def set_variable(self, name: str, source_node_id: str, source_port_name: str) -> None:
         self.var_map[name] = (source_node_id, source_port_name)
@@ -52,6 +62,22 @@ class VarEnv:
 
     def get_variable(self, name: str) -> Optional[Tuple[str, str]]:
         return self.var_map.get(name)
+
+    def set_var_type(self, name: str, type_text: str) -> None:
+        name_text = str(name or "").strip()
+        if not name_text:
+            return
+        normalized = str(type_text or "").strip()
+        if not normalized:
+            return
+        self.var_types[name_text] = normalized
+
+    def get_var_type(self, name: str) -> str:
+        name_text = str(name or "").strip()
+        if not name_text:
+            return ""
+        value = self.var_types.get(name_text)
+        return str(value or "").strip()
 
     def set_local_constant(self, name: str, value: Any) -> None:
         if isinstance(name, str) and name:
@@ -133,12 +159,16 @@ class VarEnv:
         self.used_after_branch_names = used_after_set
         self.branch_assign_usage_candidates = assigned_set & used_after_set
 
-    def snapshot(self) -> Dict[str, Tuple[str, str]]:
-        """快照当前变量表（用于 if/loop 分支内的作用域隔离）。"""
-        return dict(self.var_map)
+    def snapshot(self) -> VarEnvSnapshot:
+        """快照当前变量表与类型表（用于 if/loop 分支内的作用域隔离）。"""
+        return VarEnvSnapshot(
+            var_map=dict(self.var_map),
+            var_types=dict(self.var_types),
+        )
 
-    def restore(self, snapshot: Dict[str, Tuple[str, str]]) -> None:
-        self.var_map = dict(snapshot)
+    def restore(self, snapshot: VarEnvSnapshot) -> None:
+        self.var_map = dict(snapshot.var_map)
+        self.var_types = dict(snapshot.var_types)
         # 需要跨快照保留的映射（例如局部变量句柄）在恢复后补回
         for key, value in self.persistent_var_map.items():
             self.var_map.setdefault(key, value)
@@ -171,3 +201,7 @@ class VarEnv:
 
 
 
+__all__ = [
+    "VarEnv",
+    "VarEnvSnapshot",
+]

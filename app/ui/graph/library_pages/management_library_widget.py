@@ -9,12 +9,19 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Union, Tuple
+from pathlib import Path
+from typing import Callable, Dict, Optional, Union, Tuple
 
 from PyQt6 import QtCore, QtWidgets
 
+from engine.configs.resource_types import ResourceType
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
+from engine.utils.resource_library_layout import get_shared_root_dir
+from app.ui.foundation.shared_resource_badge_delegate import (
+    SHARED_RESOURCE_BADGE_ROLE,
+    install_shared_resource_badge_delegate,
+)
 from app.ui.foundation.theme_manager import Sizes
 from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.graph.library_mixins import (
@@ -41,6 +48,7 @@ from app.ui.management.section_registry import (
 )
 from app.ui.panels.ui_control_group_manager import UIControlGroupManager
 from app.ui.panels.panel_scaffold import SectionCard
+from engine.utils.logging.logger import log_debug, log_warn
 
 
 ManagementPackage = Union[PackageView, GlobalResourceView]
@@ -54,6 +62,15 @@ class ManagementLibraryWidget(
     ConfirmDialogMixin,
 ):
     """管理配置库主界面。"""
+
+    # 这些管理类型的“本体”已迁移为代码级资源，UI 仅用于浏览与维护“所属存档”关系，
+    # 不允许在库页面通过“新建/删除”等入口修改资源本体。
+    _READ_ONLY_SECTION_KEYS: set[str] = {
+        "signals",
+        "struct_definitions",
+        "ingame_struct_definitions",
+        "save_points",
+    }
 
     # 任意条目完成一次“真实数据修改”（增删改）后发射，用于上层触发立即持久化。
     data_changed = QtCore.pyqtSignal(LibraryChangeEvent)
@@ -95,6 +112,10 @@ class ManagementLibraryWidget(
 
         # 供主窗口右侧“界面控件设置”面板绑定的管理器实例。
         self.ui_control_group_manager: UIControlGroupManager = UIControlGroupManager(self)
+
+        # UI页面：不在 PyQt 页面内做自动派生/批处理逻辑，仅提供“打开 Web 预览”入口。
+        self._ui_pages_open_preview_button: QtWidgets.QPushButton | None = None
+        self._ui_pages_open_preview_handler: Callable[[], None] | None = None
 
         self._setup_ui()
 
@@ -249,10 +270,23 @@ class ManagementLibraryWidget(
         item_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         item_list.setObjectName("managementItemList")
         self.item_list = item_list
+        install_shared_resource_badge_delegate(item_list)
 
         list_container = QtWidgets.QWidget()
         list_layout = QtWidgets.QVBoxLayout(list_container)
         list_layout.setContentsMargins(0, 0, 0, 0)
+
+        # UI页面：仅提供入口按钮（不在 PyQt 侧自动转换/导入）。
+        ui_pages_status_row = QtWidgets.QWidget(list_container)
+        ui_pages_status_layout = QtWidgets.QHBoxLayout(ui_pages_status_row)
+        ui_pages_status_layout.setContentsMargins(8, 6, 8, 0)
+        open_preview_btn = QtWidgets.QPushButton("打开 UI控件组预览（Web）", ui_pages_status_row)
+        open_preview_btn.setVisible(False)
+        self._ui_pages_open_preview_button = open_preview_btn
+        ui_pages_status_layout.addWidget(open_preview_btn, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        open_preview_btn.clicked.connect(self._on_ui_pages_open_preview_clicked)
+        list_layout.addWidget(ui_pages_status_row)
+
         list_layout.addWidget(item_list)
         self.list_container = list_container
 
@@ -327,9 +361,32 @@ class ManagementLibraryWidget(
         self._current_section_key = section_key
         self._update_right_section_header(section_key)
 
+        if section_key == "ui_pages" and self.current_package is not None:
+            # UI页面：不在 PyQt 页面内做自动派生/批处理逻辑，仅提供“打开 Web 预览”入口。
+            from app.ui.controllers.ui_pages_browser import (
+                open_ui_preview_browser_or_raise,
+            )
+
+            if self._ui_pages_open_preview_button is not None:
+                self._ui_pages_open_preview_button.setVisible(True)
+                self._ui_pages_open_preview_handler = lambda: open_ui_preview_browser_or_raise(
+                    main_window=self.window()
+                )
+        else:
+            # 切到其它分类时隐藏 UI页面 状态区与按钮，避免干扰其它列表。
+            if self._ui_pages_open_preview_button is not None:
+                self._ui_pages_open_preview_button.setVisible(False)
+            self._ui_pages_open_preview_handler = None
+            # 入口按钮隐藏即可；UI页面不再有额外状态区。
+
         self._switch_right_panel_for_section(section_key)
         self._refresh_items()
         self.active_section_changed.emit(section_key)
+
+    def _on_ui_pages_open_preview_clicked(self) -> None:
+        handler = self._ui_pages_open_preview_handler
+        if callable(handler):
+            handler()
 
     def _update_right_section_header(self, section_key: str) -> None:
         """根据当前管理类型更新右侧卡片标题。"""
@@ -350,14 +407,55 @@ class ManagementLibraryWidget(
             target_index = self.right_stack.indexOf(self.ui_control_group_manager)
             if target_index != -1:
                 self.right_stack.setCurrentIndex(target_index)
-            self._set_toolbar_enabled(False)
+            self._apply_toolbar_policy_for_section(section_key)
             return
 
         list_index = self.right_stack.indexOf(self.list_container)
         if list_index != -1:
             self.right_stack.setCurrentIndex(list_index)
-        has_section = section_key in self._sections
-        self._set_toolbar_enabled(has_section)
+        self._apply_toolbar_policy_for_section(section_key)
+
+    def _apply_toolbar_policy_for_section(self, section_key: str) -> None:
+        """根据当前 section 决定“新建/删除/编辑”等工具栏按钮的启用状态与提示文案。"""
+        # 未构建工具栏时直接退出（理论上不会发生，但保持防御性以避免未来重构时崩溃）。
+        if (
+            self.add_button is None
+            and self.delete_button is None
+            and self.edit_button is None
+        ):
+            return
+
+        def clear_tooltips() -> None:
+            for button in (self.add_button, self.delete_button, self.edit_button):
+                if button is not None:
+                    button.setToolTip("")
+
+        # “界面控件组”使用专用右侧面板，不在库页面提供 CRUD 按钮。
+        if section_key == "ui_control_groups":
+            self._set_toolbar_enabled(False)
+            clear_tooltips()
+            return
+
+        has_section_impl = section_key in self._sections
+        if not has_section_impl:
+            self._set_toolbar_enabled(False)
+            clear_tooltips()
+            return
+
+        # 代码级只读管理类型：禁用“新建/删除”等按钮，避免用户误以为可在 UI 内修改本体。
+        if section_key in self._READ_ONLY_SECTION_KEYS:
+            self._set_toolbar_enabled(False)
+            read_only_tip = (
+                "只读页面：该模块内容由代码级资源维护，管理配置库仅用于浏览与维护所属存档关系。"
+            )
+            for button in (self.add_button, self.delete_button, self.edit_button):
+                if button is not None:
+                    button.setToolTip(read_only_tip)
+            return
+
+        # 默认：允许在库页面执行 CRUD 操作
+        self._set_toolbar_enabled(True)
+        clear_tooltips()
 
     def _set_toolbar_enabled(self, enabled: bool) -> None:
         """根据当前上下文启用/禁用“新建/删除/编辑”按钮。"""
@@ -457,10 +555,16 @@ class ManagementLibraryWidget(
         # 避免再次遍历 Section.iter_rows。
         list_item.setData(QtCore.Qt.ItemDataRole.UserRole + 2, row_data)
 
+        section_key, item_id = row_data.user_data
+        is_shared_item = self._is_shared_resource_for_row(section_key, item_id)
+        list_item.setData(SHARED_RESOURCE_BADGE_ROLE, bool(is_shared_item))
+
         tooltip_lines = [
             f"名称: {row_data.name}",
             f"类型: {row_data.type_name}",
         ]
+        if is_shared_item:
+            tooltip_lines.insert(0, "归属: 共享（所有存档可见）")
         if row_data.attr1:
             tooltip_lines.append(row_data.attr1)
         if row_data.attr2:
@@ -486,6 +590,80 @@ class ManagementLibraryWidget(
         list_item.setData(QtCore.Qt.ItemDataRole.UserRole + 1, search_value.casefold())
 
         self.item_list.addItem(list_item)
+
+    def _resolve_resource_type_for_section(self, section_key: str) -> Optional[ResourceType]:
+        """将管理 section_key 映射到其物理资源类型（用于判定归属）。"""
+        spec = self._spec_by_key.get(section_key)
+        if spec is None:
+            return None
+        if not spec.resources:
+            return None
+        # 约定：管理库右侧“文件列表”只对应一个资源类型；多资源的 section（如 ui_control_groups）
+        # 使用专用右侧面板，不走本列表。
+        return spec.resources[0].resource_type
+
+    @staticmethod
+    def _is_path_under(root_dir: Path, file_path: Path) -> bool:
+        resolved_root = root_dir.resolve()
+        resolved_file = file_path.resolve()
+        if hasattr(resolved_file, "is_relative_to"):
+            return resolved_file.is_relative_to(resolved_root)  # type: ignore[attr-defined]
+        root_parts = resolved_root.parts
+        file_parts = resolved_file.parts
+        return len(file_parts) >= len(root_parts) and file_parts[: len(root_parts)] == root_parts
+
+    def _resolve_management_item_file_path(
+        self,
+        section_key: str,
+        item_id: str,
+    ) -> Optional[Path]:
+        """解析管理条目对应的物理文件路径（用于判定是否位于共享根目录）。"""
+        if not self.current_package:
+            return None
+        resource_manager = getattr(self.current_package, "resource_manager", None)
+        if resource_manager is None:
+            return None
+
+        if section_key == "variable":
+            from engine.resources.level_variable_schema_view import (
+                get_default_level_variable_schema_view,
+            )
+
+            schema_view = get_default_level_variable_schema_view()
+            file_info = schema_view.get_variable_file(item_id)
+            absolute_path = getattr(file_info, "absolute_path", None) if file_info is not None else None
+            return absolute_path if isinstance(absolute_path, Path) else None
+
+        if section_key == "save_points":
+            from engine.resources.ingame_save_template_schema_view import (
+                get_default_ingame_save_template_schema_view,
+            )
+
+            schema_view = get_default_ingame_save_template_schema_view()
+            template_path = schema_view.get_template_file_path(item_id)
+            return template_path if isinstance(template_path, Path) else None
+
+        resource_type = self._resolve_resource_type_for_section(section_key)
+        if resource_type is None:
+            return None
+        file_path = resource_manager.list_resource_file_paths(resource_type).get(item_id)
+        return file_path if isinstance(file_path, Path) else None
+
+    def _is_shared_resource_for_row(self, section_key: str, item_id: str) -> bool:
+        if not self.current_package:
+            return False
+        resource_manager = getattr(self.current_package, "resource_manager", None)
+        if resource_manager is None:
+            return False
+        resource_library_dir = getattr(resource_manager, "resource_library_dir", None)
+        if not isinstance(resource_library_dir, Path):
+            return False
+
+        shared_root_dir = get_shared_root_dir(resource_library_dir)
+        file_path = self._resolve_management_item_file_path(section_key, item_id)
+        if not isinstance(file_path, Path):
+            return False
+        return self._is_path_under(shared_root_dir, file_path)
 
     # ------------------------------------------------------------------ 工具栏与搜索
 
@@ -617,20 +795,21 @@ class ManagementLibraryWidget(
         当无有效选中或仅为占位条目时，通知主窗口清空并收起对应标签。
         """
         if self.item_list is None:
-            print("[MANAGEMENT-LIB] selection changed: <no-list-widget>")
+            log_debug("[MANAGEMENT-LIB] selection changed: <no-list-widget>")
             return
 
         current_item = self.item_list.currentItem()
         user_data = self._get_item_user_data(current_item)
         if user_data is None:
-            print("[MANAGEMENT-LIB] selection changed: <none>")
+            log_debug("[MANAGEMENT-LIB] selection changed: <none>")
             self._emit_selection_to_main_window_from_row_data(None, None)
             return
 
         section_key, item_id = user_data
-        print(
-            "[MANAGEMENT-LIB] selection changed:",
-            f"section_key={section_key!r}, item_id={item_id!r}",
+        log_debug(
+            "[MANAGEMENT-LIB] selection changed: section_key={!r}, item_id={!r}",
+            section_key,
+            item_id,
         )
         # 占位条目仅承担“打开旧管理页面”的导航职责，不在右侧展示摘要。
         if item_id == "__OPEN__":

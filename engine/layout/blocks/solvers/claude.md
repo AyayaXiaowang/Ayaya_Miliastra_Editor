@@ -4,6 +4,7 @@
 ## 当前状态
 - 每个 solver 文件聚焦一个可测试的子问题（输入为 dataclass/只读结构，输出为纯数据结果或对 runtime 结构做最小更新）。
 - `types.py` 提供 `PositioningEngineConfig/PositioningRuntimeState` 等只读配置与运行期状态结构，供各 solver 共享。
+- `tight_spacing_x_solver.compute_min_left_from_port_gap()` 入口约束同时考虑 flow/data 入边（依赖 `config.block_map` 可映射到 data 节点所属块），用于在开启紧凑排版时避免 data 连线右→左折返。
 
 ## 注意事项
 - 仅依赖 `engine.layout` 的纯逻辑层（如 `engine.layout.internal.*`、`engine.layout.blocks.*`、`engine.layout.utils.*`），禁止引入 UI 或外设 I/O。

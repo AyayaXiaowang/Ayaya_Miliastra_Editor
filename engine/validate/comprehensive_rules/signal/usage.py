@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Dict, List
 
 from engine.nodes.advanced_node_features import SignalDefinition, build_signal_definitions_from_package
@@ -24,11 +25,13 @@ class SignalUsageRule(BaseComprehensiveRule):
 
 
 def validate_package_signal_usage(validator) -> List[ValidationIssue]:
-    """在整个存档包范围内校验信号定义与节点图用法的一致性。"""
+    """在整个项目存档范围内校验信号定义与节点图用法的一致性。"""
     package = getattr(validator, "package", None)
     resource_manager = getattr(validator, "resource_manager", None)
     if package is None or resource_manager is None:
         return []
+
+    workspace_path = Path(getattr(resource_manager, "workspace_path"))
 
     signal_definitions: Dict[str, SignalDefinition] = build_signal_definitions_from_package(
         package
@@ -49,6 +52,7 @@ def validate_package_signal_usage(validator) -> List[ValidationIssue]:
         package.templates,
         package.instances,
         package.level_entity,
+        package.combat_presets,
     )
 
     node_library: Dict[str, NodeDef] = getattr(validator, "node_library", {}) or {}
@@ -59,6 +63,7 @@ def validate_package_signal_usage(validator) -> List[ValidationIssue]:
             continue
         issues.extend(
             validate_signals_in_single_graph(
+                workspace_path,
                 attachment,
                 signal_definitions,
                 signal_param_types,

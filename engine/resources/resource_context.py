@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from engine.configs.settings import settings
+from engine.utils.workspace import init_settings_for_workspace
 
 from .package_index_manager import PackageIndexManager
 from .package_view import PackageView
@@ -20,7 +20,7 @@ from .resource_manager import ResourceManager
 
 def init_workspace_settings(workspace_path: Path) -> None:
     """统一初始化 settings 的 workspace_root（CLI/工具入口应在构建资源上下文前调用）。"""
-    settings.set_config_path(workspace_path)
+    init_settings_for_workspace(workspace_root=workspace_path, load_user_settings=False)
 
 
 def build_resource_manager(

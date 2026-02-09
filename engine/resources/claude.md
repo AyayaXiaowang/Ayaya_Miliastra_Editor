@@ -1,35 +1,109 @@
 ## 目录用途
-统一管理离散化资源（模板、实例、节点图、战斗预设、管理配置等）的索引、读写、引用追踪与视图封装，是持久化与检索的唯一入口。
+统一管理离散化资源（模板、实体摆放、节点图、战斗预设、管理配置等）的索引、读写、引用追踪与视图封装，是持久化与检索的唯一入口。
 
 ## 当前状态
 - **门面编排**：`ResourceManager` 只负责对外 API 与跨服务编排；索引/图/缓存/文件操作分别委托给 `ResourceIndexService` / `GraphResourceService` / `ResourceCacheService` / `ResourceFileOps`。
+- **资源总控拆分**：`resource_manager.py` 仅保留装配与 `__init__`；其余对外方法按职责拆到 `resource_manager_*_mixin.py`（scope/index/fingerprint/cache/io/reference/metadata/graph），避免单文件继续膨胀。
 - **类型规则抽离**：资源显示名与 UI 元数据提取由 `ResourceMetadataService` 统一封装，避免 `ResourceManager` 持续膨胀为条件森林。
-- **节点图职责拆分**：`GraphResourceService` 仅做编排与兼容对外 API；具体实现拆为 `GraphCacheFacade`（内存+持久化缓存/失效/兼容性）、`GraphLoader`（解析+增强布局）、`GraphMetadataReader`（轻量元数据/计数兜底）、`GraphSaver`（往返校验+写盘），以及 `GraphFingerprintsService`（指纹计算复用）。
-- **节点图轻量列表**：节点图列表/文件夹树等“只展示”场景应优先走 `GraphResourceService.load_graph_metadata()`：只提取 docstring 元数据；节点/连线数量优先复用 `app/runtime/cache/graph_cache` 的持久化缓存（命中且校验通过时），仍不触发解析与自动布局。
+ - 管理配置 UI 工作流：新增 `ResourceType.UI_PAGE`（`管理配置/UI页面`）作为“UI 功能页入口对象”，用于汇总 `UI源码` 与派生的 `UI布局/UI控件模板/交互映射/GUID映射/文本绑定` 引用关系；索引/视图/一致性检查与综合校验均按资源类型自然接入。
+- **节点图职责拆分**：`GraphResourceService` 仅做编排与兼容对外 API；具体实现拆为 `GraphResultDataBuilder`（GraphModel → 标准 result_data 的单一真源，统一补齐 node_defs_fp/layout_settings/fingerprints 与 folder_path 推断）、`GraphCacheFacade`（内存+持久化缓存/失效/兼容性）、`GraphLoader`（解析+增强布局，模型层差分合并复用 `engine.layout.utils.augmented_layout_merge` 的单一真源实现；并在 `active_package_id` 切换时重建 `GraphCodeParser` 以对齐当前作用域下的复合节点集合）、`GraphMetadataReader`（轻量元数据/计数兜底）、`GraphSaver`（往返校验+写盘），以及 `GraphFingerprintsService`（指纹计算复用）。
+  - `GraphLoader` 在“增强布局差分合并”后会为所有节点补齐 `input_types/output_types` 端口类型快照，作为 **展示级“有效类型缓存”** 供 `graph_cache` 与工具链快速读取（优先 overrides/已有非泛型快照；对泛型端口结合常量与连线尽力推断；失败回退到声明/动态类型）。NodeDef 定位统一以 `NodeModel.node_def_ref` 为唯一真源（builtin→canonical key；composite→composite_id），运行时不再允许基于 title/category/scope 的 fallback；旧缓存缺失 ref 应触发重建。
+  - `GraphLoader` 在生成 graph_cache（首次解析/缓存失效重建）前会基于 `metadata["struct_bindings"]` 与代码级结构体定义补齐结构体节点（拆分/拼装/修改）的字段端口（仅新增缺失端口），确保布局在“最终端口集合”下计算，避免 UI 后续补齐端口导致节点高度突增而重叠。
+  - `GraphResourceService.build_result_data_from_model()` 在写入持久化 graph_cache 前同样会补齐上述端口快照，避免 UI 仅更新布局/缓存时把过期类型写回磁盘。
+- **节点图轻量列表**：节点图列表/文件夹树等“只展示”场景应优先走 `GraphResourceService.load_graph_metadata()`：只提取 docstring 元数据；读取源码默认按 `utf-8-sig` 解码以兼容 UTF-8 BOM。
+  - 节点/连线数量**仅允许来自** `app/runtime/cache/graph_cache` 的持久化缓存（命中且校验通过时），仍不触发解析与自动布局；
+  - 若当前图尚未生成可用缓存，则 `node_count/edge_count` 保持为空（由 UI 展示为 `-` 或空白），统计只能在打开节点图（触发解析/生成 graph_cache）后出现。
+  - docstring 提取已优化为 **tokenize 快速读取模块首个字符串字面量**（不再对整文件执行 `ast.parse()`），避免大型节点图在列表页/属性面板轻量预览中出现明显卡顿；图变量等 AST 级信息不属于“轻量元数据”范畴。
+- **folder_path 推断与自愈**：节点图 docstring 可不声明 `folder_path`，资源层会从 `.py` 文件路径推断并标准化（路径分隔符归一化统一复用 `engine.utils.path_utils.normalize_slash`）；当缓存（内存/持久化）中存在旧的空 `folder_path` 时也会在加载/读取元数据阶段补齐，保证 UI「基本信息/文件夹」字段稳定展示；同时会将 `result_data["folder_path"]` 镜像写入 `result_data["data"]["metadata"]["folder_path"]`，确保仅持有 GraphModel/graph_data 的下游（如 UI 自动化锚点策略）也能稳定读取分类信息。
 - **双层缓存**：进程内缓存由 `ResourceCacheService` 提供；磁盘持久化的节点图缓存由 `PersistentGraphCacheManager`（`persistent_graph_cache_manager.py`）管理，持久化目录位于 `settings.RUNTIME_CACHE_ROOT`（默认 `app/runtime/cache`）下，包括 graph_cache/resource_cache/node_cache 等；加载持久化图缓存时会做轻量结构一致性校验（节点/边引用与端口名匹配），不自洽视为失效并回退到重建路径。
-- 持久化 graph_cache 写入前会再次确保目标目录存在，避免在“并发清缓存/外部工具清理”场景下 mkdir 后目录被删除导致写入失败。
-- **代码级 Schema 缓存**：结构体/信号/关卡变量/局内存档模板等“Python 代码资源”通过各自的 `*SchemaView` 聚合并在进程内缓存；资源库刷新或外部修改这些代码资源后，需要调用对应的 `invalidate_default_*_cache()` 使视图失效并在下次访问时重新加载（例如 `update_default_template_id` 在写回局内存档模板文件后会同步失效其 SchemaView 缓存）。
-- **写盘一致性**：资源索引缓存、功能包索引与运行期状态等 JSON 文件统一使用“原子写”（`atomic_json.atomic_write_json`，临时文件写完后 replace），避免异常中断导致空文件/半写入，引发索引/缓存不一致。
+  - 缓存命中返回策略：`ResourceManager.load_resource(..., copy_mode=...)` / `JsonResourceStore.load(..., copy_mode=...)` 支持对缓存命中时的返回值选择 `deep/shallow/none` 三种 copy_mode（默认 deep，用于防止调用方意外修改缓存对象；性能敏感且严格只读的扫描路径可用 none 以避免 `deepcopy` 放大 UI 卡顿）。
+ - 持久化 graph_cache 兼容性判定额外包含 GraphModel 数据契约：若缓存节点缺失 `node_def_ref(kind+key)`（旧数据），将直接判定为不兼容并触发重建，禁止在运行时基于 `title` 做 NodeDef fallback。
+- **派生语义元数据刷新**：即便命中持久化图缓存，加载链路也会对 GraphModel 运行 `GraphSemanticPass`，刷新 `signal_bindings/struct_bindings` 等派生字段，使其随结构体/信号/变量等 Schema 变化与 `active_package_id` 作用域切换保持一致，避免复用旧缓存导致的“结构体节点未绑定”等误报。
+- **缓存口径统一**：`GraphCacheFacade.update_persistent_graph_cache(...)` 在写盘/写入内存缓存前会确保 `result_data["metadata"]["node_defs_fp"]` 存在，用于进程内缓存命中与节点实现变更失效判定；布局缓存兼容性依赖 `metadata.layout_settings` 快照（覆盖跨块复制/紧凑排列/算法版本号及“长连线中转(获取局部变量)节点”开关与阈值等）；应用层应优先通过 `ResourceManager.update_persistent_graph_cache_from_model(...)` 从 GraphModel 刷新缓存，避免 UI 手写 result_data 结构造成口径漂移。
+- **node_defs_fp 性能与失效策略**：节点定义指纹（`compute_node_defs_fingerprint`）提供进程内分段缓存以避免在“节点图加载/持久化缓存校验/节点库缓存校验”等链路中反复全目录扫描；资源索引重建与后台快照提交（`ResourceManager.rebuild_index/apply_index_snapshot`）会主动失效复合节点库段缓存，确保共享/项目存档作用域切换与复合节点落盘变更能可靠触发指纹更新，同时避免把高频调用变成 UI 卡顿源。
+- 持久化 graph_cache 读取若检测到“多段 JSON/尾部残留”（常见于异常中断或并发写入），会提取最后一段完整 JSON 并原子重写为单段，避免 JSONDecodeError 阻断启动。
+- 持久化 graph_cache 写入使用“唯一临时文件 + replace”的原子写策略，并在写入前再次确保目标目录存在，降低并发写入/外部清理导致的空文件、半写入或交错写入风险。
+- **代码级 Schema 缓存**：结构体/信号/关卡变量/局内存档模板等“Python 代码资源”通过各自的 `*SchemaView` 聚合并在进程内缓存；Schema 载入时的 workspace_root 统一优先使用 `settings.set_config_path(...)` 注入的单一真源，必要时回退到 `engine.utils.workspace` 的统一推断，避免在多工作区/便携版场景下读错资源根；资源库刷新或外部修改这些代码资源后，需要调用对应的 `invalidate_default_*_cache()` 使视图失效并在下次访问时重新加载（例如 `update_default_template_id` 在写回局内存档模板文件后会同步失效其 SchemaView 缓存）。
+- **代码级 Schema 作用域同步**：`DefinitionSchemaView` / `LevelVariableSchemaView` / `IngameSaveTemplateSchemaView` 均按当前 `active_package_id` 仅聚合【共享根】或【共享根 + 当前项目存档根】范围；其中结构体/信号支持“项目存档覆盖共享同 ID 定义”，避免跨项目存档重复 ID 导致串包；同一根目录内的重复 ID 会在校验中报错，但不会阻断启动（仅保留一份定义参与聚合）。
+- 关卡变量 Schema（`level_variable_schema_view.py`）除语法预检外，也会对变量定义做强校验：要求 `variable_id/variable_name/variable_type` 为非空且字段名严格（不再兼容用 `name` 充当 `variable_name`）；`variable_type` 必须为受支持的中文类型名（含别名字典），且当类型为 `GUID/配置ID/元件ID`（及其列表）时默认值必须为 **1~10 位纯数字**（列表逐元素校验），禁止 UUID 字符串或空字符串占位。
+- **作用域一致性（共享根 + 当前项目存档根）**：UI 侧在展示代码级资源（如信号/结构体/关卡变量/局内存档模板）时应遵循当前 `ResourceManager` 的作用域：
+  - 全局视图（`active_package_id=None`）仅展示共享根目录下的定义；
+  - 具体项目存档视图展示（共享根 + 当前存档根）范围内的定义；
+  避免在 `<共享资源>` 中混入其他项目存档目录的定义造成“归属错觉/重复项”。
+- **Schema 定义来源定位**：`engine.resources.definition_schema_view.DefinitionSchemaView` 除 `{id: payload}` 聚合视图外，同时提供 `{id: absolute_path_to_py}` 的来源文件路径映射，供校验/诊断层定位信号与结构体定义所在的资源根目录（共享/项目存档），并支撑“禁止跨项目引用信号/结构体”等约束的错误指引。
+- **代码级资源入索引**：`管理配置/信号` 与 `管理配置/结构体定义` 作为 `.py` 资源纳入 `ResourceIndexBuilder` 扫描；`ResourceManager.load_resource()` 支持按索引文件路径加载其 `SIGNAL_PAYLOAD/STRUCT_PAYLOAD`，避免把 `.py` 当作 JSON 解析导致错误，并可用于 UI 的显示名/搜索元数据生成。
+- **写盘一致性**：资源索引缓存与运行期状态等 JSON 文件统一使用“原子写”（`atomic_json.atomic_write_json`，临时文件写完后 replace），避免异常中断导致空文件/半写入，引发索引/缓存不一致。
+- **原子写并发健壮性**：`atomic_write_json` 使用“唯一临时文件名 + 按目标文件互斥锁”的策略，避免并发写入争用同名 `*.tmp`，并降低 Windows 下 `Path.replace/os.replace` 在并发场景触发 `WinError 5` 的概率。
+- **索引缓存健壮性**：`ResourceIndexBuilder.try_load_from_cache()` 在缓存命中时会校验索引内路径存在；在 shared-only 作用域下对 `ResourceType.ITEM` 额外做“指纹记录的 JSON 数量 vs 索引 bucket 条目数”的一致性检查，避免缓存写入截断/外部写盘导致索引条目缺失但仍误命中缓存。
+- **外部删除/移动容错（扫描期）**：资源索引构建与资源库指纹扫描会在读取文件前先判断路径是否仍存在；当用户在资源列表停留时外部删除节点图/资源文件，不会因 `FileNotFoundError` 中断刷新链路，缺失文件将被自然移出索引与列表。
+- **资源索引作用域与覆盖语义**：资源索引按“共享根 + 当前项目存档根”构建：
+  - 同一资源 ID 若同时存在于共享根与当前项目存档根，**以当前项目存档版本为准**（覆盖共享版本，避免歧义）；
+  - 若同一根目录内出现重复 ID：索引构建会记录冲突并仅保留其中一份（稳定选择），不会阻断编辑器启动；重复问题需通过校验工具修复，避免运行期歧义。
+- **多根目录下的“保存落点”**：
+  - 当资源已存在于某个资源根目录（`共享/`/`项目存档/<package_id>/`）时，保存会优先保持其 root 不变，仅在该 root 内执行重命名/覆写；
+  - 当资源为“新建且无历史落点”时，资源层默认写入 `项目存档/测试项目/`，避免写回资源库根目录或误写入 `共享/`；
+  - 因此**应用层在“新建资源”场景需要显式传入 `resource_root_dir`**（PackageView→当前项目存档根，GlobalResourceView→共享根），否则新建资源会落到默认归档项目而在当前视图中不可见。
 - **保存冲突检测（外部修改保护）**：为对齐 VSCode 等编辑器的常见策略，资源写盘支持可选的“磁盘版本（mtime）”校验：
   - `ResourceManager.save_resource(..., expected_mtime=..., allow_overwrite_external=...)`：当提供 `expected_mtime` 且检测到资源文件 mtime 已变化时，默认拒绝覆盖（返回 False），避免静默覆盖外部工具改动；显式 `allow_overwrite_external=True` 才允许覆盖。
-  - `PackageIndexManager.save_package_index(..., expected_mtime=..., allow_overwrite_external=...)`：功能包索引同样支持该策略；检测到冲突时返回 False，不推进 packages.json 等派生清单写盘。
+- 存档索引为**目录派生视图**（不落盘），因此不存在 “pkg_*.json 被外部修改导致写盘冲突” 这一类问题；运行期状态（如最近打开存档）写入 `app/runtime/package_state.json`。
+- **存档读取缓存**：目录模式下 `PackageIndexManager.load_package_index(...)` 会从 `assets/资源库/项目存档/<package_id>/` 派生出 `PackageIndex` 视图（不落盘），并在进程内按“项目存档根目录 mtime”缓存，减少 UI 反复派生与磁盘扫描开销。
+- **实现拆分（可维护性）**：`engine/resources/package_index_manager.py` 仅保留对外兼容入口；具体实现拆分到 `engine/resources/package_index_manager_parts/`，按“列表与命名 / 新建与复制 / 派生索引与缓存 / 运行期状态与归属移动”分模块维护；并提供公开命名清洗 API `PackageIndexManager.sanitize_package_id(name)` 供上层调用，避免依赖下划线私有方法。
+- **派生缓存失效入口**：由于 `PackageIndex` 派生时会依赖 `ResourceManager` 的“当前作用域资源索引”（共享/具体项目存档会切换扫描范围），因此目录 mtime 未变但作用域已切换时，历史派生缓存可能缺失资源列表；`PackageIndexManager.invalidate_package_index_cache(...)` 用于显式失效缓存，确保在当前作用域重新派生得到正确的资源集合。
+- **一致性诊断**：`index_disk_consistency.py` 提供“索引（PackageIndex 视图）vs 磁盘（直接扫描项目存档目录）”的一致性检查报告，用于定位缓存/作用域切换导致的漏项，以及磁盘侧重复 ID 冲突等长期维护问题（缺失/孤儿/重复）；实体摆放目录仅支持标准目录名（不再扫描旧目录名 `实例`）。
+- **资源显示名解析策略**：`PackageIndexManager` 在构建/刷新 `resource_names` 时，节点图（GRAPH）仅使用 `ResourceManager.load_graph_metadata()` 读取 docstring 级轻量元数据获取可读名，避免触发节点图严格解析与自动布局链路。
+- **索引型变更的快速写盘**：`add_resource_to_package/remove_resource_from_package` 等“仅维护资源 ID 归属”的操作默认不再触发整包 `resource_names` 全量刷新，而是对受影响的单个资源做增量更新后直接写盘，避免在存档数量较多或资源列表较大时一次勾选导致卡顿。
+- **按 ID 懒加载（模板/实例）**：
+  - `PackageView/GlobalResourceView` 的 `get_template/get_instance` 支持按需加载单条资源并缓存；
+  - `templates/instances` 在需要“全量列表”时才加载全集；
+  - **具体存档视图下的可见集合**为“共享根 + 当前项目存档根目录”，因此 `PackageView.templates/instances` 会在列表场景中同时包含共享资源（UI 侧会以“共享”标记区分归属），而 `PackageIndex.resources.*` 仍只表示“当前项目存档目录内的资源集合”。
+- **归属位置（所属存档）单选语义**：目录即项目存档模式下，“所属存档”收敛为**资源归属根目录**：资源物理文件位于 `共享/` 或 `项目存档/<package_id>/`；UI 切换归属通过 `PackageIndexManager.move_resource_to_root(target_root_id, resource_type, resource_id)` 移动文件；`PackageIndexManager.get_resource_owner_root_id(...)` 用于快速判定当前归属（返回 `"shared"` 或 `<package_id>`）。移动实现会对“目标路径与源路径一致”的场景视为 no-op，避免误触发去重逻辑删除源文件。
 - **文件名策略单一真源**：`resource_filename_policy.py` 统一维护“保存时是否以 name 驱动物理文件名”的资源类型集合；扫描阶段的“文件名 → JSON.name 回写同步”仅对这类资源启用，其余类型允许 `name` 与文件名解耦（默认沿用 `id_to_filename_cache`），避免显示名调整触发物理文件频繁重命名。
 - **资源库指纹基线**：`ResourceManager` 维护资源库指纹基线（用于缓存失效、引用追踪与 UI 自动刷新确认）。内部写盘（`save_resource/delete_resource`）会先标记指纹为脏；需要在保存链条或其它入口同步基线时，应优先使用 `ResourceManager.refresh_resource_library_fingerprint_if_invalidated()`（仅在脏标记为 True 时刷新），避免把真实外部变更“顺手吞掉”。
-- **编辑期磁盘版本基线**：`PackageView/GlobalResourceView/UnclassifiedResourceView` 在反序列化模板/实例时会同步记录资源文件 `mtime` 到对象的 `_source_mtime`（运行期字段，不写入 JSON）。用于在 UI 保存时提供 `expected_mtime`，从而在外部工具已改动文件时阻止静默覆盖。
-- **存档导出语义**：`PackageView.serialize()` 仅导出 `PackageIndex` 的索引型数据，不嵌入模板/实例等资源 payload；关卡实体仅通过 `PackageIndex.level_entity_id` 引用加载，不做“扫描实例并自动补写索引”的隐式回退。
+ - **后台刷新提交替换**：`ResourceManagerIndexMixin.apply_index_snapshot(...)` 支持将后台构建完成的 `ResourceIndexData + resource_library_fingerprint` 一次性提交替换到当前 `ResourceManager`（主线程 O(1)），用于把“索引扫描/重建”从 UI 线程剥离为后台任务，并保持指纹基线与作用域同步。
+- **指纹计算性能与增量确认**：资源库指纹扫描使用 `os.scandir` 进行递归/非递归遍历（替代 `Path.rglob/glob`，减少 Path 对象创建与系统调用开销）；文件监控确认阶段支持按 `trigger_directory` 做增量指纹（仅重算命中的资源类型/复合节点库），周期性复核仍走全量扫描，未知路径回退全量以降低漏刷新风险。
+- **后台指纹计算可中断**：资源库指纹计算入口支持可选 `should_abort()` 回调（供 UI 侧 QThread `requestInterruption()` 触发），用于在退出阶段尽快终止耗时扫描，避免线程仍在运行时 Qt 对象析构引发崩溃。
+- **编辑期磁盘版本基线**：`PackageView/GlobalResourceView` 在反序列化模板/实体摆放时会同步记录资源文件 `mtime` 到对象的 `_source_mtime`（运行期字段，不写入 JSON）。用于在 UI 保存时提供 `expected_mtime`，从而在外部工具已改动文件时阻止静默覆盖。
+- **存档导出语义**：`PackageView.serialize()` 仅导出 `PackageIndex` 的索引型数据，不嵌入模板/实体摆放等资源 payload；关卡实体仅通过 `PackageIndex.level_entity_id` 引用加载，不做“扫描实体摆放并自动补写索引”的隐式回退。
 - **入口收敛**：缓存/资源能力以显式实现类为入口（如 `PersistentGraphCacheManager`）；CLI/工具侧的“资源上下文构建”统一收敛到 `resource_context.py`，确保 settings 初始化与构建顺序一致。
 - `resource_context.py` 支持注入应用层 `graph_code_generator` 用于节点图保存（仅 app/UI 侧需要），避免引擎层绑定代码生成策略。
-- **引用追踪缓存**：节点图引用追踪器（`graph_reference_tracker.py`）在需要展示引用计数/引用详情时，会构建 `graph_id -> references` 的反向索引并按“资源库指纹”失效，避免在 UI 列表刷新中重复全量扫描全部存档/模板/实例。
+- **新建存档（复制模板）**：目录模式下 `PackageIndexManager.create_package()` 以 `项目存档/示例项目模板/` 作为复制源：创建新项目时直接复制该模板目录并重命名为新项目名；复制完成后会对资源 ID 做必要处理，避免与模板或其他项目冲突。
+  - 例外：模板中的 `管理配置/信号/*.py` 不再随项目复制（也不再对其 `SIGNAL_ID` 做后缀化改写），避免“新建一个项目就多一份信号定义文件”导致的目录膨胀与信号列表噪音。
+  - 目录结构兜底：新建项目会补齐 `节点图/server` 的四类目录（实体/状态/职业/道具）与 `节点图/client` 的三类目录（布尔过滤器/整数过滤器/技能），保证新项目结构一致。
+- **导入/解析型存档目录结构兜底**：`PackageIndexManager.ensure_package_directory_structure(package_id)` 以 `示例项目模板/` 的目录层级作为真源，仅创建缺失目录（不复制模板资源文件），用于补齐“仅按落盘文件创建目录”导致的空目录缺失问题（例如节点图分类目录）。
+- **复制存档（克隆现有项目）**：目录模式下 `PackageIndexManager.clone_package(source_package_id, name)` 支持把某个项目存档目录直接复制为新项目目录：
+  - 保留资源 ID 与引用关系（允许跨项目重复 ID，资源索引按作用域隔离）；
+  - 复制完成后会更新新项目根目录 `claude.md` 与关卡实体文件名（用于派生显示名）；
+  - 复制出的项目可能包含与源项目重复的 GUID 等全局标识，若需要并行使用多个项目建议通过校验工具检查并按需调整。
+- **引用追踪缓存**：节点图引用追踪器（`graph_reference_tracker.py`）在需要展示引用计数/引用详情时，会复用 `graph_reference_service.py` 的单一真源规则构建 `graph_id -> references` 的反向索引，并按“资源库指纹”失效，避免在 UI 列表刷新中重复全量扫描全部存档与挂载点（模板/实体摆放/关卡实体/战斗预设等）。
+  - 引用追踪扫描存档索引时不刷新 `resource_names`（仅依赖 `PackageIndex.resources.*` 的资源 ID 集合），降低启动阶段 I/O 与避免引入节点图解析链路。
+  - 引用计数获取应避免复制完整引用列表：`get_reference_count(...)` 直接对缓存列表取 `len(...)`，用于节点图库等高频场景降低 UI 卡顿。
 - **代码生成解耦**：节点图 `.py` 源码生成不再由 `engine` 内部硬编码实现；`GraphResourceService.save_graph` 依赖注入 `graph_code_generator.generate_code(GraphModel, metadata)`，由应用层决定运行时导入/插件导入与是否注入校验逻辑。
-- **文件夹结构枚举**：节点图库的“文件夹树”需要枚举磁盘上的空目录；该枚举应避免使用 `Path.rglob` 直接遍历（Windows 下遇到异常目录项可能抛错并中断），优先采用“尽力而为”的遍历策略（如 `os.walk`）。
+- **统一解析层（Resolver）**：新增 `package_guid_index.py`（包内 GUID 派生索引）与 `ref_resolver.py`（统一解析门面 `RefResolver`），用于把“GUID/变量/结构体”的多跳解引用收敛到资源层；其中 `PackageView.management.level_variables` 现按 `PackageIndex.resources.management.level_variables`（变量文件 ID / `VARIABLE_FILE_ID`）聚合并平铺出 `{variable_id: payload}` 视图；`RefResolver.build_package_guid_index_snapshot(package_id, package_index)` 用于在 UI 侧基于“内存中的 PackageIndex”枚举可选 GUID。
+- **变量文件引用工具**：`custom_variable_file_refs.py` 提供 `normalize_custom_variable_file_refs(...)`/`serialize_custom_variable_file_refs(...)`：
+  - 兼容 `metadata.custom_variable_file` 的 **字符串/列表** 两种写法（单文件/多文件引用）；
+  - UI 与 CLI 应统一使用该工具解析与写回，避免各处手写 “str/list 兼容” 逻辑导致口径漂移。
+- **文件夹结构枚举**：节点图库的“文件夹树”需要枚举磁盘上的空目录；该枚举应避免使用 `Path.rglob` 直接遍历（Windows 下遇到异常目录项可能抛错并中断），优先采用“尽力而为”的遍历策略（如 `os.walk`）。`ResourceManager.get_all_graph_folders(resource_roots=...)` 支持按资源根目录过滤，供 UI 在“当前项目视图”下只展示（共享 + 当前项目存档）目录树。
+- **作用域根目录快照**：`ResourceManager.get_current_resource_roots()` 返回当前作用域的资源根目录列表（共享根在前，当前项目存档根在后），供 UI 在做“文件夹树/目录操作”时按作用域过滤，避免跨项目存档误操作。
 
 ## 注意事项
 - 禁止直接拼资源路径；统一通过 `ResourceFileOps` 与 `ResourceManager`。
-- 节点图仅支持类结构 Python（`.py`），位于 `assets/资源库/节点图/<server|client>/...`；列表展示不要调用 `load_resource(ResourceType.GRAPH, ...)`，否则会触发解析与自动排版。
-- 不使用 try/except 吞错；发现异常直接抛出，由上层处理。
-- 功能包索引（存档包索引）目录为 `assets/资源库/功能包索引/`，由 `PackageIndexManager` 负责读写；引擎与 UI 均以该目录为唯一事实来源，不要在其它目录再引入同义索引副本。
-- `assets/资源库/功能包索引/packages.json` 为**派生清单**（加 `__manifest__` 与指纹），仅用于 UI/工具快速列举与保存 last_opened；当目录下 `pkg_*.json` 集合变化时会自动重建以避免清单漂移。
-- `app/runtime/cache/resource_cache/resource_index.json` 为资源索引持久化缓存，包含 `__manifest__` 与 resources_fp；若版本/指纹不匹配将回退到全量扫描重建。
+- **Path 类型约定**：资源层在做“作用域根目录过滤/归属判断”时统一以 `pathlib.Path` 为准（`resolve()` / `is_relative_to()`），并保持诸如 `absolute_path` 等字段为 `Path` 类型。
+- 管理配置/战斗预设 JSON 的“稳定 ID 字段名 / 业务显示名字段名”约定集中在 `management_naming_rules.py`（资源索引扫描与保存补全逻辑都以此为单一真源）。
+- `ResourceIndexBuilder` 扫描 JSON 资源时只使用稳定 ID 字段（类型专用 ID 字段或通用 `id`）；缺失将跳过入索引并输出 warning，不再回退到文件名作为 ID。
+- 资源索引扫描“顶层 JSON 资源”时，仅将**顶层为 object（dict）**的 JSON 视作资源实体；顶层为 list/标量的 JSON 会被跳过（常见于工具输出的 `*_index.json`、`自研_*.json`、`解析_*.json` 等）。
+- 节点图仅支持类结构 Python（`.py`），应位于某个“资源根目录”下：`共享/节点图/<server|client>/...` 或 `项目存档/<package_id>/节点图/<server|client>/...`。列表展示不要调用 `load_resource(ResourceType.GRAPH, ...)`，否则会触发解析与自动排版。
+- 存档索引派生字段（`resource_names`）刷新时，节点图显示名应走 `load_graph_metadata()` 的轻量路径，不依赖完整解析结果。
+- 排查资源库刷新导致的 UI 卡顿/卡死时，`ResourceManager.rebuild_index()` 会输出**warn 级**耗时与资源数摘要（始终输出），便于定位卡在索引重建还是指纹刷新阶段。
+ - 若上层已在后台完成索引扫描与指纹计算，应优先使用 `apply_index_snapshot(...)` 做主线程提交替换，避免在 UI 线程执行全量扫描。
+- 资源索引扫描的“缺少稳定 ID / 重复 ID”等问题保持 warn 级输出，但默认仅预览少量条目，避免在启动阶段刷屏；需要完整列表时可临时开启 `settings.DEBUG_LOG_VERBOSE` 查看 debug 细节或通过校验工具定位。
+- 默认不使用 try/except 吞错；发现异常直接抛出，由上层处理。
+- 例外：代码级 Schema（如关卡变量）在 UI 文件监控/热重载场景可能遇到“保存中间态/半写入”导致的 `SyntaxError`；
+  为避免阻断节点图解析链路，Schema 载入会对变量文件做语法预检（子进程 `python -X utf8`），语法错误文件将被跳过并输出 warning；预检向子进程传递 stdin 使用 bytes（而非 text 模式），避免父进程在编码阶段因异常字符导致 `UnicodeEncodeError`。
+- Python 源码缩进统一使用空格，避免 Tab/Space 混用导致启动早期的 `IndentationError` 阻断导入链路。
+- 文档字符串与注释中的“工作区根目录”统一称为 `workspace_root`（不绑定具体仓库目录名）。
+- 项目存档以**目录结构**作为唯一真相源：`assets/资源库/项目存档/<package_id>/...`；`PackageIndexManager` 在目录模式下不再读写 `pkg_*.json` 旧式索引文件。
+- 运行期状态（例如最近打开的存档 `last_opened_package_id`）保存在 `app/runtime/package_state.json`；Todo 勾选状态仍保存在 `app/runtime/todo_states/<package_id>.json`。
+- `app/runtime/cache/resource_cache/resource_index*.json` 为资源索引持久化缓存（可重建）：包含 `__manifest__` 与 resources_fp；若版本/指纹不匹配将回退到全量扫描重建。为降低 Windows 下覆盖写触发 `WinError 5`（外部短暂占用）的概率，缓存采用“写入新文件、读取最新”的策略。
 - 图编辑器等需要“强制从 .py 重新解析并忽略持久化 graph_cache”的场景，统一调用 `ResourceManager.invalidate_graph_for_reparse(graph_id)`（资源层：内存 + 磁盘缓存失效），上层的 GraphDataService/payload 缓存失效由应用层服务统一编排，避免 UI 侧维护“清一串缓存”的链条。
 - 持久化 graph_cache 若被判定为“结构不自洽”（节点/边引用或端口名不匹配），加载阶段会将该缓存文件直接删除并回退到重建路径，避免无效缓存长期滞留导致校验与 UI 展示反复不一致。
 

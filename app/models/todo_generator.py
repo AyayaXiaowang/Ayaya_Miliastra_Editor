@@ -18,6 +18,7 @@ from app.models.resource_task_configs import (
 )
 from app.models.todo_node_type_helper import NodeTypeHelper
 from app.models.todo_pipeline.coordinator import GraphTaskCoordinator
+from app.models.todo_detail_info_schema import validate_detail_info
 
 if TYPE_CHECKING:
     from engine.resources.package_interfaces import PackageLike
@@ -149,6 +150,19 @@ class TodoGenerator:
         return root
 
     def _add_todo(self, todo: TodoItem) -> None:
+        validate_detail_info(todo.detail_info, strict=True)
+        existing = self.todo_map.get(todo.todo_id)
+        if existing is not None:
+            # 保持 todo_id 对应的对象引用稳定，避免 UI 层出现重复树项或“幽灵节点”。
+            existing.title = todo.title
+            existing.description = todo.description
+            existing.level = todo.level
+            existing.parent_id = todo.parent_id
+            existing.children = list(todo.children or [])
+            existing.task_type = todo.task_type
+            existing.target_id = todo.target_id
+            existing.detail_info = dict(todo.detail_info or {})
+            return
         self.todos.append(todo)
         self.todo_map[todo.todo_id] = todo
 
@@ -174,6 +188,7 @@ class TodoGenerator:
         suppress_auto_jump: bool = False,
         graph_root: Optional[TodoItem] = None,
         attach_graph_root: bool = True,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
     ) -> List[TodoItem]:
         """供 UI 懒加载时使用的静态入口，避免实例化完整 TodoGenerator。"""
 
@@ -181,6 +196,18 @@ class TodoGenerator:
         todo_map: Dict[str, TodoItem] = {}
 
         def _add(todo: TodoItem) -> None:
+            validate_detail_info(todo.detail_info, strict=True)
+            existing = todo_map.get(todo.todo_id)
+            if existing is not None:
+                existing.title = todo.title
+                existing.description = todo.description
+                existing.level = todo.level
+                existing.parent_id = todo.parent_id
+                existing.children = list(todo.children or [])
+                existing.task_type = todo.task_type
+                existing.target_id = todo.target_id
+                existing.detail_info = dict(todo.detail_info or {})
+                return
             todos.append(todo)
             todo_map[todo.todo_id] = todo
 
@@ -207,6 +234,7 @@ class TodoGenerator:
             suppress_auto_jump=suppress_auto_jump,
             graph_root=graph_root,
             attach_graph_root=attach_graph_root,
+            progress_callback=progress_callback,
         )
         return todos
 
@@ -266,8 +294,6 @@ class _TemplateCategoryBuilder:
         child_ids: List[str] = []
         if template.entity_config:
             child_ids.append(self._create_basic_section(template, todo_id))
-        if template.default_variables:
-            child_ids.append(self._create_variables_section(template, todo_id))
         if template.default_components:
             child_ids.append(self._create_components_section(template, todo_id))
 
@@ -294,30 +320,6 @@ class _TemplateCategoryBuilder:
             suffix="basic",
             title="设置基础属性",
             description="配置实体的基础属性和特殊设置",
-            detail_info=detail_info,
-        )
-
-    def _create_variables_section(self, template: TemplateConfig, parent_id: str) -> str:
-        variable_rows = [
-            {
-                "name": variable.name,
-                "variable_type": variable.variable_type,
-                "default_value": variable.default_value,
-                "description": variable.description,
-            }
-            for variable in template.default_variables
-        ]
-        detail_info = {
-            "type": "template_variables_table",
-            "template_id": template.template_id,
-            "variables": variable_rows,
-        }
-        return self._create_template_section(
-            template=template,
-            parent_id=parent_id,
-            suffix="variables",
-            title=f"配置 {len(template.default_variables)} 个自定义变量",
-            description="为模板添加自定义变量",
             detail_info=detail_info,
         )
 
@@ -433,7 +435,13 @@ class _InstanceCategoryBuilder:
 
         properties_id = f"{todo_id}:properties"
         override_variables = [
-            {"name": variable.name, "value": variable.default_value} for variable in instance.override_variables
+            {
+                "variable_id": variable.variable_id,
+                "variable_name": variable.variable_name,
+                "variable_type": variable.variable_type,
+                "value": variable.value,
+            }
+            for variable in instance.override_variables
         ]
         properties_todo = TodoItem(
             todo_id=properties_id,

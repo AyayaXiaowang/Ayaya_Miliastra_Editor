@@ -13,4 +13,6 @@ from engine.utils.logging.logger import log_info
 )
 def 查询玩家职业的等级(game, 玩家实体, 职业配置ID):
     """查询玩家指定职业的等级"""
-    return 10
+    var_name = f"职业等级_{职业配置ID}"
+    level = game.get_custom_variable(玩家实体, var_name, 1)
+    return int(level)

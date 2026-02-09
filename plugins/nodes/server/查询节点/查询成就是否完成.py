@@ -13,4 +13,7 @@ from engine.utils.logging.logger import log_info
 )
 def 查询成就是否完成(game, 目标实体, 成就序号):
     """查询目标实体上特定序号对应的成就是否完成"""
-    return False
+    idx = int(成就序号)
+    var_name = f"成就进度计数_{idx}"
+    count = game.get_custom_variable(目标实体, var_name, 0)
+    return int(count) > 0

@@ -103,3 +103,43 @@ def test_graph_editor_controller_load_graph_applies_capabilities() -> None:
     assert controller.view.on_add_node_callback is None
 
 
+def test_graph_editor_controller_open_graph_for_editing_restores_interactive_capabilities() -> None:
+    """回归：从只读态进入编辑器打开图时，不应残留只读导致自动排版入口消失。"""
+    _ensure_qt_app()
+
+    capabilities = EditSessionCapabilities.read_only_preview()
+    model = GraphModel()
+    scene = GraphScene(
+        model,
+        read_only=True,
+        edit_session_capabilities=capabilities,
+        node_library={},
+    )
+    view = GraphView(scene, edit_session_capabilities=capabilities)
+
+    controller = GraphEditorController(
+        resource_manager=_DummyResourceManager(),  # type: ignore[arg-type]
+        model=model,
+        scene=scene,
+        view=view,
+        node_library={},
+        edit_session_capabilities=capabilities,
+        parent=None,
+    )
+
+    graph_data = {
+        "graph_id": "graph_test",
+        "graph_name": "测试图",
+        "nodes": [],
+        "edges": [],
+        "graph_variables": [],
+        "metadata": {},
+    }
+    controller.open_graph_for_editing("graph_test", graph_data, container=None)
+
+    assert controller.edit_session_capabilities.can_interact is True
+    assert controller.edit_session_capabilities.can_validate is True
+    assert controller.scene.read_only is False
+    assert controller.view.read_only is False
+
+

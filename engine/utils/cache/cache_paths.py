@@ -60,4 +60,40 @@ def get_validation_cache_file(workspace_path: Path) -> Path:
     return get_runtime_cache_root(workspace_path) / "validation_cache" / "results.json"
 
 
+# ===== UI 派生物缓存（不落资源库）=====
+
+
+def get_ui_artifacts_cache_dir(workspace_path: Path) -> Path:
+    """返回 UI 派生物缓存目录：<runtime_cache>/ui_artifacts。"""
+    return get_runtime_cache_root(workspace_path) / "ui_artifacts"
+
+
+def get_ui_artifacts_cache_dir_for_package(workspace_path: Path, package_id: str) -> Path:
+    """返回指定项目存档的 UI 派生物缓存目录：<runtime_cache>/ui_artifacts/<package_id>。"""
+    pid = str(package_id or "").strip()
+    if not pid:
+        raise ValueError("package_id 不能为空")
+    return get_ui_artifacts_cache_dir(workspace_path) / pid
+
+
+def get_ui_guid_registry_cache_file(workspace_path: Path, package_id: str) -> Path:
+    """返回 UIKey→GUID 注册表缓存文件：<runtime_cache>/ui_artifacts/<package_id>/ui_guid_registry.json。"""
+    return get_ui_artifacts_cache_dir_for_package(workspace_path, package_id) / "ui_guid_registry.json"
+
+
+def get_ui_actions_cache_dir(workspace_path: Path, package_id: str) -> Path:
+    """返回 UI 交互映射缓存目录：<runtime_cache>/ui_artifacts/<package_id>/ui_actions。"""
+    return get_ui_artifacts_cache_dir_for_package(workspace_path, package_id) / "ui_actions"
+
+
+def get_ui_states_cache_dir(workspace_path: Path, package_id: str) -> Path:
+    """返回 UI 多状态映射缓存目录：<runtime_cache>/ui_artifacts/<package_id>/ui_states。"""
+    return get_ui_artifacts_cache_dir_for_package(workspace_path, package_id) / "ui_states"
+
+
+def get_ui_html_bundle_cache_dir(workspace_path: Path, package_id: str) -> Path:
+    """返回 UI HTML→bundle 派生物缓存目录：<runtime_cache>/ui_artifacts/<package_id>/ui_html_bundles。"""
+    return get_ui_artifacts_cache_dir_for_package(workspace_path, package_id) / "ui_html_bundles"
+
+
 

@@ -5,7 +5,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 from app.models import TodoItem
 from app.models.todo_block_index_helper import build_node_block_index, resolve_block_index_for_todo
 from app.models.todo_graph_tasks.dynamic_port_steps import DynamicPortStepPlanner
-from app.models.todo_graph_tasks.edge_lookup import GraphEdgeLookup
+from app.models.todo_graph_tasks.edge_lookup import GraphEdgeLookup, build_edge_lookup
 from app.models.todo_graph_tasks.event_flow_emitters import EventFlowEmitters
 from app.models.todo_graph_tasks.event_flow_traversal import EventFlowTraversal
 from app.models.todo_graph_tasks.node_predicates import is_event_node
@@ -53,6 +53,7 @@ class EventFlowTaskBuilder:
         graph_root: TodoItem,
         task_type: str,
         signal_param_types_by_node: Optional[Dict[str, Dict[str, str]]] = None,
+        progress_advance: Optional[Callable[[str, int, int], None]] = None,
     ) -> None:
         event_starts = self._collect_event_start_nodes(model, edge_lookup)
         if not event_starts:
@@ -61,6 +62,9 @@ class EventFlowTaskBuilder:
         mode = GraphStepMode.current()
         if not mode.is_human:
             LayoutService.compute_layout(model, clone_model=False)
+            # compute_layout(clone_model=False) 会原地修改 GraphModel（包含：副本/relay/边重写/坐标回填等）。
+            # 必须重建 EdgeLookup，否则后续遍历/动态步骤会基于旧边视图，遗漏 relay 节点与改写后的连线。
+            edge_lookup = build_edge_lookup(model)
 
         # 为当前图注册边索引与信号参数上下文，供动态端口/参数步骤规划复用
         self.dynamic_steps.set_graph_context(edge_lookup)
@@ -96,6 +100,7 @@ class EventFlowTaskBuilder:
                     instance_ctx_id=instance_ctx_id,
                     suppress_auto_jump=suppress_auto_jump,
                     task_type=task_type,
+                    model=model,
                 )
 
                 if getattr(start_node, "title", "") == SIGNAL_LISTEN_NODE_TITLE:
@@ -123,20 +128,40 @@ class EventFlowTaskBuilder:
                         instance_ctx_id=instance_ctx_id,
                         suppress_auto_jump=suppress_auto_jump,
                         task_type=task_type,
+                        progress_advance=progress_advance,
+                        stage_text=f"生成事件流：{start_node.title}",
                     )
                 else:
-                    self.traversal.generate_ai_mode_tasks(
-                        flow_root=flow_root,
-                        flow_root_id=flow_root.todo_id,
-                        start_id=start_id,
-                        model=model,
-                        edge_lookup=edge_lookup,
-                        graph_id=graph_id,
-                        template_ctx_id=template_ctx_id,
-                        instance_ctx_id=instance_ctx_id,
-                        suppress_auto_jump=suppress_auto_jump,
-                        task_type=task_type,
-                    )
+                    if mode.is_ai_node_by_node:
+                        self.traversal.generate_ai_node_by_node_tasks(
+                            flow_root=flow_root,
+                            flow_root_id=flow_root.todo_id,
+                            start_id=start_id,
+                            model=model,
+                            edge_lookup=edge_lookup,
+                            graph_id=graph_id,
+                            template_ctx_id=template_ctx_id,
+                            instance_ctx_id=instance_ctx_id,
+                            suppress_auto_jump=suppress_auto_jump,
+                            task_type=task_type,
+                            progress_advance=progress_advance,
+                            stage_text=f"生成事件流：{start_node.title}",
+                        )
+                    else:
+                        self.traversal.generate_ai_mode_tasks(
+                            flow_root=flow_root,
+                            flow_root_id=flow_root.todo_id,
+                            start_id=start_id,
+                            model=model,
+                            edge_lookup=edge_lookup,
+                            graph_id=graph_id,
+                            template_ctx_id=template_ctx_id,
+                            instance_ctx_id=instance_ctx_id,
+                            suppress_auto_jump=suppress_auto_jump,
+                            task_type=task_type,
+                            progress_advance=progress_advance,
+                            stage_text=f"生成事件流：{start_node.title}",
+                        )
 
                 self._reorder_flow_children_for_data_edges(flow_root=flow_root, model=model)
         finally:

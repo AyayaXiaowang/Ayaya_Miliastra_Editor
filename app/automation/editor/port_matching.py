@@ -12,8 +12,7 @@ from app.automation import capture as editor_capture
 from app.automation.editor.editor_mapping import MIN_SCALE_RATIO, FIXED_SCALE_RATIO
 from app.automation.editor.node_snapshot import NodePortsSnapshotCache
 from app.automation.editor.structured_logging import StructuredLogger
-from app.automation.editor.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
-from app.automation.input.common import build_graph_region_overlay, compute_position_thresholds
+from app.automation.input.common import build_graph_region_overlay, compute_position_thresholds_for_node_view
 from app.automation.ports._ports import normalize_kind_text
 from app.automation.ports.port_picker import (
     filter_screen_port_candidates,
@@ -29,6 +28,7 @@ from app.automation.vision import (
 from engine.graph.models.graph_model import NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
 from engine.graph.common import is_selection_input_port
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 
 
 def _build_port_recognition_excluded_header_rects(
@@ -80,7 +80,12 @@ def _is_within_position_threshold(
     expected_x, expected_y = executor.convert_program_to_editor_coords(program_pos[0], program_pos[1])
     bbox_x, bbox_y, _, _ = bbox
     scale_value = float(executor.scale_ratio or 1.0)
-    threshold_x, _ = compute_position_thresholds(scale_value)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    threshold_x, _ = compute_position_thresholds_for_node_view(
+        scale=scale_value,
+        node_view_width_px=float(node_view_w_px),
+        node_view_height_px=float(node_view_h_px),
+    )
     delta_x = float(bbox_x - expected_x)
     delta_y = float(bbox_y - expected_y)
     return (delta_x * delta_x + delta_y * delta_y) <= (threshold_x * threshold_x)
@@ -400,14 +405,19 @@ class PortMatchingService:
         def _roi_for(program_pos: Tuple[float, float], label: str, color: Tuple[int, int, int]) -> None:
             expected_x, expected_y = self.executor.convert_program_to_editor_coords(program_pos[0], program_pos[1])
             scale = float(self.executor.scale_ratio or 1.0)
-            pos_threshold_px, pos_threshold_py = compute_position_thresholds(scale)
+            node_view_w_px, node_view_h_px = get_node_view_size_px()
+            pos_threshold_px, pos_threshold_py = compute_position_thresholds_for_node_view(
+                scale=scale,
+                node_view_width_px=float(node_view_w_px),
+                node_view_height_px=float(node_view_h_px),
+            )
             roi_left = int(expected_x - pos_threshold_px)
             roi_top = int(expected_y - pos_threshold_py)
             roi_w = int(pos_threshold_px * 2)
             roi_h = int(pos_threshold_py * 2)
             rects.append({"bbox": (roi_left, roi_top, roi_w, roi_h), "color": color, "label": f"搜索范围-{label}"})
-            center_x = int(expected_x + (NODE_VIEW_WIDTH_PX * scale) * 0.5)
-            center_y = int(expected_y + (NODE_VIEW_HEIGHT_PX * scale) * 0.5)
+            center_x = int(expected_x + float(node_view_w_px) * float(scale) * 0.5)
+            center_y = int(expected_y + float(node_view_h_px) * float(scale) * 0.5)
             circles.append({"center": (center_x, center_y), "radius": 6, "color": color, "label": f"期望位置-{label}"})
 
         _roi_for(src_node.pos, "源", (255, 120, 120))

@@ -10,6 +10,10 @@ from PyQt6.QtCore import Qt
 from app.ui.foundation.theme_manager import Colors
 
 
+DEFAULT_MAX_EXECUTION_EVENTS: int = 5000
+DEFAULT_EXECUTION_EVENT_TRIM_BUFFER: int = 200
+
+
 @dataclass
 class ExecutionEvent:
     """结构化执行事件：用于在监控面板中表格展示一次运行的关键节点。"""
@@ -52,6 +56,22 @@ class ExecutionEventModel(QtCore.QAbstractTableModel):
         self._current_run_id: Optional[str] = None
         self._only_current_run: bool = True
         self._only_errors: bool = False
+        # 事件数量上限：避免长时间运行后事件列表无限增长导致重建/过滤变慢
+        self._max_events: int = DEFAULT_MAX_EXECUTION_EVENTS
+        self._trim_buffer: int = DEFAULT_EXECUTION_EVENT_TRIM_BUFFER
+
+    def _trim_old_events_if_needed(self) -> None:
+        max_events = int(self._max_events)
+        if max_events <= 0:
+            return
+        trim_buffer = int(self._trim_buffer)
+        current_count = len(self._events)
+        if current_count <= (max_events + trim_buffer):
+            return
+        overflow = current_count - max_events
+        if overflow <= 0:
+            return
+        del self._events[0:overflow]
 
     # === 运行控制 ===
 
@@ -87,6 +107,7 @@ class ExecutionEventModel(QtCore.QAbstractTableModel):
         )
         self.beginResetModel()
         self._events.append(event)
+        self._trim_old_events_if_needed()
         self.endResetModel()
         return run_id
 
@@ -109,6 +130,7 @@ class ExecutionEventModel(QtCore.QAbstractTableModel):
         )
         self.beginResetModel()
         self._events.append(event)
+        self._trim_old_events_if_needed()
         self.endResetModel()
 
     # === 步骤事件 ===
@@ -213,6 +235,7 @@ class ExecutionEventModel(QtCore.QAbstractTableModel):
         """内部统一追加事件并刷新视图。"""
         self.beginResetModel()
         self._events.append(event)
+        self._trim_old_events_if_needed()
         self.endResetModel()
 
     # === 过滤控制 ===

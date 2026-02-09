@@ -3,7 +3,7 @@
 
 ## 当前状态
 - `view_assembly.py` 暴露 `ViewAssembly.attach_scene/on_resize/update_mini_map_position` 三个静态方法，由 `GraphView` 与控制器按需调用。
-- 组件初始化顺序：先扩展场景矩形、再创建 `NodeDetailOverlayManager`、最后构建/定位小地图，避免窗口尺寸尚未稳定时就刷新叠层。
+- 组件初始化顺序：先更新场景矩形（委托场景的 `_update_scene_rect()`：以 `itemsBoundingRect()` 为基础并按视口大小补齐边距，避免超大图按内容倍数扩张导致 `sceneRect` 过大）、再创建 `NodeDetailOverlayManager`、最后构建/定位小地图，避免窗口尺寸尚未稳定时就刷新叠层。
 - 右上角按钮定位统一交由 `TopRightControlsManager`，本目录仅负责在 resize 阶段调用其更新接口，并确保布局 Y 调试卡片在视口尺寸变化后重新锚定位置。
 
 ## 注意事项

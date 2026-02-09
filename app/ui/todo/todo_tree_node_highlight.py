@@ -6,6 +6,7 @@ from PyQt6 import QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 
 from app.models import TodoItem
+from app.models.todo_detail_info_accessors import get_detail_type, get_node_id
 from app.ui.foundation.theme_manager import Colors as ThemeColors
 from app.ui.todo.todo_config import StepTypeRules
 
@@ -41,7 +42,7 @@ class TodoTreeNodeHighlighter:
         related: List[TodoItem] = []
         for todo in todos:
             detail_info: Dict[str, Any] = todo.detail_info or {}
-            detail_type = detail_info.get("type", "")
+            detail_type = get_detail_type(detail_info)
             if not StepTypeRules.is_graph_step(detail_type):
                 continue
             if self.is_todo_related_to_node(detail_info, normalized):
@@ -69,7 +70,7 @@ class TodoTreeNodeHighlighter:
 
         for todo in todos:
             detail_info: Dict[str, Any] = todo.detail_info or {}
-            detail_type = detail_info.get("type", "")
+            detail_type = get_detail_type(detail_info)
             if not StepTypeRules.is_graph_step(detail_type):
                 continue
             if not self.is_todo_related_to_node(detail_info, normalized):
@@ -151,7 +152,7 @@ class TodoTreeNodeHighlighter:
             return False
         normalized = str(node_id)
         candidate_ids = [
-            detail_info.get("node_id"),
+            get_node_id(detail_info),
             detail_info.get("dst_node"),
             detail_info.get("src_node"),
             detail_info.get("target_node_id"),

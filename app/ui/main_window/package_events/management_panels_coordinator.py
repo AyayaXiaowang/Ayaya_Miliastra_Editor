@@ -284,10 +284,10 @@ class ManagementPanelsCoordinator:
 
         if membership_supported and item_id and binding is not None:
             if section_key == "variable":
-                packages, membership, variable_ids = main_window._get_packages_and_membership_for_level_variable_group(
+                packages, membership, reference_ids = main_window._get_packages_and_membership_for_level_variable_group(
                     item_id
                 )
-                _ = variable_ids
+                _ = reference_ids
                 if section_obj is not None:
                     usage_names = [
                         pkg.get("name", pkg.get("package_id", ""))

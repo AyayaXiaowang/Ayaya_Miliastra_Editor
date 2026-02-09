@@ -57,7 +57,7 @@ class PackageSaveOrchestrator:
         """按需保存当前存档或视图，返回本次是否确实写盘。"""
         self._fingerprint_baseline_service.sync_before_save()
 
-        is_special_view = current_package_id in ("global_view", "unclassified_view")
+        is_special_view = current_package_id == "global_view"
 
         if (not force_full) and dirty_snapshot.is_empty():
             return False

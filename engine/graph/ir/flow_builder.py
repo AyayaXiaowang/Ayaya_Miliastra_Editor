@@ -4,12 +4,21 @@ import ast
 import uuid
 from typing import Dict, List, Optional, Tuple, Union
 
-from engine.graph.models import GraphModel, NodeModel, EdgeModel
+from engine.graph.models import GraphModel, NodeModel, EdgeModel, PortModel, NodeDefRef
 
 from .var_env import VarEnv
 from .validators import Validators
 from .node_factory import FactoryContext
 from engine.graph.utils.ast_utils import NOT_EXTRACTABLE, extract_constant_value
+from engine.type_registry import TYPE_GENERIC_DICT, TYPE_GENERIC_LIST, is_dict_type_name
+from engine.graph.common import (
+    get_graph_category_from_folder_path,
+    CLIENT_INT_FILTER_GRAPH_DIRNAME,
+    CLIENT_BOOL_FILTER_GRAPH_DIRNAME,
+    CLIENT_LEGACY_LOCAL_FILTER_GRAPH_DIRNAME,
+    CLIENT_GRAPH_END_INT_NODE_TITLE,
+    CLIENT_GRAPH_END_BOOL_NODE_TITLE,
+)
 from .flow_utils import (
     pick_default_flow_output_port,
     register_output_variables,
@@ -17,6 +26,7 @@ from .flow_utils import (
     handle_alias_assignment,
     warn_literal_assignment,
 )
+from .arg_normalizer import is_reserved_argument
 from .local_var_builder import (
     should_model_as_local_var,
     build_local_var_nodes,
@@ -28,6 +38,19 @@ from .statement_flow_builder import (
     handle_match_over_composite_call,
     handle_for_loop,
 )
+
+
+def _resolve_builtin_node_def_ref_by_title(title: str, *, ctx: FactoryContext) -> NodeDefRef:
+    title_text = str(title or "").strip()
+    full_key = ctx.node_name_index.get(title_text)
+    if not full_key:
+        raise ValueError(f"无法从 node_name_index 解析节点 key：{title_text}")
+    node_def = ctx.node_library.get(full_key)
+    if node_def is None:
+        raise KeyError(f"node_library 中未找到 NodeDef：{full_key}")
+    from engine.nodes import get_canonical_node_def_key
+
+    return NodeDefRef(kind="builtin", key=get_canonical_node_def_key(node_def))
 
 
 def _extract_annotation_type_text(annotation_expr: ast.expr) -> str:
@@ -131,6 +154,59 @@ def _collect_used_names(node: ast.AST) -> Set[str]:
         if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
             used.add(sub.id)
     return used
+
+
+def _stmt_assigns_to_name(stmt: ast.stmt, name: str) -> bool:
+    """判断某条语句是否会为指定变量名赋值（Store）。
+
+    说明：
+    - 仅用于“占位初始化是否会被后续赋值覆盖”的线性判定；
+    - 分支/循环等复杂结构由调用方选择保守处理。
+    """
+    name_text = str(name or "")
+    if name_text == "":
+        return False
+    if isinstance(stmt, ast.Assign):
+        for target in list(getattr(stmt, "targets", []) or []):
+            if name_text in _collect_names(target):
+                return True
+        return False
+    if isinstance(stmt, ast.AnnAssign):
+        return name_text in _collect_names(getattr(stmt, "target", None))
+    if isinstance(stmt, ast.AugAssign):
+        return name_text in _collect_names(getattr(stmt, "target", None))
+    if isinstance(stmt, ast.For):
+        return name_text in _collect_names(getattr(stmt, "target", None))
+    return False
+
+
+def _is_placeholder_annassign_overwritten_before_use(
+    *,
+    var_name: str,
+    remaining_statements: List[ast.stmt],
+) -> bool:
+    """判断“带类型注解的常量占位初始化”是否会在被使用前被后续赋值覆盖。
+
+    典型代码模式（仅用于声明/类型提示）：
+      x: "整数" = 0
+      x = 某个节点输出 / 解包赋值(...)[...]
+
+    这类占位初始化在节点图语义中应被视为“声明”，不应触发【获取局部变量】建模，
+    否则会在画布上产生大量零散的“获取局部变量”纯数据节点（且多数无实际连线意义）。
+    """
+    name_text = str(var_name or "").strip()
+    if name_text == "":
+        return False
+    for stmt in list(remaining_statements or []):
+        # 遇到复杂控制流：保守处理，避免误删真正需要的初始化
+        if isinstance(stmt, (ast.If, ast.Match, ast.For, ast.While, ast.Try)):
+            return False
+        used_names = _collect_used_names(stmt)
+        if name_text in used_names:
+            return False
+        if _stmt_assigns_to_name(stmt, name_text):
+            return True
+    return False
 
 
 def _analyze_variable_assignments(body: List[ast.stmt]) -> VariableAnalysisResult:
@@ -367,6 +443,54 @@ def parse_method_body(
                 return True
         return False
 
+    def _is_dict_inplace_mutated_later(variable_name: str, later_stmts: List[ast.stmt]) -> bool:
+        """判断变量在后续语句中是否作为“字典原地修改”的目标字典被传入。
+
+        用途：当字典来自【拼装字典/建立字典】这类纯运算构造节点时，后续若对其做多次原地修改，
+        在“无局部变量固定引用”的语义下容易变成“每次都是新字典”，需要提示用户改写。
+        """
+        name_text = str(variable_name or "").strip()
+        if not name_text:
+            return False
+
+        dict_mutation_nodes: Dict[str, Tuple[str, ...]] = {
+            "对字典设置或新增键值对": ("字典",),
+            "以键对字典移除键值对": ("字典",),
+            "清空字典": ("字典",),
+        }
+
+        for statement in list(later_stmts or []):
+            for node in ast.walk(statement):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = getattr(node, "func", None)
+                if not isinstance(func, ast.Name):
+                    continue
+                node_name = str(func.id or "").strip()
+                port_names = dict_mutation_nodes.get(node_name)
+                if not port_names:
+                    continue
+
+                # 1) 关键字参数优先
+                for kw in list(getattr(node, "keywords", []) or []):
+                    if kw.arg not in port_names:
+                        continue
+                    value_expr = getattr(kw, "value", None)
+                    if isinstance(value_expr, ast.Name) and value_expr.id == name_text:
+                        return True
+
+                # 2) 位置参数兜底：这些节点的“目标字典”均为第一个非保留实参
+                non_reserved_args: List[ast.AST] = []
+                for arg in list(getattr(node, "args", []) or []):
+                    if is_reserved_argument(arg):
+                        continue
+                    non_reserved_args.append(arg)
+                if non_reserved_args and isinstance(non_reserved_args[0], ast.Name):
+                    if non_reserved_args[0].id == name_text:
+                        return True
+
+        return False
+
     for stmt_index, stmt in enumerate(body):
         # 表达式语句：节点调用
         if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
@@ -402,7 +526,7 @@ def parse_method_body(
         elif isinstance(stmt, ast.Assign):
             # 处理纯别名赋值
             if (not _should_bypass_alias_assignment(stmt.value, stmt.targets)) and handle_alias_assignment(
-                stmt.value, stmt.targets, env
+                stmt.value, stmt.targets, env, graph_model=graph_model
             ):
                 continue
             
@@ -411,6 +535,42 @@ def parse_method_body(
 
             # 若是单变量赋值（含调用/常量），优先用“获取/设置局部变量”建模
             primary_target = stmt.targets[0] if stmt.targets else None
+            if isinstance(primary_target, ast.Name) and (not env.get_var_type(primary_target.id)):
+                # 为“局部变量建模/字典禁用”等策略补充轻量类型信息：
+                # - 列表/字典拼装节点的输出为容器类型，若后续存在原地修改或分支合流，
+                #   需要提前知道它是“列表”还是“字典”。
+                if isinstance(stmt.value, ast.Call) and isinstance(getattr(stmt.value, "func", None), ast.Name):
+                    call_name = str(stmt.value.func.id or "").strip()
+                    if call_name == "拼装列表":
+                        env.set_var_type(primary_target.id, TYPE_GENERIC_LIST)
+                    elif call_name in {"拼装字典", "建立字典"}:
+                        env.set_var_type(primary_target.id, TYPE_GENERIC_DICT)
+
+            # 字典：不支持【获取局部变量】固定引用；若来源是“拼装/建立字典”并且后续要原地修改，
+            # 必须提示用户该写法并非“连续修改同一字典”。
+            if (
+                isinstance(primary_target, ast.Name)
+                and is_dict_type_name(env.get_var_type(primary_target.id))
+                and isinstance(stmt.value, ast.Call)
+                and isinstance(getattr(stmt.value, "func", None), ast.Name)
+            ):
+                call_name = str(stmt.value.func.id or "").strip()
+                if call_name in {"拼装字典", "建立字典"} and _is_dict_inplace_mutated_later(
+                    primary_target.id,
+                    body[stmt_index + 1:],
+                ):
+                    line_no = getattr(stmt, "lineno", "?")
+                    validators.warn(
+                        "行"
+                        + str(line_no)
+                        + ": 发现字典变量 '"
+                        + str(primary_target.id)
+                        + "' 来源于【"
+                        + call_name
+                        + "】且后续存在对字典的连续原地修改；"
+                        + "由于【获取局部变量】不支持字典，这种写法在节点图语义下不是“持续修改同一个字典”，"
+                        + "而更像每次都在重新构造的新字典上修改。请改为一次性拼装出最终字典，或将字典状态放入自定义变量/节点图变量后再更新。"
+                    )
             if isinstance(primary_target, ast.Name) and should_model_as_local_var(
                 primary_target.id,
                 stmt.value,
@@ -480,7 +640,12 @@ def parse_method_body(
                     env.node_sequence.append(result.node)
                     
                     # 注册输出变量
-                    register_output_variables(result.node, stmt.targets, env)
+                    register_output_variables(
+                        result.node,
+                        stmt.targets,
+                        env,
+                        node_library=ctx.node_library,
+                    )
                 
                 nodes.extend(result.nested_nodes)
                 edges.extend(result.edges)
@@ -496,9 +661,44 @@ def parse_method_body(
             # 从而生成孤立的【获取局部变量】节点（无连线、无数据）。
             if stmt.value is None:
                 continue
+
+            # 记录中文类型注解（用于“字典禁用局部变量/列表引用策略”等）
+            if isinstance(stmt.target, ast.Name):
+                declared_type_text = _extract_annotation_type_text(stmt.annotation)
+                if declared_type_text:
+                    env.set_var_type(stmt.target.id, declared_type_text)
+
+            # 字典：不支持【获取局部变量】固定引用；若来源是“拼装/建立字典”并且后续要原地修改，提示用户改写
+            if (
+                isinstance(stmt.target, ast.Name)
+                and is_dict_type_name(env.get_var_type(stmt.target.id))
+                and isinstance(stmt.value, ast.Call)
+                and isinstance(getattr(stmt.value, "func", None), ast.Name)
+            ):
+                call_name = str(stmt.value.func.id or "").strip()
+                if call_name in {"拼装字典", "建立字典"} and _is_dict_inplace_mutated_later(
+                    stmt.target.id,
+                    body[stmt_index + 1:],
+                ):
+                    line_no = getattr(stmt, "lineno", "?")
+                    validators.warn(
+                        "行"
+                        + str(line_no)
+                        + ": 发现字典变量 '"
+                        + str(stmt.target.id)
+                        + "' 来源于【"
+                        + call_name
+                        + "】且后续存在对字典的连续原地修改；"
+                        + "由于【获取局部变量】不支持字典，这种写法在节点图语义下不是“持续修改同一个字典”，"
+                        + "而更像每次都在重新构造的新字典上修改。请改为一次性拼装出最终字典，或将字典状态放入自定义变量/节点图变量后再更新。"
+                    )
             # 处理纯别名赋值
             if (not _should_bypass_alias_assignment(stmt.value, stmt.target)) and handle_alias_assignment(
-                stmt.value, stmt.target, env
+                stmt.value,
+                stmt.target,
+                env,
+                graph_model=graph_model,
+                annotation_type=_extract_annotation_type_text(stmt.annotation),
             ):
                 continue
 
@@ -509,6 +709,13 @@ def parse_method_body(
                 body[stmt_index + 1:],
                 env,
             ):
+                # 占位初始化特判：若当前 AnnAssign 只是“声明/类型提示”，且会在被读取前被后续赋值覆盖，
+                # 则不应触发【获取局部变量】建模（否则会产生大量零散局部变量节点）。
+                if isinstance(stmt.value, ast.Constant) and _is_placeholder_annassign_overwritten_before_use(
+                    var_name=stmt.target.id,
+                    remaining_statements=body[stmt_index + 1:],
+                ):
+                    continue
                 handled, lv_nodes, lv_edges, prev_flow_node, need_suppress_once = build_local_var_nodes(
                     var_name=stmt.target.id,
                     value_expr=stmt.value,
@@ -557,7 +764,12 @@ def parse_method_body(
                     env.node_sequence.append(result.node)
 
                     # 注册输出变量
-                    register_output_variables(result.node, stmt.target, env)
+                    register_output_variables(
+                        result.node,
+                        stmt.target,
+                        env,
+                        node_library=ctx.node_library,
+                    )
 
                     # 基于类型注解为对应输出端口记录类型覆盖信息
                     annotation_type_text = _extract_annotation_type_text(stmt.annotation)
@@ -669,11 +881,83 @@ def parse_method_body(
             nodes.extend(for_nodes)
             edges.extend(for_edges)
 
+        # Return：终止当前语句块
+        #
+        # 说明：
+        # - return 在节点图中代表“提前结束当前事件/入口方法的流程”；后续语句不可达；
+        # - 分支构建器会用 block_has_return 决定分支出口是否可继续接续；
+        # - 在 IR 层显式停止解析，避免把 return 后的语句错误连到图中。
+        #
+        # client 过滤器图约定：
+        # - `return <表达式>` 代表把结果输入到【节点图结束（布尔型/整数）】并终止；
+        # - 结束节点为纯数据节点（无流程口），但其输入端“结果”必须有数据来源（连线或常量）。
+        elif isinstance(stmt, ast.Return):
+            return_value = getattr(stmt, "value", None)
+            if return_value is None:
+                break
+
+            folder_path_text = str(getattr(ctx, "graph_folder_path", "") or "")
+            graph_category = get_graph_category_from_folder_path(folder_path_text)
+            end_node_title = ""
+            if graph_category == CLIENT_INT_FILTER_GRAPH_DIRNAME:
+                end_node_title = CLIENT_GRAPH_END_INT_NODE_TITLE
+            elif graph_category in (CLIENT_BOOL_FILTER_GRAPH_DIRNAME, CLIENT_LEGACY_LOCAL_FILTER_GRAPH_DIRNAME):
+                end_node_title = CLIENT_GRAPH_END_BOOL_NODE_TITLE
+
+            # 非 client 过滤器图：保持旧行为（仅终止解析，不物化返回节点）。
+            if not end_node_title:
+                break
+
+            end_node = NodeModel(
+                id=f"graph_end_{uuid.uuid4().hex[:8]}",
+                title=end_node_title,
+                category="其他节点",
+                node_def_ref=_resolve_builtin_node_def_ref_by_title(end_node_title, ctx=ctx),
+                pos=(0.0, 0.0),
+                inputs=[PortModel(name="结果", is_input=True)],
+                outputs=[],
+            )
+
+            # Return 值 → end_node.结果
+            bound = False
+            if isinstance(return_value, ast.Constant):
+                end_node.input_constants["结果"] = getattr(return_value, "value", None)
+                bound = True
+            elif isinstance(return_value, ast.Name):
+                var_name = str(getattr(return_value, "id", "") or "")
+                if env.has_local_constant(var_name):
+                    end_node.input_constants["结果"] = env.get_local_constant(var_name)
+                    bound = True
+                else:
+                    source = env.get_variable(var_name)
+                    if source is not None:
+                        src_node_id, src_port_name = source
+                        edges.append(
+                            EdgeModel(
+                                id=str(uuid.uuid4()),
+                                src_node=src_node_id,
+                                src_port=src_port_name,
+                                dst_node=end_node.id,
+                                dst_port="结果",
+                            )
+                        )
+                        bound = True
+
+            if not bound:
+                line_no = getattr(stmt, "lineno", "?")
+                validators.error(
+                    f"行{line_no}: client 过滤器节点图的 return 值无法建模为【{end_node_title}】输入；"
+                    "请返回一个已赋值的变量（如 `return 结果`）或常量（如 `return True/False/0/1`）"
+                )
+
+            nodes.append(end_node)
+            break
+
         # Break
         elif isinstance(stmt, ast.Break):
             if not env.loop_stack:
                 line_no = getattr(stmt, 'lineno', '?')
-                validators.warn(f"行{line_no}: 发现 break 但不在循环体内，将被忽略")
+                validators.error(f"行{line_no}: 发现 break 但不在循环体内；该写法无法可靠解析为节点图语义")
                 continue
             target_loop = env.loop_stack[-1]
 

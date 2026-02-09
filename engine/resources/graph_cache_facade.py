@@ -77,13 +77,18 @@ class GraphCacheFacade:
 
         # 内存缓存默认仅依赖图文件 mtime；但当节点库/解析器实现变更时（node_defs_fp 变化），
         # 需要强制失效以避免 UI 继续显示旧的解析结果（例如事件节点标题/端口规则更新后仍沿用旧模型）。
-        current_node_defs_fp = self.get_current_node_defs_fingerprint()
         cached_meta = cached_value.get("metadata") if isinstance(cached_value, dict) else None
         cached_fp = ""
         if isinstance(cached_meta, dict):
             cached_fp = str(cached_meta.get("node_defs_fp") or "").strip()
 
-        if cached_fp and cached_fp == current_node_defs_fp:
+        # 缓存缺少 fp：直接视为不兼容（无需触发当前 fp 重算）
+        if not cached_fp:
+            self._cache_service.clear(ResourceType.GRAPH, graph_id)
+            return None
+
+        current_node_defs_fp = self.get_current_node_defs_fingerprint()
+        if cached_fp == current_node_defs_fp:
             return cached_value
 
         # 缓存缺少 fp 或 fp 不一致：清理并回退到持久化缓存/重解析路径
@@ -101,6 +106,11 @@ class GraphCacheFacade:
         """获取与布局结果相关的全局设置快照（跨块复制、紧凑排列、布局算法版本等）。"""
         return {
             "DATA_NODE_CROSS_BLOCK_COPY": bool(getattr(settings, "DATA_NODE_CROSS_BLOCK_COPY", True)),
+            # 长连线中转（获取局部变量）节点：属于“结构增强”，必须纳入快照以确保切换开关/阈值后不误命中旧缓存。
+            "LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY": bool(getattr(settings, "LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY", False)),
+            "LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE": int(
+                getattr(settings, "LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE", 5)
+            ),
             "LAYOUT_TIGHT_BLOCK_PACKING": bool(getattr(settings, "LAYOUT_TIGHT_BLOCK_PACKING", True)),
             "LAYOUT_COMPACT_DATA_Y_IN_BLOCK": bool(getattr(settings, "LAYOUT_COMPACT_DATA_Y_IN_BLOCK", True)),
             "LAYOUT_DATA_Y_COMPACT_PULL": float(getattr(settings, "LAYOUT_DATA_Y_COMPACT_PULL", 0.6)),
@@ -144,10 +154,38 @@ class GraphCacheFacade:
             return None
         if not self.is_persistent_layout_settings_compatible(persisted):
             return None
+        # GraphModel 数据契约兼容性：缺失 node_def_ref 的旧缓存一律视为不兼容（需重建）。
+        data_obj = persisted.get("data")
+        if isinstance(data_obj, dict):
+            nodes_obj = data_obj.get("nodes")
+            if isinstance(nodes_obj, list) and nodes_obj:
+                for node_dict in nodes_obj:
+                    if not isinstance(node_dict, dict):
+                        return None
+                    node_def_ref = node_dict.get("node_def_ref")
+                    if not isinstance(node_def_ref, dict):
+                        return None
+                    kind = str(node_def_ref.get("kind", "") or "").strip()
+                    key = str(node_def_ref.get("key", "") or "").strip()
+                    if kind not in ("builtin", "composite", "event") or not key:
+                        return None
+            # nodes 为空：视为兼容（空图不会触发 NodeDef 解析）
         return persisted
+
+    def read_persistent_graph_cache_payload(self, graph_id: str) -> Optional[dict]:
+        """读取持久化缓存的原始 payload（不做校验）。
+
+        用于列表页等“只读展示”场景：由调用方决定如何基于 file_hash/node_defs_fp/layout_settings
+        做轻量命中判定，避免在循环中重复扫描 node_defs 指纹。
+        """
+        return self._persistent_graph_cache_manager.read_persistent_graph_cache_payload(graph_id)
 
     def save_persistent_graph_cache(self, graph_id: str, file_path: Path, result_data: Dict[str, Any]) -> None:
         self._persistent_graph_cache_manager.save_persistent_graph_cache(graph_id, file_path, result_data)
+        # 写入持久化 graph_cache 后，列表页的轻量元数据（graph_id_metadata）应立即失效：
+        # - 统计信息（node_count/edge_count）只允许来自持久化缓存；
+        # - 若此前列表页读到的是“无缓存 → 统计为空”的元数据，这里必须清掉让下一次读能命中缓存统计。
+        self._cache_service.clear(ResourceType.GRAPH, f"{graph_id}_metadata")
 
     # ===== 对外：更新图的持久化缓存（支持 delta 合并） =====
 
@@ -232,6 +270,18 @@ class GraphCacheFacade:
         else:
             final_result = result_data
 
+        # 确保 result_data.metadata.node_defs_fp 存在：
+        # - 用于进程内缓存命中（仅依赖 mtime 的缓存需要额外 fp 判定实现变更失效）。
+        # - 兼容历史调用方传入“瘦 metadata”导致后续必 miss 内存缓存的问题。
+        if isinstance(final_result, dict):
+            metadata_obj0 = final_result.get("metadata")
+            if not isinstance(metadata_obj0, dict):
+                metadata_obj0 = {}
+            existing_fp = str(metadata_obj0.get("node_defs_fp") or "").strip()
+            if not existing_fp:
+                metadata_obj0["node_defs_fp"] = self.get_current_node_defs_fingerprint()
+            final_result["metadata"] = metadata_obj0
+
         need_recompute_fingerprints = bool(layout_changed if layout_changed is not None else True)
 
         if bool(getattr(settings, "FINGERPRINT_ENABLED", False)) and isinstance(final_result, dict):
@@ -259,6 +309,8 @@ class GraphCacheFacade:
         self._persistent_graph_cache_manager.save_persistent_graph_cache(graph_id, file_path, final_result)
         current_mtime = file_path.stat().st_mtime
         self.store_graph_in_memory_cache(graph_id, final_result, current_mtime)
+        # 持久化缓存已更新：同步失效列表轻量元数据缓存，确保统计信息可被立即读取。
+        self._cache_service.clear(ResourceType.GRAPH, f"{graph_id}_metadata")
         return final_result
 
 

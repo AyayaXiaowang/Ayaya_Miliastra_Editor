@@ -10,6 +10,7 @@ from app.ui.todo.current_todo_resolver import (
     get_selected_todo_id_from_tree,
     resolve_current_todo_for_leaf,
 )
+from app.ui.todo.todo_ports import ExecutionMonitorPort
 
 if TYPE_CHECKING:
     from app.models import TodoItem
@@ -91,7 +92,20 @@ class TodoUiContext:
         return main_window.package_controller.current_package
 
     # --------------------------------------------------------------------- Monitor panel
-    def ensure_execution_monitor_panel(self, *, switch_to: bool = False) -> Optional[object]:
+    def _coerce_execution_monitor_panel(
+        self, panel: object | None
+    ) -> Optional[ExecutionMonitorPort]:
+        if panel is None:
+            return None
+        if not isinstance(panel, ExecutionMonitorPort):
+            raise RuntimeError(
+                "右侧面板 'execution_monitor' 未实现 Todo 所需的 ExecutionMonitorPort"
+            )
+        return panel
+
+    def ensure_execution_monitor(
+        self, *, switch_to: bool = False
+    ) -> Optional[ExecutionMonitorPort]:
         main_window = self.get_main_window()
         if main_window is None:
             return None
@@ -101,15 +115,19 @@ class TodoUiContext:
             visible=True,
             switch_to=bool(switch_to),
         )
-        panel = right_panel.get_widget("execution_monitor")
+        panel = self._coerce_execution_monitor_panel(
+            right_panel.get_widget("execution_monitor")
+        )
         self.host._monitor_window = panel
         return panel
 
-    def try_get_execution_monitor_panel(self) -> Optional[object]:
+    def try_get_execution_monitor(self) -> Optional[ExecutionMonitorPort]:
         main_window = self.get_main_window()
         if main_window is None:
             return None
-        panel = main_window.right_panel.get_widget("execution_monitor")
+        panel = self._coerce_execution_monitor_panel(
+            main_window.right_panel.get_widget("execution_monitor")
+        )
         if panel is not None:
             self.host._monitor_window = panel
         return panel

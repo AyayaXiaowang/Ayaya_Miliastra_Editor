@@ -112,13 +112,13 @@ def test_internal_write_suppression_can_be_scoped_to_specific_directory() -> Non
     state_machine.handle_event(
         RecordInternalWriteEvent(
             wall_time_seconds=1000.0,
-            directory_path=Path("assets/资源库/节点图/server/模板示例"),
+            directory_path=Path("assets/资源库/项目存档/测试项目/节点图/server/模板示例"),
         )
     )
 
     actions_ignored = state_machine.handle_event(
         DirectoryChangedEvent(
-            directory_path=Path("assets/资源库/节点图/server/模板示例"),
+            directory_path=Path("assets/资源库/项目存档/测试项目/节点图/server/模板示例"),
             wall_time_seconds=1000.5,
             monotonic_time_seconds=1.0,
         )
@@ -127,7 +127,7 @@ def test_internal_write_suppression_can_be_scoped_to_specific_directory() -> Non
 
     actions_other_dir_not_ignored = state_machine.handle_event(
         DirectoryChangedEvent(
-            directory_path=Path("assets/资源库/管理配置"),
+            directory_path=Path("assets/资源库/项目存档/测试项目/管理配置"),
             wall_time_seconds=1000.5,
             monotonic_time_seconds=1.1,
         )

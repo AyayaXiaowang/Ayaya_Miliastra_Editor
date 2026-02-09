@@ -10,7 +10,7 @@ from app.ui.dialogs.table_edit_helpers import (
 from app.ui.dialogs.value_editor_common_widgets import ClickToEditLineEdit
 from app.ui.foundation.base_widgets import BaseDialog
 from app.ui.foundation.context_menu_builder import ContextMenuBuilder
-from app.ui.foundation.theme_manager import Sizes, ThemeManager, Icons as ThemeIcons
+from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager, Icons as ThemeIcons
 
 
 class _ListTableEditorWidget(QtWidgets.QWidget):
@@ -119,15 +119,25 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
         if self._use_click_to_edit_line_edit:
             line_edit = ClickToEditLineEdit(value_text, self.table)
             line_edit.setPlaceholderText(self._placeholder_text)
-            line_edit.setClearButtonEnabled(True)
+            line_edit.setClearButtonEnabled(not self._is_read_only)
             line_edit.setMinimumHeight(Sizes.INPUT_HEIGHT)
+            line_edit.setReadOnly(self._is_read_only)
+            if self._is_read_only:
+                line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+            else:
+                line_edit.setStyleSheet("")
             line_edit.editingFinished.connect(self._on_value_edited)
             return wrap_click_to_edit_line_edit_for_table_cell(self.table, line_edit)
 
         line_edit = QtWidgets.QLineEdit(value_text, self.table)
         line_edit.setPlaceholderText(self._placeholder_text)
-        line_edit.setClearButtonEnabled(True)
+        line_edit.setClearButtonEnabled(not self._is_read_only)
         line_edit.setMinimumHeight(Sizes.INPUT_HEIGHT)
+        line_edit.setReadOnly(self._is_read_only)
+        if self._is_read_only:
+            line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+        else:
+            line_edit.setStyleSheet("")
         line_edit.editingFinished.connect(self._on_value_edited)
         return line_edit
 
@@ -139,6 +149,8 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
         index_item.setFlags(
             QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
         )
+        if self._is_read_only:
+            index_item.setBackground(QtGui.QColor(Colors.BG_DISABLED))
         self.table.setItem(row_index, 0, index_item)
 
         editor_widget = self._create_value_editor_widget(value_text)
@@ -156,6 +168,10 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
                 )
                 self.table.setItem(row_index, 0, index_item)
             index_item.setText(str(row_index + 1))
+            if self._is_read_only:
+                index_item.setBackground(QtGui.QColor(Colors.BG_DISABLED))
+            else:
+                index_item.setBackground(QtGui.QBrush())
 
     def _sync_values_from_table(self) -> None:
         synchronized_values: List[str] = []
@@ -164,6 +180,14 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
             cell_widget = self.table.cellWidget(row_index, 1)
             value_text = self._extract_text_from_cell_widget(cell_widget)
             synchronized_values.append(value_text)
+
+        # 非只读模式下，末尾始终存在一行“新增占位行”：
+        # - UI 需要保留它以便用户直接在最后一行输入追加新元素；
+        # - 但它不应计入真实列表值，否则会导致“空列表被当成 1 个空元素”以及保存多一个空项。
+        if not self._is_read_only and synchronized_values:
+            last_value_text = synchronized_values[-1]
+            if not str(last_value_text).strip():
+                synchronized_values = synchronized_values[:-1]
         self._values = synchronized_values
 
     def _extract_text_from_cell_widget(
@@ -179,6 +203,8 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
         return ""
 
     def _on_add_clicked(self) -> None:
+        if self._is_read_only:
+            return
         self._add_row("")
         self._refresh_indices()
         self._sync_values_from_table()
@@ -186,6 +212,8 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
         self.values_changed.emit()
 
     def _on_remove_clicked(self) -> None:
+        if self._is_read_only:
+            return
         current_row_index = self.table.currentRow()
         if current_row_index < 0:
             return
@@ -196,6 +224,8 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
         self.values_changed.emit()
 
     def _on_value_edited(self) -> None:
+        if self._is_read_only:
+            return
         self._sync_values_from_table()
         # 当用户在最后一行输入内容后，自动在表格末尾追加新的空白占位行，
         # 保证“最后一行始终为空白，用于新增元素”的体验。
@@ -243,21 +273,50 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
     def set_read_only(self, read_only: bool) -> None:
         """切换列表子表格的只读状态。
 
-        只读模式下会移除尾部用于“新增”的空白占位行，避免在不可保存的视图中出现伪“新建”入口。
+        只读模式下：
+        - 移除尾部用于“新增”的空白占位行，避免在不可保存的视图中出现伪“新建”入口；
+        - 子表格内所有输入框改为只读并应用灰显样式；
+        - 禁用右键删除等结构性修改入口。
         """
-        self._is_read_only = bool(read_only)
-        if not self._is_read_only:
-            # 非只读模式下保持原有行为，由上层控制是否允许保存。
+        target_read_only = bool(read_only)
+        if self._is_read_only == target_read_only:
             return
+        self._is_read_only = target_read_only
 
-        row_count = self.table.rowCount()
-        if row_count <= 0:
-            return
+        # 更新现有单元格编辑器的可编辑性与样式。
+        for row_index in range(self.table.rowCount()):
+            cell_widget = self.table.cellWidget(row_index, 1)
+            line_edit: Optional[QtWidgets.QLineEdit] = None
+            if isinstance(cell_widget, QtWidgets.QLineEdit):
+                line_edit = cell_widget
+            elif isinstance(cell_widget, QtWidgets.QWidget):
+                inner_edit = cell_widget.findChild(QtWidgets.QLineEdit)
+                if isinstance(inner_edit, QtWidgets.QLineEdit):
+                    line_edit = inner_edit
+            if line_edit is None:
+                continue
 
-        # 假定最后一行为“新增占位行”，直接移除即可，不影响已有元素。
-        last_row_index = row_count - 1
-        self.table.removeRow(last_row_index)
+            line_edit.setReadOnly(self._is_read_only)
+            line_edit.setClearButtonEnabled(not self._is_read_only)
+            if self._is_read_only:
+                line_edit.setStyleSheet(ThemeManager.readonly_input_style())
+            else:
+                line_edit.setStyleSheet("")
+
+        # 只读模式下移除尾部“新增占位行”（仅在其确实为空时移除，避免误删真实数据）。
+        if self._is_read_only:
+            row_count = self.table.rowCount()
+            if row_count > 0:
+                last_row_index = row_count - 1
+                last_cell_widget = self.table.cellWidget(last_row_index, 1)
+                last_text = self._extract_text_from_cell_widget(last_cell_widget)
+                if not last_text.strip():
+                    self.table.removeRow(last_row_index)
+        else:
+            self._ensure_trailing_placeholder_row()
+
         self._refresh_indices()
+        self._sync_values_from_table()
         self._update_table_height()
 
     def _on_table_context_menu(self, pos: QtCore.QPoint) -> None:
@@ -265,6 +324,8 @@ class _ListTableEditorWidget(QtWidgets.QWidget):
 
         新增元素通过始终存在的最后一行占位行完成，这里不再提供显式“新增”按钮。
         """
+        if self._is_read_only:
+            return
         index = self.table.indexAt(pos)
         row_index = index.row()
         if row_index < 0:

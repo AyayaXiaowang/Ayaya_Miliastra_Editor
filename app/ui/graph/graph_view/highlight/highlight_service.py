@@ -62,10 +62,16 @@ class HighlightService:
         if second_item:
             second_item.setSelected(True)
         # 高亮连线（如提供）
-        if edge_id and edge_id in getattr(scene, 'edge_items', {}):
-            edge_item = scene.edge_items.get(edge_id)
-            if edge_item:
+        if edge_id:
+            edge_item = (getattr(scene, "edge_items", {}) or {}).get(edge_id)
+            if edge_item is not None:
                 edge_item.setSelected(True)
+            else:
+                # 批量渲染边（fast_preview_mode）：无 per-edge item 时，走场景层的批量边选中状态
+                has_batched = getattr(scene, "has_batched_fast_preview_edges", None)
+                set_batched_selected = getattr(scene, "set_batched_selected_edge_ids", None)
+                if callable(has_batched) and has_batched() and callable(set_batched_selected):
+                    set_batched_selected({str(edge_id)})
         # 高亮端口：优先使用传入端口名；若缺失则从边数据推断
         resolved_src_port = src_port
         resolved_dst_port = dst_port
@@ -115,6 +121,10 @@ class HighlightService:
         scene = view.scene()
         node_items = getattr(scene, "node_items", {}) or {}
         edge_items = getattr(scene, "edge_items", {}) or {}
+        has_batched = bool(
+            callable(getattr(scene, "has_batched_fast_preview_edges", None))
+            and scene.has_batched_fast_preview_edges()  # type: ignore[attr-defined]
+        )
 
         focused_node_set = {
             str(node_identifier)
@@ -131,30 +141,36 @@ class HighlightService:
         old_active = bool(getattr(scene, "_opacity_dim_mode_active", False))
         old_node_count = int(getattr(scene, "_opacity_dim_node_count", -1))
         old_edge_count = int(getattr(scene, "_opacity_dim_edge_count", -1))
+        old_materialized_edge_count = int(getattr(scene, "_opacity_dim_materialized_edge_count", -1))
+        old_batched = bool(getattr(scene, "_opacity_dim_batched_edges_active", False))
         old_focused_nodes = set(getattr(scene, "_opacity_dim_focused_node_ids", set()) or set())
         old_focused_edges = set(getattr(scene, "_opacity_dim_focused_edge_ids", set()) or set())
 
         new_node_count = len(node_items)
-        new_edge_count = len(edge_items)
-
-        need_full_update = (
-            (not old_active)
-            or old_node_count != new_node_count
-            or old_edge_count != new_edge_count
-        )
+        materialized_edge_count = len(edge_items)
+        if has_batched and hasattr(scene, "model"):
+            new_edge_count = len(getattr(scene.model, "edges", {}) or {})
+        else:
+            new_edge_count = materialized_edge_count
 
         if (
-            (not need_full_update)
+            old_active
+            and old_batched == has_batched
+            and old_node_count == new_node_count
+            and old_edge_count == new_edge_count
+            and old_materialized_edge_count == materialized_edge_count
             and old_focused_nodes == focused_node_set
             and old_focused_edges == focused_edge_set
         ):
             return
 
+        need_full_update = (
+            (not old_active) or old_node_count != new_node_count or old_batched != has_batched
+        )
+
         if need_full_update:
             for node_id, node_item in node_items.items():
                 node_item.setOpacity(1.0 if node_id in focused_node_set else 0.3)
-            for edge_id, edge_item in edge_items.items():
-                edge_item.setOpacity(1.0 if edge_id in focused_edge_set else 0.3)
         else:
             nodes_to_dim = old_focused_nodes - focused_node_set
             nodes_to_undim = focused_node_set - old_focused_nodes
@@ -167,22 +183,36 @@ class HighlightService:
                 if node_item is not None:
                     node_item.setOpacity(1.0)
 
-            edges_to_dim = old_focused_edges - focused_edge_set
-            edges_to_undim = focused_edge_set - old_focused_edges
-            for edge_id in edges_to_dim:
-                edge_item = edge_items.get(edge_id)
-                if edge_item is not None:
-                    edge_item.setOpacity(0.3)
-            for edge_id in edges_to_undim:
-                edge_item = edge_items.get(edge_id)
-                if edge_item is not None:
-                    edge_item.setOpacity(1.0)
+        if has_batched:
+            # 批量渲染边：批量层内部维护 dim 状态；edge_items 仅包含“局部 materialize”的少量边，逐个设 opacity 即可
+            set_batched_dim = getattr(scene, "set_batched_dim_state", None)
+            if callable(set_batched_dim):
+                set_batched_dim(active=True, focused_edge_ids=focused_edge_set)
+            for edge_id, edge_item in edge_items.items():
+                edge_item.setOpacity(1.0 if edge_id in focused_edge_set else 0.3)
+        else:
+            if need_full_update or old_edge_count != new_edge_count:
+                for edge_id, edge_item in edge_items.items():
+                    edge_item.setOpacity(1.0 if edge_id in focused_edge_set else 0.3)
+            else:
+                edges_to_dim = old_focused_edges - focused_edge_set
+                edges_to_undim = focused_edge_set - old_focused_edges
+                for edge_id in edges_to_dim:
+                    edge_item = edge_items.get(edge_id)
+                    if edge_item is not None:
+                        edge_item.setOpacity(0.3)
+                for edge_id in edges_to_undim:
+                    edge_item = edge_items.get(edge_id)
+                    if edge_item is not None:
+                        edge_item.setOpacity(1.0)
 
         scene._opacity_dim_mode_active = True
         scene._opacity_dim_focused_node_ids = set(focused_node_set)
         scene._opacity_dim_focused_edge_ids = set(focused_edge_set)
         scene._opacity_dim_node_count = new_node_count
         scene._opacity_dim_edge_count = new_edge_count
+        scene._opacity_dim_materialized_edge_count = materialized_edge_count
+        scene._opacity_dim_batched_edges_active = has_batched
     
     @staticmethod
     def restore_all_opacity(view: "GraphView") -> None:
@@ -203,9 +233,15 @@ class HighlightService:
         for edge_item in edge_items.values():
             edge_item.setOpacity(1.0)
 
+        clear_batched_dim = getattr(scene, "clear_batched_dim_state", None)
+        if callable(clear_batched_dim):
+            clear_batched_dim()
+
         scene._opacity_dim_mode_active = False
         scene._opacity_dim_focused_node_ids = set()
         scene._opacity_dim_focused_edge_ids = set()
         scene._opacity_dim_node_count = len(node_items)
         scene._opacity_dim_edge_count = len(edge_items)
+        scene._opacity_dim_materialized_edge_count = len(edge_items)
+        scene._opacity_dim_batched_edges_active = False
 

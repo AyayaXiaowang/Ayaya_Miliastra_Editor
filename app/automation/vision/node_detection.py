@@ -12,7 +12,8 @@ from __future__ import annotations
 from typing import Optional, Tuple, Dict, Any, List, Iterable
 from PIL import Image
 from app.automation.vision import list_nodes
-from app.automation.input.common import compute_position_thresholds
+from app.automation.input.common import compute_position_thresholds_for_node_view
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 from app.automation.vision.ocr_utils import extract_chinese
 
 ROI_EXPANSION_FACTOR: float = 2.0
@@ -43,9 +44,14 @@ def find_best_node_bbox(
     expected_x, expected_y = executor.convert_program_to_editor_coords(
         program_pos[0], program_pos[1]
     )
-    # 尺寸/门限（基于 scale_ratio 与程序节点尺寸 200x100）
+    # 尺寸/门限（基于 scale_ratio 与节点几何基准）
     scale = float(executor.scale_ratio or 1.0)
-    pos_threshold_px, pos_threshold_py = compute_position_thresholds(scale)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    pos_threshold_px, pos_threshold_py = compute_position_thresholds_for_node_view(
+        scale=scale,
+        node_view_width_px=float(node_view_w_px),
+        node_view_height_px=float(node_view_h_px),
+    )
     pos_threshold_px = int(pos_threshold_px * ROI_EXPANSION_FACTOR)
     pos_threshold_py = int(pos_threshold_py * ROI_EXPANSION_FACTOR)
     # 以“期望左上角”为中心，按横纵允许误差对称扩展得到搜索范围

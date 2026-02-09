@@ -16,6 +16,8 @@ from app.ui.todo.detail_builders.shared_builders import (
     ParagraphBlock,
     ParagraphStyle,
     TableBlock,
+    build_collapsible_raw_section,
+    format_value_preview,
 )
 
 
@@ -29,7 +31,8 @@ def build_combat_projectile_document(
     document = DetailDocument()
     section = DetailSection(title="投射物配置", level=3)
 
-    data_mapping = info.get("data", {}) or {}
+    data_value = info.get("data", {})
+    data_mapping = data_value if isinstance(data_value, dict) else {}
     projectile_name = (
         data_mapping.get("projectile_name")
         or data_mapping.get("name")
@@ -106,20 +109,64 @@ def build_combat_generic_document(
     document = DetailDocument()
     section = DetailSection(title=CombatTypeNames.get_name(detail_type), level=3)
 
-    data_mapping = info.get("data", {})
-    if data_mapping:
+    data_value = info.get("data", {})
+    if isinstance(data_value, dict) and data_value:
+        data_mapping = data_value
         name_text = str(data_mapping.get("name", ""))
         if name_text:
             section.blocks.append(
                 ParagraphBlock(text=name_text, style=ParagraphStyle.EMPHASIS)
             )
+        guide_text = str(info.get("guide") or "").strip()
+        if guide_text:
+            section.blocks.append(ParagraphBlock(text=guide_text, style=ParagraphStyle.HINT))
+
         rows: List[List[str]] = []
-        for key, value in data_mapping.items():
+        max_fields = 24
+        for key in list(data_mapping.keys())[: max_fields + 1]:
             if key == "name":
                 continue
-            rows.append([str(key), str(value)])
+            if len(rows) >= max_fields:
+                break
+            value = data_mapping.get(key)
+            rows.append([str(key), format_value_preview(value)])
         if rows:
-            section.blocks.append(TableBlock(headers=["键", "值"], rows=rows))
+            section.blocks.append(TableBlock(headers=["字段", "值（预览）"], rows=rows))
+        if len([k for k in data_mapping.keys() if k != "name"]) > max_fields:
+            section.blocks.append(
+                ParagraphBlock(
+                    text="更多字段已省略（见下方“原始数据”折叠区）。",
+                    style=ParagraphStyle.HINT,
+                )
+            )
+        section.blocks.append(build_collapsible_raw_section(title="原始数据（data）", payload=data_mapping))
+    elif isinstance(data_value, list) and data_value:
+        guide_text = str(info.get("guide") or "").strip()
+        if guide_text:
+            section.blocks.append(ParagraphBlock(text=guide_text, style=ParagraphStyle.HINT))
+
+        section.blocks.append(
+            ParagraphBlock(text=f"数据条目数：{len(data_value)}", style=ParagraphStyle.NORMAL)
+        )
+        rows: List[List[str]] = []
+        max_items = 30
+        for index, entry in enumerate(data_value[:max_items]):
+            rows.append([str(index), format_value_preview(entry)])
+        if rows:
+            section.blocks.append(TableBlock(headers=["序号", "条目（预览）"], rows=rows))
+        if len(data_value) > max_items:
+            section.blocks.append(
+                ParagraphBlock(
+                    text="更多条目已省略（见下方“原始数据”折叠区）。",
+                    style=ParagraphStyle.HINT,
+                )
+            )
+        section.blocks.append(build_collapsible_raw_section(title="原始数据（data）", payload=data_value))
+    else:
+        # data 不是 dict/list：按纯文本展示，避免频繁切换任务时因格式差异崩溃
+        text = str(data_value) if data_value is not None else ""
+        if text.strip():
+            section.blocks.append(ParagraphBlock(text=text, style=ParagraphStyle.NORMAL))
 
     document.sections.append(section)
     return document
@@ -135,20 +182,63 @@ def build_management_generic_document(
     document = DetailDocument()
     section = DetailSection(title=ManagementTypeNames.get_name(detail_type), level=3)
 
-    data_mapping = info.get("data", {})
-    if data_mapping:
+    data_value = info.get("data", {})
+    if isinstance(data_value, dict) and data_value:
+        data_mapping = data_value
         name_text = str(data_mapping.get("name", ""))
         if name_text:
             section.blocks.append(
                 ParagraphBlock(text=name_text, style=ParagraphStyle.EMPHASIS)
             )
+        guide_text = str(info.get("guide") or "").strip()
+        if guide_text:
+            section.blocks.append(ParagraphBlock(text=guide_text, style=ParagraphStyle.HINT))
+
         rows: List[List[str]] = []
-        for key, value in data_mapping.items():
+        max_fields = 24
+        for key in list(data_mapping.keys())[: max_fields + 1]:
             if key == "name":
                 continue
-            rows.append([str(key), str(value)])
+            if len(rows) >= max_fields:
+                break
+            value = data_mapping.get(key)
+            rows.append([str(key), format_value_preview(value)])
         if rows:
-            section.blocks.append(TableBlock(headers=["键", "值"], rows=rows))
+            section.blocks.append(TableBlock(headers=["字段", "值（预览）"], rows=rows))
+        if len([k for k in data_mapping.keys() if k != "name"]) > max_fields:
+            section.blocks.append(
+                ParagraphBlock(
+                    text="更多字段已省略（见下方“原始数据”折叠区）。",
+                    style=ParagraphStyle.HINT,
+                )
+            )
+        section.blocks.append(build_collapsible_raw_section(title="原始数据（data）", payload=data_mapping))
+    elif isinstance(data_value, list) and data_value:
+        guide_text = str(info.get("guide") or "").strip()
+        if guide_text:
+            section.blocks.append(ParagraphBlock(text=guide_text, style=ParagraphStyle.HINT))
+
+        section.blocks.append(
+            ParagraphBlock(text=f"数据条目数：{len(data_value)}", style=ParagraphStyle.NORMAL)
+        )
+        rows: List[List[str]] = []
+        max_items = 30
+        for index, entry in enumerate(data_value[:max_items]):
+            rows.append([str(index), format_value_preview(entry)])
+        if rows:
+            section.blocks.append(TableBlock(headers=["序号", "条目（预览）"], rows=rows))
+        if len(data_value) > max_items:
+            section.blocks.append(
+                ParagraphBlock(
+                    text="更多条目已省略（见下方“原始数据”折叠区）。",
+                    style=ParagraphStyle.HINT,
+                )
+            )
+        section.blocks.append(build_collapsible_raw_section(title="原始数据（data）", payload=data_value))
+    else:
+        text = str(data_value) if data_value is not None else ""
+        if text.strip():
+            section.blocks.append(ParagraphBlock(text=text, style=ParagraphStyle.NORMAL))
 
     document.sections.append(section)
     return document

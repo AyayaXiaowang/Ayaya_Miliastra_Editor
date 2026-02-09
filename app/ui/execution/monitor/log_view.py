@@ -11,6 +11,10 @@ from PyQt6.QtCore import Qt
 from app.ui.foundation.theme_manager import Colors
 
 
+DEFAULT_MAX_LOG_RECORDS: int = 5000
+DEFAULT_LOG_RECORD_TRIM_BUFFER: int = 200
+
+
 class LogViewController:
     """日志子系统控制器：管理日志记录、筛选、搜索与HTML渲染"""
 
@@ -19,6 +23,9 @@ class LogViewController:
         log_text_browser: QtWidgets.QTextBrowser,
         search_input: QtWidgets.QLineEdit,
         filter_combo: QtWidgets.QComboBox,
+        *,
+        max_records: int = DEFAULT_MAX_LOG_RECORDS,
+        trim_buffer: int = DEFAULT_LOG_RECORD_TRIM_BUFFER,
     ):
         """
         初始化日志控制器
@@ -31,6 +38,23 @@ class LogViewController:
         self._log_text = log_text_browser
         self._search_input = search_input
         self._filter_combo = filter_combo
+
+        # 日志数量上限：避免 QTextDocument 无限增长导致长时间运行后卡顿/假死。
+        resolved_max_records = int(max_records) if isinstance(max_records, int) else DEFAULT_MAX_LOG_RECORDS
+        if resolved_max_records < 0:
+            resolved_max_records = 0
+        self._max_log_records: int = resolved_max_records
+
+        resolved_trim_buffer = int(trim_buffer) if isinstance(trim_buffer, int) else DEFAULT_LOG_RECORD_TRIM_BUFFER
+        if resolved_trim_buffer < 0:
+            resolved_trim_buffer = 0
+        self._trim_buffer: int = resolved_trim_buffer
+
+        # QTextBrowser 的底层 QTextDocument 同样需要设置 block 上限，否则即使 Python 侧截断，
+        # 文档内容仍会无限增长，恢复前台时重排/重绘可能出现明显卡顿。
+        document = self._log_text.document()
+        if document is not None and self._max_log_records > 0:
+            document.setMaximumBlockCount(int(self._max_log_records))
 
         # 日志数据与筛选状态
         self._log_records: list[dict] = []
@@ -51,6 +75,20 @@ class LogViewController:
 
         # 滚动到底部：用单次事件循环内的 debounce，避免高频 append 时同步滚动造成深调用栈/重入风险
         self._scroll_to_bottom_scheduled: bool = False
+
+    def _trim_old_records_if_needed(self) -> None:
+        """将最旧记录分批截断，避免 Python 列表无限增长。"""
+        max_log_records = int(self._max_log_records)
+        if max_log_records <= 0:
+            return
+        trim_buffer = int(self._trim_buffer)
+        current_count = len(self._log_records)
+        if current_count <= (max_log_records + trim_buffer):
+            return
+        overflow = current_count - max_log_records
+        if overflow <= 0:
+            return
+        del self._log_records[0:overflow]
 
     def append(
         self,
@@ -102,6 +140,7 @@ class LogViewController:
             "context_html": context_html_snapshot,
         }
         self._log_records.append(record)
+        self._trim_old_records_if_needed()
 
         if self._record_matches_current_filter(record):
             html = self._format_log_html(record)
@@ -201,6 +240,38 @@ class LogViewController:
             todo_id = todo_id.lstrip(":/")
             return todo_id
         return ""
+
+    def build_plain_text_export(self) -> str:
+        """导出当前会话的全部日志为纯文本（不受筛选/搜索影响）。"""
+        exported_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        record_count = len(self._log_records)
+
+        lines: list[str] = []
+        lines.append("执行监控日志导出")
+        lines.append(f"导出时间: {exported_at}")
+        lines.append(f"记录数: {record_count}")
+        lines.append("-" * 80)
+
+        for record in self._log_records:
+            timestamp_text = str(record.get("ts", "") or "")
+            message_text = str(record.get("msg", "") or "")
+            category_text = str(record.get("category", "") or "").strip()
+            parent_title = str(record.get("parent", "") or "").strip()
+            step_title = str(record.get("step", "") or "").strip()
+
+            step_context = ""
+            if parent_title and step_title:
+                step_context = f"{parent_title} > {step_title}"
+            elif step_title:
+                step_context = step_title
+
+            context_part = f" [{step_context}]" if step_context else ""
+            category_part = f" ({category_text})" if category_text else ""
+
+            line = f"[{timestamp_text}]{category_part}{context_part} {message_text}".rstrip()
+            lines.append(line)
+
+        return "\n".join(lines) + "\n"
 
     # === 私有方法：筛选与分类 ===
 

@@ -5,13 +5,16 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Iterator, Mapping
 
-from engine.graph.models import NodeModel, PortModel, EdgeModel
+from engine.graph.models import NodeModel, PortModel, EdgeModel, NodeDefRef
 from engine.graph.utils.ast_utils import NOT_EXTRACTABLE, extract_constant_value
 from engine.nodes.node_definition_loader import NodeDef
+from engine.nodes import get_canonical_node_def_key
+from engine.graph.common import STRUCT_NAME_PORT_NAME
 from .var_env import VarEnv
 from .validators import Validators
 from .edge_router import create_data_edges_for_node_enhanced
 from .arg_normalizer import normalize_call_arguments, is_reserved_argument
+from .composite_builder import create_composite_node_from_instance_call
 
 
 @dataclass
@@ -19,8 +22,24 @@ class FactoryContext:
     node_library: Dict[str, NodeDef]
     node_name_index: Dict[str, str]
     verbose: bool = False
+    # Graph Code 的作用域（server/client），用于在 IR 层处理“同名节点在不同 scope 下端口不兼容”的语义分支
+    # （例如：局部变量建模的【获取/设置局部变量】在 server/client 下端口名不同）。
+    graph_scope: str = "server"
+    # Graph Code 元信息：用于在 IR 层按图类型做轻量语义分支（例如 client 过滤器图的 return → 结束节点建模）。
+    # 说明：该字段由上层解析器在每次 parse_code(...) 入口处写入。
+    graph_folder_path: str = ""
     # 注意：语义元数据（signal_bindings/struct_bindings）不在 IR 层写入，
     # 统一由 `engine.graph.semantic.GraphSemanticPass` 在更高层的明确阶段生成。
+
+
+def _build_node_def_ref(node_def: NodeDef) -> NodeDefRef:
+    """从 NodeDef 构造稳定 NodeDefRef（唯一真源）。"""
+    if bool(getattr(node_def, "is_composite", False)):
+        composite_id = str(getattr(node_def, "composite_id", "") or "").strip()
+        if not composite_id:
+            raise ValueError(f"复合节点 NodeDef 缺少 composite_id：{getattr(node_def, 'category', '')}/{getattr(node_def, 'name', '')}")
+        return NodeDefRef(kind="composite", key=composite_id)
+    return NodeDefRef(kind="builtin", key=get_canonical_node_def_key(node_def))
 
 
 def create_event_node(event_name: str, method: ast.FunctionDef, ctx: FactoryContext) -> NodeModel:
@@ -41,6 +60,11 @@ def create_event_node(event_name: str, method: ast.FunctionDef, ctx: FactoryCont
     # 流程出
     output_ports.append(PortModel(name="流程出", is_input=False))
     # 数据输出：方法参数（跳过 self）
+    #
+    # 注意：Graph Code 支持形参写中文类型注解，例如 `整数参数: "整数"`。
+    # 但在启用 `from __future__ import annotations` 时，AST 中的 annotation 可能为 ast.Name，
+    # 而不是 ast.Constant。我们仍应保留端口名为“参数名”，类型实例化交由
+    # register_event_outputs(...) 统一处理（写入 port_type_overrides）。
     for arg in method.args.args[1:]:
         output_ports.append(PortModel(name=arg.arg, is_input=False))
 
@@ -48,6 +72,7 @@ def create_event_node(event_name: str, method: ast.FunctionDef, ctx: FactoryCont
         id=node_id,
         title=event_name,
         category="事件节点",
+        node_def_ref=_build_node_def_ref(node_def) if node_def is not None else NodeDefRef(kind="event", key=str(event_name)),
         pos=(100.0, 100.0),
         inputs=input_ports,
         outputs=output_ports,
@@ -58,11 +83,50 @@ def create_event_node(event_name: str, method: ast.FunctionDef, ctx: FactoryCont
     return node
 
 
-def register_event_outputs(event_node: NodeModel, method: ast.FunctionDef, env: VarEnv) -> None:
+def register_event_outputs(
+    event_node: NodeModel,
+    method: ast.FunctionDef,
+    env: VarEnv,
+    *,
+    graph_model: object | None = None,
+) -> None:
+    """注册事件节点的数据输出，并从函数参数注解实例化端口类型（写入 port_type_overrides）。"""
     for i, arg in enumerate(method.args.args[1:]):  # 跳过 self
         port_index = i + 1  # 0 是流程出
-        if len(event_node.outputs) > port_index:
-            env.set_variable(arg.arg, event_node.id, event_node.outputs[port_index].name)
+        if len(event_node.outputs) <= port_index:
+            continue
+
+        port_name = event_node.outputs[port_index].name
+        env.set_variable(arg.arg, event_node.id, port_name)
+
+        # 形参注解仅支持“字符串常量”形式：参数名: "整数"
+        annotation_expr = getattr(arg, "annotation", None)
+        if not (
+            isinstance(annotation_expr, ast.Constant)
+            and isinstance(getattr(annotation_expr, "value", None), str)
+        ):
+            continue
+        annotation_text = str(annotation_expr.value or "").strip()
+        if not annotation_text or annotation_text == "泛型":
+            continue
+
+        if graph_model is None:
+            continue
+        metadata = getattr(graph_model, "metadata", None)
+        if not isinstance(metadata, dict):
+            continue
+
+        overrides_raw = metadata.get("port_type_overrides")
+        overrides: Dict[str, Dict[str, str]] = dict(overrides_raw) if isinstance(overrides_raw, dict) else {}
+        node_overrides = overrides.get(event_node.id)
+        node_overrides = dict(node_overrides) if isinstance(node_overrides, dict) else {}
+        existing = str(node_overrides.get(str(port_name), "") or "").strip()
+
+        # 若已有更具体类型则不覆盖；若已有“泛型”占位则允许被具体类型覆盖
+        if (not existing) or existing == "泛型":
+            node_overrides[str(port_name)] = annotation_text
+            overrides[event_node.id] = node_overrides
+            metadata["port_type_overrides"] = overrides
 
 
 def _resolve_local_constant(expr: ast.AST, env: Optional[VarEnv]) -> Any:
@@ -101,6 +165,17 @@ def create_node_from_call(
     if isinstance(call_node.func, ast.Name):
         func_name = call_node.func.id
     elif isinstance(call_node.func, ast.Attribute):
+        # 支持“嵌套复合节点调用”：
+        # - 当复合节点实例方法调用被用作其它节点入参（例如 `加法运算(..., 左值=self.<复合实例>.<入口>(...))`）
+        #   时，必须在此处将其物化为 NodeModel，否则父节点会出现“输入缺少数据来源”。
+        #
+        # 注意：
+        # - 这不会放开“复合节点内部嵌套复合节点”的限制：该限制由校验规则
+        #   `CompositeTypesAndNestingRule` 负责阻断。
+        if env is not None:
+            composite_node = create_composite_node_from_instance_call(call_node, ctx.node_library, env)
+            if composite_node is not None:
+                return composite_node
         func_name = call_node.func.attr
     else:
         return None
@@ -116,7 +191,9 @@ def create_node_from_call(
 
     # 统一归一化入参
     norm = normalize_call_arguments(call_node, node_def)
-    input_constants: Dict[str, str] = {}
+    # 常量值：保留原始 Python 类型（int/float/bool/str/None/容器），避免数字常量在此阶段被 str() 造成类型丢失。
+    # 说明：代码生成与 UI 展示层会在需要时再做 format/序列化。
+    input_constants: Dict[str, Any] = {}
     input_ports: List[PortModel] = []
 
     if norm.has_variadic:
@@ -126,12 +203,12 @@ def create_node_from_call(
                 input_ports.append(PortModel(name=dst_port, is_input=True))
             val = _extract_constant_value_with_env(expr, env)
             if val is not NOT_EXTRACTABLE:
-                input_constants[dst_port] = str(val)
+                input_constants[dst_port] = val
         # 为关键字参数创建命名端口并写入常量（若可静态提取）
         for pname, expr in norm.keywords.items():
             val = _extract_constant_value_with_env(expr, env)
             if val is not NOT_EXTRACTABLE:
-                input_constants[pname] = str(val)
+                input_constants[pname] = val
                 if not any(p.name == pname for p in input_ports):
                     input_ports.append(PortModel(name=pname, is_input=True))
         # 若未创建任何变参位置端口，为变参节点补一个最小合法端口：
@@ -172,16 +249,43 @@ def create_node_from_call(
         for dst_port, expr in norm.positional:
             val = _extract_constant_value_with_env(expr, env)
             if val is not NOT_EXTRACTABLE:
-                input_constants[dst_port] = str(val)
+                input_constants[dst_port] = val
         # 关键字参数回填（覆盖同名）；对于动态端口节点，同时创建对应的输入端口
         for pname, expr in norm.keywords.items():
             val = _extract_constant_value_with_env(expr, env)
             if val is not NOT_EXTRACTABLE:
-                input_constants[pname] = str(val)
+                input_constants[pname] = val
             # 动态端口节点：为不在静态定义中的关键字参数创建输入端口
+            # 结构体语义节点兼容：Graph Code 允许通过 `结构体名="xxx"` 传入绑定展示名，
+            # 但新约定下该字段不再建模为真实输入端口（结构体节点仅保留一个结构体端口）。
+            semantic_id = str(getattr(node_def, "semantic_id", "") or "").strip() if node_def else ""
+            is_struct_node = semantic_id in {"struct.build", "struct.split", "struct.modify"}
             if dynamic_port_type_value and pname not in existing_port_names:
+                if is_struct_node and pname == STRUCT_NAME_PORT_NAME:
+                    continue
                 input_ports.append(PortModel(name=pname, is_input=True))
                 existing_port_names.add(pname)
+
+    # input_defaults：为“可选输入端口”补齐默认常量（仅当调用未显式提供该端口常量时）。
+    # 注意：
+    # - 连线优先于常量：即便后续生成了数据边，执行/导出时也会优先使用连线来源；
+    # - 这里仅做“缺省值建模”，不参与任何运行期判空逻辑。
+    input_defaults = dict(getattr(node_def, "input_defaults", {}) or {})
+    if input_defaults:
+        existing_port_names = {p.name for p in (input_ports or [])}
+        for port_name, default_value in input_defaults.items():
+            port_text = str(port_name or "").strip()
+            if not port_text:
+                continue
+            if port_text in {"流程入", "流程出"}:
+                continue
+            if "~" in port_text:
+                continue
+            if port_text not in existing_port_names:
+                input_ports.append(PortModel(name=port_text, is_input=True))
+                existing_port_names.add(port_text)
+            if port_text not in input_constants:
+                input_constants[port_text] = default_value
 
     output_ports: List[PortModel] = [PortModel(name=o, is_input=False) for o in node_def.outputs]
 
@@ -189,6 +293,7 @@ def create_node_from_call(
         id=node_id,
         title=(node_def.name if node_def else func_name),
         category=node_def.category,
+        node_def_ref=_build_node_def_ref(node_def),
         pos=(100.0, 100.0),
         inputs=input_ports,
         outputs=output_ports,

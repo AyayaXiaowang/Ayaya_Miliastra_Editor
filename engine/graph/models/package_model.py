@@ -1,36 +1,8 @@
-"""存档相关配置模型 - 变量、模板、实例、战斗预设、管理配置与信号定义"""
+"""存档相关配置模型 - 变量、模板、实体摆放、战斗预设、管理配置与信号定义"""
 
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional
-
-
-@dataclass
-class VariableConfig:
-    """自定义变量配置（实体级别的全局变量）"""
-    name: str
-    variable_type: str
-    default_value: Any = None
-    description: str = ""
-    
-    def serialize(self) -> dict:
-        return {
-            "name": self.name,
-            "variable_type": self.variable_type,
-            "default_value": self.default_value,
-            "description": self.description
-        }
-    
-    @staticmethod
-    def deserialize(data: dict) -> VariableConfig:
-        # 兼容 name 和 variable_name 两种字段名
-        name_value = data.get("name") or data.get("variable_name", "")
-        return VariableConfig(
-            name=name_value,
-            variable_type=data["variable_type"],
-            default_value=data.get("default_value"),
-            description=data.get("description", "")
-        )
 
 
 @dataclass
@@ -57,14 +29,67 @@ class LevelVariableDefinition:
 
     @staticmethod
     def deserialize(data: dict) -> LevelVariableDefinition:
+        raw_name = data.get("variable_name")
+        if not isinstance(raw_name, str) or not raw_name.strip():
+            raise ValueError("关卡变量定义缺少或无效的 variable_name（必须为非空字符串）")
         return LevelVariableDefinition(
             variable_id=data["variable_id"],
-            variable_name=data.get("variable_name", data.get("name", "")),
+            variable_name=raw_name,
             variable_type=data["variable_type"],
             default_value=data.get("default_value"),
             is_global=data.get("is_global", True),
             description=data.get("description", ""),
             metadata=data.get("metadata", {}),
+        )
+
+
+@dataclass
+class LevelVariableOverride:
+    """实例/关卡实体上的关卡变量覆写（按 variable_id 引用，value 存放实际值）。"""
+
+    variable_id: str
+    variable_name: str = ""
+    variable_type: str = ""
+    value: Any = None
+    metadata: dict = field(default_factory=dict)
+
+    def serialize(self) -> dict:
+        payload = {
+            "variable_id": self.variable_id,
+            "variable_name": self.variable_name,
+            "variable_type": self.variable_type,
+            "value": self.value,
+        }
+        if isinstance(self.metadata, dict) and self.metadata:
+            payload["metadata"] = self.metadata
+        return payload
+
+    @staticmethod
+    def deserialize(data: dict) -> "LevelVariableOverride":
+        raw_id = data.get("variable_id")
+        variable_id = str(raw_id).strip() if isinstance(raw_id, str) else str(raw_id).strip()
+        if not variable_id:
+            raise ValueError("override_variables 条目缺少 variable_id")
+
+        raw_name = data.get("variable_name") or ""
+        variable_name = str(raw_name).strip() if isinstance(raw_name, str) else str(raw_name).strip()
+
+        raw_type = data.get("variable_type") or ""
+        variable_type = str(raw_type).strip() if isinstance(raw_type, str) else str(raw_type).strip()
+
+        if "value" not in data:
+            raise ValueError(f"override_variables 条目缺少 value：{variable_id}")
+        value = data.get("value")
+
+        metadata_value = data.get("metadata", {})
+        metadata = metadata_value if isinstance(metadata_value, dict) else {}
+
+        return LevelVariableOverride(
+            variable_id=variable_id,
+            variable_name=variable_name,
+            variable_type=variable_type,
+            value=value,
+            metadata=metadata,
         )
 
 
@@ -76,6 +101,10 @@ class GraphVariableConfig:
     default_value: Any = None
     description: str = ""
     is_exposed: bool = False  # 是否对外暴露到关卡层
+    # 结构体类型专用字段：仅当 variable_type 为 "结构体" / "结构体列表" 时有意义
+    # 说明：用于绑定到“已存在的结构体定义”，以便在写回存档/编辑器侧能正确识别结构体字段语义。
+    # - 允许为空：常见用法是 default_value=None，由运行期通过【拼装结构体】赋值。
+    struct_name: str = ""  # 结构体定义名称（管理配置/结构体定义中的 struct_name）
     # 字典类型专用字段：仅当 variable_type 为 "字典" 或对应别名时有意义
     dict_key_type: str = ""   # 字典键的数据类型（使用中文类型名，如 "字符串"、"整数" 等）
     dict_value_type: str = "" # 字典值的数据类型
@@ -87,6 +116,7 @@ class GraphVariableConfig:
             "default_value": self.default_value,
             "description": self.description,
             "is_exposed": self.is_exposed,
+            "struct_name": self.struct_name,
             "dict_key_type": self.dict_key_type,
             "dict_value_type": self.dict_value_type,
         }
@@ -99,6 +129,7 @@ class GraphVariableConfig:
             default_value=data.get("default_value"),
             description=data.get("description", ""),
             is_exposed=data.get("is_exposed", False),
+            struct_name=data.get("struct_name", ""),
             dict_key_type=data.get("dict_key_type", ""),
             dict_value_type=data.get("dict_value_type", ""),
         )
@@ -184,7 +215,6 @@ class TemplateConfig:
     entity_type: str
     description: str = ""
     default_graphs: List[str] = field(default_factory=list)  # 新格式：存储graph_id列表
-    default_variables: List[VariableConfig] = field(default_factory=list)
     default_components: List[ComponentConfig] = field(default_factory=list)
     # 实体特定配置（根据entity_type存储不同的配置对象）
     entity_config: dict = field(default_factory=dict)
@@ -199,7 +229,6 @@ class TemplateConfig:
             "entity_type": self.entity_type,
             "description": self.description,
             "default_graphs": self.default_graphs,
-            "default_variables": [v.serialize() for v in self.default_variables],
             "default_components": [c.serialize() for c in self.default_components],
             "entity_config": self.entity_config,
             "metadata": self.metadata,
@@ -214,7 +243,6 @@ class TemplateConfig:
             entity_type=data["entity_type"],
             description=data.get("description", ""),
             default_graphs=data.get("default_graphs", []),
-            default_variables=[VariableConfig.deserialize(v) for v in data.get("default_variables", [])],
             default_components=[ComponentConfig.deserialize(c) for c in data.get("default_components", [])],
             entity_config=data.get("entity_config", {}),
             metadata=data.get("metadata", {}),
@@ -224,15 +252,18 @@ class TemplateConfig:
 
 @dataclass
 class InstanceConfig:
-    """实例配置（实体摆放中的实例）"""
+    """实体摆放配置（关卡中一个实体的摆放记录）。"""
     instance_id: str
     name: str
     template_id: str
     position: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     rotation: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
-    override_variables: List[VariableConfig] = field(default_factory=list)
+    scale: List[float] = field(default_factory=lambda: [1.0, 1.0, 1.0])
+    override_variables: List[LevelVariableOverride] = field(default_factory=list)
     additional_graphs: List[str] = field(default_factory=list)  # 新格式：存储graph_id列表
     additional_components: List[ComponentConfig] = field(default_factory=list)
+    # 实体特定配置（与 TemplateConfig.entity_config 对齐，用于承载实例级的扩展配置段落）
+    entity_config: dict = field(default_factory=dict)
     metadata: dict = field(default_factory=dict)
     # 节点图变量覆盖：{graph_id: {var_name: value}}
     graph_variable_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -244,9 +275,11 @@ class InstanceConfig:
             "template_id": self.template_id,
             "position": self.position,
             "rotation": self.rotation,
+            "scale": self.scale,
             "override_variables": [v.serialize() for v in self.override_variables],
             "additional_graphs": self.additional_graphs,
             "additional_components": [c.serialize() for c in self.additional_components],
+            "entity_config": self.entity_config,
             "metadata": self.metadata,
             "graph_variable_overrides": self.graph_variable_overrides
         }
@@ -259,9 +292,15 @@ class InstanceConfig:
             template_id=data["template_id"],
             position=data.get("position", [0.0, 0.0, 0.0]),
             rotation=data.get("rotation", [0.0, 0.0, 0.0]),
-            override_variables=[VariableConfig.deserialize(v) for v in data.get("override_variables", [])],
+            scale=data.get("scale", [1.0, 1.0, 1.0]),
+            override_variables=[
+                LevelVariableOverride.deserialize(v)
+                for v in data.get("override_variables", [])
+                if isinstance(v, dict)
+            ],
             additional_graphs=data.get("additional_graphs", []),
             additional_components=[ComponentConfig.deserialize(c) for c in data.get("additional_components", [])],
+            entity_config=data.get("entity_config", {}),
             metadata=data.get("metadata", {}),
             graph_variable_overrides=data.get("graph_variable_overrides", {})
         )
@@ -326,6 +365,7 @@ class ManagementData:
     # 界面与显示
     ui_layouts: Dict[str, dict] = field(default_factory=dict)  # 界面布局
     ui_widget_templates: Dict[str, dict] = field(default_factory=dict)  # 界面控件组模板库
+    ui_pages: Dict[str, dict] = field(default_factory=dict)  # UI 页面入口（HTML -> layout/actions/guid/text_binding 汇总）
     multi_language: Dict[str, dict] = field(default_factory=dict)  # 多语言文本管理
     
     # 场景与环境
@@ -362,6 +402,7 @@ class ManagementData:
             # 界面与显示
             "ui_layouts": self.ui_layouts,
             "ui_widget_templates": self.ui_widget_templates,
+            "ui_pages": self.ui_pages,
             "multi_language": self.multi_language,
             # 场景与环境
             "main_cameras": self.main_cameras,
@@ -405,6 +446,7 @@ class ManagementData:
             # 界面与显示
             ui_layouts=convert_to_dict(data.get("ui_layouts", {})),
             ui_widget_templates=convert_to_dict(data.get("ui_widget_templates", {})),
+            ui_pages=convert_to_dict(data.get("ui_pages", {})),
             multi_language=convert_to_dict(data.get("multi_language", {})),
             # 场景与环境
             main_cameras=convert_to_dict(data.get("main_cameras", {})),

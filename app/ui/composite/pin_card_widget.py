@@ -7,7 +7,6 @@ from PyQt6 import QtCore, QtWidgets, QtGui
 from engine.nodes.advanced_node_features import VirtualPinConfig
 from engine.configs.rules.datatype_rules import BASE_TYPES, LIST_TYPES
 from app.ui.foundation.context_menu_builder import ContextMenuBuilder
-from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 
 
 class PinCardWidget(QtWidgets.QWidget):
@@ -18,17 +17,29 @@ class PinCardWidget(QtWidgets.QWidget):
     delete_requested = QtCore.pyqtSignal(VirtualPinConfig)
     merge_requested = QtCore.pyqtSignal(VirtualPinConfig)
 
-    def __init__(self, pin_config: VirtualPinConfig, composite_id: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(
+        self,
+        pin_config: VirtualPinConfig,
+        composite_id: str,
+        parent: QtWidgets.QWidget | None = None,
+        *,
+        type_editable: bool = True,
+    ):
         super().__init__(parent)
         self.pin_config = pin_config
         self.composite_id = composite_id
+        self._type_editable: bool = bool(type_editable)
         self.name_edit: QtWidgets.QLineEdit | None = None
         self.name_label: QtWidgets.QLabel | None = None
+        self.copy_button: QtWidgets.QToolButton | None = None
         self.is_editing = False
         self._event_filter_target: QtWidgets.QWidget | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
+        # 通过 objectName 让全局主题样式精确命中，避免在组件内拼接 QSS 字符串
+        self.setObjectName("pinCard")
+
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(10)
@@ -38,40 +49,44 @@ class PinCardWidget(QtWidgets.QWidget):
         number_label = QtWidgets.QLabel(str(number))
         number_label.setFixedSize(28, 28)
         number_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        number_label.setStyleSheet(self._number_label_style())
+        number_label.setObjectName("pinNumberBadge")
+        number_label.setProperty("pinKind", "flow" if self.pin_config.is_flow else "data")
         layout.addWidget(number_label)
 
         type_icon = "▭" if self.pin_config.is_flow else "●"
         type_label = QtWidgets.QLabel(type_icon)
-        type_label.setStyleSheet(f"font-size: 16px; color: {Colors.TEXT_SECONDARY};")
+        type_label.setObjectName("pinTypeIcon")
         layout.addWidget(type_label)
 
         self.name_label = QtWidgets.QLabel(self.pin_config.pin_name)
-        self.name_label.setStyleSheet(f"font-size: 13px; color: {Colors.TEXT_PRIMARY}; font-weight: bold;")
+        self.name_label.setObjectName("pinNameLabel")
+        # 支持选中文本复制（双击仍用于进入重命名编辑）
+        self.name_label.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.TextSelectableByMouse
+            | QtCore.Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        self.name_label.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+        self.name_label.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.IBeamCursor))
         self.name_label.mouseDoubleClickEvent = self._start_edit  # type: ignore[assignment]
         layout.addWidget(self.name_label)
+
+        # 一键复制引脚名称（避免双击进入编辑导致不便选中文本）
+        self.copy_button = QtWidgets.QToolButton(self)
+        self.copy_button.setObjectName("pinCopyButton")
+        self.copy_button.setText("📋")
+        self.copy_button.setToolTip("复制引脚名称")
+        self.copy_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.copy_button.setFixedSize(24, 24)
+        self.copy_button.clicked.connect(self._copy_pin_name)
+        layout.addWidget(self.copy_button)
 
         layout.addStretch()
 
         mapping_label = QtWidgets.QLabel(f"映射: {len(self.pin_config.mapped_ports)}")
-        mapping_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 11px;")
+        mapping_label.setObjectName("pinMappingLabel")
         layout.addWidget(mapping_label)
 
         layout.addWidget(self._build_type_editor())
-
-        self.setStyleSheet(
-            f"""
-            PinCardWidget {{
-                background-color: {Colors.BG_CARD};
-                border: 1px solid {Colors.BORDER_LIGHT};
-                border-radius: {Sizes.RADIUS_MEDIUM}px;
-            }}
-            PinCardWidget:hover {{
-                border-color: {Colors.PRIMARY};
-                background-color: {Colors.BG_CARD_HOVER};
-            }}
-        """
-        )
 
         self.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
@@ -86,31 +101,24 @@ class PinCardWidget(QtWidgets.QWidget):
         """
         if self.pin_config.is_flow:
             flow_tag = QtWidgets.QLabel("流程")
-            flow_tag.setStyleSheet(self._type_tag_style(is_unset=False))
+            flow_tag.setObjectName("pinTypeTag")
+            flow_tag.setProperty("isUnset", False)
             return flow_tag
 
+        # 当前页面不可保存：禁止修改类型（只展示）
+        if not bool(getattr(self, "_type_editable", True)):
+            current_type = str(self.pin_config.pin_type or "").strip()
+            is_unset = current_type in ("", "泛型")
+            display_text = "未设置" if is_unset else current_type
+            type_tag = QtWidgets.QLabel(display_text)
+            type_tag.setObjectName("pinTypeTag")
+            type_tag.setProperty("isUnset", bool(is_unset))
+            type_tag.setToolTip("只读：当前页面不可保存，引脚类型不允许修改。")
+            return type_tag
+
         combo = QtWidgets.QComboBox(self)
+        combo.setObjectName("pinTypeCombo")
         combo.setMinimumHeight(22)
-        combo.setStyleSheet(
-            f"""
-            QComboBox {{
-                background-color: {Colors.BG_HEADER};
-                color: {Colors.TEXT_SECONDARY};
-                padding: 2px 8px;
-                border-radius: 10px;
-                font-size: 10px;
-                border: 1px solid {Colors.BORDER_LIGHT};
-            }}
-            QComboBox:focus {{
-                border-color: {Colors.PRIMARY};
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {Colors.BG_CARD};
-                color: {Colors.TEXT_PRIMARY};
-                selection-background-color: {Colors.BG_CARD_HOVER};
-            }}
-        """
-        )
 
         allowed_types: list[str] = []
         allowed_types.extend(list(BASE_TYPES.keys()))
@@ -144,23 +152,9 @@ class PinCardWidget(QtWidgets.QWidget):
         combo.setToolTip("选择对外引脚的具体类型；保存/校验阶段不允许保留“泛型”占位。")
         return combo
 
-    def _type_tag_style(self, *, is_unset: bool) -> str:
-        border_color = Colors.WARNING if is_unset else Colors.BORDER_LIGHT
-        text_color = Colors.WARNING if is_unset else Colors.TEXT_SECONDARY
-        return (
-            f"""
-            QLabel {{
-                background-color: {Colors.BG_HEADER};
-                color: {text_color};
-                padding: 2px 8px;
-                border-radius: 10px;
-                font-size: 10px;
-                border: 1px solid {border_color};
-            }}
-        """
-        )
-
     def _on_type_changed(self, combo: QtWidgets.QComboBox) -> None:
+        if not bool(getattr(self, "_type_editable", True)):
+            return
         selected = combo.currentData()
         selected_type = str(selected or "").strip()
         if not selected_type:
@@ -169,6 +163,16 @@ class PinCardWidget(QtWidgets.QWidget):
             return
         self.pin_config.pin_type = selected_type
         self.type_changed.emit(self.pin_config, selected_type)
+
+    def _copy_pin_name(self) -> None:
+        """复制引脚名称到剪贴板。"""
+        clipboard = QtWidgets.QApplication.clipboard()
+        text = ""
+        if self.is_editing and self.name_edit is not None:
+            text = str(self.name_edit.text() or "")
+        else:
+            text = str(self.pin_config.pin_name or "")
+        clipboard.setText(text)
 
     def _resolve_pin_number(self) -> str:
         from engine.nodes.composite_node_manager import get_composite_node_manager
@@ -179,40 +183,12 @@ class PinCardWidget(QtWidgets.QWidget):
         _, number = manager.get_pin_display_number(self.composite_id, self.pin_config)
         return str(number)
 
-    def _number_label_style(self) -> str:
-        radius = "3px" if self.pin_config.is_flow else "14px"
-        return f"""
-            QLabel {{
-                background: qlineargradient(
-                    x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {Colors.ACCENT_LIGHT},
-                    stop:1 {Colors.ACCENT}
-                );
-                color: {Colors.TEXT_ON_PRIMARY};
-                font-weight: bold;
-                font-size: 11px;
-                border: 2px solid {Colors.ACCENT};
-                border-radius: {radius};
-            }}
-        """
-
     def _start_edit(self, event) -> None:  # type: ignore[override]
         if self.is_editing:
             return
         self.is_editing = True
         self.name_edit = QtWidgets.QLineEdit(self.pin_config.pin_name)
-        self.name_edit.setStyleSheet(
-            f"""
-            QLineEdit {{
-                font-size: 13px;
-                color: {Colors.TEXT_PRIMARY};
-                font-weight: bold;
-                border: 1px solid {Colors.PRIMARY};
-                background-color: {Colors.BG_INPUT};
-                padding: 2px 4px;
-            }}
-        """
-        )
+        self.name_edit.setObjectName("pinNameEdit")
         layout = self.layout()
         if self.name_label and layout:
             layout.replaceWidget(self.name_label, self.name_edit)

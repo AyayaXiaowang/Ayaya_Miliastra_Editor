@@ -13,7 +13,7 @@ from PIL import Image
 from app.automation import capture as editor_capture
 from app.automation.input.common import (
     DEFAULT_DRAG_MOUSE_UP_MS,
-    compute_position_thresholds,
+    compute_position_thresholds_for_node_view,
     sleep_seconds,
 )
 from app.automation.vision import list_nodes, invalidate_cache
@@ -24,17 +24,18 @@ from app.automation.editor.view_mapping import (
     perform_drag_with_motion_estimation,
 )
 from app.automation.editor.ui_constants import (
-    NODE_VIEW_WIDTH_PX,
-    NODE_VIEW_HEIGHT_PX,
     VIEW_SAFE_MARGIN_RATIO_DEFAULT,
     VIEW_MAX_PAN_STEPS_DEFAULT,
     VIEW_PAN_STEP_PX_DEFAULT,
     VIEW_PAN_NO_VISUAL_CHANGE_ABORT_CONSECUTIVE_DEFAULT,
     VIEW_PAN_NO_VISUAL_CHANGE_MEAN_DIFF_THRESHOLD_DEFAULT,
+    VIEW_PAN_LAG_SLOW_DRAG_DURATION_SECONDS_DEFAULT,
+    VIEW_PAN_LAG_SLOW_DRAG_STEPS_DEFAULT,
     ANCHOR_CREATION_FIRST_WAIT_SECONDS,
     ANCHOR_CREATION_POST_SELECT_WAIT_SECONDS,
     OCR_CACHE_FLUSH_WAIT_SECONDS,
 )
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 from engine.graph.models.graph_model import GraphModel, NodeModel
 from app.automation.editor import editor_nodes
 from app.automation.editor import executor_utils as _exec_utils
@@ -157,8 +158,9 @@ def will_connect_too_far(executor, graph_model: GraphModel, src_node_id: str, ds
     sx, sy = convert_program_to_editor_coords(executor, float(src.pos[0]), float(src.pos[1]))
     dx, dy = convert_program_to_editor_coords(executor, float(dst.pos[0]), float(dst.pos[1]))
 
-    node_w = int(NODE_VIEW_WIDTH_PX * scale)
-    node_h = int(NODE_VIEW_HEIGHT_PX * scale)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    node_w = int(float(node_view_w_px) * scale)
+    node_h = int(float(node_view_h_px) * scale)
     left = int(min(sx, dx))
     top = int(min(sy, dy))
     right = int(max(sx + node_w, dx + node_w))
@@ -225,6 +227,45 @@ def ensure_program_point_visible(
 
     no_visual_change_drag_count = 0
     abort_due_to_no_visual_change = False
+
+    slow_drag_duration_seconds = float(
+        getattr(
+            executor,
+            "view_pan_slow_drag_duration_seconds",
+            VIEW_PAN_LAG_SLOW_DRAG_DURATION_SECONDS_DEFAULT,
+        )
+    )
+    if slow_drag_duration_seconds < 0:
+        slow_drag_duration_seconds = 0.0
+
+    slow_drag_steps = int(
+        getattr(
+            executor,
+            "view_pan_slow_drag_steps",
+            VIEW_PAN_LAG_SLOW_DRAG_STEPS_DEFAULT,
+        )
+    )
+    if slow_drag_steps <= 0:
+        slow_drag_steps = int(VIEW_PAN_LAG_SLOW_DRAG_STEPS_DEFAULT)
+
+    # 一旦检测到“拖拽疑似不生效/位移异常”，本次对齐循环后续拖拽统一改为慢拖拽，
+    # 以适配卡顿机器的输入节奏（避免在同一轮对齐中频繁切换策略）。
+    slow_drag_for_remainder = False
+
+    # 视口平移优化：
+    # - 第一次拖拽：使用相位相关估计真实内容位移，并据此校准“预期Δ → 实际Δ”的比例；
+    # - 后续拖拽：不再执行相位相关估计与严格画布吸附，仅做“粗略颜色吸附 + 按校准比例更新原点映射”；
+    # - 结束后：若提供 graph_model，则额外做一次识别校正，必要时再识别一次。
+    #
+    # 目标：在远距离拖拽(多步)场景显著减少每步识别成本，同时保留末端的精确对齐能力。
+    enable_calibrated_pan = bool(getattr(executor, "view_pan_enable_calibrated_steps", True))
+    enable_coarse_canvas_snap = bool(getattr(executor, "view_pan_enable_coarse_canvas_snap", True))
+    enable_end_recognition_correction = bool(
+        getattr(executor, "view_pan_enable_end_recognition_correction", True)
+    )
+    calibrated_delta_scale = 1.0
+    has_calibrated_delta_scale = False
+    used_coarse_drag_steps = False
 
     def _estimate_roi_mean_abs_diff(before_image: Image.Image, after_image: Image.Image, roi: Tuple[int, int, int, int]) -> float:
         roi_x, roi_y, roi_w, roi_h = roi
@@ -369,6 +410,10 @@ def ensure_program_point_visible(
     def _execute_drag(current_image: Image.Image, plan: Dict[str, Any]) -> Image.Image:
         nonlocal no_visual_change_drag_count
         nonlocal abort_due_to_no_visual_change
+        nonlocal calibrated_delta_scale
+        nonlocal has_calibrated_delta_scale
+        nonlocal used_coarse_drag_steps
+        nonlocal slow_drag_for_remainder
 
         start_screen_x, start_screen_y = plan["start_screen"]
         end_screen_x, end_screen_y = plan["end_screen"]
@@ -380,6 +425,127 @@ def ensure_program_point_visible(
         if expected_delta is not None:
             expected_dx, expected_dy = expected_delta
             planned_non_zero = bool((expected_dx != 0) or (expected_dy != 0))
+
+        step_index = int(step_counter.get("count", 0))
+
+        # —— 快速路径：首拖拽完成校准后，后续拖拽不再执行相位相关与严格吸附 —— #
+        if (
+            enable_calibrated_pan
+            and has_calibrated_delta_scale
+            and step_index > 0
+            and planned_non_zero
+        ):
+            # 粗略吸附：仅基于当前帧像素采样寻找允许底色点（不做节点识别）
+            snapped_fast = None
+            if enable_coarse_canvas_snap:
+                coarse_method = getattr(_exec_utils, "snap_screen_point_to_canvas_background_coarse", None)
+                if callable(coarse_method):
+                    snapped_fast = coarse_method(
+                        executor,
+                        int(start_screen_x),
+                        int(start_screen_y),
+                        screenshot=current_image,
+                        region_rect=roi,
+                        log_callback=log_callback,
+                    )
+            snapped = snapped_fast
+            if snapped is None:
+                snapped = _exec_utils.snap_screen_point_to_canvas_background(
+                    executor,
+                    int(start_screen_x),
+                    int(start_screen_y),
+                    log_callback=log_callback,
+                    visual_callback=visual_callback,
+                )
+            if snapped is None:
+                executor.log(
+                    "[视口对齐] 无法在画布内为拖拽起点找到安全背景色位置，本次拖拽已放弃",
+                    log_callback,
+                )
+                return current_image
+
+            drag_start_x = int(snapped[0])
+            drag_start_y = int(snapped[1])
+
+            # 限制拖拽起点和终点都在编辑器窗口矩形内，避免光标跑出程序窗口
+            win_rect = editor_capture.get_window_rect(executor.window_title)
+            if win_rect is not None:
+                win_left, win_top, win_right, win_bottom = win_rect
+
+                def _clamp_screen_point(x: int, y: int) -> tuple[int, int]:
+                    clamped_x = x
+                    clamped_y = y
+                    if clamped_x < int(win_left):
+                        clamped_x = int(win_left)
+                    elif clamped_x >= int(win_right):
+                        clamped_x = int(win_right) - 1
+                    if clamped_y < int(win_top):
+                        clamped_y = int(win_top)
+                    elif clamped_y >= int(win_bottom):
+                        clamped_y = int(win_bottom) - 1
+                    return (int(clamped_x), int(clamped_y))
+
+                drag_start_x, drag_start_y = _clamp_screen_point(int(drag_start_x), int(drag_start_y))
+                end_screen_x, end_screen_y = _clamp_screen_point(int(end_screen_x), int(end_screen_y))
+
+            if bool(slow_drag_for_remainder) and float(slow_drag_duration_seconds) > 0.0:
+                editor_capture.drag_right_button_timed(
+                    int(drag_start_x),
+                    int(drag_start_y),
+                    int(end_screen_x),
+                    int(end_screen_y),
+                    duration_seconds=float(slow_drag_duration_seconds),
+                    steps=int(slow_drag_steps),
+                )
+            else:
+                editor_capture.drag_right_button(
+                    int(drag_start_x),
+                    int(drag_start_y),
+                    int(end_screen_x),
+                    int(end_screen_y),
+                )
+            invalidate_cache()
+            sleep_seconds(DEFAULT_DRAG_MOUSE_UP_MS / 1000.0)
+
+            after_image = editor_capture.capture_window(executor.window_title)
+            if after_image is None:
+                after_image = current_image
+
+            applied_dx = 0
+            applied_dy = 0
+            expected_dx_int = int(expected_dx)
+            expected_dy_int = int(expected_dy)
+            planned_mean_diff = 0.0
+            if planned_non_zero and int(max_no_visual_change_drags) > 0:
+                planned_mean_diff = float(_estimate_roi_mean_abs_diff(current_image, after_image, roi))
+                if float(planned_mean_diff) < float(no_visual_change_mean_diff_threshold):
+                    no_visual_change_drag_count += 1
+                    slow_drag_for_remainder = True
+                    executor.log(
+                        f"[视口对齐] 拖拽后画面无明显变化(meanDiff≈{float(planned_mean_diff):.2f})，疑似拖拽未生效：连续无变化={int(no_visual_change_drag_count)}/{int(max_no_visual_change_drags)}",
+                        log_callback,
+                    )
+                    if int(no_visual_change_drag_count) >= int(max_no_visual_change_drags):
+                        abort_due_to_no_visual_change = True
+                else:
+                    no_visual_change_drag_count = 0
+
+            if (not planned_non_zero) or (int(no_visual_change_drag_count) == 0):
+                applied_dx = int(round(float(expected_dx_int) * float(calibrated_delta_scale)))
+                applied_dy = int(round(float(expected_dy_int) * float(calibrated_delta_scale)))
+            executor.origin_node_pos = (
+                int(executor.origin_node_pos[0] + int(applied_dx)),
+                int(executor.origin_node_pos[1] + int(applied_dy)),
+            )
+            executor.log(
+                f"[视口对齐] 校准步长更新：预期Δ≈({expected_dx_int},{expected_dy_int}) "
+                f"ratio≈{float(calibrated_delta_scale):.3f} → 应用Δ≈({int(applied_dx)},{int(applied_dy)})",
+                log_callback,
+            )
+            used_coarse_drag_steps = True
+            if hasattr(executor, "mark_view_changed"):
+                executor.mark_view_changed("pan")
+            return after_image
 
         # 将拖拽起点吸附到画布背景上，避免从节点矩形内部发起无效拖拽
         snapped = _exec_utils.snap_screen_point_to_canvas_background(
@@ -483,7 +649,22 @@ def ensure_program_point_visible(
                         }
                     )
                 executor.emit_visual(current_image, {"rects": rects_drag, "circles": circles_drag}, visual_callback)
-            editor_capture.drag_right_button(drag_start_x, drag_start_y, end_screen_x, end_screen_y)
+            if bool(slow_drag_for_remainder) and float(slow_drag_duration_seconds) > 0.0:
+                editor_capture.drag_right_button_timed(
+                    int(drag_start_x),
+                    int(drag_start_y),
+                    int(end_screen_x),
+                    int(end_screen_y),
+                    duration_seconds=float(slow_drag_duration_seconds),
+                    steps=int(slow_drag_steps),
+                )
+            else:
+                editor_capture.drag_right_button(
+                    int(drag_start_x),
+                    int(drag_start_y),
+                    int(end_screen_x),
+                    int(end_screen_y),
+                )
             invalidate_cache()
             sleep_seconds(DEFAULT_DRAG_MOUSE_UP_MS / 1000.0)
 
@@ -503,6 +684,7 @@ def ensure_program_point_visible(
                 expected_dy=expected_dy_int,
                 pan_step_pixels=int(pan_step_pixels),
             ):
+                slow_drag_for_remainder = True
                 executor.log(
                     "[视口对齐] 相位相关位移异常："
                     f"Δ=({int(dx_corr)},{int(dy_corr)}) 与预期≈({expected_dx_int},{expected_dy_int})不一致，"
@@ -523,6 +705,7 @@ def ensure_program_point_visible(
                 mean_diff = _estimate_roi_mean_abs_diff(current_image, after, roi)
                 if float(mean_diff) < float(no_visual_change_mean_diff_threshold):
                     no_visual_change_drag_count += 1
+                    slow_drag_for_remainder = True
                     executor.log(
                         f"[视口对齐] 拖拽后画面无明显变化(meanDiff≈{float(mean_diff):.2f})，疑似拖拽未生效：连续无变化={int(no_visual_change_drag_count)}/{int(max_no_visual_change_drags)}",
                         log_callback,
@@ -559,6 +742,27 @@ def ensure_program_point_visible(
             f"[视口对齐] 内容位移估计 Δ=({dx_corr},{dy_corr})，实际应用偏移 Δ=({effective_dx},{effective_dy})，已据此更新原点映射",
             log_callback,
         )
+
+        # 仅在第一次“规划非零拖拽”且相位相关估计得到可信位移时进行步长校准，
+        # 后续拖拽按该比例粗略更新原点映射，减少相位相关与严格吸附成本。
+        if enable_calibrated_pan and (not has_calibrated_delta_scale) and planned_non_zero:
+            expected_dx_int = int(expected_dx)
+            expected_dy_int = int(expected_dy)
+            expected_len2 = int(expected_dx_int) * int(expected_dx_int) + int(expected_dy_int) * int(expected_dy_int)
+            dot_value = int(effective_dx) * int(expected_dx_int) + int(effective_dy) * int(expected_dy_int)
+            if expected_len2 > 0 and dot_value > 0:
+                ratio_raw = float(dot_value) / float(expected_len2)
+                # 合理区间保护：避免一次异常估计导致后续粗略位移发散
+                ratio_clamped = float(min(max(ratio_raw, 0.60), 1.40))
+                calibrated_delta_scale = float(ratio_clamped)
+                has_calibrated_delta_scale = True
+                executor.log(
+                    f"[视口对齐] 拖拽测距：预期Δ≈({expected_dx_int},{expected_dy_int}) "
+                    f"应用Δ≈({int(effective_dx)},{int(effective_dy)}) ratio≈{float(ratio_raw):.3f} "
+                    f"→ clamp≈{float(calibrated_delta_scale):.3f}，后续将使用粗略拖拽更新",
+                    log_callback,
+                )
+
         if hasattr(executor, "mark_view_changed"):
             executor.mark_view_changed("pan")
         return after
@@ -591,6 +795,43 @@ def ensure_program_point_visible(
             f"[视口对齐] 达到最大步数仍未将目标移入安全区（steps={max_steps}），请检查坐标映射或画布边界",
             log_callback,
         )
+
+    # 末端识别校正：仅在启用“校准拖拽”且确实走过粗略拖拽步骤时执行。
+    # 目的：在远距离平移后用一次识别将坐标映射拉回精确状态，供后续节点/端口定位使用。
+    if (
+        enable_calibrated_pan
+        and enable_end_recognition_correction
+        and used_coarse_drag_steps
+        and graph_model is not None
+    ):
+        verify_method = getattr(executor, "verify_and_update_view_mapping_by_recognition", None)
+        if callable(verify_method):
+            if allow_continue is not None and not allow_continue():
+                executor.log("用户终止/暂停，跳过末端识别校正", log_callback)
+            else:
+                executor.log("[视口对齐] 末端识别校正：开始基于识别刷新坐标映射…", log_callback)
+                ok_fit = bool(
+                    verify_method(
+                        graph_model,
+                        log_callback=log_callback,
+                        visual_callback=visual_callback,
+                        allow_degraded_fallback=True,
+                    )
+                )
+                if not ok_fit:
+                    executor.log("[视口对齐] 末端识别校正失败，尝试再次识别…", log_callback)
+                    ok_fit = bool(
+                        verify_method(
+                            graph_model,
+                            log_callback=log_callback,
+                            visual_callback=visual_callback,
+                            allow_degraded_fallback=True,
+                        )
+                    )
+                if ok_fit:
+                    executor.log("[视口对齐] 末端识别校正成功：已更新坐标映射", log_callback)
+                else:
+                    executor.log("[视口对齐] 末端识别校正仍失败：保留当前映射结果", log_callback)
     return
 
 
@@ -718,7 +959,10 @@ def calibrate_coordinates(
 
             def _score_candidate(cand: Tuple[int, int, int, int, int, int]) -> Tuple[int, float]:
                 cx0, cy0, w0, h0 = int(cand[0]), int(cand[1]), int(cand[2]), int(cand[3])
-                scale_est = (float(w0) / NODE_VIEW_WIDTH_PX + float(h0) / NODE_VIEW_HEIGHT_PX) * 0.5
+                node_view_w_px, node_view_h_px = get_node_view_size_px()
+                base_w = float(node_view_w_px) if float(node_view_w_px) > 0.0 else 200.0
+                base_h = float(node_view_h_px) if float(node_view_h_px) > 0.0 else 100.0
+                scale_est = (float(w0) / base_w + float(h0) / base_h) * 0.5
                 anchor_prog_x = float(anchor_program_pos[0])
                 anchor_prog_y = float(anchor_program_pos[1])
                 origin_x_est = float(cx0) - anchor_prog_x * scale_est
@@ -739,7 +983,11 @@ def calibrate_coordinates(
                 neighbors = neighbors[:8]
                 matches = 0
                 total_err = 0.0
-                pos_threshold_x, pos_threshold_y = compute_position_thresholds(float(scale_est))
+                pos_threshold_x, pos_threshold_y = compute_position_thresholds_for_node_view(
+                    scale=float(scale_est),
+                    node_view_width_px=float(base_w),
+                    node_view_height_px=float(base_h),
+                )
                 for _dist2, nb in neighbors:
                     nb_cn = executor.extract_chinese(nb.title)
                     det_list = name_to_detections.get(nb_cn, [])
@@ -785,10 +1033,11 @@ def calibrate_coordinates(
         rects_anchor = [ { 'bbox': (int(rel_x), int(rel_y), int(match_w), int(match_h)), 'color': (255, 120, 120), 'label': '锚点节点' } ]
         executor.emit_visual(screenshot2, { 'rects': rects_anchor }, visual_callback)
 
-    program_node_width = NODE_VIEW_WIDTH_PX
-    program_node_height = NODE_VIEW_HEIGHT_PX
-    scale_x = float(match_w) / program_node_width
-    scale_y = float(match_h) / program_node_height
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    base_w = float(node_view_w_px) if float(node_view_w_px) > 0.0 else 200.0
+    base_h = float(node_view_h_px) if float(node_view_h_px) > 0.0 else 100.0
+    scale_x = float(match_w) / float(base_w)
+    scale_y = float(match_h) / float(base_h)
     avg_scale = (scale_x + scale_y) * 0.5
     if avg_scale <= MIN_SCALE_RATIO:
         executor.log("✗ 锚点识别结果异常：节点尺寸过小，无法计算缩放比例", log_callback)

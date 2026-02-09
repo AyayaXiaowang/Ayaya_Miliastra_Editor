@@ -26,7 +26,8 @@ def set_all_children_state(todo_map, todo_states, todo, is_checked: bool, emit_c
         else:
             old_state = todo_states.get(child_id, False)
             if old_state != is_checked:
-                todo_states[child_id] = is_checked
+                # 不在此处直接写 todo_states：完成度写入入口应由调用方收口（例如 TodoTreeManager.set_leaf_checked）。
+                # 否则会导致“先改状态再 emit_checked”使上层无法判定是否真的发生变化。
                 emit_checked(child_id, is_checked)
 
 

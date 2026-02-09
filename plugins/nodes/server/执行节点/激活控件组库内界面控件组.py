@@ -13,4 +13,8 @@ from engine.utils.logging.logger import log_info
 )
 def 激活控件组库内界面控件组(game, 目标玩家, 界面控件组索引):
     """可以在目标玩家的界面布局上激活处于界面控件组库内的以自定义模板形式存在的界面控件组"""
-    log_info(f"[激活控件组库内界面控件组] 执行")
+    idx = int(界面控件组索引)
+    log_info("[激活控件组库内界面控件组] group_index={}", idx)
+    ui_activate = getattr(game, "ui_activate_widget_group", None)
+    if callable(ui_activate):
+        ui_activate(目标玩家, idx)

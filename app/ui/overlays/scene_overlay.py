@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import time
+
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Optional, Dict, List
 from app.ui.overlays.text_layout import GridOccupancyIndex
@@ -27,42 +29,118 @@ class SceneOverlayMixin:
         """绘制网格背景和基本块矩形"""
         from app.ui.foundation.theme_manager import ThemeManager
         from engine.configs.settings import settings
+
+        monitor = getattr(self, "_perf_monitor", None)
+        t_total0 = time.perf_counter() if monitor is not None else 0.0
+
+        blocks_only = bool(getattr(self, "blocks_only_overview_mode", False))
+        view_panning = bool(getattr(self, "_view_panning", False))
         
         # 绘制网格背景
-        ThemeManager.draw_grid_background(painter, rect, self.grid_size)
+        # 低倍率下仍然保留画布背景（底色+网格），但会自动放大网格间距，
+        # 避免因为“网格线过密”造成噪音与绘制开销（鸟瞰模式下阈值更激进）。
+        grid_enabled = bool(getattr(settings, "GRAPH_GRID_ENABLED", True))
+        # 极致性能：平移期间不绘制网格线（只保留纯底色）。
+        # 说明：平移时视图禁用 CacheBackground，会导致背景每帧重绘；网格线又是高频 drawLine 调用，
+        # 因此 panning 期间跳过网格线可显著降低卡顿。
+        if (not grid_enabled) or view_panning:
+            t0 = time.perf_counter() if monitor is not None else 0.0
+            painter.fillRect(rect, QtGui.QColor(GraphPalette.CANVAS_BG))
+            if monitor is not None:
+                monitor.record_ms("scene.drawBackground.grid", (time.perf_counter() - float(t0)) * 1000.0)
+        else:
+            grid_size = int(getattr(self, "grid_size", 50) or 50)
+            if grid_size <= 0:
+                grid_size = 50
+            effective_grid_size = grid_size
+            import math
+
+            scale_hint = float(painter.worldTransform().m11())
+            min_grid_px = float(
+                getattr(
+                    settings,
+                    "GRAPH_BLOCK_OVERVIEW_GRID_MIN_PX" if blocks_only else "GRAPH_GRID_MIN_PX",
+                    24.0 if blocks_only else 12.0,
+                )
+            )
+            if scale_hint > 0.0 and min_grid_px > 0.0:
+                spacing_px = float(grid_size) * float(scale_hint)
+                if spacing_px < float(min_grid_px):
+                    factor = int(math.ceil(float(min_grid_px) / float(max(1e-6, spacing_px))))
+                    if factor > 1:
+                        effective_grid_size = int(grid_size * factor)
+
+            if monitor is not None:
+                t0 = time.perf_counter()
+                ThemeManager.draw_grid_background(painter, rect, int(effective_grid_size))
+                monitor.record_ms("scene.drawBackground.grid", (time.perf_counter() - float(t0)) * 1000.0)
+            else:
+                ThemeManager.draw_grid_background(painter, rect, int(effective_grid_size))
         
         # 绘制基本块矩形(如果启用)
-        if settings.SHOW_BASIC_BLOCKS and self.model and self.model.basic_blocks:
+        # 鸟瞰模式下即使 SHOW_BASIC_BLOCKS 关闭，也应绘制 basic blocks（否则画布会空白）。
+        show_blocks = bool(settings.SHOW_BASIC_BLOCKS) or bool(blocks_only)
+        if show_blocks and self.model and self.model.basic_blocks:
+            t_blocks0 = time.perf_counter() if monitor is not None else 0.0
             painter.save()
-            
+
             # 遍历所有基本块
             for block_index, block in enumerate(self.model.basic_blocks):
                 if not block.nodes:
                     continue
-                
+
                 # 计算基本块的边界矩形
-                block_rect = self._calculate_block_rect(block)
-                
+                block_rect = self._calculate_block_rect(block, block_index=int(block_index))
+
                 if block_rect and block_rect.intersects(rect):
                     # 设置颜色和透明度
                     color = QtGui.QColor(block.color)
                     color.setAlphaF(settings.BASIC_BLOCK_ALPHA)
-                    
+
                     # 绘制半透明矩形
                     painter.setBrush(QtGui.QBrush(color))
                     painter.setPen(QtCore.Qt.PenStyle.NoPen)  # 无边框
                     painter.drawRoundedRect(block_rect, 8, 8)  # 圆角8px
-                    
+
                     # 注意:标签在drawForeground中绘制,确保不被节点遮挡
-            
+
             painter.restore()
+            if monitor is not None:
+                monitor.record_ms(
+                    "scene.drawBackground.basic_blocks",
+                    (time.perf_counter() - float(t_blocks0)) * 1000.0,
+                )
+
+        if monitor is not None:
+            monitor.record_ms(
+                "scene.drawBackground.total",
+                (time.perf_counter() - float(t_total0)) * 1000.0,
+            )
     
     def drawForeground(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
         """绘制前景层(基本块标签)"""
         from engine.configs.settings import settings
+
+        monitor = getattr(self, "_perf_monitor", None)
+        t_total0 = time.perf_counter() if monitor is not None else 0.0
+
+        lod_enabled = bool(getattr(settings, "GRAPH_LOD_ENABLED", True))
+        details_min_scale = float(getattr(settings, "GRAPH_LOD_NODE_DETAILS_MIN_SCALE", 0.55))
+        scale_hint = float(painter.worldTransform().m11())
+        low_detail = bool(lod_enabled and (scale_hint < details_min_scale))
+        blocks_only = bool(getattr(self, "blocks_only_overview_mode", False))
+        view_panning = bool(getattr(self, "_view_panning", False))
+        if view_panning and bool(getattr(settings, "GRAPH_PAN_HIDE_ICONS_ENABLED", True)):
+            # 平移期间：视为低细节模式，隐藏 YDebug 图标/链路徽标等调试叠层以提升流畅度。
+            low_detail = True
+        if blocks_only:
+            # 鸟瞰只看块颜色：视为低细节模式（隐藏Y调试图标/链路徽标等噪音）
+            low_detail = True
         
         # 绘制基本块编号标签(在前景层,确保不被节点遮挡)
-        if settings.SHOW_BASIC_BLOCKS and self.model and self.model.basic_blocks:
+        # 鸟瞰只看块颜色：不绘制块编号标签，避免在低倍率视角产生文本噪音。
+        if (not blocks_only) and settings.SHOW_BASIC_BLOCKS and self.model and self.model.basic_blocks:
+            t0 = time.perf_counter() if monitor is not None else 0.0
             painter.save()
             
             # 遍历所有基本块
@@ -71,7 +149,7 @@ class SceneOverlayMixin:
                     continue
                 
                 # 计算基本块的边界矩形
-                block_rect = self._calculate_block_rect(block)
+                block_rect = self._calculate_block_rect(block, block_index=int(block_index))
                 
                 if block_rect and block_rect.intersects(rect):
                     # 获取块颜色
@@ -81,48 +159,78 @@ class SceneOverlayMixin:
                     self._draw_block_label(painter, block_rect, block_index + 1, color)
             
             painter.restore()
+            if monitor is not None:
+                monitor.record_ms(
+                    "scene.drawForeground.block_labels",
+                    (time.perf_counter() - float(t0)) * 1000.0,
+                )
 
         # 轻量:布局Y调试图标(节点右上角"!"),点击弹出可复制Tooltip
-        if getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False) and self.model:
+        #
+        # LOD：低倍率缩放时仅保留节点标题栏，不绘制调试图标与徽标，避免在超大图鸟瞰时造成噪音与额外开销。
+        if (not low_detail) and getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False) and self.model:
             self._ensure_layout_y_debug_info()
             debug_map = getattr(self.model, "_layout_y_debug_info", {}) or {}
             if debug_map and self.node_items:
                 if not hasattr(self, "_ydebug_icon_rects"):
                     self._ydebug_icon_rects = {}
                 self._ydebug_icon_rects.clear()
+                t0 = time.perf_counter() if monitor is not None else 0.0
                 painter.save()
                 visible_rect = rect.adjusted(-60.0, -60.0, 60.0, 60.0)
-                for node_id, node_item in self.node_items.items():
-                    # 仅对存在调试信息的节点绘制图标,避免点击无反馈
-                    if node_id not in debug_map:
+                icon_size = 28.0
+                icon_margin = 6.0
+
+                # 先收集可见图标，再分两趟绘制（减少 setPen/setBrush/setFont 的状态切换开销）
+                icon_rects: List[QtCore.QRectF] = []
+                icon_map = self._ydebug_icon_rects
+                node_items = self.node_items
+                for node_id in debug_map.keys():
+                    node_item = node_items.get(node_id)
+                    if node_item is None:
                         continue
                     node_rect = node_item.sceneBoundingRect()
                     if not node_rect.intersects(visible_rect):
                         continue
-                    icon_size = 28.0
-                    icon_margin = 6.0
-                    # 改为右上角:以节点右侧为参考点放置图标
                     icon_rect = QtCore.QRectF(
                         float(node_rect.right()) - icon_margin - icon_size,
                         float(node_rect.top()) + icon_margin,
                         icon_size,
-                        icon_size
+                        icon_size,
                     )
+                    icon_rects.append(icon_rect)
+                    icon_map[str(node_id)] = icon_rect
+
+                if icon_rects:
+                    # 背景圆：一次性设置笔刷/画笔后批量绘制
                     painter.setPen(QtCore.Qt.PenStyle.NoPen)
                     painter.setBrush(QtGui.QBrush(QtGui.QColor(GraphPalette.BADGE_ACCENT)))
-                    painter.drawEllipse(icon_rect)
-                    pen = QtGui.QPen(QtGui.QColor(GraphPalette.TEXT_BRIGHT))
-                    painter.setPen(pen)
+                    for r in icon_rects:
+                        painter.drawEllipse(r)
+
+                    # "!"：一次性设置字体/画笔后批量绘制（避免每个图标都 setFont）
+                    painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+                    painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.TEXT_BRIGHT)))
                     font = painter.font()
                     font.setBold(True)
                     font.setPointSizeF(14.0)
                     painter.setFont(font)
-                    painter.drawText(icon_rect, QtCore.Qt.AlignmentFlag.AlignCenter, "!")
-                    self._ydebug_icon_rects[node_id] = icon_rect
+                    for r in icon_rects:
+                        painter.drawText(r, QtCore.Qt.AlignmentFlag.AlignCenter, "!")
                 painter.restore()
+                if monitor is not None:
+                    monitor.record_ms(
+                        "scene.drawForeground.ydebug_icons",
+                        (time.perf_counter() - float(t0)) * 1000.0,
+                    )
+        elif low_detail:
+            # 低倍率下确保命中映射清空，避免点击误判
+            if hasattr(self, "_ydebug_icon_rects"):
+                self._ydebug_icon_rects.clear()
         # 链路序号徽标(当前高亮链路时显示在节点上方,醒目且有描边)
-        if getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False):
+        if (not low_detail) and getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False):
             if hasattr(self, "_active_chain_node_positions") and self._active_chain_node_positions:
+                t0 = time.perf_counter() if monitor is not None else 0.0
                 painter.save()
                 for node_id, order_index in self._active_chain_node_positions.items():
                     node_item = self.node_items.get(node_id)
@@ -150,8 +258,14 @@ class SceneOverlayMixin:
                     painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.BADGE_OUTLINE)))
                     painter.drawText(badge_rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(int(order_index)))
                 painter.restore()
+                if monitor is not None:
+                    monitor.record_ms(
+                        "scene.drawForeground.chain_badges",
+                        (time.perf_counter() - float(t0)) * 1000.0,
+                    )
             # 全链路高亮:为相关节点绘制彩色描边
             if hasattr(self, "_all_chain_node_color_map") and self._all_chain_node_color_map:
+                t0 = time.perf_counter() if monitor is not None else 0.0
                 painter.save()
                 for node_id, color in self._all_chain_node_color_map.items():
                     node_item = self.node_items.get(node_id)
@@ -164,8 +278,14 @@ class SceneOverlayMixin:
                     painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
                     painter.drawRoundedRect(node_rect.adjusted(-2, -2, 2, 2), 12, 12)
                 painter.restore()
+                if monitor is not None:
+                    monitor.record_ms(
+                        "scene.drawForeground.chain_outlines",
+                        (time.perf_counter() - float(t0)) * 1000.0,
+                    )
                 # 在“高亮全部”模式下，为每个节点绘制链编号徽标（链ID），与描边颜色一致
                 if hasattr(self, "_all_chain_node_chain_ids") and self._all_chain_node_chain_ids:
+                    t0 = time.perf_counter() if monitor is not None else 0.0
                     painter.save()
                     for node_id, chain_id in self._all_chain_node_chain_ids.items():
                         node_item = self.node_items.get(node_id)
@@ -191,6 +311,17 @@ class SceneOverlayMixin:
                         painter.setPen(QtGui.QPen(QtGui.QColor(GraphPalette.BADGE_OUTLINE)))
                         painter.drawText(badge_rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(int(chain_id)))
                     painter.restore()
+                    if monitor is not None:
+                        monitor.record_ms(
+                            "scene.drawForeground.chain_id_badges",
+                            (time.perf_counter() - float(t0)) * 1000.0,
+                        )
+
+        if monitor is not None:
+            monitor.record_ms(
+                "scene.drawForeground.total",
+                (time.perf_counter() - float(t_total0)) * 1000.0,
+            )
 
     def _get_ydebug_icon_rect_for_item(self, node_item: 'NodeGraphicsItem', icon_size: float = 28.0, icon_margin: float = 6.0) -> QtCore.QRectF:
         """计算给定节点的Y调试图标的矩形(右上角)"""
@@ -322,7 +453,125 @@ class SceneOverlayMixin:
         
         painter.drawText(label_rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(block_number))
     
-    def _calculate_block_rect(self, block) -> Optional[QtCore.QRectF]:
+    def _ensure_basic_block_rect_cache(self) -> dict[int, QtCore.QRectF]:
+        cache = getattr(self, "_basic_block_rect_cache", None)
+        if not isinstance(cache, dict):
+            cache = {}
+            self._basic_block_rect_cache = cache
+        return cache
+    
+    def _ensure_basic_block_rect_dirty_indices(self) -> set[int]:
+        dirty = getattr(self, "_basic_block_rect_dirty_indices", None)
+        if not isinstance(dirty, set):
+            dirty = set()
+            self._basic_block_rect_dirty_indices = dirty
+        return dirty
+
+    def _ensure_basic_block_node_to_indices(self) -> dict[str, list[int]]:
+        mapping = getattr(self, "_basic_block_node_to_indices", None)
+        token = getattr(self, "_basic_block_node_to_indices_token", None)
+        model = getattr(self, "model", None)
+        blocks = getattr(model, "basic_blocks", None) if model is not None else None
+        current_token = (id(model), id(blocks))
+        if isinstance(mapping, dict) and token == current_token:
+            return mapping
+
+        new_mapping: dict[str, list[int]] = {}
+        if isinstance(blocks, list):
+            for idx, block in enumerate(blocks):
+                node_ids = getattr(block, "nodes", None) or []
+                for node_id in node_ids:
+                    node_id_text = str(node_id or "").strip()
+                    if not node_id_text:
+                        continue
+                    new_mapping.setdefault(node_id_text, []).append(int(idx))
+
+        # basic_blocks 变更：映射与 rect cache 都需要重建
+        self._basic_block_node_to_indices = new_mapping
+        self._basic_block_node_to_indices_token = current_token
+        self.invalidate_basic_block_rect_cache()
+        return new_mapping
+
+    def invalidate_basic_block_rect_cache(self) -> None:
+        cache = getattr(self, "_basic_block_rect_cache", None)
+        if isinstance(cache, dict):
+            cache.clear()
+        dirty = getattr(self, "_basic_block_rect_dirty_indices", None)
+        if isinstance(dirty, set):
+            dirty.clear()
+
+    def mark_basic_block_rect_dirty_for_node(self, node_id: str) -> None:
+        """标记与指定节点相关的 basic block 矩形为 dirty，下一次绘制时会重算（可收缩）。"""
+        node_id_text = str(node_id or "").strip()
+        if not node_id_text:
+            return
+
+        node_to_indices = self._ensure_basic_block_node_to_indices()
+        indices = node_to_indices.get(node_id_text) or []
+        if not indices:
+            return
+
+        dirty = self._ensure_basic_block_rect_dirty_indices()
+        for idx in indices:
+            dirty.add(int(idx))
+
+    def note_basic_block_node_moved(self, node_id: str, node_pos: tuple[float, float]) -> None:
+        """节点移动时增量更新 basic block 的缓存矩形（仅扩张，不收缩）。
+
+        用途：
+        - 拖拽节点过程中保持 basic block 背景跟随（避免“看起来不更新”）；
+        - 精确边界（包含可变高度节点）在拖拽结束后通过 dirty 重算收敛。
+        """
+        node_id_text = str(node_id or "").strip()
+        if not node_id_text:
+            return
+        
+        cache = self._ensure_basic_block_rect_cache()
+
+        node_to_indices = self._ensure_basic_block_node_to_indices()
+        indices = node_to_indices.get(node_id_text) or []
+        if not indices:
+            return
+
+        margin = 25.0
+        node_outer: QtCore.QRectF | None = None
+
+        node_items = getattr(self, "node_items", None)
+        node_item = node_items.get(node_id_text) if isinstance(node_items, dict) else None
+        if node_item is not None:
+            rect = node_item.sceneBoundingRect()
+            children_rect = node_item.childrenBoundingRect()
+            if not children_rect.isEmpty():
+                rect = rect.united(node_item.mapRectToScene(children_rect))
+            node_outer = rect.adjusted(-margin, -margin, margin, margin)
+        else:
+            # fallback：仅用 model pos 的近似尺寸
+            if not isinstance(node_pos, (tuple, list)) or len(node_pos) < 2:
+                return
+            from engine.configs.settings import settings
+
+            approx_w = float(getattr(settings, "GRAPH_MINIMAP_APPROX_NODE_WIDTH", 280.0))
+            approx_h = float(getattr(settings, "GRAPH_MINIMAP_APPROX_NODE_HEIGHT", 140.0))
+            x = float(node_pos[0])
+            y = float(node_pos[1])
+            node_outer = QtCore.QRectF(
+                x - margin,
+                y - margin,
+                approx_w + margin * 2.0,
+                approx_h + margin * 2.0,
+            )
+
+        if node_outer is None or node_outer.isEmpty():
+            return
+        for idx in indices:
+            idx_int = int(idx)
+            existing = cache.get(idx_int)
+            if isinstance(existing, QtCore.QRectF):
+                cache[idx_int] = existing.united(node_outer)
+            else:
+                cache[idx_int] = QtCore.QRectF(node_outer)
+
+    def _calculate_block_rect(self, block, *, block_index: int | None = None) -> Optional[QtCore.QRectF]:
         """计算基本块的边界矩形
         
         Args:
@@ -333,33 +582,60 @@ class SceneOverlayMixin:
         """
         if not block.nodes:
             return None
-        
-        # 收集所有节点的边界矩形
-        node_rects = []
+
+        cache = self._ensure_basic_block_rect_cache()
+        dirty = self._ensure_basic_block_rect_dirty_indices()
+        if block_index is not None:
+            cached = cache.get(int(block_index))
+            if isinstance(cached, QtCore.QRectF) and int(block_index) not in dirty:
+                return cached
+
+        node_items = getattr(self, "node_items", None)
+        node_items_dict = node_items if isinstance(node_items, dict) else {}
+
+        from engine.configs.settings import settings
+
+        model = getattr(self, "model", None)
+        model_nodes = getattr(model, "nodes", None) if model is not None else None
+        approx_w = float(getattr(settings, "GRAPH_MINIMAP_APPROX_NODE_WIDTH", 280.0))
+        approx_h = float(getattr(settings, "GRAPH_MINIMAP_APPROX_NODE_HEIGHT", 140.0))
+        margin = 25.0
+
+        union_rect: QtCore.QRectF | None = None
         for node_id in block.nodes:
-            node_item = self.node_items.get(node_id)
-            if node_item:
-                # 获取节点在场景中的边界矩形
-                node_rects.append(node_item.sceneBoundingRect())
-        
-        if not node_rects:
+            node_id_text = str(node_id or "").strip()
+            if not node_id_text:
+                continue
+
+            node_item = node_items_dict.get(node_id_text)
+            if node_item is not None:
+                rect = node_item.sceneBoundingRect()
+                children_rect = node_item.childrenBoundingRect()
+                if not children_rect.isEmpty():
+                    rect = rect.united(node_item.mapRectToScene(children_rect))
+            else:
+                # fallback：节点图元缺失时用 model pos 做近似
+                if not isinstance(model_nodes, dict):
+                    continue
+                node_model = model_nodes.get(node_id_text)
+                pos = getattr(node_model, "pos", None) if node_model is not None else None
+                if not isinstance(pos, (list, tuple)) or len(pos) < 2:
+                    continue
+                rect = QtCore.QRectF(float(pos[0]), float(pos[1]), float(approx_w), float(approx_h))
+
+            if union_rect is None:
+                union_rect = QtCore.QRectF(rect)
+            else:
+                union_rect = union_rect.united(rect)
+
+        if union_rect is None or union_rect.isEmpty():
             return None
-        
-        # 计算包含所有节点的最小矩形
-        min_x = min(r.left() for r in node_rects)
-        min_y = min(r.top() for r in node_rects)
-        max_x = max(r.right() for r in node_rects)
-        max_y = max(r.bottom() for r in node_rects)
-        
-        # 留出边距(20-30px)
-        margin = 25
-        
-        return QtCore.QRectF(
-            min_x - margin,
-            min_y - margin,
-            max_x - min_x + 2 * margin,
-            max_y - min_y + 2 * margin
-        )
+
+        rect = union_rect.adjusted(-margin, -margin, margin, margin)
+        if block_index is not None:
+            cache[int(block_index)] = rect
+            dirty.discard(int(block_index))
+        return rect
 
     def _draw_text_with_stroke(
         self,

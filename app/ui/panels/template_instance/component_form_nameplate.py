@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from PyQt6 import QtWidgets
 
@@ -25,11 +25,13 @@ class NameplateConfigForm(QtWidgets.QWidget):
         settings: Dict[str, object],
         parent: QtWidgets.QWidget,
         *,
+        on_settings_changed: Optional[Callable[[], None]] = None,
         resource_manager: Optional[object] = None,
         package_index_manager: Optional[object] = None,
     ) -> None:
         super().__init__(parent)
         self._settings: Dict[str, object] = settings
+        self._on_settings_changed = on_settings_changed
         self._resource_manager = resource_manager
         self._package_index_manager = package_index_manager
         self._nameplate_dicts: List[Dict[str, Any]] = []
@@ -95,6 +97,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
             if config_dict is None:
                 return
             config_dict[key] = value
+            if self._on_settings_changed is not None:
+                self._on_settings_changed()
 
         def _update_current_combo_item_text() -> None:
             if self._current_config_index < 0:
@@ -281,6 +285,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
                 return
             content_dict = self._get_current_content_dict(config_dict)
             content_dict[key] = value
+            if self._on_settings_changed is not None:
+                self._on_settings_changed()
 
         self._nameplate_content_schema_form = SchemaBoundForm(
             content_group,
@@ -621,6 +627,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
         self._current_config_index = len(self._nameplate_dicts) - 1
         self._renumber_configs()
         self._refresh_config_combo_and_widgets()
+        if self._on_settings_changed is not None:
+            self._on_settings_changed()
 
     def _on_remove_config_clicked(self) -> None:
         if not self._nameplate_dicts:
@@ -635,6 +643,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
             self._current_config_index = len(self._nameplate_dicts) - 1
         self._renumber_configs()
         self._refresh_config_combo_and_widgets()
+        if self._on_settings_changed is not None:
+            self._on_settings_changed()
 
     # ------------------------------------------------------------------ 信号槽：基础设置
 
@@ -643,6 +653,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
         if config_dict is None:
             return
         config_dict["过滤器节点图"] = text.strip()
+        if self._on_settings_changed is not None:
+            self._on_settings_changed()
 
     def _on_select_filter_graph_clicked(self) -> None:
         if not self._resource_manager or not self._package_index_manager:
@@ -670,6 +682,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
             return
         content_dict = self._get_current_content_dict(config_dict)
         content_dict["选择类型"] = "文本框"
+        if self._on_settings_changed is not None:
+            self._on_settings_changed()
 
     def _on_offset_changed(self, _: float) -> None:
         config_dict = self._get_current_config_dict()
@@ -680,6 +694,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
             float(self._offset_x_spin_box.value()),
             float(self._offset_y_spin_box.value()),
         ]
+        if self._on_settings_changed is not None:
+            self._on_settings_changed()
 
     def _on_size_changed(self, _: float) -> None:
         config_dict = self._get_current_config_dict()
@@ -690,6 +706,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
             float(self._size_width_spin_box.value()),
             float(self._size_height_spin_box.value()),
         ]
+        if self._on_settings_changed is not None:
+            self._on_settings_changed()
 
     def _on_insert_variable_clicked(self) -> None:
         variable_expression = prompt_text(self, "插入变量", "变量占位符（例如 1:s.当前路标名字）:")
@@ -698,6 +716,8 @@ class NameplateConfigForm(QtWidgets.QWidget):
         cursor = self._text_content_edit.textCursor()
         cursor.insertText(f"{{{variable_expression}}}")
         self._text_content_edit.setTextCursor(cursor)
+        if self._on_settings_changed is not None:
+            self._on_settings_changed()
 
 
 __all__ = ["NameplateConfigForm"]

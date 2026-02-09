@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import datetime
+import json
 from typing import Dict, Optional
 
 from PyQt6 import QtCore, QtWidgets
@@ -331,6 +332,8 @@ class LayoutDetailController(QtCore.QObject):
         self.current_layout: Optional[UILayout] = None
         self._builtin_section: Optional[CollapsibleSection] = None
         self._custom_section: Optional[CollapsibleSection] = None
+        self._raw_section: Optional[CollapsibleSection] = None
+        self._raw_text: Optional[QtWidgets.QPlainTextEdit] = None
         self._empty_hint_label: Optional[QtWidgets.QLabel] = None
         self._template_item_pool: Dict[str, "TemplateEntryWidget"] = {}
 
@@ -340,6 +343,7 @@ class LayoutDetailController(QtCore.QObject):
         self._detail_layout.setSpacing(6)
 
         self._init_detail_sections()
+        self.layout_changed.connect(self._refresh_raw_view)
 
         self._scroll = QtWidgets.QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -354,6 +358,7 @@ class LayoutDetailController(QtCore.QObject):
         self.current_layout = None
         self.preview_canvas.clear_preview()
         self._set_detail_visibility(False)
+        self._refresh_raw_view()
 
     def show_layout_preview(self, layout_id: str) -> None:
         layout = self.store.layouts.get(layout_id)
@@ -366,6 +371,7 @@ class LayoutDetailController(QtCore.QObject):
 
         self._render_sections_for_layout(layout)
         self._render_layout_on_canvas(layout)
+        self._refresh_raw_view()
 
     def add_template_to_current_layout(self, template_id: str) -> bool:
         host = self._host_widget()
@@ -492,6 +498,8 @@ class LayoutDetailController(QtCore.QObject):
         template = self.store.templates.get(template_id)
         if not template:
             return
+        if not getattr(template, "supports_layout_visibility_override", True):
+            return
         default_visible = self._is_template_visible(template)
         overrides = self.current_layout.visibility_overrides
         if visible == default_visible:
@@ -512,6 +520,8 @@ class LayoutDetailController(QtCore.QObject):
         template_id: str,
         template: UIControlGroupTemplate,
     ) -> bool:
+        if not getattr(template, "supports_layout_visibility_override", True):
+            return self._is_template_visible(template)
         if template_id in layout.visibility_overrides:
             return layout.visibility_overrides[template_id]
         return self._is_template_visible(template)
@@ -536,6 +546,15 @@ class LayoutDetailController(QtCore.QObject):
         self._custom_section.setCollapsed(False)
         self._detail_layout.addWidget(self._custom_section)
 
+        self._raw_section = CollapsibleSection("原始数据")
+        self._raw_section.setCollapsed(True)
+        self._raw_text = QtWidgets.QPlainTextEdit()
+        self._raw_text.setReadOnly(True)
+        self._raw_text.setMinimumHeight(160)
+        self._raw_text.setLineWrapMode(QtWidgets.QPlainTextEdit.LineWrapMode.NoWrap)
+        self._raw_section.add_widget(self._raw_text)
+        self._detail_layout.addWidget(self._raw_section)
+
         self._detail_layout.addStretch()
         self._set_detail_visibility(False)
 
@@ -554,6 +573,18 @@ class LayoutDetailController(QtCore.QObject):
             self._builtin_section.setVisible(has_layout)
         if self._custom_section:
             self._custom_section.setVisible(has_layout)
+        if self._raw_section:
+            self._raw_section.setVisible(has_layout)
+
+    def _refresh_raw_view(self) -> None:
+        if self._raw_text is None:
+            return
+        if self.current_layout is None:
+            self._raw_text.setPlainText("")
+            return
+        self._raw_text.setPlainText(
+            json.dumps(self.current_layout.serialize(), ensure_ascii=False, indent=2)
+        )
 
     def _rerender_detail_sections(self) -> None:
         if not self.current_layout:
@@ -737,6 +768,11 @@ class TemplateEntryWidget(QtWidgets.QFrame):
         self.name_label.setText(template.template_name)
         self._visible_check.blockSignals(True)
         self._visible_check.setChecked(visible)
+        supports_override = getattr(template, "supports_layout_visibility_override", True)
+        self._visible_check.setEnabled(bool(supports_override))
+        self._visible_check.setToolTip(
+            "" if supports_override else "该控件不支持在布局中设置可见性。"
+        )
         self._visible_check.blockSignals(False)
         self._remove_button.setVisible(not is_builtin)
 

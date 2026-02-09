@@ -15,6 +15,8 @@ UI 级导航请求模型。
 from dataclasses import dataclass
 from typing import Dict, Optional
 
+from app.models.todo_detail_info_accessors import get_graph_id
+
 
 @dataclass(frozen=True)
 class UiNavigationRequest:
@@ -270,7 +272,7 @@ class UiNavigationRequest:
         origin: Optional[str] = None,
     ) -> "UiNavigationRequest":
         """从 Todo 的 detail_info 构造“跳到任务相关节点图”的导航请求。"""
-        graph_id = str(detail_info.get("graph_id") or "")
+        graph_id = get_graph_id(detail_info)
         return UiNavigationRequest(
             resource_kind="graph_task",
             resource_id=graph_id,

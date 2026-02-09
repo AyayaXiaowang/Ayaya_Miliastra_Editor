@@ -16,15 +16,26 @@ class VariableSection(BaseManagementSection):
     _usage_text: str = ""
 
     def iter_rows(self, package: ManagementPackage) -> Iterable[ManagementRowData]:
-        grouped_variables = self._group_variables_by_source(package)
+        from engine.resources.level_variable_schema_view import (
+            get_default_level_variable_schema_view,
+        )
 
-        for source_key, entries in grouped_variables.items():
-            display_name = self._build_source_display(source_key)
+        schema_view = get_default_level_variable_schema_view()
+        grouped_variables = self._group_variables_by_file_id(package)
+
+        for file_id, entries in grouped_variables.items():
+            file_info = schema_view.get_variable_file(file_id)
+            display_name = file_info.file_name if file_info is not None else file_id
+            source_display = (
+                self._build_source_display(file_info.source_path)
+                if file_info is not None
+                else ""
+            )
             preview_names = [self._get_variable_display_name(var_id, payload) for var_id, payload in entries]
             preview_text = ", ".join(preview_names[:3])
             attr1_text = f"变量数量: {len(entries)}"
             attr2_text = f"示例: {preview_text}" if preview_text else ""
-            attr3_text = f"来源: {display_name}"
+            attr3_text = f"来源: {source_display}" if source_display else f"文件ID: {file_id}"
             last_modified_value = self._get_latest_last_modified(entries)
             yield ManagementRowData(
                 name=display_name,
@@ -34,7 +45,7 @@ class VariableSection(BaseManagementSection):
                 attr3=attr3_text,
                 description="按文件聚合的关卡变量模板（只读）",
                 last_modified=last_modified_value,
-                user_data=(self.section_key, source_key),
+                user_data=(self.section_key, file_id),
             )
 
     def _build_form(
@@ -76,18 +87,35 @@ class VariableSection(BaseManagementSection):
         item_id: str,
         on_changed: Callable[[], None],
     ) -> Optional[Tuple[str, str, Callable[[QtWidgets.QFormLayout], None]]]:
-        grouped_variables = self._group_variables_by_source(package)
+        from engine.resources.level_variable_schema_view import (
+            get_default_level_variable_schema_view,
+        )
+
+        schema_view = get_default_level_variable_schema_view()
+        grouped_variables = self._group_variables_by_file_id(package)
         entries = grouped_variables.get(item_id)
         if entries is None:
             return None
 
-        source_display_name = self._build_source_display(item_id)
+        file_info = schema_view.get_variable_file(item_id)
+        source_display_name = (
+            self._build_source_display(file_info.source_path)
+            if file_info is not None
+            else item_id
+        )
+        file_name_display = file_info.file_name if file_info is not None else item_id
 
         def build_form(form_layout: QtWidgets.QFormLayout) -> None:
             if self._usage_text:
                 usage_label = QtWidgets.QLabel(self._usage_text, parent)
                 usage_label.setWordWrap(True)
                 form_layout.addRow("使用情况", usage_label)
+
+            file_id_label = QtWidgets.QLabel(str(item_id), parent)
+            form_layout.addRow("文件ID", file_id_label)
+
+            file_name_label = QtWidgets.QLabel(str(file_name_display), parent)
+            form_layout.addRow("显示名", file_name_label)
 
             source_label = QtWidgets.QLabel(source_display_name, parent)
             form_layout.addRow("源文件", source_label)
@@ -138,7 +166,7 @@ class VariableSection(BaseManagementSection):
             form_layout.addRow(section_label)
             form_layout.addRow(table)
 
-        title = f"变量模板：{source_display_name}"
+        title = f"变量模板：{file_name_display}"
         description = "按源文件聚合的关卡变量列表（代码级只读视图）。"
         _ = on_changed
         return title, description, build_form
@@ -168,7 +196,7 @@ class VariableSection(BaseManagementSection):
                 return candidate
         return "未标注来源"
 
-    def _group_variables_by_source(
+    def _group_variables_by_file_id(
         self,
         package: ManagementPackage,
     ) -> OrderedDict[str, List[Tuple[str, Dict[str, Any]]]]:
@@ -178,10 +206,15 @@ class VariableSection(BaseManagementSection):
         for variable_id, payload_any in variables_mapping.items():
             if not isinstance(payload_any, dict):
                 continue
-            source_key = self._get_source_key(payload_any)
-            if source_key not in grouped:
-                grouped[source_key] = []
-            grouped[source_key].append((variable_id, payload_any))
+            file_id_value = payload_any.get("variable_file_id")
+            group_id = (
+                file_id_value.strip()
+                if isinstance(file_id_value, str) and file_id_value.strip()
+                else self._get_source_key(payload_any)
+            )
+            if group_id not in grouped:
+                grouped[group_id] = []
+            grouped[group_id].append((variable_id, payload_any))
 
         return grouped
 

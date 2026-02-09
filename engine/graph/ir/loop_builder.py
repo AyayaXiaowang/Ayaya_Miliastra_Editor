@@ -8,12 +8,24 @@ import ast
 import uuid
 from typing import List, Optional, Tuple, Union
 
-from engine.graph.models import GraphModel, NodeModel, PortModel, EdgeModel
+from engine.graph.models import GraphModel, NodeModel, PortModel, EdgeModel, NodeDefRef
+from engine.nodes import get_canonical_node_def_key
 from .var_env import VarEnv
 from .validators import Validators
 from .node_factory import FactoryContext, extract_constant_value
 from .edge_router import is_flow_node, is_event_node
 from .branch_builder import find_first_flow_node, find_last_flow_node, block_has_return
+
+
+def _resolve_builtin_node_def_ref_by_title(title: str, *, ctx: FactoryContext) -> NodeDefRef:
+    title_text = str(title or "").strip()
+    full_key = ctx.node_name_index.get(title_text)
+    if not full_key:
+        raise ValueError(f"无法从 node_name_index 解析节点 key：{title_text}")
+    node_def = ctx.node_library.get(full_key)
+    if node_def is None:
+        raise KeyError(f"node_library 中未找到 NodeDef：{full_key}")
+    return NodeDefRef(kind="builtin", key=get_canonical_node_def_key(node_def))
 
 
 def extract_range_params(iter_node: ast.Call) -> Tuple[Union[int, str, None], Union[int, str, None]]:
@@ -118,14 +130,15 @@ def create_finite_loop_node(
     # 构建input_constants：只对常量参数设置
     input_constants = {}
     if isinstance(start_val, (int, float)):
-        input_constants["循环起始值"] = str(start_val)
+        input_constants["循环起始值"] = start_val
     if isinstance(end_val, (int, float)):
-        input_constants["循环终止值"] = str(end_val)
+        input_constants["循环终止值"] = end_val
     
     loop_node = NodeModel(
         id=loop_node_id,
         title="有限循环",
-        category="流程控制节点",
+        category="执行节点",
+        node_def_ref=_resolve_builtin_node_def_ref_by_title("有限循环", ctx=ctx),
         pos=(0.0, 0.0),
         inputs=input_ports,
         outputs=output_ports,
@@ -216,7 +229,7 @@ def create_list_iteration_loop_node(
     input_ports = [
         PortModel(name="流程入", is_input=True),
         PortModel(name="跳出循环", is_input=True),
-        PortModel(name="列表", is_input=True),
+        PortModel(name="迭代列表", is_input=True),
     ]
     output_ports = [
         PortModel(name="循环体", is_input=False),
@@ -226,7 +239,8 @@ def create_list_iteration_loop_node(
     loop_node = NodeModel(
         id=loop_node_id,
         title="列表迭代循环",
-        category="流程控制节点",
+        category="执行节点",
+        node_def_ref=_resolve_builtin_node_def_ref_by_title("列表迭代循环", ctx=ctx),
         pos=(0.0, 0.0),
         inputs=input_ports,
         outputs=output_ports,
@@ -245,7 +259,7 @@ def create_list_iteration_loop_node(
                 src_node=src_node_id,
                 src_port=src_port,
                 dst_node=loop_node_id,
-                dst_port="列表",
+                dst_port="迭代列表",
             ))
 
     # 循环变量注册

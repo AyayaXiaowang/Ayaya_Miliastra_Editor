@@ -50,6 +50,9 @@ class CompositeNodePropertyPanel(QtWidgets.QWidget, StyleMixin):
         
         self.name_edit = QtWidgets.QLineEdit()
         self.name_edit.setPlaceholderText("输入节点名称")
+        # 与节点图库一致：库页只读浏览，不在 UI 内编辑复合节点元信息（避免产生“可改但无法落盘”的错觉）
+        self.name_edit.setReadOnly(True)
+        self.name_edit.setToolTip("只读：复合节点名称请在对应的 Python 源文件中维护。")
         self.name_edit.textChanged.connect(self._on_name_changed)
         info_layout.addRow("节点名称:", self.name_edit)
         
@@ -57,6 +60,8 @@ class CompositeNodePropertyPanel(QtWidgets.QWidget, StyleMixin):
         self.description_edit.setPlaceholderText("输入节点描述")
         self.description_edit.setMaximumHeight(80)
         self.description_edit.setMinimumHeight(80)
+        self.description_edit.setReadOnly(True)
+        self.description_edit.setToolTip("只读：复合节点描述请在对应的 Python 源文件中维护。")
         self.description_edit.textChanged.connect(self._on_description_changed)
         info_layout.addRow("描述:", self.description_edit)
         
@@ -153,15 +158,11 @@ class CompositeNodePropertyPanel(QtWidgets.QWidget, StyleMixin):
             return
         
         packages: List[dict] = self._package_index_manager.list_packages()
-        membership: Set[str] = set()
-        
-        for pkg_info in packages:
-            package_id = pkg_info.get("package_id", "")
-            if not package_id:
-                continue
-            resources = self._package_index_manager.get_package_resources(package_id)
-            if resources and self.current_composite.composite_id in getattr(resources, "composites", []):
-                membership.add(package_id)
+        owner_id = self._package_index_manager.get_resource_owner_root_id(
+            resource_type="composite",
+            resource_id=self.current_composite.composite_id,
+        )
+        membership: Set[str] = {owner_id} if owner_id else set()
         
         self.package_selector.set_packages(packages)
         self.package_selector.set_membership(membership)

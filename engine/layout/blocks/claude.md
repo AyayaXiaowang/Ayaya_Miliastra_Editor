@@ -23,16 +23,18 @@
 - 事件根信息在块识别阶段集中缓存，避免每个块重复 BFS，保持块内调试信息与事件流元数据同步。
 - `BlockIdentificationCoordinator` 复用编排器预计算的事件 ID→标题映射，仅孤立流程会回退到 `_resolve_event_metadata`，并将 `_layout_block_internal` 拆分为“上下文准备 + 布局管线”两个私有方法，便于维护。
 - `_BlockLayoutScalars` 在上下文构建与布局管线中只计算一次并复用，几何常量保持一致。
+- 块内几何标量（如槽位宽度 slot_width、数据节点堆叠间距、flow→data 安全间隔、端口→data 安全间隔）会读取 `settings.LAYOUT_NODE_SPACING_X_PERCENT/LAYOUT_NODE_SPACING_Y_PERCENT` 的倍率，仅缩放“间隙常量”来调节相邻节点之间的空白距离，不改变节点本身宽高估算。
 - 核心层已经提供事件→流程节点的完整映射时，`BlockIdentificationCoordinator` 直接读取映射并跳过图级 BFS，避免在块识别阶段重复遍历；事件标题查找表也由编排器构建后传入，彻底消除重复的 `build_event_title_lookup`。
 - 事件标题回退统一使用 `graph_query_utils.resolve_event_title` 与共享的 `build_event_title_lookup` 映射，块识别与核心保持一致的命名策略。
 - `BlockIdentificationCoordinator` 构造参数与核心布局常量一一对应，不包含重复或未使用项，便于编排层按统一配置注入。
-- `BlockIdentificationCoordinator` 内部通过自增 `_block_sequence` 统一生成块序号，并在布局与输出阶段复用该值，保证 `block_id` 与 `order_index` 的稳定一致。
+- `BlockIdentificationCoordinator` 采用 **BFS（按块层级）** 识别流程块，并通过自增 `_block_sequence` 生成稳定块序号；兄弟分支不会因 DFS 深度优先而被推到很靠后的 `order_index`，避免分支初始化节点落到最后块。
 - `BlockIdentificationCoordinator` 每次构造都会重建 `_layout_y_debug_info`，即使 UI 未开启调试叠加也能获得完整的节点调试映射，随开随用。
 - `_layout_block_internal` 返回的数据节点集合基于 `context.data_nodes_in_order` 去重展开，纯生产但暂未被本块消费的节点也会写入 `global_visited`，跨块复制时能准确识别边界。
 - `DataNodePlacer` 在消费完链指令后，直接处理 `pending_copy_sources` 集合中剩余的跨块节点并触发复制，无需再遍历整块节点输入，保证“仅用于后续块”的查询节点也能在本块创建镜像。
 - `DataNodePlacer` 执行复制计划或降级放置后会立即清理对应的 `pending_copy_sources`，失败时也会回落到共享视图放置并同时标记 pending 状态，确保兜底阶段不再重复复制同一节点。
 - `BlockPositioningEngine` 与 `CoordinateAssigner` 共同复用 `layout/utils/longest_path.resolve_levels_with_parents` 处理块列索引与流程槽位，最长路径与残余补偿逻辑保持一致，便于集中优化。
 - `BlockPositioningEngine` 基于块级 DAG 直接跑最长路径求列索引，并借助垂直 bucket 索引筛选潜在重叠块，bucket 高度由块间距与节点高度动态推导，将“入口间距 + 矩形重叠”检查从 O(N²) 降到与局部块数相关；是否在满足约束后继续左移由 `enable_tight_block_spacing` 控制，可由上层设置面板配置。
+- `BlockPositioningEngine` 会补全“任意节点ID → LayoutBlock”的映射（含 data 节点），使块间 X/列索引求解能基于跨块 data 依赖建立约束；当 `LAYOUT_TIGHT_BLOCK_PACKING` 关闭时，列索引阶段会把跨块 data 边也视作依赖边，从根源避免出现右→左折返线（跳过 `PORT_EXIT_LOOP`/“跳出循环”回边）。
 - `BlockPositioningEngine` 的列内堆叠阶段采用 **全局 Y 轴迭代收敛**：先按列初始堆叠得到每块 top_y，再基于“多父合流/多子分叉”的目标中心点反复松弛；每轮在列内通过 forward/backward 约束传播保证严格不重叠，并把“无强约束块”尽量向上紧凑堆叠，为需要居中的块让出空间，从而在复杂图里也能稳定逼近“居中 + 不重叠”的解。
 - `BlockPositioningEngine` 的 Y 轴迭代在“事件组内不存在任何对齐/居中目标约束”的场景会被跳过：该场景下迭代最终会收敛到初始紧凑堆叠的同一解，跳过不会改变排版结果，只减少开销。
 - `BlockPositioningEngine` 的 Y 轴目标除了多父/多子外，还包含 **单父对齐**：当块只有一个父块时，会尝试把该块的垂直中心对齐到父块中心，避免“7->8 单线但 8 被堆到同列顶部（跑到右上方）”这类现象；最终仍以列内不重叠约束为硬约束。
@@ -52,7 +54,8 @@
 - `DataNodePlacer` 在完成链指令放置与跨块 pending 源兜底复制后，会以块内流程节点为起点沿数据输出边遍历纯数据子图；但只有当数据节点的输出边指向当前块的流程节点或已放置的数据节点时，才将其纳入本块 `data_nodes_in_order`，保证数据节点被分配到**首次实际消费它的块**，而不是"首次发现它的块"。
 - `DataNodePlacer` 会在常规放置完成后对 `block_data_nodes` 做一次覆盖兜底：将全局复制阶段判定“归属本块”的纯数据节点全部纳入 `data_nodes_in_order`，避免某些只参与输出组装/未被流程节点直接消费的纯数据链在 UI 中表现为“不属于任何块”或缺少坐标。
 - `DataChainEnumerator` 在生成放置指令时会请求忽略 skip 集合的上游闭包，但只将 skip 集内的节点写入 `CopyDecision.upstream_closure`；链首仍在当前块时不会强制整链复制，而是交由 `DataNodePlacer` 增量复制真正跨块的上游节点；链路预算统一通过 `ChainTraversalBudget` 下发，collect 函数与枚举器共享同一套限额，不再出现配额重复截断。
-- `DataChainEnumerator` 共享节点级记忆化缓存复用 `collect_data_chain_paths` 的子问题结果，多个输入端引用同一数据子图时不会重复 DFS。
+- `DataChainEnumerator` 当单个起点因限流（如 `LAYOUT_MAX_CHAINS_PER_NODE`）发生截断时，不再中止整块链枚举：后续流程节点的入参仍会被编号，避免出现“未被任何数据链引用”与块内 X 折返线。
+- `DataChainEnumerator` 共享节点级记忆化缓存复用 `collect_data_chain_paths` 的子问题结果；缓存 key 包含 `(node_id, 输出端口名)`，并透传起点输出端口以支持端口感知裁剪（例如【获取局部变量】句柄链不展开“初始值”上游），避免布局回头线与不必要的跨块归属。
 - 跨块复制判定集中在 `CopyDecision`，`DataNodePlacer` 先生成 `_PlacementPlan` 再执行，复制/降级/兜底步骤统一在计划阶段确定；当禁用复制或命中禁止复制节点时，链条会以共享视图方式放置并记录 `shared_data_nodes`，保证图形结果仍可观察。
 - 当 `DATA_NODE_CROSS_BLOCK_COPY` 关闭时，`DataNodePlacer` 会降级为直接放置原始链条而不是跳过，保证节点仍参与排序，只是不会创建额外副本。
 - `shared_data_nodes` 会在禁用复制的场景下从 `LayoutBlock.data_nodes`、`node_local_pos` 以及回写的 `global_visited` 结果中过滤，保证真实数据节点仅归属于首个块，同时保留局部链信息供下游引用。
@@ -63,7 +66,7 @@
 - `LayoutBlock` 记录 `node_width` 并在 `BlockPositioningEngine` 中用于“入口≥出口+间距”的约束，宽度调整后也能得到一致的列间距。
 - `BlockLayoutExecutor` 会遍历整个基本块中的流程节点，按块内顺序收集跨块流程出口并写入 `LayoutBlock.last_node_branches`，保证递归识别、块关系分析与排序能覆盖途中分支，同时在块边界层面视流程环路为“本块终点+后继块入口”，保持事件流整体可达。
 - `DataNodePlacer` 的上游遍历改为显式栈迭代，深链不会触发 Python 递归上限，且 `_collect_upstream_node_ids` 统一了预计算与闭包路径。
-- `DataChainEnumerator` 在为 `(src_flow, dst_flow)` 记录最小槽位差时，仅统计“从消费者流程到该 src_flow 的首次数据入口”之间的数据节点数量，公共上游（入口之前的共享子链）不会额外拉大执行节点间距，配合 `compute_data_x_positions` 仍保证链上所有数据节点有足够列宽。
+- `DataChainEnumerator` 在为 `(src_flow, dst_flow)` 记录最小槽位差时，会统计**该 src_flow 输出在链上所有直接入口中最靠上游的入口距离**（max entry index + 1），以确保这些“流程→数据”直接消费者均有足够列宽落在 `src_flow` 的右侧，从而避免出现折返线；入口之前的共享上游子链仍不会被重复计入。
 
 ## 数据节点分块规则
 

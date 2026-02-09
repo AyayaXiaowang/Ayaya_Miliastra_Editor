@@ -3,11 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from engine.graph.models import GraphModel, NodeModel, EdgeModel
+from engine.graph.common import format_constant
 from engine.nodes.composite_virtual_pin_undo_helper import (
     CompositeVirtualPinSnapshot,
     snapshot_virtual_pins_for_node,
     restore_virtual_pins_from_snapshot,
 )
+from engine.utils.graph.graph_utils import is_flow_port_name
 from engine.utils.logging.logger import log_info, log_warn
 from engine.utils.undo.undo_redo_core import (
     Command,
@@ -82,6 +84,46 @@ class AddNodeCommand(Command):
             node.composite_id = node_def.composite_id
             log_info("[命令] 设置复合节点ID: {}", node_def.composite_id)
 
+    def _apply_input_defaults_from_library(self) -> None:
+        """为新建节点补齐声明的输入端口默认值（input_defaults）。
+
+        设计意图：
+        - 让“可选输入端口”在 UI 新建节点时也能拥有稳定的默认常量（避免保存/导出/执行时出现缺参）。
+        - 默认值只在该端口未被用户显式设置常量时写入；连线优先于常量，后续接线不会受影响。
+        """
+        if not hasattr(self.scene, "node_library") or not self.scene.node_library:
+            return
+        node = self.node
+        if node is None:
+            return
+
+        # 复合节点与普通节点统一尝试解析 NodeDef（优先复合节点分类，再回退到当前 category）
+        candidates = [
+            f"复合节点/{self.title}",
+            f"{self.category}/{self.title}",
+            f"{self.category}/{self.title}#server",
+            f"{self.category}/{self.title}#client",
+        ]
+        node_def = None
+        for key in candidates:
+            node_def = self.scene.node_library.get(key)
+            if node_def is not None:
+                break
+        if node_def is None:
+            return
+
+        input_defaults = dict(getattr(node_def, "input_defaults", {}) or {})
+        if not input_defaults:
+            return
+
+        for port_name, default_value in input_defaults.items():
+            port_text = str(port_name or "").strip()
+            if not port_text:
+                continue
+            if is_flow_port_name(port_text):
+                continue
+            node.input_constants.setdefault(port_text, format_constant(default_value))
+
     def execute(self) -> None:
         log_info(
             "[命令] 添加节点: {} (输入:{}, 输出:{})",
@@ -92,6 +134,7 @@ class AddNodeCommand(Command):
         self._model_command.execute()
         self.node = self._model_command.node
         self._apply_composite_id_from_library()
+        self._apply_input_defaults_from_library()
         if self.node is not None:
             self.scene.add_node_item(self.node)
             log_info("[命令] 节点添加完成: {}", self.node_id)
@@ -159,6 +202,9 @@ class DeleteNodeCommand(Command):
                 if hasattr(self.scene, "_unregister_edge_for_nodes"):
                     self.scene._unregister_edge_for_nodes(edge_item)
                 self.scene.removeItem(edge_item)
+            remove_batched = getattr(self.scene, "remove_batched_edge", None)
+            if callable(remove_batched):
+                remove_batched(edge_id)
 
         # 删除节点图形项
         self.scene._remove_node_graphics(self.node_id)
@@ -243,10 +289,15 @@ class AddEdgeCommand(Command):
             log_warn("[命令] 连线创建失败: EdgeModel 未创建")
             return
         edge_item = self.scene.add_edge_item(self.edge)
-        if edge_item:
+        if edge_item is not None:
             log_info("[命令] 连线创建成功")
-        else:
-            log_warn("[命令] 连线创建失败: UI 未能创建 EdgeGraphicsItem")
+            return
+        # fast_preview_mode + batched edges：add_edge_item 会返回 None（由批量渲染层绘制），不应视为失败
+        has_batched = getattr(self.scene, "has_batched_fast_preview_edges", None)
+        if callable(has_batched) and has_batched():
+            log_info("[命令] 连线创建成功（批量渲染）")
+            return
+        log_warn("[命令] 连线创建失败: UI 未能创建 EdgeGraphicsItem")
 
     def undo(self) -> None:
         edge_item = self.scene.edge_items.pop(self.edge_id, None)
@@ -256,6 +307,11 @@ class AddEdgeCommand(Command):
             if hasattr(self.scene, "_unregister_edge_for_nodes"):
                 self.scene._unregister_edge_for_nodes(edge_item)
             self.scene.removeItem(edge_item)
+        else:
+            affected_node_id = str(self.dst_node or "") or None
+        remove_batched = getattr(self.scene, "remove_batched_edge", None)
+        if callable(remove_batched):
+            remove_batched(self.edge_id)
         self._model_command.undo()
         if affected_node_id and affected_node_id in self.scene.node_items:
             self.scene.node_items[affected_node_id]._layout_ports()
@@ -280,6 +336,11 @@ class DeleteEdgeCommand(Command):
             if hasattr(self.scene, "_unregister_edge_for_nodes"):
                 self.scene._unregister_edge_for_nodes(edge_item)
             self.scene.removeItem(edge_item)
+        else:
+            affected_node_id = str(getattr(self.edge, "dst_node", "") or "") or None
+        remove_batched = getattr(self.scene, "remove_batched_edge", None)
+        if callable(remove_batched):
+            remove_batched(self.edge_id)
         # 删除模型
         self._model_command.execute()
         # 重新布局受影响的节点，以显示之前被隐藏的输入框
@@ -326,6 +387,13 @@ class MoveNodeCommand(Command):
         node_item = self.scene.node_items.get(self.node_id)
         if node_item is not None:
             node_item.setPos(pos[0], pos[1])
+            # basic blocks 背景：位置变更可能需要收缩/重新包围，标记 dirty 以便下一帧重算。
+            mark_dirty = getattr(self.scene, "mark_basic_block_rect_dirty_for_node", None)
+            if callable(mark_dirty):
+                mark_dirty(self.node_id)
+            update_scene = getattr(self.scene, "update", None)
+            if callable(update_scene):
+                update_scene()
 
     def execute(self) -> None:
         self._model_command.execute()
@@ -428,6 +496,9 @@ class RemovePortCommand(Command):
                     (edge_id, edge_item.src.name, edge_item.dst.name)
                 )
                 self.scene.removeItem(edge_item)
+            remove_batched = getattr(self.scene, "remove_batched_edge", None)
+            if callable(remove_batched):
+                remove_batched(edge_id)
         # 删除端口
         if self.is_input:
             if node.remove_input_port(self.port_name):

@@ -8,7 +8,6 @@ from engine.graph.models.package_model import (
     ComponentConfig,
     InstanceConfig,
     TemplateConfig,
-    VariableConfig,
 )
 
 ConfigType = Union[TemplateConfig, InstanceConfig]
@@ -21,11 +20,6 @@ class TemplateInstanceService:
         "template": "default_components",
         "instance": "additional_components",
         "level_entity": "additional_components",
-    }
-    _VARIABLE_COLLECTIONS = {
-        "template": "default_variables",
-        "instance": "override_variables",
-        "level_entity": "override_variables",
     }
     _GRAPH_COLLECTIONS = {
         "template": "default_graphs",
@@ -129,101 +123,6 @@ class TemplateInstanceService:
         if component in collection:
             collection.remove(component)
             return True
-        return False
-
-    # ------------------------------------------------------------------ Variables
-    def add_variable(
-        self,
-        target: ConfigType,
-        object_type: str,
-        variable: VariableConfig,
-    ) -> bool:
-        if not target or not variable:
-            return False
-        collection = self._ensure_collection(target, object_type, self._VARIABLE_COLLECTIONS, create=True)
-        if collection is None:
-            return False
-        for index, existing in enumerate(collection):
-            if existing.name == variable.name:
-                collection[index] = variable
-                return True
-        collection.append(variable)
-        return True
-
-    def remove_variable(
-        self,
-        target: ConfigType,
-        object_type: str,
-        variable: Optional[VariableConfig],
-        source: str,
-    ) -> bool:
-        if not target or variable is None:
-            return False
-        collection = self._ensure_collection(target, object_type, self._VARIABLE_COLLECTIONS)
-        if collection is None:
-            return False
-        if object_type != "template":
-            if source == "inherited":
-                return False
-            if source == "overridden":
-                updated = [v for v in collection if v.name != variable.name]
-                if len(updated) != len(collection):
-                    setattr(target, self._VARIABLE_COLLECTIONS[object_type], updated)
-                    return True
-                return False
-        if variable in collection:
-            collection.remove(variable)
-            return True
-        return False
-
-    def update_variable(
-        self,
-        target: ConfigType,
-        object_type: str,
-        original_variable: VariableConfig,
-        updated_variable: VariableConfig,
-        source: str,
-    ) -> bool:
-        """在保持变量顺序稳定的前提下更新变量配置。
-
-        设计约定：
-        - 模板上下文：直接在 default_variables 中原位替换记录，避免因“删后再追加”导致序号变化。
-        - 实例/关卡实体上下文：
-          - 继承变量（source == "inherited"）：在 override_variables 中创建或更新覆写记录，不改动模板定义；
-          - 覆写/额外变量：在 override_variables 中按对象身份查找并原位替换，同样不打乱顺序。
-        """
-        if not target or not original_variable or not updated_variable:
-            return False
-        collection = self._ensure_collection(
-            target,
-            object_type,
-            self._VARIABLE_COLLECTIONS,
-            create=True,
-        )
-        if collection is None:
-            return False
-
-        # 实例或关卡实体中编辑“继承变量”：在覆写列表中创建/更新记录，保持模板定义不变。
-        if object_type != "template" and source == "inherited":
-            for index, existing in enumerate(collection):
-                if existing.name == updated_variable.name:
-                    collection[index] = updated_variable
-                    return True
-            collection.append(updated_variable)
-            return True
-
-        # 其余来源：优先按对象身份匹配，在原位置替换记录，保证列表顺序稳定。
-        for index, existing in enumerate(collection):
-            if existing is original_variable:
-                collection[index] = updated_variable
-                return True
-
-        # 回退逻辑：在无法通过对象身份匹配时退回到按旧名称匹配，兼容少量迁移场景。
-        for index, existing in enumerate(collection):
-            if existing.name == original_variable.name:
-                collection[index] = updated_variable
-                return True
-
         return False
 
     # ------------------------------------------------------------------ Graphs

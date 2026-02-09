@@ -9,7 +9,7 @@
   - `name_sync_state.json`：资源文件名同步状态
   - `ui_last_session.json`：主窗口 UI 会话状态快照（当前视图模式、各库页选中项、任务清单上下文等），编辑器关闭时写入，下次启动时用于恢复到上一次看到的页面与选中上下文，不包含任何大体量图数据或长期配置；读写统一通过 `app.runtime.services.json_cache_service.JsonCacheService`。
   - `player_ingame_save_selection.json`：战斗预设“玩家模板-自定义变量_局内存档变量”页记忆当前玩家模板使用的局内存档模板选择（按玩家模板 ID 存储），便于下次打开沿用；读写统一通过 `JsonCacheService` 的 KV 模式（schema_version + values），兼容旧版存储结构。
-- `todo_states/`：功能包任务清单的勾选状态（每个存档一个 JSON），仅供编辑器 UI 使用，不参与功能包导出，清理后只会重置任务完成度
+- `todo_states/`：项目存档任务清单的勾选状态（每个存档一个 JSON），仅供编辑器 UI 使用，不参与项目存档导出，清理后只会重置任务完成度
 - `engine/`：运行时引擎组件（GameRuntime、前导脚本、节点图运行时验证等）
 - `services/`：运行时服务（无 PyQt6 依赖），收敛“资源加载/缓存/领域计算”等可测试逻辑，供 UI 与控制器复用
 
@@ -26,7 +26,7 @@
 - 禁止依赖：`assets/*`（除只读）
 
 # 当前状态
-- `cache/` 与 `todo_states/` 目录按需生成，已在 `.gitignore` 覆盖范围内；清空后仅会重建缓存、会话状态与勾选状态，不影响资源库与功能包。
+- `cache/` 与 `todo_states/` 目录按需生成，已在 `.gitignore` 覆盖范围内；清空后仅会重建缓存、会话状态与勾选状态，不影响资源库与项目存档。
 - `ui_last_session.json` 与 `ui_session_state.py` 在主窗口关闭与启动时自动读写，文件位于 `app/runtime/cache/ui_last_session.json`，不存在时会按默认结构生成。
 - `app/runtime/engine` 下的前导脚本、运行时验证器与 `GameRuntime` 已与当前 `engine` API 同步，节点图运行期校验与导出路径以本目录为唯一入口。
 
@@ -34,7 +34,8 @@
 - 顶层 `runtime/` 是仓库运行期缓存目录（历史遗留/兼容部分工具输出），不是 Python 包；代码与生成器应统一使用 `app.runtime.*` 作为运行时模块入口
 - `cache/` 是**数据目录**：不得放置任何 Python 源码文件（尤其不要添加 `__init__.py`），避免将运行期数据区误做成可导入包
 - 所有缓存与 UI 会话状态文件默认位于 `app/runtime/cache/*`；如需挪到工作区外或统一到其它目录，请通过 `engine.configs.settings.settings.RUNTIME_CACHE_ROOT` 配置，并在代码中统一使用 `engine.utils.cache.cache_paths` 派生路径
-- 可写数据与缓存应可清理（工具：`python -X utf8 tools/clear_caches.py --clear`）；清理后不会破坏任何资源库与功能包，只会重置缓存与 UI 会话状态
+- 可写数据与缓存应可清理：删除 `app/runtime/cache/`（或按需清理其子目录）后不会破坏任何资源库与项目存档，只会重置缓存与 UI 会话状态
 - 不存放长期配置与发布资源，仅存放运行期生成与状态数据
 - 规则类型与占位类型导入统一从 `engine.configs.rules.*` 引入（不要使用 `engine.validate.rules.*`）
 - `GameRuntime` 负责在实体销毁时同步清理事件、定时器与挂载节点图，确保运行期状态可回收
+- 文档字符串与注释中的“工作区根目录”统一称为 `workspace_root`（不绑定具体仓库目录名）。

@@ -21,7 +21,23 @@ class BaseWidgetConfigPanel(QtWidgets.QWidget):
         self.current_config: Dict[str, Any] = {}
         self._bindings: Dict[str, tuple[FieldGetter, FieldSetter]] = {}
         self._syncing = False
+        self._variable_selector_get_current_package: Optional[Callable[[], object | None]] = None
+        self._variable_selectors: list["VariableSelector"] = []
         self._setup_ui()
+
+    def set_variable_selector_get_current_package(
+        self, get_current_package: Callable[[], object | None] | None
+    ) -> None:
+        """为 VariableSelector 注入“当前项目存档”获取入口（用于按包语义过滤关卡变量候选项）。"""
+        self._variable_selector_get_current_package = get_current_package
+        for selector in self._variable_selectors:
+            selector.set_get_current_package(get_current_package)
+
+    def _register_variable_selector(self, selector: "VariableSelector") -> None:
+        if selector in self._variable_selectors:
+            return
+        self._variable_selectors.append(selector)
+        selector.set_get_current_package(self._variable_selector_get_current_package)
 
     def _setup_ui(self) -> None:
         """设置 UI - 子类实现"""
@@ -180,6 +196,34 @@ class KeyMappingFields:
     gamepad: Optional[QtWidgets.QLineEdit] = None
 
 
+def _build_keyboard_key_candidates() -> list[str]:
+    # 需求基线：0-9, A-Z, F1-F12（额外补充少量常用键名，仍允许手动输入）
+    digits = [str(i) for i in range(10)]
+    letters = [chr(ord("A") + i) for i in range(26)]
+    functions = [f"F{i}" for i in range(1, 13)]
+    common = ["Space", "Enter", "Esc", "Tab", "Shift", "Ctrl", "Alt"]
+    return digits + letters + functions + common
+
+
+KEYBOARD_KEY_CANDIDATES = _build_keyboard_key_candidates()
+GAMEPAD_KEY_CANDIDATES = [
+    "A",
+    "B",
+    "X",
+    "Y",
+    "LB",
+    "RB",
+    "LT",
+    "RT",
+    "Start",
+    "Select",
+    "DPadUp",
+    "DPadDown",
+    "DPadLeft",
+    "DPadRight",
+]
+
+
 class VariableSelector(QtWidgets.QWidget):
     """统一的变量选择输入部件。"""
 
@@ -187,12 +231,24 @@ class VariableSelector(QtWidgets.QWidget):
 
     def __init__(self, placeholder: str = "", parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
+        self._raw_value: str = ""
+        self._syncing_text: bool = False
+        self._get_current_package: Optional[Callable[[], object | None]] = None
+        # 当处于全局视图且无法获得“当前项目存档”时，变量选择需要先显式选择一个包；
+        # 该 override 用于：
+        # - 选择完成后仍能把显示文本渲染为 `variable_name (variable_id)`
+        # - 避免在无包上下文时回退到全局变量集做“名称→ID”自动归一化
+        self._display_override_level_variables: Optional[Dict[str, Dict[str, Any]]] = None
+        self._display_override_package_id: str = ""
+
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.line_edit = QtWidgets.QLineEdit()
         if placeholder:
             self.line_edit.setPlaceholderText(placeholder)
+        self.line_edit.textChanged.connect(self._on_text_changed)
+        self.line_edit.editingFinished.connect(self._on_editing_finished)
         layout.addWidget(self.line_edit, 1)
 
         select_btn = QtWidgets.QPushButton("选择...")
@@ -200,17 +256,208 @@ class VariableSelector(QtWidgets.QWidget):
         select_btn.clicked.connect(self._prompt_variable)
         layout.addWidget(select_btn)
 
-    def _prompt_variable(self) -> None:
-        cleaned = input_dialogs.prompt_text(
-            self,
-            "选择变量",
-            "变量名称:",
-            text=self.line_edit.text(),
-        )
-        if cleaned is None:
+    def set_get_current_package(
+        self, get_current_package: Callable[[], object | None] | None
+    ) -> None:
+        self._get_current_package = get_current_package
+
+    def get_value(self) -> str:
+        return self._raw_value
+
+    def set_value(self, value: Any) -> None:
+        raw_text = "" if value is None else str(value)
+        normalized_raw = self._normalize_raw_value(raw_text)
+        self._raw_value = normalized_raw
+        self._sync_display_from_raw()
+
+    def _on_text_changed(self, text: str) -> None:
+        if self._syncing_text:
             return
-        self.line_edit.setText(cleaned)
-        self.value_selected.emit(cleaned)
+        self._raw_value = str(text or "").strip()
+        self.value_selected.emit(self._raw_value)
+
+    def _on_editing_finished(self) -> None:
+        # 将“显示文本”归一为存档配置中的最终值（仅做首尾空白归一化；不再做旧格式/ID 的兼容归一）。
+        normalized_raw = self._normalize_raw_value(self.line_edit.text())
+        if normalized_raw != self._raw_value:
+            self._raw_value = normalized_raw
+            self._sync_display_from_raw()
+            self.value_selected.emit(self._raw_value)
+
+    def _normalize_raw_value(self, input_text: str) -> str:
+        return str(input_text or "").strip()
+
+    def _get_package_level_variables(self) -> Optional[Dict[str, Dict]]:
+        """返回当前项目存档的变量映射；若不存在存档上下文则返回 None。"""
+        package = self._get_current_package() if callable(self._get_current_package) else None
+        management = getattr(package, "management", None) if package is not None else None
+        package_level_variables = getattr(management, "level_variables", None) if management is not None else None
+        if isinstance(package_level_variables, dict):
+            return package_level_variables
+        return None
+
+    def _get_effective_level_variables_for_display(self) -> Optional[Dict[str, Dict[str, Any]]]:
+        package_level_variables = self._get_package_level_variables()
+        if package_level_variables is not None:
+            return package_level_variables  # type: ignore[return-value]
+        if isinstance(self._display_override_level_variables, dict):
+            return self._display_override_level_variables
+        return None
+
+    def _sync_display_from_raw(self) -> None:
+        display_text = self._build_display_text(self._raw_value)
+        self._syncing_text = True
+        self.line_edit.setText(display_text)
+        self._syncing_text = False
+
+    def _build_display_text(self, raw_value: str) -> str:
+        raw_text = str(raw_value or "").strip()
+        if not raw_text:
+            return ""
+        return raw_text
+
+    def _is_special_global_view_package_id(self, package_id: str) -> bool:
+        return package_id == "global_view"
+
+    def _resolve_app_state(self) -> object | None:
+        window_obj = self.window()
+        return getattr(window_obj, "app_state", None)
+
+    def _prompt_package_id_for_variable_scope(self) -> str:
+        """全局视图下：先选择一个“项目存档上下文”，再列举该包可用变量。"""
+        from app.ui.foundation import dialog_utils
+
+        app_state = self._resolve_app_state()
+        package_index_manager = getattr(app_state, "package_index_manager", None) if app_state is not None else None
+        if package_index_manager is None:
+            dialog_utils.show_error_dialog(self, "选择变量", "无法获取 PackageIndexManager（app_state.package_index_manager 缺失）。")
+            return ""
+
+        packages = package_index_manager.list_packages()
+        items: list[str] = []
+        for info in packages:
+            if not isinstance(info, dict):
+                continue
+            package_id_value = info.get("package_id")
+            if not isinstance(package_id_value, str) or not package_id_value.strip():
+                continue
+            package_id = package_id_value.strip()
+            package_name = str(info.get("name", "") or "").strip() or package_id
+            items.append(f"{package_name} | {package_id}")
+
+        if not items:
+            dialog_utils.show_info_dialog(
+                self,
+                "选择变量",
+                "当前工程未发现任何可用的项目存档（无法为变量选择提供包上下文）。",
+            )
+            return ""
+
+        items.sort(key=lambda text: text.lower())
+        selected = input_dialogs.prompt_item(
+            self,
+            "选择变量所属项目存档",
+            "项目存档:",
+            items,
+            current_index=0,
+            editable=False,
+        )
+        if selected is None:
+            return ""
+
+        parts = [part.strip() for part in selected.split("|")]
+        return parts[1] if len(parts) >= 2 else ""
+
+    def _load_package_level_variables_by_package_id(self, package_id: str) -> Optional[Dict[str, Dict[str, Any]]]:
+        from app.ui.foundation import dialog_utils
+        from engine.resources.package_view import PackageView
+
+        package_id_text = str(package_id or "").strip()
+        if not package_id_text:
+            return None
+
+        app_state = self._resolve_app_state()
+        package_index_manager = getattr(app_state, "package_index_manager", None) if app_state is not None else None
+        resource_manager = getattr(app_state, "resource_manager", None) if app_state is not None else None
+        if package_index_manager is None or resource_manager is None:
+            dialog_utils.show_error_dialog(
+                self,
+                "选择变量",
+                "无法构建存档视图（resource_manager/package_index_manager 缺失）。",
+            )
+            return None
+
+        package_index = package_index_manager.load_package_index(package_id_text)
+        if package_index is None:
+            dialog_utils.show_error_dialog(self, "选择变量", f"未找到项目存档索引：{package_id_text}")
+            return None
+
+        package_view = PackageView(package_index=package_index, resource_manager=resource_manager)
+        management = getattr(package_view, "management", None)
+        variables = getattr(management, "level_variables", None) if management is not None else None
+        if isinstance(variables, dict):
+            return variables
+        return None
+
+    def _prompt_variable(self) -> None:
+        from app.ui.foundation import dialog_utils
+        from .variable_picker_dialog import VariablePickerDialog
+        available_variables: Dict[str, Dict[str, Any]] | None = None
+
+        package = self._get_current_package() if callable(self._get_current_package) else None
+        package_id_value = getattr(package, "package_id", None) if package is not None else None
+        package_id_text = str(package_id_value or "").strip() if isinstance(package_id_value, str) else ""
+
+        # 1) 存档上下文：直接使用当前项目存档引用聚合出的变量集合（稳定且按包过滤）。
+        package_level_variables = self._get_package_level_variables()
+        if package_level_variables is not None:
+            available_variables = package_level_variables  # type: ignore[assignment]
+            # 清空 override，避免后续显示与当前包不一致
+            self._display_override_level_variables = None
+            self._display_override_package_id = ""
+
+        # 2) 全局视图或无上下文：必须先选择一个包作为“变量可见范围”
+        if available_variables is None:
+            # 特殊视图也视为“无包上下文”（变量集合应由用户选择包决定）
+            if package_id_text and not self._is_special_global_view_package_id(package_id_text):
+                # 仍可能存在“包对象不完整但 package_id 可用”的情况：兜底按 package_id 加载
+                loaded = self._load_package_level_variables_by_package_id(package_id_text)
+                if loaded is not None:
+                    available_variables = loaded
+                    self._display_override_level_variables = loaded
+                    self._display_override_package_id = package_id_text
+
+        if available_variables is None:
+            selected_package_id = self._prompt_package_id_for_variable_scope()
+            if not selected_package_id:
+                return
+            loaded = self._load_package_level_variables_by_package_id(selected_package_id)
+            if loaded is None:
+                return
+            available_variables = loaded
+            self._display_override_level_variables = loaded
+            self._display_override_package_id = selected_package_id
+
+        if not available_variables:
+            dialog_utils.show_info_dialog(
+                self,
+                "选择变量",
+                "当前上下文下没有可用的关卡变量。\n"
+                "如果你在存档视图中，请先在 管理配置 > 关卡变量 中将变量文件加入当前存档引用。",
+            )
+            return
+
+        picker = VariablePickerDialog(available_variables, parent=self)
+        if picker.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+
+        chosen_name = str(picker.get_selected_variable_name() or "").strip()
+        if not chosen_name:
+            return
+
+        self._raw_value = chosen_name
+        self._sync_display_from_raw()
+        self.value_selected.emit(self._raw_value)
 
 
 class WidgetConfigForm(QtWidgets.QWidget):
@@ -333,7 +580,13 @@ class WidgetConfigForm(QtWidgets.QWidget):
         placeholder: str = "",
     ) -> VariableSelector:
         selector = VariableSelector(placeholder, self)
-        self._owner._bind_line_edit(key, selector.line_edit)
+        self._owner._register_variable_selector(selector)
+        self._owner._register_binding(
+            key,
+            getter=selector.get_value,
+            setter=lambda value, selector=selector: selector.set_value(value),
+            signal=selector.value_selected,
+        )
         self.layout.addRow(label, selector)
         return selector
 
@@ -352,6 +605,10 @@ class WidgetConfigForm(QtWidgets.QWidget):
             keyboard_key,
             placeholder=keyboard_placeholder,
         )
+        keyboard_completer = QtWidgets.QCompleter(KEYBOARD_KEY_CANDIDATES, keyboard_edit)
+        keyboard_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
+        keyboard_edit.setCompleter(keyboard_completer)
+
         gamepad_edit: Optional[QtWidgets.QLineEdit] = None
         if gamepad_key:
             gamepad_edit = self.add_line_edit(
@@ -359,6 +616,9 @@ class WidgetConfigForm(QtWidgets.QWidget):
                 gamepad_key,
                 placeholder=gamepad_placeholder,
             )
+            gamepad_completer = QtWidgets.QCompleter(GAMEPAD_KEY_CANDIDATES, gamepad_edit)
+            gamepad_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
+            gamepad_edit.setCompleter(gamepad_completer)
         return KeyMappingFields(keyboard=keyboard_edit, gamepad=gamepad_edit)
 
     def add_row_widget(self, label: str, widget: QtWidgets.QWidget) -> None:

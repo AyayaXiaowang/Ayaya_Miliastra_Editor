@@ -2,19 +2,23 @@
 `ui/main_window/` 目录存放主窗口的组装与事件分发逻辑，采用 Mixin 架构将职责拆分到多个子模块，然后由 `MainWindowV2` 组合成完整应用窗口。
 
 - `main_window.py`：主窗口入口类 `MainWindowV2`，保持为“壳/装配层”：只负责窗口生命周期、Mixin 初始化顺序、依赖注入与少量事件转发。启动期的稳定依赖集合不再散落在主窗口属性初始化里，而是集中由 `MainWindowAppState` 构建；“资源库刷新”不再在主窗口内堆叠缓存失效与重建细节，而是委托给 `ResourceRefreshService` 执行失效与重建，主窗口只根据刷新结果复用 `_on_package_loaded()` 与各页面 `reload()` 完成 UI 刷新编排。
-- `app_state.py`：`MainWindowAppState`（单一真源）。集中装配 workspace/settings/节点库/ResourceManager/PackageIndexManager/GraphView 等**稳定依赖**，并要求主窗口与各 Mixin **只通过 `self.app_state` 访问这些共享依赖**；不再保留 `self.workspace_path/self.resource_manager/...` 等兼容别名，避免隐式约定扩散。注意：GraphEditorController 在加载图时会重建 GraphModel/GraphScene，因此“当前 model/scene”以控制器为唯一真源，不在 AppState 内持有陈旧副本。
-- `resource_refresh_service.py`：`ResourceRefreshService`（资源库刷新服务）。集中处理“资源库刷新”的缓存失效与索引重建：包含结构体/信号/关卡变量/局内存档模板等代码级 Schema 缓存失效、信号仓库 `SignalDefinitionRepository` 的二级缓存失效、结构体记录快照失效、`ResourceManager.clear_all_caches()+rebuild_index()`、进程内 graph_data 缓存清空、布局相关模型缓存失效，以及 `PackageView/GlobalResourceView` 懒加载缓存清理，并统一失效图属性/引用查询的数据提供器缓存；返回 `ResourceRefreshOutcome` 供 UI 决定如何刷新页面与恢复上下文；服务本身不直接操作 UI 组件。
+- `app_state.py`：`MainWindowAppState`（单一真源）。集中装配 workspace/settings/节点库/ResourceManager/PackageIndexManager/GraphView/KeymapStore 等**稳定依赖**；其中 `settings` 的 workspace_root 注入与用户设置加载由应用入口（`app.cli.run_app`）负责，主窗口/AppState 只读取 settings，不重复 `settings.load()`，避免启动链路分叉与隐性覆盖。并要求主窗口与各 Mixin **只通过 `self.app_state` 访问这些共享依赖**；不再保留 `self.workspace_path/self.resource_manager/...` 等兼容别名，避免隐式约定扩散。注意：GraphEditorController 在加载图时会重建 GraphModel/GraphScene，因此“当前 model/scene”以控制器为唯一真源，不在 AppState 内持有陈旧副本。
+- `resource_refresh_service.py`：`ResourceRefreshService`（资源库刷新服务）。集中处理“资源库刷新”的缓存失效与索引重建：包含结构体/信号/关卡变量/局内存档模板等代码级 Schema 缓存失效、信号仓库 `SignalDefinitionRepository` 的二级缓存失效、结构体记录快照失效、`ResourceManager.clear_all_caches()+rebuild_index()`、进程内 graph_data 缓存清空、布局相关模型缓存失效，以及 `PackageView/GlobalResourceView` 懒加载缓存清理，并统一失效图属性/引用查询的数据提供器缓存；返回 `ResourceRefreshOutcome` 供 UI 决定如何刷新页面与恢复上下文（包含 `did_composite_library_change` 用于在复合节点库变更时补齐 NodeRegistry/复合节点页刷新）；服务本身不直接操作 UI 组件，并在关键阶段输出**warn 级**耗时打点日志（始终输出）以便排查刷新导致的卡顿/卡死。
+  - 支持“后台索引快照提交”：当上层已在后台构建完成资源索引与指纹（`ResourceIndexData + resource_library_fingerprint`）时，`refresh(..., prebuilt_index_data=..., prebuilt_resource_library_fingerprint=...)` 会跳过同步 `rebuild_index()`，改为主线程 O(1) 提交替换，避免 UI 线程卡顿。
+- `resource_refresh_coordinator.py`：`ResourceRefreshCoordinator`（资源库刷新后台化协调器）。将“索引构建/指纹计算”完全移出 UI 线程，并实现 singleflight + pending 合并：同一时刻最多一个后台任务在跑，运行中收到新请求只标记 pending，结束后最多再跑一次；后台产出 `ResourceIndexSnapshot`，主窗口在主线程提交替换并刷新页面。
   - 进程内 graph_data payload 缓存的清理由 `GraphDataService.clear_all_payload_graph_data()` 统一桥接（服务内不再直接 import `app.common.in_memory_graph_payload_cache`），降低“缓存失效入口分散”的分叉风险。
-- `view_state.py`：`MainWindowViewState`（单一真源雏形）。集中维护当前 `ViewMode` 与关键选中上下文（模板/实例/管理/任务、节点图库/编辑器、战斗 pending），供 mode presenter 与会话恢复使用，逐步减少从 widget 反查状态造成的隐式依赖。
+- `view_state.py`：`MainWindowViewState`（单一真源雏形）。集中维护当前 `ViewMode` 与关键选中上下文（模板/实体摆放/管理/任务、节点图库/编辑器、战斗 pending），供 mode presenter 与会话恢复使用，逐步减少从 widget 反查状态造成的隐式依赖。
 - `mode_presenters/`：模式控制器/Presenter 体系。每个 `ViewMode` 一个 presenter，专职承载“进入模式后的副作用”（刷新列表、懒加载页面、同步右侧上下文等）；`ModeSwitchMixin` 只负责公共切换流程并调用 `main_window.mode_presenter_coordinator.enter_mode(...)`。
 - `mode_transition_service.py`：`ModeTransitionService`（模式切换公共流程服务）。集中封装模式切换的公共步骤与顺序约束（保存当前复合节点/图、切换中央堆栈、调整 splitter、调用 presenter、右侧标签收敛、保存会话快照）；`ModeSwitchMixin._on_mode_changed` 仅作为 UI 信号入口委托调用该服务，降低 Mixin 冲突面。
-- `ui_setup_mixin.py`：UI 结构装配薄层（创建 Widget、注入依赖、布局与样式），中央模式堆栈包含元件库/实体摆放/战斗预设/管理面板/任务清单/复合节点占位/节点图库/验证/图编辑器/存档库等页面；页面/右侧面板的信号连接与标签注册已迁移到 `features/`，避免在本文件中继续堆积 `.connect(...)` 与跳转分支。
+- `navigation_history.py`：主窗口“导航历史”（纯内存）。维护后退/前进栈，并允许在当前位置增量补齐上下文（例如复合节点选中后写入 composite_id），供顶部工具栏的后退/前进按钮回放到上一页/下一页。
+- `ui_setup_mixin.py`：UI 结构装配薄层（创建 Widget、注入依赖、布局与样式），中央模式堆栈包含元件库/实体摆放/战斗预设/管理面板/任务清单/复合节点占位/节点图库/验证/图编辑器/项目存档等页面；页面/右侧面板的信号连接与标签注册已迁移到 `features/`，避免在本文件中继续堆积 `.connect(...)` 与跳转分支。
 - `wiring/`：主窗口装配层的“信号绑定/导航请求转发”集中入口（page binder + right panel binder），将页面与右侧面板信号统一连接到主窗口回调或 `NavigationCoordinator.handle_request(UiNavigationRequest)`；要求所有导航请求通过 `app.models.ui_navigation.UiNavigationRequest` 工厂方法构造，减少字符串拼装与语义漂移。
 - `features/`：主窗口“功能模块（Feature）”收敛层（渐进迁移用）。用于把新增功能的装配/右侧面板注册/快捷键与信号连线从 `UISetupMixin` 与多处 mixin/wiring 中逐步迁移出来，实现“新增一个功能尽量只改一个模块 + 一次注册”。目前右侧面板已大胆收敛为 `RightPanelAssemblyFeature`：集中负责执行监控面板创建、右侧面板 binder 连线、以及 tab 注册矩阵。
 - `right_panel_policy.py`：右侧面板联动策略（集中处理 section/mode → tabs 显隐），避免在 mixin/presenter/handler 中散落 `_ensure_*` 分支。
 - `wiring/`：主窗口装配层的集中入口：包含页面/右侧面板的 binder，以及右侧标签注册表的矩阵配置（tab_id/标题/模式约束）。主窗口装配文件只创建对象与布局，然后调用 wiring 进行统一绑定与配置。
+- `right_panel_contracts.py`：右侧面板“可见性合同（contract）”。用于将“只保留表里的 tab，其它全部收起”的规则配置化，并支持 `keep/ensure/preferred` 三段语义（允许保留但不强制打开、必须显示、优先切换）。业务层通过 `main_window.right_panel.apply_visibility_contract(...)` 应用合同，减少在各入口散落的互斥/收起分支。
 - `controller_setup_mixin.py`：控制器初始化与回调注入，集中创建 `PackageController`、`GraphEditorController`、`NavigationCoordinator` 与 `FileWatcherManager`，并为其提供获取当前上下文（当前包、当前图容器、当前场景/视图等）的回调。
-  - `NavigationCoordinator` 会被注入 `get_graph_data_service` 回调，统一通过 runtime 层 `GraphDataService` 加载/解析节点图数据，避免导航链路直接依赖多处缓存实现。
+  - `NavigationCoordinator` 会被注入 `get_graph_data_service` 回调，统一通过 runtime 层 `GraphDataService` 加载/解析节点图数据，避免导航链路直接依赖多处缓存实现；并支持 `combat_*`（玩家模板/职业/技能）条目的跳转请求，复用主窗口的战斗预设选中处理链路完成右侧详情面板联动。
 - `mode_switch_mixin.py`：视图模式切换入口（UI 信号处理）。保持为**最薄事件入口**：仅负责把 UI 的 mode_changed/F5 等信号转发到 `ModeTransitionService`；不再承载右侧标签的规则封装，避免出现“mixin + policy + registry”多处并行维护。
 - `right_panel_controller.py`：右侧面板对外唯一入口（`main_window.right_panel`）。对业务代码暴露 `prepare_for_mode_enter/apply_for_mode/enforce_contract/ensure_visible/apply_management_*` 等高层 API，内部组合 registry 与策略，避免双真源与协议漂移。
 - `right_panel_registry.py`：右侧 `side_tab` 的注册表（内部实现细节）。集中管理 `tab_id -> widget/title/模式约束` 与 QTabWidget 挂载/移除细节。
@@ -25,10 +29,13 @@
 - 其余 `*_events_mixin.py` 文件分别负责图加载与图库跳转、任务清单刷新与执行按钮联动，以及导航切换、窗口标题/保存状态和设置对话框/验证面板等通用行为。
 
 ## 当前状态
-- 主窗口通过集中配置 `ViewMode` 与 `RIGHT_PANEL_TABS` 控制不同模式下中央视图与右侧标签的组合，右侧属性类面板统一使用 `PanelScaffold` 骨架，并通过专门的 Panel 类（如模板/实例属性面板、图属性面板、执行监控面板等）承载具体 UI。
+- 主窗口通过集中配置 `ViewMode` 与 `RIGHT_PANEL_TABS` 控制不同模式下中央视图与右侧标签的组合，右侧属性类面板统一使用 `PanelScaffold` 骨架，并通过专门的 Panel 类（如模板/实体摆放属性面板、图属性面板、执行监控面板等）承载具体 UI。
 - 节点图画布使用全局唯一的 `app_state.graph_view`：图编辑器页与任务清单预览通过 Host 容器移动复用；`ModeTransitionService` 在进入 `ViewMode.TODO` 时切换为 `EditSessionCapabilities.read_only_preview()`，离开 TODO 时恢复进入前的能力快照，保证任务清单中的画布不可编辑且切回编辑器不残留只读状态。
+- 主窗口侧从 Todo/验证/跳转链路读取 `detail_info` 关键字段时，统一通过 `app.models.todo_detail_info_accessors`（如 `get_detail_type/get_graph_id/get_node_id`）完成，避免在事件 mixin 中散落 `.detail_info.get(...)` 造成协议漂移。
 - 管理模式（ViewMode.MANAGEMENT）在中央使用 `ManagementLibraryWidget` 作为列表式入口，右侧根据当前 Section 按需挂载管理相关面板：通用属性/编辑面板 `ManagementPropertyPanel`、信号详情面板 `SignalManagementPanel`、结构体详情面板 `StructDefinitionManagementPanel`、主镜头编辑面板 `MainCameraManagementPanel`、外围系统编辑面板 `PeripheralSystemPanel`，以及装备数据拆分后的 `EquipmentEntry/Tag/TypeManagementPanel` 三个面板等；其中计时器、局内存档模板、单位标签等基于 ID 列表的管理类型会通过 `ManagementPropertyPanel.build_edit_form()` 在“属性”标签中直接构建可编辑表单，并在面板顶部统一集成“所属存档”多选行，由 `PackageEventsMixin` 负责根据 section key/资源 ID 计算归属集合并写回 `PackageIndex.resources.management[...]`；信号、结构体等代码级类型系统资源在管理模式下通过各自专用面板以只读方式展示定义内容，并在顶部统一复用“所属存档”多选行维护归属关系，实际定义的增删改通过 `assets/资源库` 下的 Python 资源与工具脚本完成，其它仅在全局视图下以聚合配置形式存在的管理域（例如货币与背包、关卡设置等）仍以只读摘要或专用编辑面板为主；关卡变量按源文件聚合为模板展示，右侧使用无滚动表格列出文件内全部变量并开启换行，所属存档多选对文件内所有变量批量生效，使用情况会在表单上方列出引用它们的存档名称。
+- TODO 模式下的节点图变量步骤（`detail_type="graph_variables_table"`）会收敛隐藏“执行监控”并切到右侧“图属性”面板的“节点图变量”页签，用于浏览变量清单；共享画布保持在中央可见，便于对照变量在图中的使用位置。
 - 管理模式下右侧专用编辑页签的显隐使用 `RightPanelPolicy.apply_management_selection(section_key, has_selection=...)` 统一收敛；其 section→tab 规则由 `management_right_panel_registry.py` 作为唯一真源提供：`ui_settings` 仅依赖 section_key，其余专用页签仅在有有效条目选中时出现，避免“空白页签残留”。
+- 管理模式中“结构体定义/信号”等代码级资源的详情面板应按当前 `ResourceManager` 作用域取 payload（共享根 + 当前存档根），避免在共享视图中显示其他项目存档目录下的定义内容造成归属错觉。
 - 管理库选中项在“右侧专用面板刷新”链路中以库页协议 `get_selection()`（`LibrarySelection`）为唯一真源：`ManagementPanelsCoordinator.get_current_selection()` 负责解析 (section_key, item_id)；在 `on_management_selection_changed` 的专用面板分支中将 selection 作为参数传给 `management_right_panel_registry.py` 的 selection_updater，避免 updater 二次反查 `get_selection()` 造成协议漂移与右侧面板静默空白。
 - 主窗口内各模块对右侧标签的操作统一通过 `RightPanelRegistry`/`RightPanelPolicy` 公共接口完成，不再依赖 `_ensure_* / _update_*` 等 mixin 私有方法名或直接操作 `side_tab.addTab/removeTab/setCurrentWidget`，降低跨模块隐式耦合与协议漂移风险。
 - 库页面统一通过 `_on_library_selection_state_changed` 处理“无选中→收起右侧”的场景，`notify_selection_state` 会在资源库列表刷新或清空选中时触发，避免在各事件 Mixin 中分散调用 `_update_right_panel_visibility()`。
@@ -36,26 +43,39 @@
 - 管理模式下专用面板（信号/结构体/主镜头/外围系统/装备数据等）的刷新以 `PackageController.current_package` 为准：若当前包为空则清空面板内容并保持标签收敛，不再回退到其它上下文来源，避免出现“上下文错位但 UI 仍可编辑”的隐性问题。
 - 在管理模式下无任何条目选中时，属性与专用编辑面板会被收起，并触发 `_update_right_panel_visibility()` 隐藏右侧容器，避免出现空白面板。
 - 战斗预设模式（ViewMode.COMBAT）在中央使用 `CombatPresetsWidget` 统一浏览玩家模板、职业、技能、本地投射物、单位状态与道具等战斗相关资源，左侧分类与右侧列表仅负责提供“选中对象”的业务上下文，真正的详情编辑与节点图跳转由右侧的“玩家模板/职业/技能/道具”面板承担；这些面板的挂载由主窗口的 `PackageEventsMixin._on_player_template_selected/_on_player_class_selected/_on_skill_selected/_on_item_selected` 根据当前选中条目与视图模式动态控制，使战斗预设页面的列表选中与右侧详情标签之间保持一一对应关系；进入战斗预设模式时若列表尚无选中条目，会先选中首个可用条目再同步右侧详情，避免后台包切换阶段的默认选中干扰其他模式；在非战斗模式收到战斗预设选中时仅记录待处理选中，延迟到进入战斗模式后再加载对应面板，减少启动期卡顿。
-- UI 会话状态保存以“窗口关闭与视图模式切换”为主：`WindowAndNavigationEventsMixin` 在关闭窗口时统一采集当前视图模式与各库页选中状态并写入 `ui_last_session.json`，在 `_on_mode_changed` 中按需触发轻量去抖的 `_schedule_ui_session_state_save()` 以覆盖异常退出场景；模板/实例等少数视图在选中变更时会请求一次会话保存，而战斗预设与管理页面的普通选中仅同步右侧详情与标签状态，不额外触发高频的会话状态写盘。
+- UI 会话状态保存以“窗口关闭与视图模式切换”为主：`WindowAndNavigationEventsMixin` 在关闭窗口时统一采集当前视图模式与各库页选中状态并写入 `ui_last_session.json`，在 `_on_mode_changed` 中按需触发轻量去抖的 `_schedule_ui_session_state_save()` 以覆盖异常退出场景；模板/实体摆放等少数视图在选中变更时会请求一次会话保存，而战斗预设与管理页面的普通选中仅同步右侧详情与标签状态，不额外触发高频的会话状态写盘。
+- 已加入“全局搜索 / 命令面板”：主窗口菜单栏注册快捷键 **Ctrl+K / Ctrl+Shift+P**，弹出可输入关键词的搜索面板，支持直接跳转到元件/实体/战斗预设/节点图/管理项，并可直接切换存档；共享条目会用 `🌐` 图标标注归属（subtitle 同步包含 `owner=🌐 共享`），降低“我记得在某个地方”的翻页成本。
+- 已加入“快捷键面板”：主窗口顶部工具栏增加 **⌨️ 快捷键** 入口，用于查看当前程序主要快捷键；命令面板也提供“查看：快捷键面板”条目。
+- 已加入“快捷键设置”：支持在 UI 中修改快捷键并保存到 `<runtime_cache_root>/ui_keymap.json`，保存后立即对主窗口/库页/画布快捷键生效（无需重启）；命令面板与快捷键面板均提供入口。
+- 已加入“全局性能监控（卡顿定位）”：在设置中启用后，主窗口会启动 UI 心跳 + watchdog 的轻量监控，并可选显示“性能悬浮面板”（全页面可见）。悬浮面板点击可打开“性能监控”详情面板，用于在任意页面发生卡顿时快速定位主线程阻塞点；同时提供主窗口级快捷键动作“性能悬浮面板（卡顿定位）”（默认 F11）用于即时显示/隐藏该悬浮面板（类似 F12 开发者工具的开关体验）。
+- 已加入“本地测试”入口：主窗口左侧导航栏底部提供按钮，用于在主程序内启动“节点图 + HTML UI”的离线模拟（HTTP server + 系统浏览器预览），用于验证信号/交互/显隐与状态切换闭环。
 - 所有耗时操作与资源访问统一委托给控制器或资源管理器，主窗口只负责装配 UI、转发信号与维护模式/选中状态，不在此目录中直接读写磁盘文件。
 - 任务清单生成在 UI 侧创建 `TodoGenerator` 时会注入主窗口单例 `PackageIndexManager`（与 `MainWindowAppState` 一致），避免模型层重复创建索引管理器导致状态分叉。
+- 任务清单刷新在 Todo 页面先显示“正在生成任务清单…”状态徽章，然后在后台线程生成 Todo；生成完成后一次性 `load_todos` 并按快照恢复选中/详情上下文；若生成期间切换存档或再次触发刷新，会记录待刷新请求并在当前线程结束后自动补刷新，避免 UI 卡在“正在生成…”；当当前存档为空（例如全局视图）时会清空旧 Todo 并提示用户选择具体存档，避免残留内容误导；若后台线程异常退出会清理“生成中”状态并提示查看控制台错误。
 - 任务清单数据仅在进入 `ViewMode.TODO` 或已有 Todo 数据的情况下参与上下文匹配，图加载阶段不再强制刷新 Todo，避免启动时的 UI 卡顿。
-- 主窗口在关闭时会通过 `WindowAndNavigationEventsMixin` 收集当前 UI 会话状态（视图模式、各库页选中项、任务清单上下文与当前编辑中的节点图 ID），并调用 `app.runtime.ui_session_state` 将其写入 `app/runtime/ui_last_session.json`；下次启动完成基础装配与初始存档加载后，会尝试从该文件读取状态，根据记录的 `ViewMode` 与各页面的轻量选中信息恢复到上一次看到的页面与业务上下文（例如重新聚焦到上一次选中的模板、实例、管理记录、战斗预设或 Todo 步骤，以及重新打开最近编辑的节点图），不在此处持久化任何大体量图数据或长期配置；关闭阶段的资源/索引落盘遵循“flush 去抖缓冲 → 按脏块增量保存”的策略：无本地改动则不写盘，以避免外部资源刷新后被无意义覆盖。
-- 主窗口初始化路径在 `MainWindowV2.__init__` 中按顺序完成：保存 `workspace_path` → 二次确认并加载 `settings` → 通过集中式 `NodeRegistry` 加载节点库 → 构造 `ResourceManager` 与 `PackageIndexManager` → 创建空 `GraphModel/GraphScene/GraphView` 并绑定节点库 → 初始化控制器 → 装配 UI/菜单栏/工具栏并应用全局主题样式 → 连接控制器信号 → 加载最近存档或创建默认存档 → **将 UI 会话状态恢复排队到事件循环启动后执行**（避免在构造期同步打开上次会话的大图或大量选中恢复导致 UI 延迟显示）；该初始化路径在关键步骤使用 `engine.utils.logging.logger.log_info` 输出 `[BOOT][MainWindow] ...` 前缀的启动日志，便于在 UI 未弹出时从控制台精确判断卡在节点库加载、资源索引构建还是图场景/控制器装配阶段。
+- 设置对话框关闭后若当前处于任务清单模式（`ViewMode.TODO`），会触发一次任务清单刷新，并给出“已根据新设置刷新任务清单”的 toast 提示，避免用户误判设置未生效。
+- 主窗口在关闭时会通过 `WindowAndNavigationEventsMixin` 收集当前 UI 会话状态（视图模式、各库页选中项、任务清单上下文与当前编辑中的节点图 ID），并调用 `app.runtime.ui_session_state` 将其写入 `app/runtime/ui_last_session.json`；下次启动完成基础装配与初始存档加载后，会尝试从该文件读取状态，根据记录的 `ViewMode` 与各页面的轻量选中信息恢复到上一次看到的页面与业务上下文（例如重新聚焦到上一次选中的模板、实体摆放、管理记录、战斗预设或 Todo 步骤，以及重新打开最近编辑的节点图），不在此处持久化任何大体量图数据或长期配置；关闭阶段若检测到未保存修改，会提示 **保存并退出 / 不保存退出 / 取消** 并展示“已修改内容（未保存）”清单（可滚动、限制窗口尺寸）：取消会中止关闭；保存则 flush 去抖缓冲并按脏块增量落盘；不保存则跳过写盘。该策略避免“无条件全量保存”覆盖外部刷新后的最新内容。
+- 主窗口初始化路径在 `MainWindowV2.__init__` 中按顺序完成：保存 `workspace_path` → 使用入口已注入并加载的 `settings`（主窗口不再二次 `settings.load()`；仅在必要时做 workspace_root 注入一致性保障） → 通过集中式 `NodeRegistry` 加载节点库 → 构造 `ResourceManager` 与 `PackageIndexManager` → 创建空 `GraphModel/GraphScene/GraphView` 并绑定节点库 → 初始化控制器 → 装配 UI/菜单栏/工具栏并应用全局主题样式 → 连接控制器信号 → 加载最近存档或创建默认存档 → **将 UI 会话状态恢复排队到事件循环启动后执行**（避免在构造期同步打开上次会话的大图或大量选中恢复导致 UI 延迟显示）；该初始化路径在关键步骤使用 `engine.utils.logging.logger.log_info` 输出 `[BOOT][MainWindow] ...` 前缀的启动日志，便于在 UI 未弹出时从控制台精确判断卡在节点库加载、资源索引构建还是图场景/控制器装配阶段。
+ - 启动日志策略：默认仅保留少量 `log_info` 的启动摘要（例如 AppState 就绪、主窗口创建完成），模式切换与状态快照等高频细节降为 `log_debug`（由 `settings.DEBUG_LOG_VERBOSE` 控制），避免启动与正常使用时刷屏。
 
 ## 注意事项
 - 新增视图模式或右侧标签页时，应优先在 `view_modes.py` 中集中声明 `ViewMode/RIGHT_PANEL_TABS`；需要“进入模式副作用”时在 `mode_presenters/` 扩展对应 presenter；右侧标签的注册矩阵与联动策略优先改 `features/right_panel_assembly_feature.py` 与 `right_panel_policy.py`，避免回到 `ui_setup_mixin.py`/mixin 中继续堆 `_ensure_*` 分支；页面对外信号的连接与导航转发优先改 `features/central_pages_assembly_feature.py`（或新增 Feature），必要时才调用 `wiring/` 的 binder。
+- 对“选中 → 右侧展示”的互斥收敛优先使用 `right_panel.apply_visibility_contract(...)`（合同由 `right_panel_contracts.py` 提供常用模板）。需要保留“可并存但不强制打开”的语义时，使用 `keep_tab_ids` 与 `ensure_tab_ids` 拆分，避免把“默认打开/默认保留”混在一处 if/return 中导致行为漂移。
 - 对“新增功能需要多点改动”的场景：优先新增 `features/` 下的 Feature 并在默认安装入口注册；Feature 内负责创建控件、注册右侧 tab、连接信号。旧 wiring/mixin 入口仍可保留以兼容，逐步迁移后再删除。
+- 主窗口内需要弹窗提示/确认时，统一通过 `app.ui.foundation.dialog_utils`（含多按钮场景），确保弹窗正文可选中复制，避免在 Mixin 中直接 new Qt MessageBox。
 - 右侧面板的状态机/标签协议已集中在 `right_panel_protocol.md`，扩展或排查右侧未收起/未刷新的问题时先对照矩阵与约束；`ModeSwitchMixin._enforce_right_panel_contract` 在每次模式切换后会强制收敛标签集合，防止跨模式残留。
 - **模式切换禁止旁路**：任何“切换到某个 ViewMode”的行为都必须走 `ModeSwitchMixin._on_mode_changed → ModeTransitionService.transition(...)`（或 `_navigate_to_mode(...)`），禁止在其它模块里直接调用 `central_stack.setCurrentIndex(...)` 来“实现切换”（唯一例外：复合节点页面的懒加载在进入 `ViewMode.COMPOSITE` 的同一模式内，用“替换占位页”为真实 widget 的结构操作）。
 - **选中回调必须先校验 ViewMode**：节点图库、元件库、实体摆放等库页在切换存档/刷新资源索引时可能在后台重建列表并发出“空选中”事件；对应的主窗口回调（例如 `graph_events_mixin._on_graph_library_selected`）必须先判断当前 `ViewMode`，仅在所属模式下更新右侧面板与文件监控，避免后台刷新抢占 `GRAPH_EDITOR/TODO/MANAGEMENT` 等模式的右侧上下文。
-- 新增或扩展右侧面板时，应在 `ui_setup_mixin._create_property_panels` 中集中创建实例，并通过专门的 Mixin（如 `PackageEventsMixin` 或窗口/导航相关 Mixin）连接其信号与持久化逻辑，保持主窗口初始化路径清晰。
+- 新增或扩展右侧面板时，应在 `ui_setup_mixin._create_property_panels` 中集中创建面板对象，并通过专门的 Mixin（如 `PackageEventsMixin` 或窗口/导航相关 Mixin）连接其信号与持久化逻辑，保持主窗口初始化路径清晰。
 - `ui_setup_mixin.py` 中创建页面/面板时优先从 `app_state` 读取稳定依赖（`resource_manager/package_index_manager/...`），避免继续扩散兼容别名 `self.resource_manager/...` 的隐式依赖链路。
 - UI 会话状态保存/恢复（`ui_last_session.json`）使用 `main_window.app_state.workspace_path` 作为唯一路径来源；避免依赖 `self.workspace_path` 等旧式兼容别名，减少“静默 return 导致状态不保存/不恢复”的隐蔽问题。
 - 事件处理 Mixin 之间应只通过主窗口公共属性与信号交互，避免在子 Mixin 里反向导入或强依赖其它 Mixin 的实现细节，减少耦合度。
 - `main_window.py` 中避免继续增加“缓存失效/重建/刷新编排”细节：需要扩展资源刷新时优先改 `ResourceRefreshService`（失效与重建）或对应页面/控制器（UI 刷新），主窗口只保留委托与最小编排。
+- 资源库刷新需保持“UI 线程只做 O(1)”：索引扫描/解析/重建必须后台化；主线程仅做状态提示、提交替换与页面刷新编排（复用 `_on_package_loaded()` / `reload()`）。
 - `_create_property_panels` 中装备数据管理面板保持局部导入并放在方法体内，确保缩进正确，避免循环依赖或启动期的额外加载。
 - 管理配置的“所属存档”勾选仅更新 PackageIndex（含当前包的内存索引），不触发整包保存，避免一次勾选导致全量落盘。
+- 退出阶段清理顺序：窗口关闭时应先停止会跨线程与 Qt 交互的异步任务/线程池（例如图属性面板的 `GraphAsyncLoader`），再清理文件监控与执行增量保存，避免 Qt 对象销毁过程中仍有后台回调触发 native `access violation`。
+- 图场景刷新/重建时的清理顺序：若通过 `QGraphicsScene.clear()` 清空当前画布，应先关闭可能仍挂在 viewport 上的 Tooltip/浮层（例如布局Y调试 Tooltip），并在调用 `clear()` 前先清空 `scene.node_items/scene.edge_items` 以及邻接索引等 Python 侧容器，避免底层 C++ 图元被释放后残留 sip 包装对象引发 `wrapped C/C++ object ... has been deleted`。
 
 # ui/main_window 模块
 
@@ -75,12 +95,12 @@
 
 **主要方法**:
 - `_setup_controllers()` - 初始化4个核心控制器
-  - PackageController - 功能包生命周期管理（含保存前的资源库指纹脏检查）
+  - PackageController - 项目存档生命周期管理（含保存前的资源库指纹脏检查）
   - GraphEditorController - 节点图编辑核心逻辑
   - NavigationCoordinator - 跳转协调
   - FileWatcherManager - 文件监控和冲突解决（监控资源库根目录及主要子目录，通过指纹判定实际变更，再由主窗口注入的回调触发资源索引重建与视图刷新）
 - `_connect_controller_signals()` - 连接所有控制器信号到主窗口槽函数
-- `_get_current_resource_container()` - 为 `PackageController` 提供当前编辑对象（模板/实例/关卡实体或图容器）的统一入口，用于保存存档或全局视图时将基础信息、GUID 与挂载节点图等改动正确落盘到资源库。
+- `_get_current_resource_container()` - 为 `PackageController` 提供当前编辑对象（模板/实体摆放/关卡实体或图容器）的统一入口，用于保存存档或全局视图时将基础信息、GUID 与挂载节点图等改动正确落盘到资源库。
 
 **关键依赖**:
 - `app.ui.controllers.*` - 所有控制器类
@@ -93,11 +113,11 @@
 - `_apply_global_theme()` - 应用全局主题样式
 - `_setup_ui()` - 组装主窗口 UI 结构（委托给若干私有构建方法）
 - `_setup_nav_bar()` - 左侧导航栏（NavigationBar）
-- `_create_central_stack()` - 中间堆叠窗口（10个页面：模板/实体/战斗/管理/任务/复合占位/图库/验证/编辑器/功能包）
+- `_create_central_stack()` - 中间堆叠窗口（10个页面：模板/实体/战斗/管理/任务/复合占位/图库/验证/编辑器/项目存档）
 - `_create_right_panel_container()` - 右侧面板容器（属性/图属性/复合属性/虚拟引脚/界面控件设置）
-- `_create_property_panels()` - 属性类子面板的装配与信号连接，并将 `TemplateInstancePanel` 暴露的“保存前刷新”回调注册到 `PackageController`，使工具栏保存按钮、自动保存以及窗口关闭时都能在持久化前主动刷新基础信息页中使用去抖写回的编辑内容（例如名称/描述/GUID），避免这些字段因用户快速保存或切换功能包而丢失。
+- `_create_property_panels()` - 属性类子面板的装配与信号连接，并将 `TemplateInstancePanel` 暴露的“保存前刷新”回调注册到 `PackageController`，使工具栏保存按钮、自动保存以及窗口关闭时都能在持久化前主动刷新基础信息页中使用去抖写回的编辑内容（例如名称/描述/GUID），避免这些字段因用户快速保存或切换项目存档而丢失。
 - `_setup_menubar()` - 设置菜单栏，包含用于验证的 F5 快捷键以及用于开启/关闭 UI 悬停检查器的 F12 快捷键（开发者工具，仅在显式切换时生效；悬停检查器由 `app.ui.devtools.view_inspector.WidgetHoverInspector` 提供）
-- `_setup_toolbar()` - 设置工具栏（功能包选择/新建/保存/导入导出/设置/刷新/重启/保存状态指示器）
+- `_setup_toolbar()` - 设置工具栏（项目存档选择/新建/保存/导入导出/设置/刷新/检查更新/重启/保存状态指示器）
 
 **UI 组件层次**:
 ```
@@ -119,7 +139,7 @@ QMainWindow
             │   └── 9: package_library_widget
             └── right_panel_container (QWidget) - 右侧面板（默认情况下初始宽度约为中央区的 2/3，以便属性/变量等表格类页面有足够展示空间；在任务清单模式下会适度收窄右侧宽度，为中间详情与图预览留出更多空间；容器宽度约束：min=350，max=1200）
                 └── side_tab (QTabWidget)
-                    ├── property_panel (基础，始终存在，用于模板/实例/关卡实体)
+                    ├── property_panel (基础，始终存在，用于模板/实体摆放/关卡实体)
                     ├── player_editor_panel (按模式，ViewMode.COMBAT 下展示玩家模板详情)
                     ├── graph_property_panel (按模式)
                     ├── composite_property_panel (按模式，来自 `ui/composite`)
@@ -136,19 +156,19 @@ QMainWindow
 - `_apply_right_tabs_for_mode(view_mode)` - 委托 `RightPanelRegistry.apply_for_mode(view_mode)` 按 `RIGHT_PANEL_TABS` 挂载/移除静态标签，并回收越权动态标签
 - `_enforce_right_panel_contract(view_mode)` - 委托 `RightPanelRegistry.enforce_contract(view_mode)`，防止跨模式残留
 - `_update_right_panel_visibility()` / `_switch_to_first_visible_tab()` - 委托注册表的 UI 收敛方法
-- `_ensure_property_tab_visible(should_show)` - 按需显示/隐藏模板/实例属性标签
+- `_ensure_property_tab_visible(should_show)` - 按需显示/隐藏模板/实体摆放属性标签
 - `_ensure_player_editor_tab_visible(should_show)` - 按需显示/隐藏“玩家模板”标签，仅在战斗预设模式下使用
 - `_ensure_ui_settings_tab()` / `_remove_ui_settings_tab()` / `_update_ui_settings_tab_for_management(section_key?)` - 管理界面控件设置标签，仅在管理模式且当前 section 为“界面控件组`(key=\"ui_control_groups\")` 时显示
 - `_switch_to_validation_and_validate()` - F5快捷键处理
 
 **模式切换逻辑**（按 ViewMode 枚举）：
-- TEMPLATE / PLACEMENT - 显示属性面板；进入 PLACEMENT 时通过 `EntityPlacementWidget._rebuild_instances()` 重建实例列表
+- TEMPLATE / PLACEMENT - 显示属性面板；进入 PLACEMENT 时通过 `EntityPlacementWidget._rebuild_instances()` 重建实体摆放列表
 - COMBAT - 战斗预设模式下右侧“玩家模板 / 职业 / 技能”详情标签全部采用按选中对象动态插入的策略：`CombatPresetsWidget` 通过 `player_template_selected` / `player_class_selected` / `skill_selected` 信号，将当前选中条目交给主窗口的 `_on_player_template_selected/_on_player_class_selected/_on_skill_selected`，由后者分别调用 `_ensure_player_editor_tab_visible/_ensure_player_class_editor_tab_visible/_ensure_skill_editor_tab_visible` 在有有效上下文时插入对应标签，并在收到空 ID 时清空上下文并移除标签；这样当只选中玩家模板时只展示“玩家模板详情”标签，不会残留空的“职业/技能”页签，整体体验与元件库/实体摆放中“无有效选中对象→收起属性面板”的行为保持一致
 - COMBAT（模式切回时的同步） - 当从其它模式切回战斗预设时，`ModeSwitchMixin._on_mode_changed` 会通过 `CombatPresetsWidget.get_current_selection()` 读取当前列表选中状态并显式调用上述三个选中处理方法，使进入或返回战斗预设模式时右侧战斗详情面板自动与左侧列表保持同步，而不依赖用户重新点击列表项。
 - MANAGEMENT - 默认不显示属性；当左侧管理库选中“🖼️ 界面控件组” section 时，在右侧插入“界面控件设置”标签，并绑定管理库内部暴露的 `ui_control_group_manager`
-- TODO - 默认不挂载任何额外标签；进入任务清单模式后，由 `TodoListWidget` 和 `TodoEventsMixin.on_todo_selection_changed` 在选中**节点图相关步骤**时按需插入“执行监控”标签，在选中模板/实例类步骤时按需插入只读“属性”标签
+- TODO - 默认不挂载任何额外标签；进入任务清单模式后，由 `TodoListWidget` 和 `TodoEventsMixin.on_todo_selection_changed` 在选中**节点图相关步骤**时按需插入“执行监控”标签，在选中模板/实体摆放类步骤时按需插入只读“属性”标签
 - COMPOSITE - 显示复合节点属性+虚拟引脚（懒加载复合节点管理器）
-- GRAPH_LIBRARY - 显示图属性；切换到图库模式时会清空当前编辑上下文，并在刷新节点图库后根据当前选中节点图（若无选中则自动聚焦首个）刷新右侧图属性面板，保证左侧高亮与右侧属性始终同步
+- GRAPH_LIBRARY - 显示“图属性 + 信号/结构体/变量”两个只读页签；切换到图库模式时会清空当前编辑上下文，并在刷新节点图库后根据当前选中节点图（若无选中则自动聚焦首个）刷新右侧图属性/语义引用面板，保证左侧高亮与右侧详情始终同步
 - VALIDATION - 进入时**不再默认触发验证**：页面用于查看已存在的校验结果；验证由用户显式触发（面板按钮或 F5 快捷键），右侧仅挂载“验证详情”标签用于展示选中问题的详细信息
 - GRAPH_EDITOR - 显示图属性（当前图）
 - PACKAGES - 无特殊右侧面板
@@ -165,22 +185,27 @@ QMainWindow
 **职责**: 图编辑相关事件处理与跳转
 
 **主要内容**:
-- `_on_graph_loaded` / `_on_graph_saved` / `_on_graph_reloaded` - 节点图加载与保存链路；在外部节点图文件发生变更时，通过文件监控触发从资源管理器重新加载当前图，并在加载前使图属性面板使用的图数据缓存失效，确保右侧“节点图变量”等只读视图始终反映最新的图结构与变量声明；节点图写盘位于 `assets/资源库/节点图/...`，保存完成会同步标记“资源库内部写盘”时间，并尽量按“当前图文件所在目录”做抑制范围，避免保存当前图时误吞其它目录的外部新增资源事件。
+- `_on_graph_loaded` / `_on_graph_saved` / `_on_graph_reloaded` - 节点图加载与保存链路；在外部节点图文件发生变更时，通过文件监控触发从资源管理器重新加载当前图，并在加载前使图属性面板使用的图数据缓存失效，确保右侧“节点图变量”等只读视图始终反映最新的图结构与变量声明；节点图写盘位于 `assets/资源库/共享/节点图/...` 或 `assets/资源库/项目存档/<package_id>/节点图/...`，保存完成会同步标记“资源库内部写盘”时间，并尽量按“当前图文件所在目录”做抑制范围，避免保存当前图时误吞其它目录的外部新增资源事件。
 - `_on_graph_runtime_cache_updated` - 节点图运行期缓存更新的统一入口（例如自动排版覆盖 `graph_cache`、强制重解析）：由 `GraphEditorController.graph_runtime_cache_updated` 信号触发，集中失效 `GraphDataService` 的图模型与 payload 缓存，并同步失效/刷新右侧图属性面板的数据提供器，避免“某入口刷新后又回退/显示不一致”。
+- `_on_graph_library_selected` - 节点图库列表选中回调：**仅驱动右侧做轻量预览**（`GraphPropertyPanel.set_graph_library_preview`），避免在“单击选中”阶段触发节点图解析+自动布局；只有当用户显式切到变量页签或打开编辑器时才进入完整加载链路。
+  - 轻量预览阶段只同步“引用次数”，引用列表详情由右侧面板在“引用列表”页签可见时惰性后台加载，避免单击阶段构建大表格造成卡顿。
+- `_on_graph_property_panel_payload_loaded` - 图属性面板异步加载完成后的回调：当右侧触发过完整加载并生成/更新持久化 graph_cache 后，在 `ViewMode.GRAPH_LIBRARY` 下失效节点图轻量元数据缓存（node/edge 统计只允许来自 graph_cache；未命中缓存时为空），并同步更新左侧节点图库卡片的 node/edge 统计，保证列表统计与右侧“基本信息”一致；同时通过“当前 ViewMode + current_graph_id + 当前图库选中”三重校验避免旧请求回调误更新。
 - `_on_open_graph_request` / `_on_graph_selected` / `_on_player_editor_graph_selected` / `_on_graph_updated_from_property` - 图属性与编辑器之间的联动，其中 `_on_player_editor_graph_selected` 负责响应战斗预设玩家模板、职业与技能详情面板中“节点图”子标签发出的图打开请求，以独立方式在节点图编辑器中打开挂接在玩家/角色/技能上的节点图。
-- `_focus_node` / `_focus_edge` / `_on_jump_to_graph_element` - 节点与连线的聚焦跳转
+- `_focus_node` / `_focus_edge` / `_on_jump_to_graph_element` - 节点与连线的聚焦跳转（支持大图非阻塞加载/分帧装配：若图元尚未创建会短期重试，避免定位请求丢失；复合节点跳转优先使用 `composite_id`，并直接进入预览页以避免列表页闪动）
+- 复合节点库中选中复合节点时（`_on_composite_selected`）会同步更新窗口标题为“复合节点: <节点名称>”，与节点图打开时的标题策略保持一致。
+- 复合节点库刷新（`_on_composite_library_updated`）统一走 `_refresh_node_library_and_sync_composites(...)`：刷新 NodeRegistry（含复合节点）、同步图编辑器与复合节点预览页的 node_library，并在需要时同步当前图中已实例化的复合节点端口；同时会失效 node_defs_fp 的“复合节点库段”进程内缓存，确保节点库缓存与 graph_cache 校验不会误命中旧指纹；复合节点预览页的子图解析依赖 `base_node_library`，刷新节点库时会同步更新该依赖避免继续用旧节点库解析子图。
 
 #### 5. package_events_mixin.py / package_events/
 **职责**: 存档与资源索引相关事件处理（`package_events_mixin.py` 仅聚合继承；实现拆分在 `package_events/`）
 
 **主要内容**:
-- `_on_package_loaded` / `_on_package_saved` / `_on_package_combo_changed` - 功能包加载、保存与下拉框联动；保存完成后会触发验证并刷新“存档库”页面，使其中展示的 GUID 与挂载节点图等汇总信息始终反映当前落盘状态。
-- `_on_template_selected` / `_on_instance_selected` / `_on_level_entity_selected` - 将左侧元件库/实体摆放的选中结果同步到右侧 `TemplateInstancePanel`，并**仅在对应视图模式下**响应这些选中信号：元件库模式中才根据模板选中更新“元件属性”，实体摆放模式中才根据实例或关卡实体选中更新对应属性；当元件库或实体列表刷新后当前分类/存档中已不再包含原先选中的对象且发出“空 ID”选中信号时，仅在各自所属模式下清空右侧属性面板并移除“属性”标签，避免在管理面板、任务清单等模式中因后台刷新触发的选中变化导致右侧属性面板意外弹出或上下文被抢占。
-- `_on_package_resource_activated` - 响应存档库页面中右侧详情树对资源条目的点击：当点击元件、实例或关卡实体行时，通过 `GlobalResourceView` 在右侧 `TemplateInstancePanel` 中展示对应对象的基础信息、变量与组件，并按需插入“属性”标签；当点击节点图行时，在右侧 `GraphPropertyPanel` 中加载该图的属性与引用信息；当点击战斗预设相关条目时，复用战斗预设详情面板在右侧展示只读或可编辑摘要。存档视图下这些属性页签与管理配置详情互斥：在“模板/实例/关卡实体/节点图/战斗预设”等资源与“信号/计时器/局内存档模板”等管理配置之间切换时，会自动收起上一类资源对应的属性标签，右侧始终只展示当前选中条目的详情，避免残留旧的属性面板造成混淆。
-- `_on_data_updated` - 右侧属性面板数据更新后，根据当前视图模式与属性上下文区分刷新策略：在以模板为主的视图中刷新元件库列表，在“实体摆放”模式下仅在编辑实例时刷新实例列表，并避免在编辑实体实例时触发元件库刷新引发的模板重选中，保证“实体修改 GUID 等基础信息不会导致右侧属性上下文从实体意外切回元件”；同时通过 `_on_immediate_persist_requested` 将变更对应的资源 ID/域标记为脏并交给 `PackageController.save_dirty_blocks()` 去抖增量落盘，避免为局部字段改动触发整包写盘。
+- `_on_package_loaded` / `_on_package_saved` / `_on_package_combo_changed` - 项目存档加载、保存与下拉框联动；保存完成后会触发验证并刷新“项目存档”页面，使其中展示的 GUID 与挂载节点图等汇总信息始终反映当前落盘状态。
+- `_on_template_selected` / `_on_instance_selected` / `_on_level_entity_selected` - 将左侧元件库/实体摆放的选中结果同步到右侧 `TemplateInstancePanel`，并**仅在对应视图模式下**响应这些选中信号：元件库模式中才根据模板选中更新“元件属性”，实体摆放模式中才根据实体摆放或关卡实体选中更新对应属性；当元件库或实体列表刷新后当前分类/存档中已不再包含原先选中的对象且发出“空 ID”选中信号时，仅在各自所属模式下清空右侧属性面板并移除“属性”标签，避免在管理面板、任务清单等模式中因后台刷新触发的选中变化导致右侧属性面板意外弹出或上下文被抢占。
+- `_on_package_resource_activated` - 响应项目存档页面中右侧详情树对资源条目的点击：当点击元件、实体摆放或关卡实体行时，通过 `GlobalResourceView` 在右侧 `TemplateInstancePanel` 中展示对应对象的基础信息、变量与组件，并按需插入“属性”标签；当点击节点图行时，在右侧 `GraphPropertyPanel` 中加载该图的属性与引用信息；当点击战斗预设相关条目时，复用战斗预设详情面板在右侧展示只读或可编辑摘要。项目存档视图下这些属性页签与管理配置详情互斥：在“模板/实体摆放/关卡实体/节点图/战斗预设”等资源与“信号/计时器/局内存档模板”等管理配置之间切换时，会自动收起上一类资源对应的属性标签，右侧始终只展示当前选中条目的详情，避免残留旧的属性面板造成混淆。
+- `_on_data_updated` - 右侧属性面板数据更新后，根据当前视图模式与属性上下文区分刷新策略：在以模板为主的视图中刷新元件库列表，在“实体摆放”模式下仅在编辑实体摆放时刷新实体摆放列表，并避免在编辑实体摆放时触发元件库刷新引发的模板重选中，保证“实体修改 GUID 等基础信息不会导致右侧属性上下文从实体意外切回元件”；同时通过 `_on_immediate_persist_requested` 将变更对应的资源 ID/域标记为脏并交给 `PackageController.save_dirty_blocks()` 去抖增量落盘，避免为局部字段改动触发整包写盘。
 - 结构体与信号等代码级管理资源的右侧专用面板当前仅作为只读视图：`PackageEventsMixin._on_struct_property_panel_struct_changed` 仍会在用户尝试修改结构体时给出明确提示，引导在对应的 Python 模块中完成定义变更；信号面板的变更回调 `PackageEventsMixin._on_signal_property_panel_changed` 现为静默空实现，只负责占位与文档语义，不再弹出任何提示或执行写回操作，避免在用户误触编辑控件时频繁打断浏览；列表行中仅依赖名称、字段数量等聚合信息的 Section 仍通过集中快照机制避免纯 UI 操作（如展开/折叠列表或字典字段详情）反复重建面板和重置滚动位置，从而保持管理模式下的浏览体验稳定、流畅，存档归属仍由各面板顶部的“所属存档”多选行即时写回 `PackageIndex`。
 - `_on_graph_package_membership_changed` / `_on_composite_package_membership_changed` / `_on_template_package_membership_changed` - 统一写入 `PackageIndex` 中的资源归属关系。
-- `_on_management_selection_changed` - 接收管理配置库页面当前选中记录的信息，在管理模式下根据 section key 决定右侧管理区域的表现：信号管理与结构体定义（包括基础结构体与局内存档结构体）以及主镜头等依旧使用各自的专用编辑面板，其余大部分管理类型（计时器、变量、关卡设置、货币与背包、技能资源、背景音乐、装备数据、路径、多语言文本、光源、聊天频道、单位标签、护盾、扫描标签、商店模板、局内存档与实体布设组等）通过 `app.ui.graph.library_pages.management_sections.get_management_section_by_key()` 查找到对应 `BaseManagementSection` 实例，并优先调用其可选的 `build_inline_edit_form(parent, package, item_id, on_changed)` 接口在通用 `ManagementPropertyPanel` 中构建就地编辑表单；若某个 Section 未实现内联表单，则退化为只读摘要表单展示；“界面控件组”仍由 `UIControlSettingsPanel` 作为专用编辑页嵌入右侧堆栈，避免与通用属性面板混用；所有这些编辑入口在数据变更后通过 `_on_management_edit_page_data_updated`、通用的 `on_changed` 回调或专用回调触发管理库列表刷新与即时持久化。
+- `_on_management_selection_changed` - 接收管理配置库页面当前选中记录的信息，在管理模式下根据 section key 决定右侧管理区域的表现：信号管理与结构体定义（包括基础结构体与局内存档结构体）以及主镜头等依旧使用各自的专用编辑面板，其余大部分管理类型（计时器、变量、关卡设置、货币与背包、技能资源、背景音乐、装备数据、路径、多语言文本、光源、聊天频道、单位标签、护盾、扫描标签、商店模板、局内存档与实体布设组等）通过 `app.ui.graph.library_pages.management_sections.get_management_section_by_key()` 查找到对应 `BaseManagementSection` 实例，并优先调用其可选的 `build_inline_edit_form(parent, package, item_id, on_changed)` 接口在通用 `ManagementPropertyPanel` 中构建就地编辑表单；若某个 Section 未实现内联表单，则退化为只读摘要表单展示；“界面控件组”由 `UIControlSettingsPanel` 作为专用页嵌入右侧堆栈（当前为 Web-first 入口：打开 UI 工作台），避免与通用属性面板混用；所有这些编辑入口在数据变更后通过 `_on_management_edit_page_data_updated`、通用的 `on_changed` 回调或专用回调触发管理库列表刷新与即时持久化。
 
 #### 6. todo_events_mixin.py
 **职责**: 任务清单相关事件处理
@@ -188,14 +213,20 @@ QMainWindow
 **主要内容**:
 - `_refresh_todo_list` - 基于当前包或视图模型重新生成 Todo 列表，并在刷新前后通过上下文快照尽量恢复任务清单中的当前选中项与右侧详情/预览上下文；在资源库被外部工具修改或当前包重新加载时，由主窗口统一调用以保持 Todo 与真实数据的一致性。
 - `_on_todo_checked` - 接收任务清单页面发出的勾选变更事件，仅将结果写入当前包的 `todo_states` 并更新右上角保存状态指示，不在此处直接触发存档保存；Todo 勾选的持久化统一依赖工具栏“保存”按钮或窗口关闭流程。
-- `on_todo_selection_changed` - 在任务清单模式下接收当前选中 `TodoItem`：模板/实例的“属性类步骤”会以只读方式加载到右侧 `TemplateInstancePanel` 并显示“属性”标签；节点图/复合节点相关步骤则按需显示并**优先切到**右侧“执行监控”标签，避免图步骤在选中或自动执行时被误判为“模板/实例任务”而抢占到“属性”页造成上下文错位。
+- Todo 勾选状态写入遵循“仅在真实变化时标记未保存”的原则：当勾选值与当前 `todo_states` 一致时不触发脏标记；`todo_states` 仅存储 `True`（缺省即 `False`），从而避免刷新/恢复过程中重复写入造成“退出必弹未保存”的错觉，并减少运行期状态文件的噪音写盘。
+- `on_todo_selection_changed` - 在任务清单模式下接收当前选中 `TodoItem`：模板/实体摆放的“属性类步骤”会以只读方式加载到右侧 `TemplateInstancePanel` 并显示“属性”标签；节点图/复合节点相关步骤则按需显示并**优先切到**右侧“执行监控”标签，避免图步骤在选中或自动执行时被误判为“模板/实体摆放任务”而抢占到“属性”页造成上下文错位。
 
 #### 7. window_navigation_events_mixin.py
-**职责**: 窗口级导航事件与模式切换入口
+**职责**: 窗口级导航事件与窗口生命周期入口（对外稳定聚合层）
 
-**主要内容**:
-- `_navigate_to_mode` / `_open_player_editor` - 作为 `NavigationCoordinator` 与主窗口之间的桥接
-- `closeEvent` - 统一处理窗口关闭时的保存与清理逻辑
+**说明**:
+- 本文件仅作为聚合入口；具体实现按职责拆分到 `ui/main_window/window_navigation_events/` 子包中，避免单文件过大。
+  - `save_status_mixin.py`：窗口标题/保存状态标签/工具栏保存入口
+  - `navigation_history_mixin.py`：导航历史（后退/前进）
+  - `ui_session_state_mixin.py`：UI 会话状态持久化与恢复
+  - `command_palette_mixin.py`：命令面板 / 快捷键面板
+  - `validation_and_settings_mixin.py`：验证、设置、更新/环境检查与下载更新
+  - `close_event_mixin.py`：关闭退出（未保存清单 + 清理 + 按脏块增量落盘）
 
 ### 向后兼容
 `app.ui.main_window` 包的 `__init__.py` 直接导出 `MainWindowV2` 与 `APP_TITLE`，外部代码使用
@@ -213,8 +244,10 @@ from app.ui.main_window import MainWindowV2
 - ✅ 保持所有原有功能和信号连接
 - ✅ 图编辑器右上角集成“前往执行”按钮：在图编辑器模式下**始终显示**，点击后跳转到任务清单并尽量定位当前图对应步骤（必要时自动生成 Todo）
 - ✅ “前往执行”跳转到任务清单时复用全局画布：进入 TODO 后会立刻把 `app_state.graph_view` 挂到任务清单的预览页并显示，避免因延迟 attach 导致用户感知为“画布关闭后再打开”
+- ✅ “前往执行”跳转前增加节点图加载门禁：当资源库中的节点图源码非法导致无法加载/解析时，会弹窗提示并阻止跳转，避免异常在 Todo 预览/懒加载/执行链路中炸穿
 - ✅ 即使从节点图库或属性面板直接打开图，也会通过 `TodoListWidget.find_first_todo_for_graph()` 自动匹配关联步骤；若未匹配到也会至少跳到任务清单页面
 - ✅ 首次打开节点图时若任务清单尚未加载，会在后台自动刷新一次，确保上一条能力在冷启动场景同样生效
+- ✅ “前往执行”会校验缓存的 Todo 上下文是否仍与当前打开的 `graph_id` 一致；不一致时自动作废旧上下文，避免跳转到之前打开过的其它图的执行步骤
 
 ### 优势
 1. **可维护性**: 每个 Mixin 职责单一，约200-340行，易于理解和修改
@@ -251,12 +284,12 @@ from app.ui.main_window import MainWindowV2
 - 跨组件信号通过控制器协调，不要直接连接
 
 ### 颜色与样式
-- 主窗口工具栏的保存状态标签与图编辑器右上角的“前往执行”按钮均基于全局主题 token（`Colors`/`ThemeManager`）着色，保持与整体 UI 主题一致；节点图库（`ViewMode.GRAPH_LIBRARY`）固定为只读提示；复合节点（`ViewMode.COMPOSITE`）则根据页面能力（`CompositeNodeManagerWidget.can_persist_composite`）显示“预览（不落盘）/允许保存”，避免在启用复合节点落盘能力时仍显示误导性的只读提示；从只读页面切换回其它模式（如图编辑器、任务清单、管理面板等）时，会根据最近一次保存状态（已保存/未保存/保存中）恢复对应的状态标签与文案，保证只读提示不会在非只读页面残留。
+- 主窗口工具栏的保存状态标签与图编辑器右上角的“前往执行”按钮均基于全局主题 token（`Colors`/`ThemeManager`）着色，保持与整体 UI 主题一致；保存状态标签遵循“可编辑/可保存优先”的统一规则：节点图库（`ViewMode.GRAPH_LIBRARY`）与验证面板（`ViewMode.VALIDATION`）固定显示“当前页面不允许修改（不保存）”；复合节点（`ViewMode.COMPOSITE`）当前为库页只读浏览，固定显示“预览（不保存）”；管理模式下的信号/结构体代码级只读详情页签以及任务清单中的只读属性预览页签，同样会覆盖为只读提示（仅影响右上角文案，不改变实际数据写回策略）；从只读页签切换回可编辑页签或其它模式后，会恢复为最近一次保存状态（已保存/未保存/保存中），避免只读提示残留。
 - 新增按钮或状态徽标时，优先复用主题提供的颜色和 QSS 片段，避免在本模块中分散硬编码颜色值。
 
 ### 懒加载组件
 - `composite_widget` - 首次进入复合节点模式时创建
-- `execution_monitor`（tab_id=`execution_monitor`）- 右侧执行监控面板实例，按模式与当前上下文动态显示；标签页的挂载/移除统一通过 `RightPanelController.ensure_visible("execution_monitor", ...)` 管理，任务清单等页面只调用该公开方法，不直接操作 `side_tab` 结构，也不依赖主窗口上的面板别名属性。
+- `execution_monitor`（tab_id=`execution_monitor`）- 右侧执行监控面板组件，按模式与当前上下文动态显示；标签页的挂载/移除统一通过 `RightPanelController.ensure_visible("execution_monitor", ...)` 管理，任务清单等页面只调用该公开方法，不直接操作 `side_tab` 结构，也不依赖主窗口上的面板别名属性。
 
 ### 模式切换流程
 1. 保存当前编辑状态（复合节点/节点图）——**仅在有未保存修改时才触发保存**，避免无谓的 I/O 操作
@@ -271,17 +304,18 @@ from app.ui.main_window import MainWindowV2
 ### 工具栏布局与分组
 
 - `_setup_toolbar()` 负责主窗口顶部工具栏的装配：
-  - 左侧为“当前功能包选择”下拉框（含文本标签）。
-  - 中部为与存档相关的操作按钮：**新建存档 / 保存**（保存走 `PackageController.save_now()`：先 flush 去抖缓冲，再按脏块增量落盘；无改动则不写盘）。
-  - 右侧为“⚙️ 设置 / 刷新 / 重启”按钮组，以及“保存状态”标签（已保存 / 未保存 / 保存中）；其中“刷新”按钮会调用主窗口统一的 `refresh_resource_library()` 入口，在关闭资源库自动刷新时可作为手动刷新入口。
+  - 最左侧为 **后退/前进**（Alt+Left / Alt+Right），用于在页面级导航历史中回放上一页/下一页。
+  - 后退/前进右侧为“当前项目存档选择”下拉框（含文本标签）。
+  - 中部为与存档相关的操作按钮：**新建存档 / 保存**（保存入口由主窗口统一封装：在无改动时给出轻量提示并保持已保存状态；在有改动时显示“保存中→已保存”，并实际委托 `PackageController.save_now()` 执行 flush + 按脏块增量落盘）。
+- 右侧为“⌨️ 快捷键 / ⚙️ 设置 / 刷新 / 检查更新 / 检查环境 / 导入 / 导出 / 重启”按钮组，以及“保存状态”标签（已保存 / 未保存 / 保存中）；其中“导入”用于读取 `.gil` 并导入为项目存档（复用 ugc_file_tools 的导入链路，保证与“项目存档页 → 导入/导出中心 → 读取 .gil”一致）；“导出”用于打开导出中心（仅导出，复用 ugc_file_tools 的导出链路，保证与“项目存档页 → 导入/导出中心 → 导出”一致，提供 `.gil` 写回导出与 `.gia` 导出等入口）；“刷新”按钮会调用主窗口统一的 `refresh_resource_library()` 入口，在关闭资源库自动刷新时可作为手动刷新入口；“检查更新”当前按 `app.app_info.APP_UPDATE_CHECK_MODE` 的默认策略 `latest_release_version` 进行 **版本号对比（本地版本号 vs 最新 Release tag）**，并在发现新版本时提供“一键下载并解压 Windows 便携版更新包（不覆盖当前目录）”入口；“检查环境”用于检测千星沙箱窗口是否打开、沙箱所在屏幕的分辨率/缩放是否在支持范围，以及管理员权限是否匹配并输出可复制报告。
   - 最右侧使用伸缩控件将“保存状态”标签靠右对齐。
 
 #### 分组与分隔线规则
 
 - 顶部工具栏通过 **单一分隔线** 区分若干功能组：
-  - 功能包选择区域
+  - 项目存档选择区域
   - 存档操作组（新建存档 / 保存）
-  - 设置与系统控制按钮组（⚙️ 设置 / 重启）
+  - 设置与系统控制按钮组（⌨️ 快捷键 / ⚙️ 设置 / 刷新 / 检查更新 / 检查环境 / 导入(.gil) / 导出中心(.gil/.gia) / 重启）
 - 约定：相邻功能组之间只允许存在 **一条分隔线**，禁止连续调用 `toolbar.addSeparator()` 形成“双竖线”效果。
 - 若临时移除某个按钮组（例如运行按钮组），应同时删除与该组相关的分隔线调用，避免出现“分隔线之间没有按钮”或视觉上的重复边界。
 
@@ -316,4 +350,3 @@ from app.ui.main_window import MainWindowV2
 3. **文档字符串**: 为每个方法添加详细的 docstring
 4. **配置驱动**: 将模式切换逻辑改为配置驱动，减少硬编码
 5. **事件总线**: 考虑引入事件总线替代直接信号连接
-

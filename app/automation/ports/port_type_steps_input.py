@@ -19,7 +19,6 @@ from typing import Callable, Dict, List, Optional, Tuple
 from PIL import Image
 
 from engine.graph.models.graph_model import GraphModel, NodeModel
-from engine.nodes.port_index_mapper import map_port_index_to_name
 from engine.utils.graph.graph_utils import is_flow_port_name
 
 from app.automation.editor.executor_protocol import (
@@ -36,6 +35,7 @@ from app.automation.ports.port_type_inference import (
 )
 from app.automation.ports.port_type_steps_common import apply_type_setting_with_port_center
 from app.automation.ports.port_type_ui_steps import apply_port_type_via_ui
+from app.automation.ports.port_index_name_resolver import map_port_index_to_name_via_node_def
 
 
 def process_input_ports_type_setting(
@@ -133,7 +133,9 @@ def process_input_ports_type_setting(
         port_index = getattr(port_in, "index", None)
         mapped_name: Optional[str] = None
         if isinstance(port_index, int):
-            mapped_name = map_port_index_to_name(node.title, "left", port_index)
+            # 优先使用 node_def 进行序号映射：避免 client/server 同名节点导致
+            # map_port_index_to_name 无法唯一定位 NodeDef 而返回 None。
+            mapped_name = map_port_index_to_name_via_node_def(node_def, "left", port_index)
 
         if not isinstance(mapped_name, str) or mapped_name == "":
             detected_name_cn = getattr(port_in, "name_cn", None)

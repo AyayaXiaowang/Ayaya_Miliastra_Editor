@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PyQt6 import QtWidgets
+from PyQt6 import QtCore, QtWidgets
 
 from app.ui.foundation import input_dialogs
 from app.ui.foundation.base_widgets import BaseDialog
@@ -86,13 +86,18 @@ class PopupConfigPanel(BaseWidgetConfigPanel):
             max_height=120,
         )
 
+        insert_var_btn = QtWidgets.QPushButton("插入变量...")
+        insert_var_btn.setFixedWidth(100)
+        insert_var_btn.clicked.connect(self._insert_variable_placeholder)
+        form.add_row_widget("", insert_var_btn)
+
         buttons_group = QtWidgets.QGroupBox("按钮配置")
         buttons_layout = QtWidgets.QVBoxLayout(buttons_group)
         self.buttons_list = QtWidgets.QListWidget()
         self.buttons_list.setMaximumHeight(100)
         self.buttons_list.itemDoubleClicked.connect(self._edit_button)
         self.buttons_list.setContextMenuPolicy(
-            QtWidgets.Qt.ContextMenuPolicy.CustomContextMenu  # type: ignore[attr-defined]
+            QtCore.Qt.ContextMenuPolicy.CustomContextMenu
         )
         self.buttons_list.customContextMenuRequested.connect(
             self._on_buttons_context_menu
@@ -185,4 +190,12 @@ class PopupConfigPanel(BaseWidgetConfigPanel):
         if not label:
             return None
         return {"label": label, "action": action}
+
+    def _insert_variable_placeholder(self) -> None:
+        variable_name = input_dialogs.prompt_text(self, "插入变量", "变量名称:")
+        if not variable_name:
+            return
+        cursor = self.content_edit.textCursor()
+        cursor.insertText(f"{{{{{variable_name}}}}}")
+        self.content_edit.setTextCursor(cursor)
 

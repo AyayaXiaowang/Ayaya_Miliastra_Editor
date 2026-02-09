@@ -22,6 +22,8 @@ from app.ui.foundation.theme_manager import (
     Sizes as ThemeSizes,
     Icons as ThemeIcons,
 )
+from app.models.todo_detail_info_accessors import get_detail_type
+from app.ui.todo import step_type_registry
 
 
 class TaskTypeMetadata:
@@ -125,18 +127,10 @@ class DetailTypeIcons:
         "default": "•"
     }
     
-    # 节点图类型图标
+    # 节点图类型图标：
+    # 由 StepTypeRegistry（单一真源）派生；仅当 spec 明确给出 icon 时才会覆盖默认回退策略。
     GRAPH_ICONS = {
-        "graph_create_node": "+",
-        "graph_connect": "─",
-        "graph_config_node": "◦",
-        "graph_set_port_types_merged": "◦",
-        "graph_add_variadic_inputs": "+",
-        "graph_add_dict_pairs": "+",
-        "graph_add_branch_outputs": "+",
-        "graph_config_branch_outputs": "◦",
-        "graph_bind_signal": "◦",
-        "graph_bind_struct": "◦",
+        **dict(step_type_registry.GRAPH_STEP_TYPE_ICON_MAP),
         "default": "◆",
     }
     
@@ -161,7 +155,7 @@ class DetailTypeIcons:
         Returns:
             对应的图标字符
         """
-        detail_type = detail_info.get("type", "")
+        detail_type = get_detail_type(detail_info)
         
         # 根据任务类型返回图标
         if task_type == "category":
@@ -223,35 +217,8 @@ class StepTypeColors:
     - 步骤类型优先，其次（针对节点图步骤）尝试按节点类别着色
     """
 
-    # 步骤类型 → 颜色（统一从 ThemeColors 中取值，便于主题统一管理）
-    STEP_COLORS = {
-        # 图根/事件流容器（深色以示区分）
-        "template_graph_root": ThemeColors.TODO_STEP_TEMPLATE_GRAPH_ROOT,
-        "event_flow_root": ThemeColors.TODO_STEP_EVENT_FLOW_ROOT,
-
-        # 创建/连线/配置（为每种类型分配更显眼且彼此区分的颜色）
-        "graph_create_node": ThemeColors.TODO_STEP_GRAPH_CREATE_NODE,
-        "graph_create_and_connect": ThemeColors.TODO_STEP_GRAPH_CREATE_AND_CONNECT,
-        "graph_create_and_connect_reverse": ThemeColors.TODO_STEP_GRAPH_CREATE_AND_CONNECT_REVERSE,
-        "graph_create_and_connect_data": ThemeColors.TODO_STEP_GRAPH_CREATE_AND_CONNECT_DATA,
-
-        "graph_connect": ThemeColors.TODO_STEP_GRAPH_CONNECT,
-        "graph_connect_merged": ThemeColors.TODO_STEP_GRAPH_CONNECT_MERGED,
-
-        "graph_config_node": ThemeColors.TODO_STEP_GRAPH_CONFIG_NODE,
-        "graph_config_node_merged": ThemeColors.TODO_STEP_GRAPH_CONFIG_NODE_MERGED,
-        "graph_set_port_types_merged": ThemeColors.TODO_STEP_GRAPH_SET_PORT_TYPES_MERGED,
-
-        # 动态端口与分支配置
-        "graph_add_variadic_inputs": ThemeColors.TODO_STEP_GRAPH_ADD_VARIADIC_INPUTS,
-        "graph_add_dict_pairs": ThemeColors.TODO_STEP_GRAPH_ADD_DICT_PAIRS,
-        "graph_add_branch_outputs": ThemeColors.TODO_STEP_GRAPH_ADD_BRANCH_OUTPUTS,
-        "graph_config_branch_outputs": ThemeColors.TODO_STEP_GRAPH_CONFIG_BRANCH_OUTPUTS,
-        # 信号与结构体相关步骤
-        "graph_signals_overview": ThemeColors.TODO_STEP_GRAPH_SIGNALS_OVERVIEW,
-        "graph_bind_signal": ThemeColors.TODO_STEP_GRAPH_BIND_SIGNAL,
-        "graph_bind_struct": ThemeColors.TODO_STEP_GRAPH_BIND_STRUCT,
-    }
+    # 步骤类型 → 颜色：由 StepTypeRegistry 派生（单一真源）
+    STEP_COLORS = dict(step_type_registry.STEP_TYPE_COLOR_MAP)
 
     # 节点类别 → 颜色（与图场景标题栏色系一致）
     NODE_CATEGORY_COLORS = {
@@ -294,33 +261,11 @@ class TodoStyles:
     # 布局尺寸
     FOCUS_MARGIN = 100  # 聚焦边距（像素）
     
-    # 节点图任务类型（用于右侧预览切换条件）
-    GRAPH_TASK_TYPES = [
-        "template_graph_root",
-        "event_flow_root",
-        "graph_create_node",
-        "graph_config_node",
-        "graph_config_node_merged",
-        "graph_set_port_types_merged",
-        "graph_connect",
-        "graph_connect_merged",
-        "graph_create_and_connect",
-        "graph_create_and_connect_reverse",
-        "graph_create_branch_node",
-        # 动态端口添加步骤：点击时同样展示节点图预览（可编辑）
-        "graph_add_variadic_inputs",
-        "graph_add_dict_pairs",
-        "graph_add_branch_outputs",
-        "graph_config_branch_outputs",
-        # 信号相关步骤
-        "graph_signals_overview",
-        "graph_bind_signal",
-    ]
+    # 节点图任务类型（用于右侧预览切换条件）：由 StepTypeRegistry 派生（单一真源）
+    GRAPH_TASK_TYPES = list(step_type_registry.GRAPH_TASK_TYPES)
 
-    # 图相关但仅在详情中展示的步骤类型（不切换到右侧图预览）
-    GRAPH_DETAIL_TYPES_WITHOUT_PREVIEW = [
-        "graph_variables_table",
-    ]
+    # 图相关但仅在详情中展示的步骤类型（不切换到右侧图预览）：由 StepTypeRegistry 派生（单一真源）
+    GRAPH_DETAIL_TYPES_WITHOUT_PREVIEW = list(step_type_registry.GRAPH_DETAIL_TYPES_WITHOUT_PREVIEW)
 
     # 按钮样式（从主题色构建，避免直接写死十六进制）
     @staticmethod
@@ -406,71 +351,17 @@ class StepTypeRules:
     # 图根 / 事件流根
     GRAPH_ROOT_TYPES = ("template_graph_root", "event_flow_root")
 
-    # 自动勾选的叶子步骤类型（仅针对图相关的实际操作步骤）
-    AUTO_CHECK_GRAPH_STEP_TYPES = {
-        "graph_create_node",
-        "graph_create_and_connect",
-        "graph_create_and_connect_reverse",
-        "graph_create_and_connect_data",
-        "graph_create_branch_node",
-        "graph_connect",
-        "graph_connect_merged",
-        "graph_config_node",
-        "graph_config_node_merged",
-        "graph_set_port_types_merged",
-        "graph_add_variadic_inputs",
-        "graph_add_dict_pairs",
-        "graph_add_branch_outputs",
-        "graph_config_branch_outputs",
-        "graph_signals_overview",
-        "graph_bind_signal",
-        "graph_bind_struct",
-    }
-
-    # 支持在任务树上渲染富文本 token 的图步骤类型
-    RICH_TEXT_GRAPH_STEP_TYPES = {
-        "graph_connect",
-        "graph_connect_merged",
-        "graph_create_node",
-        "graph_create_and_connect",
-        "graph_create_and_connect_reverse",
-        "graph_create_and_connect_data",
-        # 配置 / 类型设置
-        "graph_set_port_types_merged",
-        "graph_config_node_merged",
-        # 动态端口与分支配置
-        "graph_add_branch_outputs",
-        "graph_config_branch_outputs",
-        "graph_add_variadic_inputs",
-        "graph_add_dict_pairs",
-        # 信号相关
-        "graph_bind_signal",
-    }
-
-    # 支持右键菜单“仅执行此步骤”的类型集合
-    CONTEXT_MENU_EXECUTABLE_STEP_TYPES = {
-        "graph_create_node",
-        "graph_connect",
-        "graph_connect_merged",
-        "graph_create_and_connect",
-        "graph_set_port_types_merged",
-        "graph_config_node_merged",
-        "graph_add_variadic_inputs",
-        "graph_add_dict_pairs",
-        "graph_add_branch_outputs",
-        "graph_config_branch_outputs",
-    }
-
-    # 配置类步骤（节点参数配置相关）
-    CONFIG_STEP_TYPES = {
-        "graph_config_node",
-        "graph_config_node_merged",
-    }
-
-    # 类型设置类步骤（端口类型、分支类型等）
-    TYPE_SETTING_STEP_TYPES = {
-        "graph_set_port_types_merged",
-    }
+    # 能力与语义集合：全部由 StepTypeRegistry 派生（单一真源）
+    AUTO_CHECK_GRAPH_STEP_TYPES = set(step_type_registry.AUTO_CHECK_GRAPH_STEP_TYPES)
+    RICH_TEXT_GRAPH_STEP_TYPES = set(step_type_registry.RICH_TEXT_GRAPH_STEP_TYPES)
+    CONTEXT_MENU_EXECUTABLE_STEP_TYPES = set(
+        step_type_registry.CONTEXT_MENU_EXECUTABLE_STEP_TYPES
+    )
+    CONFIG_STEP_TYPES = set(step_type_registry.CONFIG_STEP_TYPES)
+    TYPE_SETTING_STEP_TYPES = set(step_type_registry.TYPE_SETTING_STEP_TYPES)
+    VIRTUAL_DETAIL_CHILDREN_STEP_TYPES = set(
+        step_type_registry.VIRTUAL_DETAIL_CHILDREN_STEP_TYPES
+    )
 
     @classmethod
     def _normalize_detail_type(cls, detail_type: object) -> str:
@@ -553,11 +444,10 @@ class StepTypeRules:
         - 合并参数配置：graph_config_node_merged
         - 多分支分支输出配置：graph_config_branch_outputs
         - 合并端口类型设置：graph_set_port_types_merged
+        - 连线步骤：graph_connect / graph_connect_merged
         """
         normalized = cls._normalize_detail_type(detail_type)
-        if cls.is_type_setting_step(normalized):
-            return True
-        return normalized in ("graph_config_node_merged", "graph_config_branch_outputs")
+        return normalized in cls.VIRTUAL_DETAIL_CHILDREN_STEP_TYPES
 
     # === 能力标签 ===
 

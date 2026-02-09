@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 import keyword
 
+from engine.graph.common import FLOW_IN_PORT_NAMES, FLOW_OUT_PORT_NAMES
 from engine.nodes.node_registry import get_node_registry
 from engine.nodes.constants import ALLOWED_SCOPES
+from engine.utils.graph.graph_utils import is_flow_port_name
 
 
 def _expand_aliases(names: Set[str]) -> Set[str]:
@@ -74,6 +76,49 @@ def _iter_callable_nodes(
     return result
 
 
+def _iter_callable_node_keys(
+    lib: Dict[str, object],
+    *,
+    scope_text: str,
+) -> List[Tuple[str, str]]:
+    """从节点库中抽取“可在 Graph Code 中以函数调用出现”的节点 key 列表。
+
+    返回：[(可调用名, full_key), ...]
+
+    约定与 `_iter_callable_nodes` 保持一致：
+    - 可调用名取自 key 的“名称部分”（`类别/名称` → `名称`）的 base_name（剥离 `#scope` 后缀）
+    - 同名冲突时：`名称#scope`（匹配当前 scope）优先于 `名称`
+    """
+    chosen: Dict[str, Tuple[int, str]] = {}
+    for full_key, node_def in (lib.items() if isinstance(lib, dict) else []):
+        if not isinstance(full_key, str) or "/" not in full_key:
+            continue
+        if not hasattr(node_def, "is_available_in_scope"):
+            continue
+        if not bool(getattr(node_def, "is_available_in_scope")(scope_text)):
+            continue
+
+        _, name_part = full_key.split("/", 1)
+        base_name, scope_suffix = _split_name_scope(name_part)
+        if not _is_safe_call_name(base_name):
+            continue
+
+        # 仅接受：无后缀，或后缀与当前 scope 匹配（其它 scope 的变体在本 scope 下不可调用）
+        if scope_suffix is None:
+            priority = 1
+        elif scope_suffix == scope_text:
+            priority = 2
+        else:
+            continue
+
+        existing = chosen.get(base_name)
+        if existing is None or priority > existing[0]:
+            chosen[base_name] = (priority, full_key)
+
+    result: List[Tuple[str, str]] = [(name, pair[1]) for name, pair in chosen.items()]
+    return result
+
+
 @lru_cache(maxsize=8)
 def callable_node_defs_by_name(
     workspace: Path,
@@ -90,6 +135,25 @@ def callable_node_defs_by_name(
     mapping: Dict[str, object] = {}
     for call_name, node_def in _iter_callable_nodes(lib, scope_text=scope_text):
         mapping[str(call_name)] = node_def
+    return mapping
+
+
+@lru_cache(maxsize=8)
+def callable_node_keys_by_name(
+    workspace: Path,
+    scope: str,
+    *,
+    include_composite: bool = True,
+) -> Dict[str, str]:
+    """返回 {可调用名: full_key} 映射（按 scope 规约 `名称#scope` 变体）。"""
+    scope_text = str(scope or "").strip().lower()
+    if scope_text not in ALLOWED_SCOPES:
+        scope_text = "server"
+    registry = get_node_registry(workspace, include_composite=bool(include_composite))
+    lib = registry.get_library()
+    mapping: Dict[str, str] = {}
+    for call_name, full_key in _iter_callable_node_keys(lib, scope_text=scope_text):
+        mapping[str(call_name)] = str(full_key)
     return mapping
 
 
@@ -142,8 +206,8 @@ def flow_node_names(workspace: Path, scope: str) -> Set[str]:
         has_flow = (
             any((isinstance(t, str) and ("流程" in t)) for t in input_types.values())
             or any((isinstance(t, str) and ("流程" in t)) for t in output_types.values())
-            or ("流程入" in (getattr(node_def, "inputs", []) or []))
-            or ("流程出" in (getattr(node_def, "outputs", []) or []))
+            or any((p in (getattr(node_def, "inputs", []) or [])) for p in FLOW_IN_PORT_NAMES)
+            or any((p in (getattr(node_def, "outputs", []) or [])) for p in FLOW_OUT_PORT_NAMES)
         )
         if has_flow:
             names.add(call_name)
@@ -189,6 +253,82 @@ def event_node_names(workspace: Path, scope: str) -> Set[str]:
         if isinstance(category, str) and ("事件" in category):
             names.add(node_def.name)
     return _expand_aliases(names)
+
+
+@lru_cache(maxsize=8)
+def builtin_event_param_names_by_event(workspace: Path, scope: str) -> Dict[str, List[str]]:
+    """返回内置事件的“回调参数名”映射：{事件名: [参数名...]}。
+
+    参数名来源于事件节点的输出端口（剔除所有流程端口）。
+    说明：
+    - 仅依赖引擎侧节点库，不访问 assets 或 UI；
+    - 同时提供 `名称` 与 `名称.replace("/", "")` 两种键（与 event_node_names 的别名口径一致）。
+    """
+    scope_text = str(scope or "").strip().lower()
+    if scope_text not in ALLOWED_SCOPES:
+        scope_text = "server"
+
+    registry = get_node_registry(workspace, include_composite=True)
+    lib = registry.get_library()
+    mapping: Dict[str, List[str]] = {}
+    for _, node_def in lib.items():
+        if not node_def.is_available_in_scope(scope_text):
+            continue
+        category = getattr(node_def, "category", "") or ""
+        if not (isinstance(category, str) and ("事件" in category)):
+            continue
+
+        output_ports: List[str] = [str(name) for name in (getattr(node_def, "outputs", []) or [])]
+        expected_params: List[str] = [name for name in output_ports if not is_flow_port_name(name)]
+
+        event_name = str(getattr(node_def, "name", "") or "").strip()
+        if not event_name:
+            continue
+        mapping[event_name] = expected_params
+        if "/" in event_name:
+            mapping[event_name.replace("/", "")] = expected_params
+    return mapping
+
+
+@lru_cache(maxsize=8)
+def builtin_event_param_types_by_event(workspace: Path, scope: str) -> Dict[str, Dict[str, str]]:
+    """返回内置事件的“回调参数类型”映射：{事件名: {参数名: 端口类型}}。
+
+    参数名来源于事件节点的输出端口（剔除所有流程端口），端口类型来源于节点库的 `output_types`。
+
+    说明：
+    - 仅依赖引擎侧节点库，不访问 assets 或 UI；
+    - 同时提供 `名称` 与 `名称.replace("/", "")` 两种键（与 event_node_names 的别名口径一致）。
+    """
+    scope_text = str(scope or "").strip().lower()
+    if scope_text not in ALLOWED_SCOPES:
+        scope_text = "server"
+
+    registry = get_node_registry(workspace, include_composite=True)
+    lib = registry.get_library()
+    mapping: Dict[str, Dict[str, str]] = {}
+    for _, node_def in lib.items():
+        if not node_def.is_available_in_scope(scope_text):
+            continue
+        category = getattr(node_def, "category", "") or ""
+        if not (isinstance(category, str) and ("事件" in category)):
+            continue
+
+        output_ports: List[str] = [str(name) for name in (getattr(node_def, "outputs", []) or [])]
+        output_types: Dict[str, str] = dict(getattr(node_def, "output_types", {}) or {})
+        expected_types: Dict[str, str] = {}
+        for port_name in output_ports:
+            if is_flow_port_name(port_name):
+                continue
+            expected_types[port_name] = str(output_types.get(port_name, "") or "")
+
+        event_name = str(getattr(node_def, "name", "") or "").strip()
+        if not event_name:
+            continue
+        mapping[event_name] = expected_types
+        if "/" in event_name:
+            mapping[event_name.replace("/", "")] = expected_types
+    return mapping
 
 
 @lru_cache(maxsize=8)
@@ -317,6 +457,10 @@ def clear_node_index_caches() -> None:
     flow_node_names.cache_clear()
     data_query_node_names.cache_clear()
     event_node_names.cache_clear()
+    builtin_event_param_names_by_event.cache_clear()
+    builtin_event_param_types_by_event.cache_clear()
+    callable_node_defs_by_name.cache_clear()
+    callable_node_keys_by_name.cache_clear()
     variadic_min_args.cache_clear()
     input_types_by_func.cache_clear()
     input_generic_constraints_by_func.cache_clear()

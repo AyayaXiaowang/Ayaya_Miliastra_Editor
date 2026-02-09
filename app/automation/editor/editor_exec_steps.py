@@ -16,7 +16,7 @@ from PIL import Image
 from app.automation import capture as editor_capture
 from app.automation.editor import editor_nodes
 from app.automation.editor import executor_utils as _exec_utils
-from app.automation.editor.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 from app.automation.editor.pipeline.cache_policy import (
     EXECUTE_STEP_LOG_KEY,
     invalidate_before_step,
@@ -37,6 +37,14 @@ from .automation_step_types import (
     GRAPH_STEP_CREATE_NODE,
     GRAPH_STEP_CREATE_AND_CONNECT,
 )
+
+
+def _get_node_view_size_for_runtime() -> tuple[float, float]:
+    """返回节点几何基准尺寸（用于调试与一些保守估计）。"""
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    base_w = float(node_view_w_px) if float(node_view_w_px) > 0.0 else 200.0
+    base_h = float(node_view_h_px) if float(node_view_h_px) > 0.0 else 100.0
+    return base_w, base_h
 
 
 def _ensure_zoom_ready(
@@ -153,6 +161,84 @@ def _click_canvas_blank_after_step(
     if not getattr(settings, "REAL_EXEC_CLICK_BLANK_AFTER_STEP", True):
         return
 
+    # 创建节点步骤：节点已在“右键点”落下（或本步被判定为已存在而跳过创建）。
+    # 此处不再做画布吸附/避让与空白点击，避免额外触发整屏识别与「颜色约束」日志；
+    # 改为将鼠标移回“右键弹出节点菜单的点击点”。
+    if str(step_type or "") in (GRAPH_STEP_CREATE_NODE, GRAPH_STEP_CREATE_AND_CONNECT):
+        last_editor_pos = None
+        get_last_context = getattr(executor, "get_last_context_click_editor_pos", None)
+        last_editor_pos = get_last_context() if callable(get_last_context) else None
+
+        # 回退：若本次创建被“已存在”短路，可能没有设置 last_context_click，
+        # 仍可根据图模型节点程序坐标推导预期的 editor 坐标作为“右键点”。
+        if not (isinstance(last_editor_pos, tuple) and len(last_editor_pos) >= 2):
+            node_id_value = todo_item.get("node_id")
+            node_id = str(node_id_value or "")
+            nodes_mapping = getattr(graph_model, "nodes", None)
+            if node_id and isinstance(nodes_mapping, dict) and node_id in nodes_mapping:
+                node_model = nodes_mapping[node_id]
+                node_pos = getattr(node_model, "pos", None)
+                if isinstance(node_pos, (list, tuple)) and len(node_pos) >= 2:
+                    editor_x, editor_y = executor.convert_program_to_editor_coords(float(node_pos[0]), float(node_pos[1]))
+                    executor.set_last_context_click_editor_pos(int(editor_x), int(editor_y))
+                    last_editor_pos = (int(editor_x), int(editor_y))
+
+        if isinstance(last_editor_pos, tuple) and len(last_editor_pos) >= 2:
+            last_editor_x = int(last_editor_pos[0])
+            last_editor_y = int(last_editor_pos[1])
+            screen_x, screen_y = executor.convert_editor_to_screen_coords(int(last_editor_x), int(last_editor_y))
+            from app.automation.input import win_input
+
+            win_input.move_mouse_absolute(int(screen_x), int(screen_y))
+        return
+
+    # 连接步骤的收尾点击主要用于“为后续视觉识别准备（移出遮挡/关闭悬浮态）”。
+    # 快速链模式下连线链路会尽量复用同一帧 screenshot/识别结果，因此对连接步骤直接跳过，
+    # 以减少每条边固定成本并提升连线吞吐。
+    if _exec_utils.is_fast_chain_runtime_enabled(executor) and str(step_type or "") in (
+        "graph_connect",
+        "graph_connect_merged",
+    ):
+        scale_ratio_value = getattr(executor, "scale_ratio", None)
+        if scale_ratio_value is None:
+            return
+        nodes_mapping = getattr(graph_model, "nodes", None)
+        if not isinstance(nodes_mapping, dict) or len(nodes_mapping) == 0:
+            return
+
+        # 优先使用当前步骤关联的节点位置作为“创建锚点”（program 坐标锚点=节点 bbox 左上角）
+        primary_node_id_value = (
+            todo_item.get("node_id")
+            or todo_item.get("dst_node")
+            or todo_item.get("src_node")
+            or todo_item.get("node2_id")
+            or todo_item.get("node1_id")
+        )
+        primary_node_id = str(primary_node_id_value or "")
+        if primary_node_id and primary_node_id in nodes_mapping:
+            node_model = nodes_mapping[primary_node_id]
+            node_pos = getattr(node_model, "pos", None)
+            if isinstance(node_pos, (list, tuple)) and len(node_pos) >= 2:
+                editor_x, editor_y = executor.convert_program_to_editor_coords(float(node_pos[0]), float(node_pos[1]))
+                executor.set_last_context_click_editor_pos(int(editor_x), int(editor_y))
+                screen_x, screen_y = executor.convert_editor_to_screen_coords(int(editor_x), int(editor_y))
+                from app.automation.input import win_input
+
+                win_input.move_mouse_absolute(int(screen_x), int(screen_y))
+                return
+
+        # 回退：移动到“最近一次上下文右键位置”（通常也是安全空白点/创建点击点）
+        get_last_context = getattr(executor, "get_last_context_click_editor_pos", None)
+        last_editor_pos = get_last_context() if callable(get_last_context) else None
+        if isinstance(last_editor_pos, tuple) and len(last_editor_pos) >= 2:
+            last_editor_x = int(last_editor_pos[0])
+            last_editor_y = int(last_editor_pos[1])
+            screen_x, screen_y = executor.convert_editor_to_screen_coords(int(last_editor_x), int(last_editor_y))
+            from app.automation.input import win_input
+
+            win_input.move_mouse_absolute(int(screen_x), int(screen_y))
+        return
+
     scale_ratio_value = getattr(executor, "scale_ratio", None)
     if scale_ratio_value is None:
         return
@@ -182,8 +268,9 @@ def _click_canvas_blank_after_step(
             editor_x, editor_y = executor.convert_program_to_editor_coords(program_x, program_y)
 
             scale_value = float(scale_ratio_value) if abs(float(scale_ratio_value)) > 1e-6 else 1.0
-            node_width_editor = int(NODE_VIEW_WIDTH_PX * scale_value)
-            node_height_editor = int(NODE_VIEW_HEIGHT_PX * scale_value)
+            base_w, base_h = _get_node_view_size_for_runtime()
+            node_width_editor = int(base_w * scale_value)
+            node_height_editor = int(base_h * scale_value)
 
             center_editor_x = int(editor_x) + int(node_width_editor // 2)
             preferred_offset_pixels = int(min(node_height_editor * 0.8, 80.0))

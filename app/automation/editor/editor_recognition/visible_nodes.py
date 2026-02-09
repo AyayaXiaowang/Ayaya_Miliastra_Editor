@@ -14,8 +14,9 @@ from typing import Any, Dict, Optional
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.input.common import compute_position_thresholds
+from app.automation.input.common import compute_position_thresholds_for_node_view
 from app.automation.vision import list_nodes
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 from engine.graph.models.graph_model import GraphModel
 
 
@@ -177,7 +178,12 @@ def recognize_visible_nodes(executor, graph_model: GraphModel) -> Dict[str, Dict
         fallback_used = bool(debug_info.get("fallback_used"))
         if fallback_used:
             scale_value = float(executor.scale_ratio or 1.0)
-            pos_threshold_x, pos_threshold_y = compute_position_thresholds(scale_value)
+            node_view_w_px, node_view_h_px = get_node_view_size_px()
+            pos_threshold_x, pos_threshold_y = compute_position_thresholds_for_node_view(
+                scale=scale_value,
+                node_view_width_px=float(node_view_w_px),
+                node_view_height_px=float(node_view_h_px),
+            )
             max_allowed_dist2 = float(pos_threshold_x * pos_threshold_x + pos_threshold_y * pos_threshold_y)
             if distance_sq > max_allowed_dist2:
                 skipped_fallback_too_far += 1

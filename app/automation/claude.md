@@ -32,7 +32,7 @@
 - `vision` 是识别唯一入口，且会记录所有标题映射/近似命中日志；如果识别失败优先检查 `vision.invalidate_cache()` 是否遗漏。
 - 端口筛选、类型推断与 Warning 区域查找均有现成函数，严禁复制粘贴到执行器或 UI。
 - 所有逻辑默认编辑器处于 50% 缩放、单实例前景窗口；修改拖拽/吸附策略时必须同步考虑多屏、高 DPI 与颜色吸附的容差。
-- `_static_checks` 与 `tools/check_executor_private_access.py` 中的规则需要与实现同步更新；新增跨层依赖前先扩充脚本。
+- `_static_checks/` 中的规则需要与实现同步更新；新增跨层依赖前先扩充脚本。
 - 跨模块访问执行器时，只能依赖协议方法：视口相关能力通过 `ViewportController` / `EditorExecutorWithViewport` 暴露，执行与节点查询通过 `EditorExecutorProtocol` 暴露；禁止在 UI 或 `config/`、`ports/` 等上层直接调用形如 `executor._ensure_*` 的私有方法。
 - 步骤编排层避免直接读写执行器的 token/缓存内部字段，统一通过执行器公开的 view-state 方法判断是否需要“连线预热/可见节点同步”，减少隐式状态机耦合。
 - Windows 控制台编码不可控，打印日志一律使用 `input.common.safe_print`。

@@ -9,6 +9,7 @@ from engine.graph.models.entity_templates import get_all_variable_types
 from app.ui.dialogs.struct_definition_value_editors import ClickToEditLineEdit
 from app.ui.dialogs.table_edit_helpers import (
     wrap_click_to_edit_line_edit_for_table_cell,
+    wrap_inline_editor_for_table_cell,
 )
 from app.ui.foundation.base_widgets import BaseDialog
 from app.ui.foundation import fonts as ui_fonts
@@ -100,6 +101,7 @@ class SignalEditorWidget(QtWidgets.QWidget):
             Sizes.INPUT_HEIGHT + Sizes.PADDING_SMALL
         )
         self._is_loading: bool = False
+        self._last_read_only_hint_ms: int = 0
 
         self.name_edit: QtWidgets.QLineEdit
         self.desc_edit: QtWidgets.QTextEdit
@@ -131,12 +133,14 @@ class SignalEditorWidget(QtWidgets.QWidget):
         self.name_edit = QtWidgets.QLineEdit(self)
         self.name_edit.setPlaceholderText("例如：机关触发信号")
         form_layout.addRow("信号名*:", self.name_edit)
+        self.name_edit.installEventFilter(self)
 
         self.desc_edit = QtWidgets.QTextEdit(self)
         self.desc_edit.setPlaceholderText("描述信号的用途...")
         self.desc_edit.setMinimumHeight(80)
         self.desc_edit.setMaximumHeight(200)
         form_layout.addRow("描述:", self.desc_edit)
+        self.desc_edit.installEventFilter(self)
 
         layout.addLayout(form_layout)
 
@@ -251,6 +255,34 @@ class SignalEditorWidget(QtWidgets.QWidget):
         if self.params_editor.delete_button is not None:
             self.params_editor.delete_button.setEnabled(not self._is_read_only)
 
+        # 同步参数表格内各单元格编辑控件的只读/禁用状态（含清除按钮隐藏）。
+        self._apply_params_table_read_only_state()
+
+    # ------------------------------------------------------------------
+    # 只读提示（非侵入式）
+    # ------------------------------------------------------------------
+
+    def _maybe_show_read_only_hint(self, anchor_widget: Optional[QtWidgets.QWidget]) -> None:
+        """在只读模式下给出轻提示，避免用户误以为可在 UI 中编辑。"""
+        if not self._is_read_only:
+            return
+        current_ms = int(QtCore.QDateTime.currentMSecsSinceEpoch())
+        if current_ms - self._last_read_only_hint_ms < 1200:
+            return
+        self._last_read_only_hint_ms = current_ms
+        message = "当前内容暂不支持在UI中编辑。"
+        QtWidgets.QToolTip.showText(QtGui.QCursor.pos(), message, anchor_widget or self)
+
+    def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:  # noqa: N802
+        """捕获只读输入控件的点击，给出轻提示。"""
+        if self._is_read_only and event.type() == QtCore.QEvent.Type.MouseButtonPress:
+            mouse_event = event  # QtGui.QMouseEvent
+            if isinstance(mouse_event, QtGui.QMouseEvent):
+                if mouse_event.button() == QtCore.Qt.MouseButton.LeftButton:
+                    anchor_widget = watched if isinstance(watched, QtWidgets.QWidget) else None
+                    self._maybe_show_read_only_hint(anchor_widget)
+        return super().eventFilter(watched, event)
+
     def load_from_config(self, signal_config: Optional[SignalConfig]) -> None:
         """从 SignalConfig 加载信号定义。"""
         self._is_loading = True
@@ -279,6 +311,8 @@ class SignalEditorWidget(QtWidgets.QWidget):
 
     def _add_parameter(self) -> None:
         """添加新参数"""
+        if self._is_read_only:
+            return
         default_type = SIGNAL_PARAMETER_TYPES[0] if SIGNAL_PARAMETER_TYPES else "整数"
         self._add_parameter_row("参数名", default_type, "")
         self._on_editor_changed()
@@ -307,6 +341,12 @@ class SignalEditorWidget(QtWidgets.QWidget):
         name_edit.setMinimumWidth(80)
         name_edit.setFrame(False)
         name_edit.setFixedHeight(Sizes.INPUT_HEIGHT)
+        name_edit.setReadOnly(self._is_read_only)
+        if self._is_read_only:
+            name_edit.setStyleSheet(ThemeManager.readonly_input_style())
+        else:
+            name_edit.setStyleSheet("")
+        name_edit.installEventFilter(self)
         name_edit.editingFinished.connect(self._on_editor_changed)
         self.params_editor.attach_context_menu_forwarding(name_edit)
         name_container = wrap_click_to_edit_line_edit_for_table_cell(
@@ -314,6 +354,12 @@ class SignalEditorWidget(QtWidgets.QWidget):
             name_edit,
         )
         self.params_editor.attach_context_menu_forwarding(name_container)
+        name_container.installEventFilter(self)
+        name_container.setStyleSheet(
+            f"background-color: {ThemeManager.Colors.BG_DISABLED};"
+            if self._is_read_only
+            else ""
+        )
         self.params_table.setCellWidget(row_index, 0, name_container)
 
         normalized_type = normalize_signal_parameter_type(param_type)
@@ -322,6 +368,7 @@ class SignalEditorWidget(QtWidgets.QWidget):
         type_combo.setCurrentText(normalized_type)
         type_combo.setFrame(False)
         type_combo.setFixedHeight(Sizes.INPUT_HEIGHT)
+        type_combo.setEnabled(not self._is_read_only)
         type_combo.setStyleSheet(
             "QComboBox {"
             "  border: none;"
@@ -332,16 +379,33 @@ class SignalEditorWidget(QtWidgets.QWidget):
             "  border: none;"
             "  width: 14px;"
             "}"
+            f"QComboBox:disabled {{"
+            f"  color: {ThemeManager.Colors.TEXT_SECONDARY};"
+            f"}}"
         )
         type_combo.currentTextChanged.connect(self._on_editor_changed)
         self.params_editor.attach_context_menu_forwarding(type_combo)
-        self.params_table.setCellWidget(row_index, 1, type_combo)
+        type_container = wrap_inline_editor_for_table_cell(self.params_table, type_combo)
+        self.params_editor.attach_context_menu_forwarding(type_container)
+        type_container.installEventFilter(self)
+        type_container.setStyleSheet(
+            f"background-color: {ThemeManager.Colors.BG_DISABLED};"
+            if self._is_read_only
+            else ""
+        )
+        self.params_table.setCellWidget(row_index, 1, type_container)
 
         desc_edit = ClickToEditLineEdit(description, self.params_table)
         desc_edit.setPlaceholderText("描述该参数的用途（可选）")
         desc_edit.setClearButtonEnabled(True)
         desc_edit.setFrame(False)
         desc_edit.setFixedHeight(Sizes.INPUT_HEIGHT)
+        desc_edit.setReadOnly(self._is_read_only)
+        if self._is_read_only:
+            desc_edit.setStyleSheet(ThemeManager.readonly_input_style())
+        else:
+            desc_edit.setStyleSheet("")
+        desc_edit.installEventFilter(self)
         desc_edit.editingFinished.connect(self._on_editor_changed)
         self.params_editor.attach_context_menu_forwarding(desc_edit)
         desc_container = wrap_click_to_edit_line_edit_for_table_cell(
@@ -349,16 +413,26 @@ class SignalEditorWidget(QtWidgets.QWidget):
             desc_edit,
         )
         self.params_editor.attach_context_menu_forwarding(desc_container)
+        desc_container.installEventFilter(self)
+        desc_container.setStyleSheet(
+            f"background-color: {ThemeManager.Colors.BG_DISABLED};"
+            if self._is_read_only
+            else ""
+        )
         self.params_table.setCellWidget(row_index, 2, desc_container)
 
     def _remove_parameter(self) -> None:
         """删除选中的参数"""
+        if self._is_read_only:
+            return
         current_row = self.params_table.currentRow()
         if current_row >= 0:
             self._remove_parameter_at_row(current_row)
 
     def _remove_parameter_at_row(self, row_index: int) -> None:
         """按行索引删除参数（供通用表格模板的删除信号复用）。"""
+        if self._is_read_only:
+            return
         if row_index < 0 or row_index >= self.params_table.rowCount():
             return
         self.params_table.removeRow(row_index)
@@ -399,7 +473,69 @@ class SignalEditorWidget(QtWidgets.QWidget):
     def _on_editor_changed(self) -> None:
         if self._is_loading:
             return
+        if self._is_read_only:
+            return
         self.signal_changed.emit()
+
+    def _apply_params_table_read_only_state(self) -> None:
+        """将当前只读状态应用到参数表格中的各个内联编辑控件。"""
+        if self.params_table is None:
+            return
+        row_count = self.params_table.rowCount()
+        for row_index in range(row_count):
+            # 参数名
+            name_cell_widget = self.params_table.cellWidget(row_index, 0)
+            name_edit: Optional[QtWidgets.QLineEdit] = None
+            if isinstance(name_cell_widget, QtWidgets.QLineEdit):
+                name_edit = name_cell_widget
+            elif isinstance(name_cell_widget, QtWidgets.QWidget):
+                name_edit = name_cell_widget.findChild(QtWidgets.QLineEdit)
+            if name_edit is not None:
+                name_edit.setReadOnly(self._is_read_only)
+                name_edit.setStyleSheet(
+                    ThemeManager.readonly_input_style() if self._is_read_only else ""
+                )
+            if isinstance(name_cell_widget, QtWidgets.QWidget):
+                name_cell_widget.setStyleSheet(
+                    f"background-color: {ThemeManager.Colors.BG_DISABLED};"
+                    if self._is_read_only
+                    else ""
+                )
+
+            # 数据类型
+            type_widget = self.params_table.cellWidget(row_index, 1)
+            type_combo: Optional[QtWidgets.QComboBox] = None
+            if isinstance(type_widget, QtWidgets.QComboBox):
+                type_combo = type_widget
+            elif isinstance(type_widget, QtWidgets.QWidget):
+                type_combo = type_widget.findChild(QtWidgets.QComboBox)
+            if type_combo is not None:
+                type_combo.setEnabled(not self._is_read_only)
+            if isinstance(type_widget, QtWidgets.QWidget):
+                type_widget.setStyleSheet(
+                    f"background-color: {ThemeManager.Colors.BG_DISABLED};"
+                    if self._is_read_only
+                    else ""
+                )
+
+            # 描述
+            desc_cell_widget = self.params_table.cellWidget(row_index, 2)
+            desc_edit: Optional[QtWidgets.QLineEdit] = None
+            if isinstance(desc_cell_widget, QtWidgets.QLineEdit):
+                desc_edit = desc_cell_widget
+            elif isinstance(desc_cell_widget, QtWidgets.QWidget):
+                desc_edit = desc_cell_widget.findChild(QtWidgets.QLineEdit)
+            if desc_edit is not None:
+                desc_edit.setReadOnly(self._is_read_only)
+                desc_edit.setStyleSheet(
+                    ThemeManager.readonly_input_style() if self._is_read_only else ""
+                )
+            if isinstance(desc_cell_widget, QtWidgets.QWidget):
+                desc_cell_widget.setStyleSheet(
+                    f"background-color: {ThemeManager.Colors.BG_DISABLED};"
+                    if self._is_read_only
+                    else ""
+                )
 
     # ------------------------------------------------------------------
     # 导出配置
@@ -429,10 +565,13 @@ class SignalEditorWidget(QtWidgets.QWidget):
                 continue
 
             type_widget = self.params_table.cellWidget(row_index, 1)
+            raw_type_name = "整数"
             if isinstance(type_widget, QtWidgets.QComboBox):
                 raw_type_name = type_widget.currentText()
-            else:
-                raw_type_name = "整数"
+            elif isinstance(type_widget, QtWidgets.QWidget):
+                combo = type_widget.findChild(QtWidgets.QComboBox)
+                if combo is not None:
+                    raw_type_name = combo.currentText()
             normalized_type_name = normalize_signal_parameter_type(raw_type_name)
 
             desc_container = self.params_table.cellWidget(row_index, 2)

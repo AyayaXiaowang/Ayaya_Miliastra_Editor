@@ -7,9 +7,13 @@ X 轴坐标规划工具。
 
 from __future__ import annotations
 
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from ..blocks.block_layout_context import BlockLayoutContext
+from .local_variable_relay_inserter import (
+    is_local_var_relay_node_id,
+    parse_local_var_relay_forced_slot_index,
+)
 from .longest_path import resolve_levels_with_parents
 
 
@@ -167,6 +171,15 @@ def compute_data_x_positions(
     fallback_positions_by_topology = _assign_fallback_slots_within_block_by_data_topology()
 
     for data_id in context.data_nodes_in_order:
+        # 局部变量中转节点：若 node_id 编码了强制槽位索引，则优先使用该槽位，
+        # 让 relay 真正落在“距离阈值处”的中间列，而不是默认贴近消费者一列。
+        if is_local_var_relay_node_id(data_id):
+            forced_slot_index = parse_local_var_relay_forced_slot_index(str(data_id))
+            if forced_slot_index is not None:
+                data_x_positions[data_id] = float(forced_slot_index)
+                context.node_slot_index[data_id] = int(forced_slot_index)
+                continue
+
         chain_ids = context.data_chain_ids_by_node.get(data_id, [])
 
         if not chain_ids:
@@ -202,6 +215,64 @@ def compute_data_x_positions(
 
         data_x_positions[data_id] = resolved_position
         context.node_slot_index[data_id] = int(resolved_position)
+
+    # ------------------------------------------------------------------
+    # 关键不变量：禁止块内出现 data 连线“右→左折返”
+    # ------------------------------------------------------------------
+    #
+    # 背景：
+    # - data_x_positions 主要依赖“链枚举”结果驱动（消费者 flow 的列索引 + 链内位置回溯）；
+    # - 当链枚举因限流被截断（LAYOUT_MAX_CHAINS_PER_NODE 等）时，可能出现：
+    #   - 某条 data→data 边的上游节点未被覆盖到相同链里，导致其 X 值不受该消费者约束；
+    #   - 进而出现 src_x > dst_x 的折返线（UI 观感与规则均不允许）。
+    #
+    # 这里在“初始 X 分配”之后，基于真实 data 边做一次收敛式约束传播：
+    # - 对任意 data→data 边 A->B：强制 A 的列索引 <= B 的列索引 - 1；
+    # - 对任意 data→flow 边 A->F：强制 A 的列索引 <= flow(F) - 1；
+    #
+    # 该过程只会把节点向左移动（减小列索引），不会把节点推到更右侧，因此不会引入新的折返。
+    data_id_set: Set[str] = set(context.data_nodes_in_order)
+    if data_id_set and flow_x_positions:
+        max_iterations = len(data_id_set) + 2
+        iteration_count = 0
+        changed = True
+        while changed and iteration_count < max_iterations:
+            changed = False
+            iteration_count += 1
+            for src_id in context.data_nodes_in_order:
+                if src_id not in data_x_positions:
+                    continue
+                current_x = float(data_x_positions[src_id])
+                out_edges = context.get_data_out_edges(src_id) or []
+                if not out_edges:
+                    continue
+
+                min_allowed_x: Optional[float] = None
+                for edge in out_edges:
+                    dst_id = getattr(edge, "dst_node", None)
+                    if not isinstance(dst_id, str) or dst_id == "":
+                        continue
+
+                    if dst_id in flow_x_positions:
+                        candidate_allowed = float(flow_x_positions[dst_id]) - 1.0
+                    elif dst_id in data_id_set and context.is_pure_data_node(dst_id):
+                        dst_x = data_x_positions.get(dst_id)
+                        if dst_x is None:
+                            continue
+                        candidate_allowed = float(dst_x) - 1.0
+                    else:
+                        continue
+
+                    if min_allowed_x is None or candidate_allowed < min_allowed_x:
+                        min_allowed_x = candidate_allowed
+
+                if min_allowed_x is None:
+                    continue
+
+                if current_x > min_allowed_x + 1e-9:
+                    data_x_positions[src_id] = float(min_allowed_x)
+                    context.node_slot_index[src_id] = int(min_allowed_x)
+                    changed = True
 
     return data_x_positions
 

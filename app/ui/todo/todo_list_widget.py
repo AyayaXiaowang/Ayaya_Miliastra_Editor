@@ -23,6 +23,7 @@
 """
 
 from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtCore import Qt, pyqtSignal
 from typing import Dict, List, Optional
 
@@ -84,6 +85,10 @@ class TodoListWidget(QtWidgets.QWidget):
         # 执行精简模式：尽可能缩小任务清单页占用空间（隐藏右侧详情/预览，仅保留左侧步骤树）
         self._execution_compact_mode_enabled: bool = False
         self._execution_compact_saved_state: dict | None = None
+        # 是否已收到过一次 Todo 数据（即使为空列表也视为“已加载”）
+        self._has_loaded_todo_data: bool = False
+        # 外部跳转的“待聚焦请求”：用于在 Todo 仍未生成/正在刷新时先记录意图，待数据就绪后再聚焦。
+        self._pending_external_focus: tuple[str, dict | None] | None = None
 
         self._setup_ui()
 
@@ -137,7 +142,8 @@ class TodoListWidget(QtWidgets.QWidget):
         header_layout.addWidget(self.title_label)
         
         # 统计标签（徽章样式）
-        self.stats_label = QtWidgets.QLabel("加载中...")
+        # 注意：此处不使用“加载中”，避免在无当前存档/未触发生成时造成误导
+        self.stats_label = QtWidgets.QLabel("尚未生成任务清单")
         self.stats_label.setObjectName("statsLabel")
         self.stats_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         header_layout.addWidget(self.stats_label)
@@ -298,7 +304,7 @@ class TodoListWidget(QtWidgets.QWidget):
             return
         self.tree.scrollToItem(
             current_item,
-            QtWidgets.QAbstractItemView.ScrollHint.PositionAtCenter,
+            QAbstractItemView.ScrollHint.PositionAtCenter,
         )
 
     def _is_active_todo_page(self) -> bool:
@@ -351,7 +357,28 @@ class TodoListWidget(QtWidgets.QWidget):
     
     def load_todos(self, todos: List[TodoItem], todo_states: Dict[str, bool]):
         """加载任务列表（委托给编排层）。"""
+        self._has_loaded_todo_data = True
         self._orchestrator.load_todos(todos, todo_states)
+        self._apply_pending_external_focus_if_any()
+
+    def set_stats_status(self, message: str) -> None:
+        """更新左侧头部统计徽章文案（用于“生成中/不可用”等非进度状态）。"""
+        label = getattr(self, "stats_label", None)
+        if label is None:
+            return
+        label.setText(str(message or ""))
+
+    def show_unavailable_state(self, message: str) -> None:
+        """切换到“不可用/未生成”状态并清空旧数据，避免残留内容误导用户。"""
+        self._has_loaded_todo_data = False
+
+        tree_manager = getattr(self, "tree_manager", None)
+        if tree_manager is not None:
+            tree_manager.set_data([], {})
+
+        self.current_detail_info = None
+        self.current_todo_id = None
+        self.set_stats_status(message)
     
     # 树构建/懒加载/样式均由 TodoTreeManager 负责
     
@@ -386,9 +413,16 @@ class TodoListWidget(QtWidgets.QWidget):
     
     def _update_stats(self):
         """更新统计信息"""
+        if not getattr(self, "_has_loaded_todo_data", False):
+            self.set_stats_status("尚未生成任务清单")
+            return
+
         # 统计所有叶子节点
         leaf_todos = [t for t in self.todos if not t.children]
         total = len(leaf_todos)
+        if total <= 0:
+            self.set_stats_status("暂无任务")
+            return
         completed = sum(1 for t in leaf_todos if self.todo_states.get(t.todo_id, False))
         
         percentage = int(completed / total * 100) if total > 0 else 0
@@ -414,7 +448,69 @@ class TodoListWidget(QtWidgets.QWidget):
     
     def focus_task_from_external(self, todo_id: str, detail_info: Optional[dict] = None) -> None:
         """外部入口：例如节点图编辑器可调用此方法跳回指定步骤。"""
-        self._orchestrator.focus_task_from_external(todo_id, detail_info)
+        normalized_todo_id = str(todo_id or "")
+        if not normalized_todo_id:
+            return
+
+        tree_manager = getattr(self, "tree_manager", None)
+        if tree_manager is None:
+            # 树尚未就绪（例如 Todo 仍未生成/正在刷新）：先记录意图，待 load_todos() 后重试。
+            self._pending_external_focus = (
+                normalized_todo_id,
+                dict(detail_info) if isinstance(detail_info, dict) else None,
+            )
+            return
+
+        get_item_by_id = getattr(tree_manager, "get_item_by_id", None)
+        item = get_item_by_id(normalized_todo_id) if callable(get_item_by_id) else None
+        if item is not None:
+            self._orchestrator.focus_task_from_external(normalized_todo_id, detail_info)
+            return
+
+        # 事件流子步骤默认 UI 懒加载：第一次进入任务清单时，leaf 步骤的树项可能尚未创建。
+        # 若 Todo 数据已存在，则尝试触发懒加载并在目标树项就绪后再聚焦。
+        todo_map = getattr(tree_manager, "todo_map", None)
+        todo_exists = isinstance(todo_map, dict) and normalized_todo_id in todo_map
+        if not todo_exists:
+            # Todo 数据本身还没到（或目标已不存在）：等 load_todos() 之后再判断
+            self._pending_external_focus = (
+                normalized_todo_id,
+                dict(detail_info) if isinstance(detail_info, dict) else None,
+            )
+            return
+
+        ensure_item_built = getattr(tree_manager, "ensure_item_built", None)
+        if not callable(ensure_item_built):
+            return
+
+        # 先尽量选中其所属事件流根：至少让用户看到“定位中”的展开与上下文
+        find_flow_root = getattr(tree_manager, "find_event_flow_root_for_todo", None)
+        flow_root = find_flow_root(normalized_todo_id) if callable(find_flow_root) else None
+        flow_root_id = str(getattr(flow_root, "todo_id", "") or "") if flow_root is not None else ""
+        if flow_root_id:
+            self._orchestrator.focus_task_from_external(
+                flow_root_id,
+                dict(getattr(flow_root, "detail_info", None) or {}),
+            )
+
+        def _on_ready(_item: object) -> None:
+            if _item is None:
+                return
+            self._orchestrator.focus_task_from_external(normalized_todo_id, detail_info)
+
+        ensure_item_built(normalized_todo_id, on_ready=_on_ready)
+        return
+
+    def _apply_pending_external_focus_if_any(self) -> None:
+        pending = getattr(self, "_pending_external_focus", None)
+        if pending is None or not isinstance(pending, tuple) or len(pending) != 2:
+            return
+        todo_id, detail_info = pending
+        self._pending_external_focus = None
+        if not todo_id:
+            return
+        # 复用同一套“缺树项/懒加载”处理逻辑，避免事件流子步骤 UI 懒加载下出现空跳转。
+        self.focus_task_from_external(str(todo_id or ""), detail_info)
     
     # 执行过程中的回填/暂停/上下文同步由 TodoExecutorBridge 负责
     
@@ -443,14 +539,9 @@ class TodoListWidget(QtWidgets.QWidget):
         """同步全局热键注册状态（见 `_should_keep_global_hotkeys_registered` 约定）。"""
         if self._should_keep_global_hotkeys_registered():
             success = self.hotkey_manager.register_hotkeys()
-            if success:
-                print("[任务清单] 全局热键已注册 (Ctrl+[ / Ctrl+] / Ctrl+P)")
-            else:
-                print("[任务清单] 全局热键注册失败")
             return
 
         self.hotkey_manager.unregister_hotkeys()
-        print("[任务清单] 全局热键已注销")
     
     def showEvent(self, event: QtGui.QShowEvent) -> None:
         """页面显示事件 - 注册全局热键"""
@@ -496,7 +587,7 @@ class TodoListWidget(QtWidgets.QWidget):
 
     def has_loaded_todos(self) -> bool:
         """是否已加载过任务清单。"""
-        return len(self.todos) > 0
+        return bool(getattr(self, "_has_loaded_todo_data", False))
 
     def find_first_todo_for_graph(self, graph_id: str) -> Optional[TodoItem]:
         """根据 graph_id 查找一个可用的 todo（优先叶子步骤，其次父级根）。"""

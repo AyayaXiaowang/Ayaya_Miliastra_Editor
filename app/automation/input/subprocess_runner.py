@@ -32,6 +32,7 @@ def run_process(
     capture_output: bool = True,
     text_mode: bool = True,
     encoding: str = "utf-8",
+    errors: str = "replace",
 ) -> ProcessResult:
     """以统一方式运行外部进程，返回退出码与可选输出。"""
     completed = subprocess.run(
@@ -40,6 +41,7 @@ def run_process(
         capture_output=capture_output,
         text=text_mode,
         encoding=encoding if text_mode else None,
+        errors=errors if text_mode else None,
     )
     return ProcessResult(
         exit_code=int(completed.returncode),

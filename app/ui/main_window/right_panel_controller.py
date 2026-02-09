@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.models.view_modes import ViewMode
+from app.ui.main_window.right_panel_contracts import RightPanelVisibilityContract
 from app.ui.main_window.right_panel_policy import RightPanelPolicy
 from app.ui.main_window.right_panel_registry import RightPanelRegistry
 
@@ -45,6 +46,10 @@ class RightPanelController:
 
     def update_visibility(self) -> None:
         self.registry.update_visibility()
+
+    def apply_visibility_contract(self, contract: RightPanelVisibilityContract) -> None:
+        """统一入口：按可见性合同收敛右侧 tab 集合。"""
+        self.registry.apply_visibility_contract(contract)
 
     # === 高阶策略（统一入口） =====================================================
 

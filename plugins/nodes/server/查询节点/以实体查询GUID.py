@@ -13,4 +13,7 @@ from engine.utils.logging.logger import log_info
 )
 def 以实体查询GUID(game, 实体):
     """查询指定实体的GUID"""
-    return None  # GUID
+    get_entity_id = getattr(game, "_get_entity_id", None)
+    if callable(get_entity_id):
+        return str(get_entity_id(实体))
+    return str(getattr(实体, "entity_id", None) or 实体)

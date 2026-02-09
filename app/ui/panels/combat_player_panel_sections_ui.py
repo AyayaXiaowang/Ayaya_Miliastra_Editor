@@ -17,6 +17,9 @@ from app.ui.forms.schema_bound_form import FormComboOption, FormFieldSpec, Schem
 from app.ui.panels.combat_ability_components import CombatSettingsSection
 from app.ui.panels.panel_dict_utils import ensure_dict_field
 from app.ui.panels.template_instance.graphs_tab import GraphsTab
+from app.ui.panels.template_instance.variables_table_widget import (
+    VariablesTwoRowFieldTableWidget,
+)
 from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
 
 
@@ -337,10 +340,12 @@ class CombatPlayerPanelSectionsUIMixin:
 
         player_variables_layout.addLayout(player_variables_toolbar)
 
-        self.player_custom_variable_table = TwoRowFieldTableWidget(
+        self.player_custom_variable_table = VariablesTwoRowFieldTableWidget(
             get_all_variable_types(),
             parent=player_variables_page,
         )
+        if self.resource_manager is not None:
+            self.player_custom_variable_table.set_resource_manager(self.resource_manager)
         player_variables_layout.addWidget(self.player_custom_variable_table)
         self.player_sub_tabs.addTab(player_variables_page, "自定义变量")
 
@@ -526,10 +531,12 @@ class CombatPlayerPanelSectionsUIMixin:
 
         role_variables_layout.addLayout(role_variables_toolbar)
 
-        self.role_custom_variable_table = TwoRowFieldTableWidget(
+        self.role_custom_variable_table = VariablesTwoRowFieldTableWidget(
             get_all_variable_types(),
             parent=role_variables_page,
         )
+        if self.resource_manager is not None:
+            self.role_custom_variable_table.set_resource_manager(self.resource_manager)
         role_variables_layout.addWidget(self.role_custom_variable_table)
         self.role_sub_tabs.addTab(role_variables_page, "自定义变量")
 

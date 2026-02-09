@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt6 import QtCore, QtGui
+from PyQt6 import QtCore, QtGui, QtWidgets
 
 if TYPE_CHECKING:
     from PyQt6 import QtWidgets
@@ -32,6 +32,23 @@ class ViewTransformAnimation(QtCore.QObject):
         self.elapsed_time = 0
         self.duration = 1000  # 1秒
         self.is_running = False
+
+        # 动画期间临时改写锚点（避免 AnchorUnderMouse 影响 setTransform + centerOn 的稳定性）
+        self._saved_transformation_anchor: QtWidgets.QGraphicsView.ViewportAnchor | None = None
+        self._saved_resize_anchor: QtWidgets.QGraphicsView.ViewportAnchor | None = None
+
+    def stop(self) -> None:
+        """停止正在运行的过渡动画，并恢复视图锚点。
+
+        说明：
+        - 动画期间会将 view 的 transformationAnchor/resizeAnchor 临时切到 NoAnchor；
+        - 若中途取消动画，必须恢复锚点，否则后续滚轮缩放将不再以鼠标为中心。
+        """
+        if not self.is_running:
+            return
+        self.timer.stop()
+        self.is_running = False
+        self._restore_view_anchors()
     
     def start_transition(self, target_rect: QtCore.QRectF, duration: int = 1000, max_scale: float = 1.5, padding_ratio: float = 1.0):
         """开始过渡动画
@@ -42,10 +59,13 @@ class ViewTransformAnimation(QtCore.QObject):
             max_scale: 最大缩放限制
             padding_ratio: 额外缩放系数（<1.0 进一步缩小，>1.0 放大），用于留出可视边距
         """
+        # 若上一次动画仍在运行，先停止并恢复视图状态，避免并发写 transform 导致闪烁与抖动。
+        self.stop()
+
         # 保存当前状态
         current_transform = self.view.transform()
-        self.start_scale = current_transform.m11()
-        self.start_center = self.view.mapToScene(self.view.viewport().rect().center())
+        start_scale = current_transform.m11()
+        start_center = self.view.mapToScene(self.view.viewport().rect().center())
         
         # 计算目标状态
         viewport_size = self.view.viewport().size()
@@ -64,8 +84,16 @@ class ViewTransformAnimation(QtCore.QObject):
         target_scale = min(scale_x, scale_y) * padding_ratio
         
         # 限制最大缩放
-        self.end_scale = min(target_scale, max_scale)
-        self.end_center = target_rect.center()
+        end_scale = min(target_scale, max_scale)
+        end_center = target_rect.center()
+
+        # 视图锚点：动画期间强制使用 NoAnchor，避免缩放锚点参与导致“镜头漂移”。
+        self._prepare_view_anchors_for_animation()
+
+        self.start_scale = float(start_scale)
+        self.start_center = QtCore.QPointF(start_center)
+        self.end_scale = float(end_scale)
+        self.end_center = QtCore.QPointF(end_center)
         
         # 启动动画
         self.elapsed_time = 0
@@ -82,6 +110,7 @@ class ViewTransformAnimation(QtCore.QObject):
             self._apply_transform(1.0)
             self.timer.stop()
             self.is_running = False
+            self._restore_view_anchors()
             self.finished.emit()
         else:
             # 计算进度（使用缓动函数）
@@ -117,6 +146,37 @@ class ViewTransformAnimation(QtCore.QObject):
         
         # 设置新的中心
         self.view.centerOn(current_center)
+
+        # 关键：动画路径下强制刷新视口与叠层。
+        # 说明：切换搜索结果会触发聚焦动画；若只改 transform/centerOn 而不主动请求重绘，
+        # Qt 可能使用像素滚动/缓存拷贝优化，导致挂在 viewport 上的叠层（搜索栏等）
+        # “跟着画布一起缩放/飞走”的视觉错觉。
+        viewport_widget = self.view.viewport()
+        if viewport_widget is not None:
+            viewport_widget.update()
+
+        search_overlay = getattr(self.view, "search_overlay", None)
+        if search_overlay is not None and hasattr(search_overlay, "isVisible") and search_overlay.isVisible():
+            if hasattr(search_overlay, "raise_"):
+                search_overlay.raise_()
+            if hasattr(search_overlay, "update"):
+                search_overlay.update()
+
+    def _prepare_view_anchors_for_animation(self) -> None:
+        if self._saved_transformation_anchor is None:
+            self._saved_transformation_anchor = self.view.transformationAnchor()
+        if self._saved_resize_anchor is None:
+            self._saved_resize_anchor = self.view.resizeAnchor()
+        self.view.setTransformationAnchor(QtWidgets.QGraphicsView.ViewportAnchor.NoAnchor)
+        self.view.setResizeAnchor(QtWidgets.QGraphicsView.ViewportAnchor.NoAnchor)
+
+    def _restore_view_anchors(self) -> None:
+        if self._saved_transformation_anchor is not None:
+            self.view.setTransformationAnchor(self._saved_transformation_anchor)
+        if self._saved_resize_anchor is not None:
+            self.view.setResizeAnchor(self._saved_resize_anchor)
+        self._saved_transformation_anchor = None
+        self._saved_resize_anchor = None
     
     @staticmethod
     def _ease_in_out_cubic(t: float) -> float:

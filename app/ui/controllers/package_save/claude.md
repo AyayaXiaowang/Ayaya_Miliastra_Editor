@@ -4,15 +4,15 @@
 ## 当前结构
 - `save_orchestrator.py`：保存事务编排（指纹基线同步 → 可选 flush → special_view / package_view 分支 → 结果回传）
 - `fingerprint_baseline_service.py`：保存前/后资源库指纹基线同步策略：保存前仅在检测到“内部写盘导致的指纹脏标记”时同步基线（避免吞掉真实外部变更）；保存确实写盘后刷新基线以反映最新落盘状态
-- `resource_container_save_service.py`：模板/实例/关卡实体容器的资源写回（ResourceManager.save_resource）
-- `special_view_save_service.py`：全局视图/未分类视图（global_view/unclassified_view）下的写回逻辑
+- `resource_container_save_service.py`：模板/实体摆放/关卡实体容器的资源写回（ResourceManager.save_resource）
+- `special_view_save_service.py`：全局视图（global_view）下的写回逻辑
 - `package_view_save_service.py`：具体存档视图（PackageView）下的写回逻辑（组合子服务并汇总写盘结果）
 - `combat_presets_save_service.py`：战斗预设保存与索引同步：
   - `save_preset_resources(...)`：按条目保存战斗预设资源本体（不修改 PackageIndex），用于战斗详情面板的增量落盘
   - `sync_to_index(...)`：仅同步 `PackageIndex.resources.combat_presets` 的引用列表（不保存资源本体），用于库页增删改引发的引用变更
 - `signals_save_service.py`：信号摘要与聚合资源写回（`PackageIndex.signals`）
-- `management_save_service.py`：管理配置写回资源库与 `PackageIndex.resources.management`
-- `package_index_persist_service.py`：索引写盘与指纹基线刷新（`PackageIndexManager.save_package_index` + refresh）
+- `management_save_service.py`：管理配置写回资源库与 `PackageIndex.resources.management`；对“新建且此前无文件落点”的管理资源，默认写入当前项目存档根目录，避免落入默认归档项目导致当前视图不可见。
+- `package_index_persist_service.py`：索引持久化与指纹基线刷新（目录模式下不再写回 `pkg_*.json`；主要写入运行期状态并更新派生缓存）。
 
 ## 注意事项
 - 本目录服务不依赖具体 Widget；与 UI 交互通过主窗口注入的回调（flush、请求保存当前图等）完成。

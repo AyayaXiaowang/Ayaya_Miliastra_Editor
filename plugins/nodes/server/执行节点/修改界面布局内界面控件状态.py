@@ -20,4 +20,10 @@ from engine.utils.logging.logger import log_info
 )
 def 修改界面布局内界面控件状态(game, 目标玩家, 界面控件索引, 显示状态):
     """通过界面控件索引来修改目标玩家界面布局内对应界面控件的状态"""
-    log_info(f"[修改界面布局内界面控件状态] 执行")
+    idx = int(界面控件索引)
+    state = str(显示状态 or "")
+    log_info("[修改界面布局内界面控件状态] widget_index={}, state={}", idx, state)
+    # 离线运行时：记录 UI patch（不代表真实游戏 UI）
+    ui_set = getattr(game, "ui_set_widget_state", None)
+    if callable(ui_set):
+        ui_set(目标玩家, idx, state)

@@ -11,7 +11,10 @@ from PyQt6 import QtCore, QtWidgets
 
 from app.ui.foundation.theme_manager import Sizes, ThemeManager
 from app.ui.foundation.toolbar_utils import apply_standard_toolbar
-from app.ui.dialogs.struct_list_item_dialog import StructListItemEditDialog
+from app.ui.dialogs.struct_list_item_dialog import (
+    StructListItemEditDialog,
+    StructListItemViewerDialog,
+)
 
 
 class StructListEditorWidget(QtWidgets.QWidget):
@@ -46,6 +49,7 @@ class StructListEditorWidget(QtWidgets.QWidget):
     ) -> None:
         super().__init__(parent)
         self._resource_manager = resource_manager
+        self._is_read_only: bool = False
         self._struct_id_options: list[str] = [
             str(text).strip() for text in struct_id_options if str(text).strip()
         ]
@@ -55,6 +59,20 @@ class StructListEditorWidget(QtWidgets.QWidget):
         self._setup_ui()
         self._apply_struct_id_options()
         self._load_value(value)
+
+    def set_read_only(self, read_only: bool) -> None:
+        """设置为只读查看模式。
+
+        只读模式下：
+        - 禁用结构体下拉与新增/删除；
+        - 仍允许选择条目并点击“查看”打开只读详情，以便在外部变量等只读视图中浏览数据。
+        """
+        target = bool(read_only)
+        if self._is_read_only == target:
+            return
+        self._is_read_only = target
+        self.struct_combo.setEnabled(not self._is_read_only)
+        self._update_buttons()
 
     # ------------------------------------------------------------------ UI 组装
 
@@ -231,8 +249,16 @@ class StructListEditorWidget(QtWidgets.QWidget):
         has_selection = self.list_widget.currentRow() >= 0
         has_items = bool(self._items)
 
-        self.add_button.setEnabled(has_struct)
-        self.remove_button.setEnabled(has_struct and has_selection and has_items)
+        if self._is_read_only:
+            self.edit_button.setText("查看")
+        else:
+            self.edit_button.setText("编辑")
+
+        self.add_button.setEnabled(has_struct and (not self._is_read_only))
+        self.remove_button.setEnabled(
+            has_struct and has_selection and has_items and (not self._is_read_only)
+        )
+        # 只读模式下仍允许查看条目详情
         self.edit_button.setEnabled(has_struct and has_selection and has_items)
 
         if has_struct:
@@ -247,6 +273,8 @@ class StructListEditorWidget(QtWidgets.QWidget):
     # ------------------------------------------------------------------ 事件处理
 
     def _on_struct_changed(self, index: int) -> None:
+        if self._is_read_only:
+            return
         data = self.struct_combo.itemData(index)
         if isinstance(data, str):
             self._struct_id = data.strip()
@@ -256,6 +284,8 @@ class StructListEditorWidget(QtWidgets.QWidget):
         self.value_changed.emit()
 
     def _on_add_item(self) -> None:
+        if self._is_read_only:
+            return
         if not self._struct_id:
             return
         new_entry = {
@@ -271,6 +301,8 @@ class StructListEditorWidget(QtWidgets.QWidget):
         self.value_changed.emit()
 
     def _on_remove_item(self) -> None:
+        if self._is_read_only:
+            return
         row = self.list_widget.currentRow()
         if row < 0 or row >= len(self._items):
             return
@@ -295,8 +327,6 @@ class StructListEditorWidget(QtWidgets.QWidget):
     def _edit_item_at_index(self, index: int) -> None:
         if not self._struct_id:
             return
-        if self._resource_manager is None:
-            return
         entry = self._items[index]
         fields_value = entry.get("fields", {})
         if isinstance(fields_value, Mapping):
@@ -304,6 +334,22 @@ class StructListEditorWidget(QtWidgets.QWidget):
         else:
             current_fields = {}
 
+        name_value = entry.get("name", "")
+        entry_name = str(name_value).strip() if isinstance(name_value, str) else ""
+        display_name = entry_name or f"条目{index + 1}"
+
+        if self._is_read_only:
+            dialog = StructListItemViewerDialog(
+                struct_id=self._struct_id,
+                item_name=display_name,
+                fields=current_fields,
+                parent=self,
+            )
+            dialog.exec()
+            return
+
+        if self._resource_manager is None:
+            return
         dialog = StructListItemEditDialog(
             struct_id=self._struct_id,
             resource_manager=self._resource_manager,

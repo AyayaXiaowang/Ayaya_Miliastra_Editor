@@ -145,7 +145,7 @@ class CombatSkillPanel(PanelScaffold):
             self.skill_graphs_tab.set_package_index_manager(self.package_index_manager)
 
         # 技能节点图：仅允许绑定客户端节点图下“技能节点图”文件夹中的图
-        # （对应 assets/资源库/节点图/client/技能节点图/*）
+        # （对应 assets/资源库/项目存档/<package_id>/节点图/client/技能节点图/*）
         self.skill_graphs_tab.set_allowed_graph_scope(
             graph_type="client",
             folder_prefix="技能节点图",

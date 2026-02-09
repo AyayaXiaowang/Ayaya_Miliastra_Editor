@@ -3,7 +3,7 @@
 约定：
 - 一节点一文件，按类别分子目录组织；
 - 本包**不**在导入时做任何全量加载/动态导出，避免“导入即执行全部节点实现”带来的副作用；
-- 运行时需要导出节点函数时，应使用 `runtime.engine.node_impl_loader` 基于 V2 AST 清单加载并注入。
+- 运行时需要导出节点函数时，应使用 `app.runtime.engine.node_impl_loader` 基于 V2 AST 清单加载并注入。
 """
 
 __all__: list[str] = []

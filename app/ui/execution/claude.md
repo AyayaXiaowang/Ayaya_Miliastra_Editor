@@ -43,6 +43,8 @@ ui/execution/
 ├── thread.py               # 执行线程
 ├── planner.py              # 执行计划器
 ├── guides.py               # 执行指引
+├── execution_session.py    # 执行会话载体（workspace/model/view/executor）
+├── editor_executor_provider.py  # 执行器统一获取/复用入口（集中共享策略）
 ├── strategies/             # 策略类子模块
 │   ├── __init__.py
 │   ├── anchor_selector.py
@@ -89,6 +91,12 @@ ui/execution/
 4. **guides.py** - 执行指引
    - `ExecutionGuides`: 提供执行相关的用户指引
    - `log_composite_guide(monitor_panel, detail_type, info)`: 静态方法，输出复合节点相关步骤的指引信息
+
+5. **execution_session.py** - 执行会话
+   - `ExecutionSession`: 统一承载 workspace_path / graph_model / graph_view / executor（可为 None），供监控面板与执行入口注入
+
+6. **editor_executor_provider.py** - 执行器提供者
+   - `EditorExecutorProvider`: 集中实现“复用监控面板共享 executor / 否则创建新 executor”的策略，避免 UI 各处自行创建
 
 #### 策略类（strategies/）
 

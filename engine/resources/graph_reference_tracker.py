@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
 from engine.configs.resource_types import ResourceType
+from engine.resources.graph_reference_service import build_graph_to_references_index
 
 if TYPE_CHECKING:
     from engine.resources.resource_manager import ResourceManager
@@ -42,75 +43,15 @@ class GraphReferenceTracker:
 
     def _rebuild_reference_cache(self, fingerprint: str) -> None:
         """重建引用缓存（一次性扫描全部存档/模板/实例）。"""
-        graph_to_refs: Dict[str, List[Tuple[str, str, str, str]]] = {}
-
-        packages = self.package_index_manager.list_packages()
-        for package_info in packages:
-            package_id = package_info.get("package_id")
-            if not isinstance(package_id, str) or not package_id:
-                continue
-
-            package_index = self.package_index_manager.load_package_index(package_id)
-            if not package_index:
-                continue
-
-            # 模板引用：default_graphs
-            for template_id in package_index.resources.templates:
-                if not isinstance(template_id, str) or not template_id:
-                    continue
-                template_data = self.resource_manager.load_resource(ResourceType.TEMPLATE, template_id)
-                if not template_data:
-                    continue
-                default_graphs = template_data.get("default_graphs", [])
-                if not isinstance(default_graphs, list) or not default_graphs:
-                    continue
-
-                template_name = template_data.get("name", "未命名")
-                template_name_text = template_name if isinstance(template_name, str) else "未命名"
-                for graph_id in default_graphs:
-                    if not isinstance(graph_id, str) or not graph_id:
-                        continue
-                    graph_to_refs.setdefault(graph_id, []).append(
-                        ("template", template_id, template_name_text, package_id)
-                    )
-
-            # 实例引用：additional_graphs
-            for instance_id in package_index.resources.instances:
-                if not isinstance(instance_id, str) or not instance_id:
-                    continue
-                instance_data = self.resource_manager.load_resource(ResourceType.INSTANCE, instance_id)
-                if not instance_data:
-                    continue
-                additional_graphs = instance_data.get("additional_graphs", [])
-                if not isinstance(additional_graphs, list) or not additional_graphs:
-                    continue
-
-                instance_name = instance_data.get("name", "未命名")
-                instance_name_text = instance_name if isinstance(instance_name, str) else "未命名"
-                for graph_id in additional_graphs:
-                    if not isinstance(graph_id, str) or not graph_id:
-                        continue
-                    graph_to_refs.setdefault(graph_id, []).append(
-                        ("instance", instance_id, instance_name_text, package_id)
-                    )
-
-            # 关卡实体引用：level_entity_id 的 additional_graphs
-            level_entity_id = getattr(package_index, "level_entity_id", None)
-            if isinstance(level_entity_id, str) and level_entity_id:
-                level_entity_data = self.resource_manager.load_resource(
-                    ResourceType.INSTANCE,
-                    level_entity_id,
-                )
-                if level_entity_data:
-                    additional_graphs = level_entity_data.get("additional_graphs", [])
-                    if isinstance(additional_graphs, list) and additional_graphs:
-                        for graph_id in additional_graphs:
-                            if not isinstance(graph_id, str) or not graph_id:
-                                continue
-                            graph_to_refs.setdefault(graph_id, []).append(
-                                ("level_entity", package_id, "关卡实体", package_id)
-                            )
-
+        # 引用追踪只依赖资源 ID 归属，不需要刷新派生展示字段（resource_names）。
+        # 关闭该刷新可以显著降低启动阶段的 I/O 与避免触发节点图解析链路。
+        graph_to_refs = build_graph_to_references_index(
+            package_index_manager=self.package_index_manager,
+            resource_manager=self.resource_manager,
+            include_combat_presets=True,
+            include_skill_ugc_indirect=False,
+            refresh_resource_names=False,
+        )
         self._graph_references_cache = graph_to_refs
         self._reference_cache_fingerprint = fingerprint
     
@@ -151,8 +92,12 @@ class GraphReferenceTracker:
         Returns:
             引用次数
         """
-        references = self.find_references(graph_id)
-        return len(references)
+        if not isinstance(graph_id, str) or not graph_id:
+            return 0
+        # 注意：只要返回“数量”，就不应为了防止外部修改而拷贝整个引用列表；
+        # 在引用量较多的情况下，复制列表会在 UI 列表刷新/单击预览时放大卡顿。
+        self._ensure_reference_cache()
+        return len(self._graph_references_cache.get(graph_id, []))
     
     def update_reference(self, entity_type: str, entity_id: str, 
                         old_graph_id: str, new_graph_id: str) -> bool:

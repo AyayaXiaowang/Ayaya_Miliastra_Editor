@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 from typing import Optional
 
 from PyQt6 import QtCore, QtWidgets
@@ -23,6 +24,7 @@ from app.ui.panels.ui_control_group_store import UIControlGroupStore
 from app.ui.panels.ui_control_group_template_tree import TemplateTreeWidget
 from app.ui.panels.ui_control_panel_base import UIControlPanelBase
 from app.ui.panels.panel_search_support import SidebarSearchController
+from .ui_control_group_collapsible_section import CollapsibleSection
 from .ui_control_group_template_helpers import (
     is_custom_template,
     resize_widget_in_store,
@@ -46,8 +48,11 @@ class UITemplateLibraryPanel(UIControlPanelBase):
         self.current_template: Optional[UIControlGroupTemplate] = None
         self._template_filter_text: str = ""
         self._search_controller: Optional[SidebarSearchController] = None
+        self._raw_section: Optional[CollapsibleSection] = None
+        self._raw_text: Optional[QtWidgets.QPlainTextEdit] = None
 
         self._setup_ui()
+        self.template_changed.connect(self._refresh_raw_view)
 
     def _setup_ui(self) -> None:
         left_widget, left_layout = self.create_left_container()
@@ -71,6 +76,15 @@ class UITemplateLibraryPanel(UIControlPanelBase):
 
         middle_layout = self.build_main_layout(left_widget)
 
+        self._raw_section = CollapsibleSection("原始数据")
+        self._raw_section.setCollapsed(True)
+        self._raw_text = QtWidgets.QPlainTextEdit()
+        self._raw_text.setReadOnly(True)
+        self._raw_text.setMinimumHeight(160)
+        self._raw_text.setLineWrapMode(QtWidgets.QPlainTextEdit.LineWrapMode.NoWrap)
+        self._raw_section.add_widget(self._raw_text)
+        middle_layout.addWidget(self._raw_section)
+
         btn_layout = QtWidgets.QHBoxLayout()
         btn_layout.addStretch()
 
@@ -89,6 +103,7 @@ class UITemplateLibraryPanel(UIControlPanelBase):
 
         middle_layout.addLayout(btn_layout)
         self._update_button_states()
+        self._refresh_raw_view()
 
     def refresh_templates(self) -> None:
         query = self._search_controller.value if self._search_controller else ""
@@ -98,6 +113,7 @@ class UITemplateLibraryPanel(UIControlPanelBase):
             query=query,
         )
         self._update_button_states()
+        self._refresh_raw_view()
 
     def show_template_preview(self, template_id: str) -> None:
         template = self.store.templates.get(template_id)
@@ -107,6 +123,7 @@ class UITemplateLibraryPanel(UIControlPanelBase):
         if template:
             render_template_on_preview(self.preview_canvas, template, select_first=True)
         self._update_button_states()
+        self._refresh_raw_view()
 
     def _add_template(self) -> None:
         dialog = FormDialog("添加界面控件模板", parent=self)
@@ -262,6 +279,7 @@ class UITemplateLibraryPanel(UIControlPanelBase):
             self.current_template = None
             self.preview_canvas.clear_preview()
             self._update_button_states()
+            self._refresh_raw_view()
 
     def _on_search_changed(self, normalized: str) -> None:
         if normalized == self._template_filter_text:
@@ -293,6 +311,16 @@ class UITemplateLibraryPanel(UIControlPanelBase):
         if template_id != current_id:
             return
         self.template_changed.emit()
+
+    def _refresh_raw_view(self) -> None:
+        if self._raw_text is None:
+            return
+        if self.current_template is None:
+            self._raw_text.setPlainText("")
+            return
+        self._raw_text.setPlainText(
+            json.dumps(self.current_template.serialize(), ensure_ascii=False, indent=2)
+        )
 
     def _update_button_states(self) -> None:
         has_template = self.current_template is not None

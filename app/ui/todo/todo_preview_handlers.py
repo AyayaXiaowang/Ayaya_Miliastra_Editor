@@ -412,7 +412,7 @@ def handle_template_graph_root(controller: Any, todo: TodoItem, current_version:
 
     controller.schedule_focus(
         current_version,
-        lambda use_animation: controller.view.fit_all(use_animation=use_animation),
+        lambda use_animation: controller.fit_all_or_center(use_animation=use_animation),
     )
 
 
@@ -458,7 +458,7 @@ def handle_graph_signals_overview(controller: Any, todo: TodoItem, current_versi
 
     controller.schedule_focus(
         current_version,
-        lambda use_animation: controller.view.fit_all(use_animation=use_animation),
+        lambda use_animation: controller.fit_all_or_center(use_animation=use_animation),
     )
 
 

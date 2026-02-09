@@ -19,6 +19,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from app.models import TodoItem
 from app.ui.execution.planner import ExecutionPlanner, SUPPORTED_STEP_TYPES
 from app.ui.todo.current_todo_resolver import CurrentTodoContext, resolve_current_todo_for_root
+from app.models.todo_detail_info_accessors import get_detail_type
+from app.ui.todo.todo_config import StepTypeRules
 
 
 FindTemplateRootForItem = Callable[[Any], Optional[TodoItem]]
@@ -169,7 +171,7 @@ def plan_remaining_event_flows_execution(
         if child is None:
             continue
         detail_info = child.detail_info or {}
-        if detail_info.get("type") == "event_flow_root":
+        if StepTypeRules.is_event_flow_root(get_detail_type(detail_info)):
             flow_roots_in_graph.append(child)
 
     if not flow_roots_in_graph:
@@ -265,11 +267,12 @@ def plan_single_step_execution(
     )
 
     detail_info = step_todo.detail_info or {}
-    detail_type = str(detail_info.get("type", ""))
+    detail_type = get_detail_type(detail_info)
     if detail_type not in SUPPORTED_STEP_TYPES:
         message = (
             f"✗ 当前步骤类型不支持自动执行：{detail_type}。"
-            "请在左侧选择具体的节点图操作步骤（创建节点/连线/配置等）后再试。"
+            "请前往【设置】页面，将【步骤生成顺序】切换为【AI-先配置后连线】或【AI-逐个节点模式】（不是【人类模式】）后再试。"
+            "设置完成后，请在左侧选择具体的节点图操作步骤（创建节点/连线/配置等）再执行。"
         )
         return None, StepExecutionError(
             reason="unsupported_type",

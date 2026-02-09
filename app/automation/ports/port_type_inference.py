@@ -20,6 +20,7 @@ from app.automation.ports import port_type_common as _port_type_common
 from app.automation.ports import port_type_context as _port_type_context
 from app.automation.ports import port_type_generics as _port_type_generics
 from app.automation.ports import port_type_dicts as _port_type_dicts
+from app.automation.ports import port_type_resolver as _port_type_resolver
 from app.automation.ports import _struct_field_types as _struct_field_types
 
 # 通过子模块的 __all__ 定义统一聚合公共 API，并在本模块命名空间下 re-export。
@@ -28,6 +29,7 @@ from app.automation.ports.port_type_common import *  # noqa: F401,F403
 from app.automation.ports.port_type_context import *  # noqa: F401,F403
 from app.automation.ports.port_type_generics import *  # noqa: F401,F403
 from app.automation.ports.port_type_dicts import *  # noqa: F401,F403
+from app.automation.ports.port_type_resolver import *  # noqa: F401,F403
 from app.automation.ports._struct_field_types import *  # noqa: F401,F403
 
 
@@ -37,6 +39,7 @@ def _collect_public_names() -> List[str]:
         _port_type_context,
         _port_type_generics,
         _port_type_dicts,
+        _port_type_resolver,
         _struct_field_types,
     ]
     names: List[str] = []

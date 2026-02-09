@@ -7,6 +7,7 @@ from typing import Any
 from PyQt6 import QtCore
 
 from app.models.view_modes import ViewMode
+from app.models.edit_session_capabilities import EditSessionCapabilities
 
 from .requests import ModeEnterRequest
 
@@ -22,7 +23,12 @@ class GraphLibraryModePresenter(BaseModePresenter):
         _ = request
         main_window.property_panel.clear()
 
-        main_window.graph_library_widget.reload()
+        refresh_for_mode_enter = getattr(main_window.graph_library_widget, "refresh_for_mode_enter", None)
+        if callable(refresh_for_mode_enter):
+            refresh_for_mode_enter()
+        else:
+            # 兼容：旧实现缺少轻量入口时回退到 reload
+            main_window.graph_library_widget.reload()
 
         def _sync_graph_library_selection() -> None:
             selected_graph_id = main_window.graph_library_widget.get_selected_graph_id()
@@ -51,26 +57,25 @@ class GraphEditorModePresenter(BaseModePresenter):
         _ = request
         main_window.property_panel.clear()
 
-        # GRAPH_EDITOR 使用全局唯一的 GraphView，但中央堆叠页是 Host 容器：
-        # 若画布之前被 TODO 预览“借用”到了任务清单页面，需要在进入编辑器时归还。
-        graph_editor_canvas_host = getattr(main_window, "graph_editor_canvas_host", None)
-        if graph_editor_canvas_host is not None and hasattr(graph_editor_canvas_host, "attach_view"):
-            graph_editor_canvas_host.attach_view(main_window.app_state.graph_view)
+        # GRAPH_EDITOR 使用全局唯一的 GraphView：统一通过租约服务“归还画布 + 恢复能力/按钮/联动开关”
+        from app.ui.graph.graph_view.shared_graph_view_lease import (
+            get_shared_graph_view_lease_manager,
+        )
 
-        # 进入编辑器时：恢复右上角按钮为“前往执行”，并关闭 Todo 预览的 click-signals 模式。
-        graph_view = main_window.app_state.graph_view
-        if hasattr(graph_view, "enable_click_signals"):
-            graph_view.enable_click_signals = False
-        if hasattr(graph_view, "restore_all_opacity"):
-            graph_view.restore_all_opacity()
-        overlay_manager = getattr(graph_view, "overlay_manager", None)
-        if overlay_manager is not None and hasattr(overlay_manager, "stop_all_animations"):
-            overlay_manager.stop_all_animations()
-        preview_panel = getattr(getattr(main_window, "todo_widget", None), "preview_panel", None)
-        if preview_panel is not None and hasattr(preview_panel, "preview_edit_button"):
-            preview_panel.preview_edit_button.setVisible(False)
-        if hasattr(main_window, "graph_editor_todo_button") and main_window.graph_editor_todo_button:
-            graph_view.set_extra_top_right_button(main_window.graph_editor_todo_button)
+        graph_editor_canvas_host = getattr(main_window, "graph_editor_canvas_host", None)
+        graph_controller = getattr(main_window, "graph_controller", None)
+        todo_preview_panel = getattr(getattr(main_window, "todo_widget", None), "preview_panel", None)
+        preview_edit_button = getattr(todo_preview_panel, "preview_edit_button", None)
+
+        if graph_editor_canvas_host is not None and hasattr(graph_editor_canvas_host, "attach_view"):
+            lease_manager = get_shared_graph_view_lease_manager()
+            lease_manager.release_to_graph_editor(
+                graph_view=main_window.app_state.graph_view,
+                graph_editor_host=graph_editor_canvas_host,
+                graph_controller=graph_controller,
+                graph_editor_todo_button=getattr(main_window, "graph_editor_todo_button", None),
+                todo_preview_edit_button=preview_edit_button,
+            )
 
         if main_window.graph_controller.current_graph_id:
             main_window.graph_property_panel.set_graph(main_window.graph_controller.current_graph_id)
@@ -118,6 +123,11 @@ class CompositeModePresenter(BaseModePresenter):
             current_package_index = getattr(main_window.package_controller, "current_package_index", None)
             set_context(current_package_id, current_package_index)
 
+        # 与“节点图库”一致：每次进入复合节点模式都回到列表视图（返回列表靠再次点击左侧导航）。
+        reset_to_list = getattr(main_window.composite_widget, "reset_to_library_list_view", None)
+        if callable(reset_to_list):
+            reset_to_list()
+
         main_window.property_panel.clear()
 
         current_composite = main_window.composite_widget.get_current_composite()
@@ -146,13 +156,44 @@ class PackagesModePresenter(BaseModePresenter):
         main_window.property_panel.clear()
 
         main_window.package_library_widget.refresh()
+        current_package_id = getattr(main_window.package_controller, "current_package_id", None)
+        if isinstance(current_package_id, str) and current_package_id:
+            from app.ui.graph.library_pages.library_scaffold import LibrarySelection
+
+            main_window.package_library_widget.set_selection(
+                LibrarySelection(kind="package", id=current_package_id, context=None)
+            )
         return None
 
 
 class TodoModePresenter(BaseModePresenter):
     def enter(self, main_window: Any, *, request: ModeEnterRequest) -> None:
-        _ = request
         main_window.property_panel.clear()
+
+        # 从“节点图库”进入任务清单时，优先把 Todo 聚焦到当前选中的节点图，
+        # 避免 Todo 页默认按“上一次选中任务”恢复上下文，造成用户以为仍在执行上一张图。
+        if request.previous_mode == ViewMode.GRAPH_LIBRARY:
+            selected_graph_id = ""
+            graph_library_widget = getattr(main_window, "graph_library_widget", None)
+            if graph_library_widget is not None:
+                get_selected_graph_id = getattr(graph_library_widget, "get_selected_graph_id", None)
+                if callable(get_selected_graph_id):
+                    selected_graph_id = str(get_selected_graph_id() or "")
+                else:
+                    selected_graph_id = str(getattr(graph_library_widget, "selected_graph_id", "") or "")
+            selected_graph_id = selected_graph_id.strip()
+            if selected_graph_id:
+                from app.ui.main_window.todo_events_mixin import _PendingTodoFocusRequest
+
+                setattr(
+                    main_window,
+                    "_pending_todo_focus_request",
+                    _PendingTodoFocusRequest(
+                        todo_id="",
+                        detail_info=None,
+                        graph_id=selected_graph_id,
+                    ),
+                )
 
         main_window._refresh_todo_list()
         return None

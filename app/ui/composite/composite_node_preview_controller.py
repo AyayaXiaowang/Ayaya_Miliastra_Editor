@@ -36,9 +36,18 @@ class CompositeNodePreviewController(QtCore.QObject):
 
     def set_composite_widget(self, widget) -> None:
         self.composite_widget = widget
+        # 根据“当前页面是否可保存”控制引脚类型是否可编辑
+        can_persist = bool(getattr(widget, "can_persist_composite", False)) if widget is not None else False
+        set_type_editable = getattr(self.pin_panel, "set_type_editable", None)
+        if callable(set_type_editable):
+            set_type_editable(can_persist)
 
     def load_composite(self, composite: CompositeNodeConfig) -> None:
         self.composite_config = composite
+        can_persist = bool(getattr(self.composite_widget, "can_persist_composite", False)) if self.composite_widget is not None else False
+        set_type_editable = getattr(self.pin_panel, "set_type_editable", None)
+        if callable(set_type_editable):
+            set_type_editable(can_persist)
         self.preview_view.load_composite(composite)
         self.pin_panel.set_composite_config(composite)
 
@@ -55,6 +64,9 @@ class CompositeNodePreviewController(QtCore.QObject):
     def update_pin_type(self, pin: VirtualPinConfig, new_type: str) -> Tuple[bool, Optional[str]]:
         if not self.composite_config:
             return False, "暂无复合节点"
+        can_persist = bool(getattr(self.composite_widget, "can_persist_composite", False)) if self.composite_widget is not None else False
+        if not can_persist:
+            return False, "当前页面不可保存：引脚类型不允许修改"
         type_text = str(new_type or "").strip()
         if not type_text:
             return False, "引脚类型不能为空"

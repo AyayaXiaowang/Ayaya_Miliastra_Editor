@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from app.models import TodoItem
+from app.models.todo_detail_info_accessors import get_graph_id
 from app.ui.todo.preview_graph_context_resolver import resolve_graph_preview_context
 from app.runtime.services.graph_data_service import GraphDataService
 
@@ -25,15 +26,11 @@ def _resolve_expected_graph_id(
     2. 叶子步骤自身的 graph_id；
     3. 若均缺失，则返回空字符串。
     """
-    if root_todo is not None and isinstance(root_todo.detail_info, dict):
-        graph_identifier = root_todo.detail_info.get("graph_id")
-        if isinstance(graph_identifier, str) and graph_identifier:
-            return graph_identifier
-    if focus_todo is not None and isinstance(focus_todo.detail_info, dict):
-        graph_identifier = focus_todo.detail_info.get("graph_id")
-        if isinstance(graph_identifier, str) and graph_identifier:
-            return graph_identifier
-    return ""
+    root_graph_id = get_graph_id(root_todo) if root_todo is not None else ""
+    if root_graph_id:
+        return root_graph_id
+    focus_graph_id = get_graph_id(focus_todo) if focus_todo is not None else ""
+    return focus_graph_id
 
 
 def resolve_graph_data_for_execution(

@@ -3,7 +3,7 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
 from datetime import datetime
 from app.ui.foundation.base_widgets import BaseDialog
-from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
+from app.ui.foundation.theme_manager import ThemeManager
 
 
 class ConflictResolutionDialog(BaseDialog):
@@ -51,11 +51,11 @@ class ConflictResolutionDialog(BaseDialog):
         
         # 标题
         title_label = QtWidgets.QLabel("⚠ 节点图冲突检测")
+        title_label.setObjectName("conflictDialogTitle")
         title_font = QtGui.QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
         title_label.setFont(title_font)
-        title_label.setStyleSheet(f"color: {Colors.WARNING};")
         layout.addWidget(title_label)
         
         # 分隔线
@@ -71,37 +71,29 @@ class ConflictResolutionDialog(BaseDialog):
             "请选择要保留哪个版本："
         )
         description_label.setWordWrap(True)
-        description_label.setStyleSheet(f"font-size: 13px; color: {Colors.TEXT_PRIMARY};")
+        description_label.setObjectName("conflictDialogDescription")
         layout.addWidget(description_label)
         
         # 时间信息（如果有）
         if self.local_modified_time or self.external_modified_time:
             time_info_widget = QtWidgets.QWidget()
+            time_info_widget.setObjectName("conflictTimeInfoBox")
             time_info_layout = QtWidgets.QVBoxLayout(time_info_widget)
             time_info_layout.setContentsMargins(15, 10, 15, 10)
             time_info_layout.setSpacing(5)
-            
-            time_info_widget.setStyleSheet(
-                f"""
-                QWidget {{
-                    background-color: {Colors.BG_MAIN};
-                    border-radius: 5px;
-                }}
-            """
-            )
             
             if self.local_modified_time:
                 local_time_label = QtWidgets.QLabel(
                     f"📝 本地修改时间: {self._format_time(self.local_modified_time)}"
                 )
-                local_time_label.setStyleSheet(f"font-size: 12px; color: {Colors.TEXT_SECONDARY};")
+                local_time_label.setObjectName("conflictTimeLabel")
                 time_info_layout.addWidget(local_time_label)
             
             if self.external_modified_time:
                 external_time_label = QtWidgets.QLabel(
                     f"🌐 外部修改时间: {self._format_time(self.external_modified_time)}"
                 )
-                external_time_label.setStyleSheet(f"font-size: 12px; color: {Colors.TEXT_SECONDARY};")
+                external_time_label.setObjectName("conflictTimeLabel")
                 time_info_layout.addWidget(external_time_label)
             
             layout.addWidget(time_info_widget)
@@ -113,49 +105,14 @@ class ConflictResolutionDialog(BaseDialog):
         # 保留本地修改按钮
         self.keep_local_button = QtWidgets.QPushButton("保留我的修改")
         self.keep_local_button.setMinimumHeight(35)
-        self.keep_local_button.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {Colors.PRIMARY};
-                color: {Colors.TEXT_ON_PRIMARY};
-                border: none;
-                border-radius: {Sizes.RADIUS_SMALL}px;
-                font-size: 13px;
-                padding: 8px 20px;
-            }}
-            QPushButton:hover {{
-                background-color: {Colors.PRIMARY_DARK};
-            }}
-            QPushButton:pressed {{
-                background-color: {Colors.PRIMARY_DARK};
-            }}
-        """
-        )
+        self.keep_local_button.setProperty("kind", "primary")
         self.keep_local_button.clicked.connect(self._on_keep_local)
         button_layout.addWidget(self.keep_local_button)
         
         # 使用外部版本按钮
         self.use_external_button = QtWidgets.QPushButton("使用外部版本")
         self.use_external_button.setMinimumHeight(35)
-        self.use_external_button.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {Colors.BG_CARD};
-                color: {Colors.TEXT_PRIMARY};
-                border: 1px solid {Colors.BORDER_LIGHT};
-                border-radius: {Sizes.RADIUS_SMALL}px;
-                font-size: 13px;
-                padding: 8px 20px;
-            }}
-            QPushButton:hover {{
-                background-color: {Colors.BG_CARD_HOVER};
-                border-color: {Colors.BORDER_NORMAL};
-            }}
-            QPushButton:pressed {{
-                background-color: {Colors.BG_DISABLED};
-            }}
-        """
-        )
+        self.use_external_button.setProperty("kind", "secondary")
         self.use_external_button.clicked.connect(self._on_use_external)
         button_layout.addWidget(self.use_external_button)
         
@@ -166,7 +123,7 @@ class ConflictResolutionDialog(BaseDialog):
             "提示：选择\"保留我的修改\"会覆盖外部版本，\n"
             "选择\"使用外部版本\"会放弃您的本地修改。"
         )
-        hint_label.setStyleSheet(f"font-size: 11px; color: {Colors.TEXT_HINT}; margin-top: 5px;")
+        hint_label.setObjectName("conflictDialogHint")
         hint_label.setWordWrap(True)
         layout.addWidget(hint_label)
     

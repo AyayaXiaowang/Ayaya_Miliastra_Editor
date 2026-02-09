@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>UI HTML Workbench（校验/扁平化/导出）</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-app: #111;
+      --bg-panel: #1c1c1c;
+      --bg-input: #232323;
+      --border: #333;
+      --text: #e6e6e6;
+      --muted: #9aa0a6;
+      --accent: #3794ff;
+      --bad: #ff6b6b;
+      --ok: #6ee7b7;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    body { background: var(--bg-app); color: var(--text); font-family: var(--font); font-size: 13px; }
+
+    .app { height: 100vh; display: flex; flex-direction: column; }
+    .header {
+      height: 46px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+    }
+    .title { font-weight: 800; }
+    .badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .badge.ok { border-color: rgba(110,231,183,0.45); color: var(--ok); }
+    .badge.bad { border-color: rgba(255,107,107,0.55); color: var(--bad); }
+    .spacer { flex: 1; }
+    .btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+    }
+    .btn.primary { border-color: rgba(55,148,255,0.55); background: rgba(55,148,255,0.18); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+    .col { min-height: 0; display: flex; flex-direction: column; }
+    .left { width: 420px; flex-shrink: 0; background: var(--bg-panel); border-right: 1px solid var(--border); }
+    .center { flex: 1; min-width: 0; background: #0f0f0f; }
+    .right { width: 420px; flex-shrink: 0; background: var(--bg-panel); border-left: 1px solid var(--border); }
+
+    .section-header {
+      height: 34px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .section-body { flex: 1; min-height: 0; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .checkbox { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; user-select: none; }
+    .checkbox input { accent-color: var(--accent); }
+
+    textarea {
+      width: 100%;
+      min-height: 0;
+      resize: none;
+      padding: 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.35;
+      outline: none;
+    }
+
+    /* Preview stage */
+    #previewStage { position: relative; flex: 1; min-height: 0; display: flex; justify-content: center; align-items: center; padding: 12px; }
+    #previewFrameContainer { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: #000; }
+    #previewIframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+    #previewSelectionOverlay { position: absolute; inset: 0; pointer-events: none; }
+    #previewSelectionBox { position: absolute; border: 2px solid rgba(55,148,255,0.9); background: rgba(55,148,255,0.12); display: none; }
+    #previewSelectionLabel { position: absolute; color: #fff; background: rgba(0,0,0,0.55); padding: 2px 6px; border-radius: 6px; font-size: 12px; display: none; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #previewDragSelectBox { position: absolute; border: 1px dashed rgba(255,255,255,0.5); background: rgba(255,255,255,0.06); display: none; }
+    #previewReverseTop, #previewReverseBottom, #previewReverseLeft, #previewReverseRight { position: absolute; background: rgba(0,0,0,0.6); display: none; }
+  </style>
+  <script>
+    // 统一入口策略：
+    // - 面向用户/主程序：只保留 ui_app_ui_preview.html 作为唯一入口
+    // - ui_html_workbench.html 仅保留给自动化/回归（internal=1）使用
+    (function () {
+      var search = String(window && window.location ? (window.location.search || "") : "");
+      var hasInternal = /(?:\?|&)internal=1(?:&|$)/.test(search);
+      if (hasInternal) {
+        return;
+      }
+      // 默认直接跳转到唯一入口
+      window.location.replace("./ui_app_ui_preview.html");
+    })();
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="title">UI HTML Workbench</div>
+      <div id="validationStatusBadge" class="badge bad">未校验</div>
+      <div id="workbenchWorkflowStatusText" class="badge">就绪</div>
+      <label class="checkbox" title="预览时将带 data-ui-text 的元素显示为占位符文本（仅影响原稿预览，不影响扁平化/导出）。注意：占位符很长时可能影响排版观感。">
+        <input id="dynamicTextPreviewCheckbox" type="checkbox" />
+        <span>动态文本预览</span>
+      </label>
+      <div class="spacer"></div>
+      <button id="validateAndRenderButtonInline" class="btn primary" type="button">校验并渲染</button>
+      <button id="autoFixAndRenderButtonInline" class="btn" type="button">自动修正并校验</button>
+      <button id="generateFlattenedButtonInline" class="btn" type="button">生成扁平化</button>
+      <button id="exportUiControlGroupJsonButtonInline" class="btn" type="button">导出 UI布局 Bundle</button>
+    </div>
+
+    <div class="main">
+      <div class="col left">
+        <div class="section-header">HTML Source</div>
+        <div class="section-body">
+          <div class="row">
+            <label class="checkbox" for="outputToFlattenedDirCheckbox">
+              <input id="outputToFlattenedDirCheckbox" type="checkbox" checked />
+              资源路径重写（写到 flattened 目录）
+            </label>
+          </div>
+          <textarea id="inputHtmlTextArea" spellcheck="false" placeholder="粘贴完整 HTML 文档..."></textarea>
+          <input id="htmlFileInput" type="file" accept=".html,.htm" style="display:none;" />
+        </div>
+      </div>
+
+      <div class="col center">
+        <div class="section-header">Preview</div>
+        <div id="previewStage">
+          <div id="previewFrameContainer">
+            <iframe id="previewIframe" sandbox="allow-same-origin"></iframe>
+            <div id="previewSelectionOverlay">
+              <div id="previewSelectionBox"></div>
+              <div id="previewSelectionLabel"></div>
+              <div id="previewDragSelectBox"></div>
+              <div id="previewReverseTop"></div>
+              <div id="previewReverseBottom"></div>
+              <div id="previewReverseLeft"></div>
+              <div id="previewReverseRight"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col right">
+        <div class="section-header">Diagnostics / Outputs</div>
+        <div class="section-body">
+          <textarea id="validationErrorsTextArea" class="wb-textarea" spellcheck="false" placeholder="校验输出..."></textarea>
+          <textarea id="flattenedOutputTextArea" class="wb-textarea" spellcheck="false" placeholder="扁平化输出 HTML..."></textarea>
+          <textarea id="uiControlGroupJsonOutputTextArea" class="wb-textarea" spellcheck="false" placeholder="导出的 UI布局 Bundle JSON..."></textarea>
+          <textarea id="inspectorImportantTextArea" class="wb-textarea" spellcheck="false" placeholder="检查器（重要信息）..."></textarea>
+          <textarea id="inspectorDetailsTextArea" class="wb-textarea" spellcheck="false" placeholder="检查器（详细信息）..."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- compatibility: legacy ids (not used in CLI, but referenced by dom_refs) -->
+  <button id="validateAndRenderButton" type="button" style="display:none;"></button>
+  <button id="generateFlattenedButton" type="button" style="display:none;"></button>
+  <button id="exportUiControlGroupJsonButton" type="button" style="display:none;"></button>
+  <button id="openFlattenedPreviewButton" type="button" style="display:none;"></button>
+  <button id="copyValidationErrorsButton" type="button" style="display:none;"></button>
+  <button id="copyDiagnosticsErrorsButton" type="button" style="display:none;"></button>
+  <button id="copyDiagnosticsWarningsButton" type="button" style="display:none;"></button>
+  <button id="copyDiagnosticsInfosButton" type="button" style="display:none;"></button>
+  <button id="copyAiFixPackButton" type="button" style="display:none;"></button>
+  <button id="copyFlattenedOutputButton" type="button" style="display:none;"></button>
+  <button id="copyUiControlGroupJsonOutputButton" type="button" style="display:none;"></button>
+  <button id="copyInspectorButton" type="button" style="display:none;"></button>
+  <button id="clearInputButton" type="button" style="display:none;"></button>
+  <input id="reverseRegionCheckbox" type="checkbox" style="display:none;" />
+  <input id="flattenDebugShowAllCheckbox" type="checkbox" style="display:none;" />
+  <input id="flattenDebugShowGroupsCheckbox" type="checkbox" style="display:none;" />
+  <button id="refreshPreviewButton" type="button" style="display:none;"></button>
+  <button id="deleteSelectionButton" type="button" style="display:none;"></button>
+  <button id="toggleShadowInspectButton" type="button" style="display:none;"></button>
+  <!-- 画布尺寸按钮（隐藏）：供 CLI/自动化驱动切换画布尺寸；事件绑定依赖 button[data-size-key] -->
+  <button id="sizeButton1920x1080" data-size-key="1920x1080" type="button" style="display:none;">1920×1080</button>
+  <button id="sizeButton1600x900" data-size-key="1600x900" type="button" style="display:none;">1600×900</button>
+  <button id="sizeButton1560x720" data-size-key="1560x720" type="button" style="display:none;">1560×720</button>
+  <button id="sizeButton1280x720" data-size-key="1280x720" type="button" style="display:none;">1280×720</button>
+  <button id="togglePreviewOnlyModeButton" type="button" style="display:none;"></button>
+  <button id="previewVariantSourceButton" type="button" style="display:none;"></button>
+  <button id="previewVariantFlattenedButton" type="button" style="display:none;"></button>
+  <div id="flattenGroupTreeContainer" style="display:none;"></div>
+  <div id="flattenGroupTreeStatusText" style="display:none;"></div>
+  <button id="refreshFlattenGroupTreeButton" type="button" style="display:none;"></button>
+  <button id="resetFlattenGroupTreeVisibilityButton" type="button" style="display:none;"></button>
+  <div id="appContextText" style="display:none;"></div>
+  <input id="importLayoutNameInput" value="HTML导入_界面布局" style="display:none;" />
+  <input id="autoImportToAppCheckbox" type="checkbox" style="display:none;" />
+  <button id="importToAppButtonInline" type="button" style="display:none;"></button>
+  <div id="importStatusText" style="display:none;"></div>
+  <input id="exportGilVerifyCheckbox" type="checkbox" style="display:none;" />
+  <input id="exportGilBaseGilFileInput" type="file" style="display:none;" />
+  <button id="exportGilPickBaseGilButton" type="button" style="display:none;"></button>
+  <button id="exportGilClearBaseGilButton" type="button" style="display:none;"></button>
+  <div id="exportGilBaseGilFileNameText" style="display:none;"></div>
+  <input id="exportGilTargetLayoutGuidInput" style="display:none;" />
+  <button id="exportGilButtonInline" type="button" style="display:none;"></button>
+  <div id="exportGilStatusText" style="display:none;"></div>
+  <a id="exportGilDownloadLink" style="display:none;"></a>
+  <button id="exportGiaButtonInline" type="button" style="display:none;"></button>
+  <button id="exportGiaButtonInlineTop" type="button" style="display:none;"></button>
+  <div id="exportGiaStatusText" style="display:none;"></div>
+  <a id="exportGiaDownloadLink" style="display:none;"></a>
+  <button id="refreshAppUiCatalogButton" type="button" style="display:none;"></button>
+  <select id="appUiLayoutSelect" style="display:none;"></select>
+  <button id="loadAppUiLayoutButton" type="button" style="display:none;"></button>
+  <select id="appUiTemplateSelect" style="display:none;"></select>
+  <button id="loadAppUiTemplateButton" type="button" style="display:none;"></button>
+  <div id="appUiLoadStatusText" style="display:none;"></div>
+  <button id="leftTabLayoutButton" type="button" style="display:none;"></button>
+  <button id="leftTabTemplateButton" type="button" style="display:none;"></button>
+  <div id="layoutLibraryPane" style="display:none;"></div>
+  <div id="templateLibraryPane" style="display:none;"></div>
+  <div id="layoutDetailsTree" style="display:none;"></div>
+  <div id="layoutBuiltinList" style="display:none;"></div>
+  <div id="layoutCustomList" style="display:none;"></div>
+  <div id="layoutBuiltinCountText" style="display:none;"></div>
+  <div id="layoutCustomCountText" style="display:none;"></div>
+  <button id="copySelectedWidgetJsonButton" type="button" style="display:none;"></button>
+  <div id="selectedWidgetTitleText" style="display:none;"></div>
+  <div id="selectedWidgetMetaText" style="display:none;"></div>
+  <input id="propPosXInput" style="display:none;" />
+  <input id="propPosYInput" style="display:none;" />
+  <input id="propSizeWInput" style="display:none;" />
+  <input id="propSizeHInput" style="display:none;" />
+  <input id="propInitialVisibleCheckbox" type="checkbox" style="display:none;" />
+  <div id="widgetSettingsContainer" style="display:none;"></div>
+  <textarea id="selectedWidgetJsonTextArea" style="display:none;"></textarea>
+  <button id="leftTabEditorButton" type="button" style="display:none;"></button>
+  <button id="leftTabUiSourcesButton" type="button" style="display:none;"></button>
+  <button id="leftTabVariablesButton" type="button" style="display:none;"></button>
+  <button id="leftTabRefreshButton" type="button" style="display:none;"></button>
+  <div id="leftPaneEditor" style="display:none;"></div>
+  <div id="leftPaneUiSources" style="display:none;"></div>
+  <div id="leftPaneVariables" style="display:none;"></div>
+  <input id="uiSourceSearchInput" style="display:none;" />
+  <div id="uiSourceListContainer" style="display:none;"></div>
+  <button id="uiSourceNewButton" type="button" style="display:none;"></button>
+  <button id="uiSourceSaveButton" type="button" style="display:none;"></button>
+  <button id="uiSourceBatchImportButton" type="button" style="display:none;"></button>
+  <div id="uiSourceCurrentFileText" style="display:none;"></div>
+  <div id="uiSourceHintText" style="display:none;"></div>
+  <input id="variableSearchInput" style="display:none;" />
+  <div id="variableListContainer" style="display:none;"></div>
+  <div id="variableCatalogStatusText" style="display:none;"></div>
+  <button id="inspectorTabInfoButton" type="button" style="display:none;"></button>
+  <button id="inspectorTabGroupButton" type="button" style="display:none;"></button>
+  <div id="inspectorTabInfoPane" style="display:none;"></div>
+  <div id="inspectorTabGroupPane" style="display:none;"></div>
+</body>
+</html>
+

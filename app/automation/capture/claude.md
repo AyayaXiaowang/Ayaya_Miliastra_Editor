@@ -14,8 +14,9 @@
 - **color_scanner.py** - 颜色扫描：在截图中查找特定颜色的矩形区域，并提供 `prepare_color_scan_image` 预构建 BGR 像素矩阵，便于多次扫描共用同一份像素数据。
 - **template_matcher.py** - 模板匹配：基于 OpenCV 的模板匹配，支持缓存和区域限制，并通过 `reference_panel` 元数据告知 UI 当前模板缩略图，便于监控核对；在完成一次匹配计算时，会将搜索区域和所有高于阈值的候选（含置信度）一并绘制到监控画面上，最终选中的命中框使用高亮颜色标记，便于与其余候选对比；同时提供返回候选中心点和置信度的轻量接口，便于上层结合端口位置选择“距离目标点最近”的命中点。
   - 模板像素 LRU 缓存通过 `cache.create_lru_cache` 复用统一实现，避免维护多套淘汰逻辑
-- **mouse_ops.py** - 鼠标操作：点击和拖拽操作，支持 classic/hybrid 模式和输入阻止保护；阻止保护的退出钩子只注册一次，避免在长流程中重复堆栈 atexit 回调；混合点击与拖拽均支持按调用覆写释放后停留时间，便于控制光标复位节奏（快速链模式下跳过缓冲）
+- **mouse_ops.py** - 鼠标操作：点击和拖拽操作，支持 classic/hybrid 模式和输入阻止保护；阻止保护的退出钩子只注册一次，避免在长流程中重复堆栈 atexit 回调；混合点击与拖拽均支持按调用覆写释放后停留时间，便于控制光标复位节奏（快速链模式下跳过缓冲）；并提供**定时步进拖拽**（`drag_*_button_timed`）用于在卡顿/拖拽不生效时拉长拖拽持续时长（默认约 1s）。
   - 拖拽 profile 已统一复用同一套参数，`instant`/`classic` 模式仅切换执行路径，避免配置漂移
+  - 提供 `move_mouse()`（仅移动不点击）与 `scroll_wheel()`（按滚轮格数滚动），用于“下拉枚举列表需要滚动分页识别”的执行场景
 - **utils.py** - 工具函数：中文字体加载、文本输入、窗口矩形查询等
 - **emitters.py** - 监控输出：统一封装 capture 子模块推送的可视化叠加层与日志
 - **overlay_helpers.py** - 叠加层辅助：提供 OCR/文本区域的统一标注构造函数，供 capture 与 core 模块共用，并直接复用 `vision.ocr_utils.normalize_ocr_bbox` 以避免坐标转换重复实现。
@@ -55,6 +56,7 @@ app.automation.capture (统一入口)
 - `utils.get_chinese_font` 不再写死字体绝对路径：支持通过环境变量 `GRAPH_GENERATER_CHINESE_FONT_PATH` 指定字体文件；未指定时会从系统字体目录探测并回退到 PIL 默认字体。
 - 鼠标操作支持输入阻止保护，防止用户干扰自动化执行
 - 鼠标操作的经典 / 混合 / 即时配置统一通过 profile 数据驱动，左/右键共享同一实现，修改参数时只需调整字典或设置项
+- 对“拖拽后画面几乎不变化/疑似卡顿”的场景，可使用 `drag_left_button_timed` / `drag_right_button_timed` 进行更慢、更稳的拖拽（支持 `duration_seconds`/`steps`）。
 - 所有截图操作支持多显示器（all_screens=True）
 - DPI 感知仅在进程级设置一次，避免重复调用
 - 全局状态可通过 `reset_capture_state()` 重置，用于测试环境隔离

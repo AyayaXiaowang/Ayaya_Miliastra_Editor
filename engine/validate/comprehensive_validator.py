@@ -11,7 +11,7 @@ from engine.nodes.node_registry import get_node_registry
 from engine.resources.resource_manager import ResourceManager
 
 from .comprehensive_graph_checks import (
-    validate_graph,
+    validate_graph_cache_data,
     validate_graph_port_definitions,
     validate_graph_structure,
     validate_graph_structure_only,
@@ -118,7 +118,7 @@ class ComprehensiveValidator:
         graph_data = graph_model.serialize()
         if not graph_data or "nodes" not in graph_data:
             return self.issues
-        collected = self.validate_graph_data(
+        collected = self.validate_graph_cache_data(
             graph_data,
             entity_type,
             location,
@@ -200,7 +200,7 @@ class ComprehensiveValidator:
         return "\n".join(lines)
 
     # === Graph helper wrappers ===
-    def validate_graph_data(
+    def validate_graph_cache_data(
         self,
         graph_data: Dict,
         entity_type: str,
@@ -209,13 +209,13 @@ class ComprehensiveValidator:
         graph_model: GraphModel | None = None,
     ) -> List[ValidationIssue]:
         return self._capture_issues(
-            validate_graph,
+            validate_graph_cache_data,
             self,
             graph_data,
             entity_type,
             location,
             detail,
-            graph_model,
+            graph_model=graph_model,
         )
 
     def validate_graph_run_only(

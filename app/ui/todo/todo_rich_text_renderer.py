@@ -6,6 +6,7 @@ from app.models import TodoItem
 from engine.graph.models.graph_model import GraphModel
 
 from app.ui.todo.todo_config import StepTypeColors, StepTypeRules
+from app.models.todo_detail_info_accessors import get_detail_type
 from app.ui.foundation.theme_manager import Colors as ThemeColors
 
 
@@ -35,7 +36,7 @@ def build_rich_tokens_for_todo(
     - 由调用方负责将 tokens 挂载到具体的 QTreeWidgetItem 上。
     """
     detail_info = todo.detail_info or {}
-    detail_type = str(detail_info.get("type", ""))
+    detail_type = get_detail_type(detail_info)
 
     if todo.children:
         return None
@@ -85,18 +86,47 @@ def build_rich_tokens_for_todo(
     if detail_type == "graph_connect":
         source_node_id = str(detail_info.get("src_node", ""))
         destination_node_id = str(detail_info.get("dst_node", ""))
-        source_title, source_category = _lookup_node_title_and_category(
-            graph_model, source_node_id
-        )
-        destination_title, destination_category = _lookup_node_title_and_category(
-            graph_model, destination_node_id
-        )
+        source_title, source_category = _lookup_node_title_and_category(graph_model, source_node_id)
+        destination_title, destination_category = _lookup_node_title_and_category(graph_model, destination_node_id)
+
+        # 无 GraphModel 时：优先从 detail_info/todo.title 回退解析，保证也能生成彩色 tokens
+        if not source_title:
+            source_title = str(
+                detail_info.get("src_node_title")
+                or detail_info.get("src_title")
+                or ""
+            )
+        if not destination_title:
+            destination_title = str(
+                detail_info.get("dst_node_title")
+                or detail_info.get("dst_title")
+                or ""
+            )
+        if (not source_title or not destination_title) and isinstance(todo.title, str):
+            title_text = todo.title.strip()
+            if "连接：" in title_text:
+                title_text = title_text.split("连接：", 1)[1].strip()
+            if "→" in title_text:
+                left, right = title_text.split("→", 1)
+                if not source_title:
+                    source_title = left.strip()
+                if not destination_title:
+                    destination_title = right.strip()
+        if not source_title:
+            source_title = source_node_id
+        if not destination_title:
+            destination_title = destination_node_id
+
         source_color = (
             StepTypeColors.get_node_category_color(source_category) or action_color
         )
         destination_color = (
             StepTypeColors.get_node_category_color(destination_category) or action_color
         )
+        if not source_category:
+            source_color = action_color
+        if not destination_category:
+            destination_color = action_color
         append_icon_and_action("连接")
         tokens.append({"text": source_title, "color": source_color})
         tokens.append({"text": " → ", "color": neutral_color})
@@ -129,6 +159,10 @@ def build_rich_tokens_for_todo(
         category_color_2 = (
             StepTypeColors.get_node_category_color(category_2) or action_color
         )
+        if not category_1:
+            category_color_1 = action_color
+        if not category_2:
+            category_color_2 = action_color
         edge_list = detail_info.get("edges") or []
         edge_count = len(edge_list) if isinstance(edge_list, list) else 0
         append_icon_and_action("连接")
@@ -179,6 +213,8 @@ def build_rich_tokens_for_todo(
         _unused_title, node_category = _lookup_node_title_and_category(
             graph_model, node_identifier
         )
+        if not node_category:
+            node_category = str(detail_info.get("node_category", "") or "")
         node_color = (
             StepTypeColors.get_node_category_color(node_category) or action_color
         )
@@ -195,6 +231,8 @@ def build_rich_tokens_for_todo(
         _unused_title, node_category = _lookup_node_title_and_category(
             graph_model, node_identifier
         )
+        if not node_category:
+            node_category = str(detail_info.get("node_category", "") or "")
         node_color = (
             StepTypeColors.get_node_category_color(node_category) or action_color
         )
@@ -266,6 +304,8 @@ def build_rich_tokens_for_todo(
         _unused_title, node_category = _lookup_node_title_and_category(
             graph_model, node_identifier
         )
+        if not node_category:
+            node_category = str(detail_info.get("node_category", "") or "")
         node_color = (
             StepTypeColors.get_node_category_color(node_category) or action_color
         )

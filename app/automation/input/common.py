@@ -77,6 +77,28 @@ def compute_position_thresholds(scale: float) -> Tuple[int, int]:
     return int(pos_x_pixels), int(pos_y_pixels)
 
 
+def compute_position_thresholds_for_node_view(
+    *,
+    scale: float,
+    node_view_width_px: float,
+    node_view_height_px: float,
+) -> Tuple[int, int]:
+    """根据缩放与“节点几何基准尺寸”估算节点位置允许误差阈值 (posX, posY)。
+
+    约定：
+    - 以节点几何尺寸 (node_view_width_px, node_view_height_px) 为基准；
+    - 默认取 60% 边长，并在 scale<1 时不再继续缩小（避免阈值过小导致定位易抖动）。
+    """
+    width_px = float(node_view_width_px)
+    height_px = float(node_view_height_px)
+    if width_px <= 0.0 or height_px <= 0.0:
+        return compute_position_thresholds(float(scale))
+    safe_scale = float(max(1.0, float(scale)))
+    pos_x_pixels = int(max(1.0, 0.6 * width_px * safe_scale))
+    pos_y_pixels = int(max(1.0, 0.6 * height_px * safe_scale))
+    return int(pos_x_pixels), int(pos_y_pixels)
+
+
 def wait_until(
     predicate: Callable[[], bool],
     timeout_seconds: float,

@@ -15,7 +15,7 @@ from app.models.todo_pipeline.step_mode import GraphStepMode
 from app.models.todo_structure_helpers import ensure_child_reference
 from engine.graph.models import GraphModel
 from engine.configs.settings import settings
-from engine.graph.common import STRUCT_NODE_TITLES
+from engine.graph.common import STRUCT_NODE_TITLES, get_builtin_anchor_titles_for_client_graph
 
 
 class EventFlowEmitters:
@@ -36,6 +36,23 @@ class EventFlowEmitters:
     def clear_signal_param_types(self) -> None:
         """清除信号参数类型上下文。"""
         self._signal_param_types_by_node = {}
+
+    def _should_skip_create_step_for_node(self, model: GraphModel, node_obj: Any) -> bool:
+        """判断某节点是否属于“新建图时默认存在”的模板锚点节点。
+
+        约定：
+        - 这些节点不应再生成 `graph_create_node` 步骤；执行时应直接识别并作为锚点参与后续创建。
+        """
+        meta = getattr(model, "metadata", None) or {}
+        graph_type = str(meta.get("graph_type", "") or "").strip().lower()
+        if graph_type != "client":
+            return False
+        folder_path = str(meta.get("folder_path", "") or "")
+        anchor_titles = get_builtin_anchor_titles_for_client_graph(folder_path=folder_path)
+        if not anchor_titles:
+            return False
+        title = str(getattr(node_obj, "title", "") or "")
+        return title in set(anchor_titles)
 
     def create_flow_root(
         self,
@@ -89,11 +106,15 @@ class EventFlowEmitters:
         flow_root_id: str,
         graph_id: str,
         start_node,
+        model: GraphModel,
         template_ctx_id: str,
         instance_ctx_id: str,
         suppress_auto_jump: bool,
         task_type: str,
     ) -> None:
+        if self._should_skip_create_step_for_node(model, start_node):
+            # 模板锚点节点：新建图时已经存在，不再生成创建步骤
+            return
         step_id = f"{flow_root_id}:create_event"
         event_step = build_create_node_todo(
             todo_id=step_id,
@@ -101,6 +122,7 @@ class EventFlowEmitters:
             graph_id=graph_id,
             node_id=start_node.id,
             node_title=start_node.title,
+            node_category=str(getattr(start_node, "category", "") or ""),
             template_ctx_id=template_ctx_id,
             instance_ctx_id=instance_ctx_id,
             suppress_auto_jump=suppress_auto_jump,
@@ -250,6 +272,133 @@ class EventFlowEmitters:
                 model=model,
             )
 
+    def create_node_with_immediate_config(
+        self,
+        *,
+        node_id: str,
+        flow_root: TodoItem,
+        flow_root_id: str,
+        model: GraphModel,
+        created_nodes: set[str],
+        graph_id: str,
+        template_ctx_id: str,
+        instance_ctx_id: str,
+        suppress_auto_jump: bool,
+        task_type: str,
+    ) -> bool:
+        node_obj = model.nodes.get(node_id)
+        if not node_obj:
+            return False
+
+        if self._should_skip_create_step_for_node(model, node_obj):
+            created_nodes.add(node_id)
+            return True
+
+        create_step_id = f"{flow_root_id}:create:{node_id}"
+        create_step = build_create_node_todo(
+            todo_id=create_step_id,
+            parent_id=flow_root_id,
+            graph_id=graph_id,
+            node_id=node_id,
+            node_title=node_obj.title,
+            node_category=str(getattr(node_obj, "category", "") or ""),
+            template_ctx_id=template_ctx_id,
+            instance_ctx_id=instance_ctx_id,
+            suppress_auto_jump=suppress_auto_jump,
+            task_type=task_type,
+        )
+        self._add_todo(create_step)
+        ensure_child_reference(flow_root, create_step_id)
+
+        from engine.graph.common import SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE
+
+        node_title = getattr(node_obj, "title", "") or ""
+        if node_title in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE):
+            self._ensure_signal_binding_todo(
+                flow_root=flow_root,
+                flow_root_id=flow_root_id,
+                graph_id=graph_id,
+                node_obj=node_obj,
+                template_ctx_id=template_ctx_id,
+                instance_ctx_id=instance_ctx_id,
+                suppress_auto_jump=suppress_auto_jump,
+                task_type=task_type,
+                model=model,
+            )
+        if node_title in STRUCT_NODE_TITLES:
+            self.ensure_struct_binding_for_node(
+                flow_root=flow_root,
+                flow_root_id=flow_root_id,
+                graph_id=graph_id,
+                node_obj=node_obj,
+                template_ctx_id=template_ctx_id,
+                instance_ctx_id=instance_ctx_id,
+                suppress_auto_jump=suppress_auto_jump,
+                task_type=task_type,
+                model=model,
+            )
+
+        created_nodes.add(node_id)
+
+        params_payload = self.dynamic_steps.collect_constant_params(node_obj)
+        deferred_steps: List[TodoItem] = []
+        if self.dynamic_steps.is_branching_node(node_obj):
+            deferred_steps = self.dynamic_steps.attach_dynamic_steps(
+                flow_root=flow_root,
+                flow_root_id=flow_root_id,
+                graph_id=graph_id,
+                node_obj=node_obj,
+                template_ctx_id=template_ctx_id,
+                instance_ctx_id=instance_ctx_id,
+                suppress_auto_jump=suppress_auto_jump,
+                allow_branch_outputs=True,
+                defer_branch_steps=True,
+                task_type=task_type,
+            )
+        else:
+            self.dynamic_steps.attach_dynamic_steps(
+                flow_root=flow_root,
+                flow_root_id=flow_root_id,
+                graph_id=graph_id,
+                node_obj=node_obj,
+                template_ctx_id=template_ctx_id,
+                instance_ctx_id=instance_ctx_id,
+                suppress_auto_jump=suppress_auto_jump,
+                allow_branch_outputs=False,
+                task_type=task_type,
+            )
+
+        self.dynamic_steps.ensure_type_step(
+            node_obj=node_obj,
+            flow_root=flow_root,
+            flow_root_id=flow_root_id,
+            graph_id=graph_id,
+            template_ctx_id=template_ctx_id,
+            instance_ctx_id=instance_ctx_id,
+            suppress_auto_jump=suppress_auto_jump,
+            step_id=f"{create_step_id}:types",
+            params_payload=params_payload,
+            task_type=task_type,
+        )
+        if deferred_steps:
+            for todo in deferred_steps:
+                self._add_todo(todo)
+                ensure_child_reference(flow_root, todo.todo_id)
+
+        self.dynamic_steps.ensure_param_step(
+            node_obj=node_obj,
+            flow_root=flow_root,
+            flow_root_id=flow_root_id,
+            graph_id=graph_id,
+            template_ctx_id=template_ctx_id,
+            instance_ctx_id=instance_ctx_id,
+            suppress_auto_jump=suppress_auto_jump,
+            step_id=f"{create_step_id}:params",
+            params_payload=params_payload,
+            task_type=task_type,
+        )
+        return True
+
     def create_node_batch(
         self,
         *,
@@ -272,6 +421,10 @@ class EventFlowEmitters:
             node_obj = model.nodes.get(node_id)
             if not node_obj:
                 continue
+            if self._should_skip_create_step_for_node(model, node_obj):
+                created_nodes.add(node_id)
+                processed_node_ids.append(node_id)
+                continue
             create_step_id = f"{flow_root_id}:create:{node_id}"
             create_step = build_create_node_todo(
                 todo_id=create_step_id,
@@ -279,6 +432,7 @@ class EventFlowEmitters:
                 graph_id=graph_id,
                 node_id=node_id,
                 node_title=node_obj.title,
+                node_category=str(getattr(node_obj, "category", "") or ""),
                 template_ctx_id=template_ctx_id,
                 instance_ctx_id=instance_ctx_id,
                 suppress_auto_jump=suppress_auto_jump,
@@ -467,10 +621,50 @@ class EventFlowEmitters:
                 dst_node = model.nodes.get(dst_node_id)
                 if not src_node or not dst_node:
                     continue
-                edges_info = [
-                    {"edge_id": grouped_edge.id, "src_port": grouped_edge.src_port, "dst_port": grouped_edge.dst_port}
+                def _port_index_in_port_definitions(port_definitions: object, port_name: object) -> int:
+                    port_name_text = str(port_name or "")
+                    if not port_name_text:
+                        return -1
+                    port_def_list = port_definitions if isinstance(port_definitions, list) else []
+                    for port_index, port_def in enumerate(port_def_list):
+                        port_def_name = getattr(port_def, "name", "")
+                        if isinstance(port_def_name, str) and port_def_name == port_name_text:
+                            return int(port_index)
+                    return -1
+
+                # 同一对节点的合并连线：子步骤按“端口从下往上”的顺序输出，
+                # 避免先连上方端口导致连线遮挡/后续端口更难点中。
+                #
+                # 约定：
+                # - 优先按源节点输出端口序号（越靠下序号越大）倒序；
+                # - 再按目标节点输入端口序号倒序；
+                # - 端口无法解析序号时放到最后，并以 edge_id 做稳定排序兜底。
+                edges_remaining = [
+                    grouped_edge
                     for grouped_edge in grouped
                     if grouped_edge.id not in connected_edge_ids
+                ]
+                edges_sorted = sorted(
+                    edges_remaining,
+                    key=lambda grouped_edge: (
+                        -_port_index_in_port_definitions(
+                            getattr(src_node, "outputs", []) or [],
+                            getattr(grouped_edge, "src_port", ""),
+                        ),
+                        -_port_index_in_port_definitions(
+                            getattr(dst_node, "inputs", []) or [],
+                            getattr(grouped_edge, "dst_port", ""),
+                        ),
+                        str(getattr(grouped_edge, "id", "") or ""),
+                    ),
+                )
+                edges_info = [
+                    {
+                        "edge_id": grouped_edge.id,
+                        "src_port": grouped_edge.src_port,
+                        "dst_port": grouped_edge.dst_port,
+                    }
+                    for grouped_edge in edges_sorted
                 ]
                 if not edges_info:
                     continue

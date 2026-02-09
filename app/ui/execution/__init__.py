@@ -21,6 +21,8 @@ from .runner import ExecutionRunner
 from .thread import ExecutionThread
 from .planner import ExecutionPlanner
 from .guides import ExecutionGuides
+from .execution_session import ExecutionSession
+from .editor_executor_provider import EditorExecutorProvider
 
 # 策略类（为兼容性重新导出）
 from .strategies import (
@@ -44,6 +46,8 @@ __all__ = [
     "ExecutionThread",
     "ExecutionPlanner",
     "ExecutionGuides",
+    "ExecutionSession",
+    "EditorExecutorProvider",
     # 策略类
     "AnchorSelector",
     "AnchorInfo",

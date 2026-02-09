@@ -15,6 +15,7 @@ from engine.graph.composite.source_format import (
 from engine.graph.utils.metadata_extractor import extract_metadata_from_code
 from engine.utils.logging.logger import log_info
 from engine.utils.name_utils import sanitize_composite_filename
+from engine.utils.resource_library_layout import discover_resource_root_directories
 
 
 class CompositeNodeLoader:
@@ -186,9 +187,42 @@ class CompositeNodeLoader:
         Returns:
             相对于复合节点库目录的文件夹路径（空字符串表示根目录）
         """
-        if file_path.parent != self.composite_library_dir:
-            return str(file_path.parent.relative_to(self.composite_library_dir))
+        parent_dir = file_path.parent.resolve()
+
+        direct_relative = self._get_relative_folder_path_if_under(parent_dir, self.composite_library_dir)
+        if direct_relative is not None:
+            return direct_relative
+
+        # 兼容多 root：当复合节点文件位于共享/项目存档目录下时，按实际落盘目录推断 folder_path。
+        workspace_root = self.workspace_path.resolve()
+        resource_library_root = (workspace_root / "assets" / "资源库").resolve()
+        resource_roots = discover_resource_root_directories(resource_library_root)
+        candidate_library_dirs = [root / "复合节点库" for root in resource_roots]
+        candidate_library_dirs_sorted = sorted(
+            candidate_library_dirs,
+            key=lambda path: len(path.resolve().parts),
+            reverse=True,
+        )
+        for composite_library_dir in candidate_library_dirs_sorted:
+            inferred_relative = self._get_relative_folder_path_if_under(parent_dir, composite_library_dir)
+            if inferred_relative is not None:
+                return inferred_relative
+
         return ""
+
+    @staticmethod
+    def _get_relative_folder_path_if_under(parent_dir: Path, composite_library_dir: Path) -> str | None:
+        """若 parent_dir 位于 composite_library_dir 下，返回相对路径文本；否则返回 None。"""
+        parent_parts = parent_dir.resolve().parts
+        root_parts = composite_library_dir.resolve().parts
+        if len(parent_parts) < len(root_parts):
+            return None
+        if parent_parts[: len(root_parts)] != root_parts:
+            return None
+        relative_parts = parent_parts[len(root_parts) :]
+        if not relative_parts:
+            return ""
+        return "/".join(str(part) for part in relative_parts)
     
     @staticmethod
     def sanitize_filename(name: str) -> str:

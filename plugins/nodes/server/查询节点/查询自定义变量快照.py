@@ -13,4 +13,12 @@ from engine.utils.logging.logger import log_info
 )
 def 查询自定义变量快照(game, 自定义变量组件快照, 变量名):
     """从自定义变量组件快照中，查询指定变量名的值 仅可用于【实体销毁时】事件"""
-    return None  # 变量值
+    # 说明：真实运行态下 snapshot 为“自定义变量组件”在销毁时的快照引用；
+    # 本地测试（MockRuntime）中用 dict 作为最小可用承载结构。
+    if isinstance(自定义变量组件快照, dict):
+        return 自定义变量组件快照.get(变量名)
+
+    getter = getattr(自定义变量组件快照, "get", None)
+    if callable(getter):
+        return getter(变量名)
+    return None

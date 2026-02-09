@@ -36,7 +36,9 @@ class GraphCardWidget(QtWidgets.QWidget):
         self.error_tracker.error_status_changed.connect(self._on_error_status_changed)
         
         self._setup_ui()
-        self.setMinimumHeight(100)
+        # 节点图库列表不再在卡片内展示“节点数/连线数”，避免信息噪音；
+        # 计数信息只在右侧属性面板的“基本信息”中展示。
+        self.setMinimumHeight(86)
         self.setMaximumHeight(120)
         
         # 鼠标悬停效果
@@ -62,102 +64,53 @@ class GraphCardWidget(QtWidgets.QWidget):
 
         # 名称
         self.name_label = QtWidgets.QLabel()
+        self.name_label.setObjectName("graphCardName")
         self.name_label.setFont(ui_fonts.ui_font(11, bold=True))
         header_layout.addWidget(self.name_label, 1)
+
+        # 共享徽章：当前项目视图下会混入共享资源，需要在卡片层级显式标记归属。
+        self.shared_badge = QtWidgets.QLabel("共享")
+        self.shared_badge.setObjectName("graphCardSharedBadge")
+        self.shared_badge.setFont(ui_fonts.ui_font(8, bold=True))
+        self.shared_badge.setToolTip("共享资源：所有存档可见并可直接使用。")
+        self.shared_badge.setVisible(False)
+        header_layout.addWidget(self.shared_badge)
         
         # 节点图变量按钮
         self.variables_button = QtWidgets.QPushButton("📊 变量")
+        self.variables_button.setObjectName("graphCardVariablesButton")
         self.variables_button.setFont(ui_fonts.ui_font(9))
-        self.variables_button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {Colors.SECONDARY};
-                color: {Colors.TEXT_ON_PRIMARY};
-                border: 1px solid {Colors.SECONDARY};
-                border-radius: {Sizes.RADIUS_MEDIUM}px;
-                padding: 2px 10px;
-            }}
-            QPushButton:hover {{
-                background-color: {Colors.SECONDARY_DARK};
-                color: {Colors.TEXT_ON_PRIMARY};
-            }}
-            QPushButton:pressed {{
-                background-color: {Colors.SECONDARY_DARK};
-            }}
-        """)
         self.variables_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.variables_button.clicked.connect(lambda: self.variables_clicked.emit(self.graph_id))
         header_layout.addWidget(self.variables_button)
         
         # 编辑按钮
         self.edit_button = QtWidgets.QPushButton("✏️ 编辑")
+        self.edit_button.setObjectName("graphCardEditButton")
         self.edit_button.setFont(ui_fonts.ui_font(9))
-        self.edit_button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {Colors.PRIMARY};
-                color: {Colors.TEXT_ON_PRIMARY};
-                border: 1px solid {Colors.PRIMARY};
-                border-radius: {Sizes.RADIUS_MEDIUM}px;
-                padding: 2px 10px;
-            }}
-            QPushButton:hover {{
-                background-color: {Colors.PRIMARY_DARK};
-                color: {Colors.TEXT_ON_PRIMARY};
-            }}
-            QPushButton:pressed {{
-                background-color: {Colors.PRIMARY_DARK};
-            }}
-        """)
         self.edit_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.edit_button.clicked.connect(lambda: self.edit_clicked.emit(self.graph_id))
         header_layout.addWidget(self.edit_button)
         
         # 引用次数（可点击）
         self.ref_button = QtWidgets.QPushButton()
+        self.ref_button.setObjectName("graphCardRefButton")
         self.ref_button.setFont(ui_fonts.ui_font(9))
-        self.ref_button.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {Colors.SECONDARY_DARK};
-                color: {Colors.TEXT_ON_PRIMARY};
-                border: 1px solid {Colors.SECONDARY_DARK};
-                border-radius: 10px;
-                padding: 2px 10px;
-            }}
-            QPushButton:hover {{
-                background-color: {Colors.SECONDARY};
-                color: {Colors.TEXT_ON_PRIMARY};
-            }}
-        """
-        )
         self.ref_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.ref_button.clicked.connect(lambda: self.reference_clicked.emit(self.graph_id))
         header_layout.addWidget(self.ref_button)
         
         layout.addLayout(header_layout)
         
-        # 第二行：统计信息
-        stats_layout = QtWidgets.QHBoxLayout()
-        stats_layout.setSpacing(15)
-
-        self.nodes_label = QtWidgets.QLabel()
-        self.nodes_label.setFont(ui_fonts.ui_font(9))
-        stats_layout.addWidget(self.nodes_label)
-        
-        # 连线数
-        self.edges_label = QtWidgets.QLabel()
-        self.edges_label.setFont(ui_fonts.ui_font(9))
-        stats_layout.addWidget(self.edges_label)
-        
-        stats_layout.addStretch()
-        layout.addLayout(stats_layout)
-        
         # 第三行：修改时间
         self.time_label = QtWidgets.QLabel()
+        self.time_label.setObjectName("graphCardTime")
         self.time_label.setFont(ui_fonts.ui_font(8))
         layout.addWidget(self.time_label)
 
         # 描述（如果有）
         self.description_label = QtWidgets.QLabel()
+        self.description_label.setObjectName("graphCardDescription")
         self.description_label.setFont(ui_fonts.ui_font(8))
         self.description_label.setWordWrap(True)
         layout.addWidget(self.description_label)
@@ -175,18 +128,11 @@ class GraphCardWidget(QtWidgets.QWidget):
         graph_name = self.graph_data.get("name") or self.graph_id
         self.name_label.setText(graph_name)
 
-        self._update_reference_button()
+        is_shared = bool(self.graph_data.get("is_shared", False))
+        if hasattr(self, "shared_badge"):
+            self.shared_badge.setVisible(is_shared)
 
-        node_count = self.graph_data.get("node_count")
-        edge_count = self.graph_data.get("edge_count")
-        if node_count is None or edge_count is None:
-            data = self.graph_data.get("data", {})
-            nodes = data.get("nodes", [])
-            edges = data.get("edges", [])
-            node_count = len(nodes)
-            edge_count = len(edges)
-        self.nodes_label.setText(f"📦 节点: {node_count}")
-        self.edges_label.setText(f"🔗 连线: {edge_count}")
+        self._update_reference_button()
 
         modification_time = self._get_modification_time()
         self.time_label.setText(f"🕒 修改: {modification_time}")
@@ -213,20 +159,21 @@ class GraphCardWidget(QtWidgets.QWidget):
         self.variables_button.setVisible(enabled)
 
     def _apply_unselected_styles(self) -> None:
-        """应用卡片未选中时的文字样式。"""
-        self.name_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY};")
-        self.nodes_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
-        self.edges_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
-        self.time_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
-        self.description_label.setStyleSheet(f"color: {Colors.TEXT_DISABLED}; font-style: italic;")
+        """应用卡片未选中时的文字样式（由全局 QSS 驱动）。"""
+        self._apply_text_selected_property(False)
 
     def _apply_selected_styles(self) -> None:
-        """应用卡片选中时的文字样式，与渐变高亮保持对比度。"""
-        self.name_label.setStyleSheet(f"color: {Colors.TEXT_ON_PRIMARY};")
-        self.nodes_label.setStyleSheet(f"color: {Colors.TEXT_ON_PRIMARY};")
-        self.edges_label.setStyleSheet(f"color: {Colors.TEXT_ON_PRIMARY};")
-        self.time_label.setStyleSheet(f"color: {Colors.TEXT_ON_PRIMARY};")
-        self.description_label.setStyleSheet(f"color: {Colors.TEXT_ON_PRIMARY}; font-style: italic;")
+        """应用卡片选中时的文字样式（由全局 QSS 驱动）。"""
+        self._apply_text_selected_property(True)
+
+    def _apply_text_selected_property(self, selected: bool) -> None:
+        """通过动态属性让 QSS 切换文字配色，避免在业务代码内拼接样式字符串。"""
+        for label in (self.name_label, self.time_label, self.description_label):
+            label.setProperty("selected", bool(selected))
+            style = label.style()
+            style.unpolish(label)
+            style.polish(label)
+            label.update()
 
     def update_graph_info(self, graph_data: dict, reference_count: int, has_error: bool) -> None:
         """复用现有卡片更新内容，避免重复创建 QWidget。"""

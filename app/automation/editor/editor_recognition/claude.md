@@ -66,12 +66,12 @@
 - **锚点邻域匹配**：
   - 无需先验校准：以锚点为中心，寻找相邻的若干程序节点及其检测候选，通过 `ΔX/ΔY` 比例一致性确认对应关系
   - 样本越多越稳：至少需命中 2 个邻居；匹配成功后对所有节点执行支持度校验（命中率/偏差）
-  - 容差：`compute_position_thresholds(scale)` × `RELATIVE_ANCHOR_TOLERANCE_MULTIPLIER`
+  - 容差：`compute_position_thresholds_for_node_view(scale, node_view_size)` × `RELATIVE_ANCHOR_TOLERANCE_MULTIPLIER`（节点几何基准来自 profile）
 
 - **普通节点位置匹配**：
   - 依赖现有的 `scale_ratio` 和 `origin_node_pos`（通常由锚点推断或唯一节点对齐设定）
   - 计算每个模型节点的预期编辑器坐标：`expected = origin + prog_pos * scale`
-  - 与检测框中心对比，偏差在容差内（`compute_position_thresholds() * 1.5`）即算匹配
+  - 与检测框中心对比，偏差在容差内（`compute_position_thresholds_for_node_view() * 1.5`）即算匹配
   - 匹配≥2个节点即认为视口校准成功
 
 - **识别结果缓存**：`verify_and_update_view_mapping_by_recognition()` 成功后会缓存截图与识别结果，`recognize_visible_nodes()` 检测到缓存后直接复用，避免在同一操作内重复识别。缓存使用后立即清除，确保缓存生命周期局限在单次操作内

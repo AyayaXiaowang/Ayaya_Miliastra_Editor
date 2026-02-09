@@ -1,12 +1,21 @@
 """实体摆放组件 - 文件列表形式"""
 
+import copy
 import types
+from pathlib import Path
 from PyQt6 import QtCore, QtWidgets, QtGui
 from typing import Any, Optional, Union
 
 from app.ui.foundation.theme_manager import Sizes
+from app.ui.foundation.shared_resource_badge_delegate import (
+    SHARED_RESOURCE_BADGE_ROLE,
+    install_shared_resource_badge_delegate,
+)
 from app.ui.foundation.id_generator import generate_prefixed_id
 from app.ui.foundation.toast_notification import ToastNotification
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.keymap_store import KeymapStore
 from app.ui.graph.library_mixins import (
     ConfirmDialogMixin,
     SearchFilterMixin,
@@ -16,8 +25,8 @@ from app.ui.graph.library_mixins import (
 from app.ui.forms.schema_dialog import FormDialogBuilder
 from engine.resources.package_view import PackageView
 from engine.resources.global_resource_view import GlobalResourceView
-from engine.resources.unclassified_resource_view import UnclassifiedResourceView
-from engine.graph.models.package_model import InstanceConfig, VariableConfig, TemplateConfig
+from engine.resources.package_index_manager import PackageIndexManager
+from engine.graph.models.package_model import InstanceConfig, TemplateConfig
 from engine.graph.models.entity_templates import (
     get_entity_type_info,
     get_template_library_entity_types,
@@ -31,10 +40,13 @@ from app.ui.graph.library_pages.library_scaffold import (
 )
 from app.ui.graph.library_pages.library_view_scope import describe_resource_view_scope
 from app.ui.graph.library_pages.standard_dual_pane_list_page import StandardDualPaneListPage
+from engine.configs.resource_types import ResourceType
+from engine.resources.resource_manager import ResourceManager
 
 INSTANCE_ID_ROLE = QtCore.Qt.ItemDataRole.UserRole
 ENTITY_TYPE_ROLE = QtCore.Qt.ItemDataRole.UserRole + 1
 SEARCH_TEXT_ROLE = QtCore.Qt.ItemDataRole.UserRole + 2
+IS_SHARED_INSTANCE_ROLE = QtCore.Qt.ItemDataRole.UserRole + 3
 
 # 关卡实体在“实体分类”树与“实体列表”中应使用统一的图标，避免左右两侧语义不一致。
 LEVEL_ENTITY_ICON = "📍"
@@ -62,8 +74,9 @@ class EntityPlacementWidget(
             title="实体摆放",
             description="浏览与管理元件实体，支持分类筛选与快速定位。",
         )
+        self._standard_shortcuts: list[QtGui.QShortcut] = []
         self.current_package: Optional[
-            Union[PackageView, GlobalResourceView, UnclassifiedResourceView]
+            Union[PackageView, GlobalResourceView]
         ] = None
         self.current_category: str = "all"  # 当前分类
         self._category_items: dict[str, QtWidgets.QTreeWidgetItem] = {}
@@ -73,10 +86,11 @@ class EntityPlacementWidget(
     def _setup_ui(self) -> None:
         """设置UI"""
         self.add_instance_btn = QtWidgets.QPushButton("+ 添加实体", self)
+        self.duplicate_instance_btn = QtWidgets.QPushButton("复制", self)
         self.delete_instance_btn = QtWidgets.QPushButton("删除", self)
         widgets = self.build_standard_dual_pane_list_ui(
             search_placeholder="搜索实体...",
-            toolbar_buttons=[self.add_instance_btn, self.delete_instance_btn],
+            toolbar_buttons=[self.add_instance_btn, self.duplicate_instance_btn, self.delete_instance_btn],
             left_header_label="实体分类",
             left_title="实体分类",
             left_description="按实体类型过滤实体",
@@ -88,6 +102,9 @@ class EntityPlacementWidget(
         self.search_edit = widgets.search_edit
         self.category_tree = widgets.category_tree
         self.entity_list = widgets.list_widget
+
+        # 与节点图库一致：共享资源使用徽章标注（避免在名称里拼接共享文本前缀）。
+        install_shared_resource_badge_delegate(self.entity_list)
         
         # 初始化分类树
         self._init_category_tree()
@@ -95,9 +112,119 @@ class EntityPlacementWidget(
         # 连接信号
         self.category_tree.itemClicked.connect(self._on_category_clicked)
         self.add_instance_btn.clicked.connect(self._add_from_template)
+        self.duplicate_instance_btn.clicked.connect(self._duplicate_instance)
         self.delete_instance_btn.clicked.connect(self._delete_instance)
         self.entity_list.itemSelectionChanged.connect(self._on_selection_changed)
+        self.entity_list.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.entity_list.customContextMenuRequested.connect(self._show_instance_context_menu)
         self.connect_search(self.search_edit, self._on_search_text_changed, placeholder="搜索...")
+
+        self._install_standard_shortcuts()
+
+    def _install_standard_shortcuts(self) -> None:
+        """统一快捷键（尽量与其它库页一致）。"""
+        self._install_standard_shortcuts_impl()
+
+    def apply_keymap_shortcuts(self, keymap_store: object) -> None:
+        """由主窗口调用：在快捷键配置变更后刷新本页快捷键绑定。"""
+        self._install_standard_shortcuts_impl(keymap_store=keymap_store)
+
+    def _resolve_keymap_store(self) -> object | None:
+        window_obj = self.window()
+        app_state = getattr(window_obj, "app_state", None)
+        return getattr(app_state, "keymap_store", None) if app_state is not None else None
+
+    def _clear_standard_shortcuts(self) -> None:
+        for shortcut in list(self._standard_shortcuts):
+            shortcut.setEnabled(False)
+            shortcut.deleteLater()
+        self._standard_shortcuts.clear()
+
+    def _primary_shortcut(self, action_id: str) -> str:
+        keymap_store = self._resolve_keymap_store()
+        get_primary = getattr(keymap_store, "get_primary_shortcut", None) if keymap_store is not None else None
+        if callable(get_primary):
+            return str(get_primary(action_id) or "")
+        defaults = KeymapStore.get_default_shortcuts(action_id)
+        return defaults[0] if defaults else ""
+
+    def _install_standard_shortcuts_impl(self, *, keymap_store: object | None = None) -> None:
+        resolved = keymap_store if keymap_store is not None else self._resolve_keymap_store()
+        get_primary = getattr(resolved, "get_primary_shortcut", None) if resolved is not None else None
+
+        def _primary(action_id: str) -> str:
+            if callable(get_primary):
+                return str(get_primary(action_id) or "")
+            defaults = KeymapStore.get_default_shortcuts(action_id)
+            return defaults[0] if defaults else ""
+
+        self._clear_standard_shortcuts()
+
+        shortcut_new = _primary("library.new")
+        if shortcut_new:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_new), self)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._add_from_template)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_dup = _primary("library.duplicate")
+        if shortcut_dup:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_dup), self.entity_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._duplicate_instance)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_delete = _primary("library.delete")
+        if shortcut_delete:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_delete), self.entity_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._delete_instance)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_rename = _primary("library.rename")
+        if shortcut_rename:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_rename), self.entity_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._rename_instance)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_move = _primary("library.move")
+        if shortcut_move:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_move), self.entity_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._change_selected_instance_owner)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_locate = _primary("library.locate_issues")
+        if shortcut_locate:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_locate), self.entity_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._locate_issues_for_selected_instance)
+            self._standard_shortcuts.append(sc)
+
+    def _show_instance_context_menu(self, pos: QtCore.QPoint) -> None:
+        has_item = self.entity_list.itemAt(pos) is not None
+        shortcut_new = self._primary_shortcut("library.new") or None
+        shortcut_dup = self._primary_shortcut("library.duplicate") or None
+        shortcut_rename = self._primary_shortcut("library.rename") or None
+        shortcut_move = self._primary_shortcut("library.move") or None
+        shortcut_locate = self._primary_shortcut("library.locate_issues") or None
+        shortcut_delete = self._primary_shortcut("library.delete") or None
+        builder = ContextMenuBuilder(self)
+        builder.add_action("新建", self._add_from_template, shortcut=shortcut_new)
+        builder.add_separator()
+        builder.add_action("复制", self._duplicate_instance, enabled=has_item, shortcut=shortcut_dup)
+        builder.add_action("重命名", self._rename_instance, enabled=has_item, shortcut=shortcut_rename)
+        builder.add_action(
+            "移动（所属存档）", self._change_selected_instance_owner, enabled=has_item, shortcut=shortcut_move
+        )
+        builder.add_separator()
+        builder.add_action(
+            "定位问题", self._locate_issues_for_selected_instance, enabled=has_item, shortcut=shortcut_locate
+        )
+        builder.add_separator()
+        builder.add_action("删除", self._delete_instance, enabled=has_item, shortcut=shortcut_delete)
+        builder.exec_for(self.entity_list, pos)
     
     def _init_category_tree(self) -> None:
         """初始化分类树"""
@@ -114,24 +241,24 @@ class EntityPlacementWidget(
 
     def set_context(
         self,
-        package: Union[PackageView, GlobalResourceView, UnclassifiedResourceView],
+        package: Union[PackageView, GlobalResourceView],
     ) -> None:
         """设置当前存档或资源视图并刷新列表（统一库页入口）。
 
-        关卡实体不再仅限于具体存档视图，在全局/未分类视图下同样允许选中，
+        关卡实体不再仅限于具体存档视图，在全局视图下同样允许选中，
         具体归属由右侧属性面板中的“所属存档”单选下拉控制。
         """
         self.current_package = package
 
         # 始终允许点击“关卡实体”分类，只根据视图类型调整提示文案
-        is_global_view = isinstance(package, (GlobalResourceView, UnclassifiedResourceView))
+        is_global_view = isinstance(package, GlobalResourceView)
         level_item = self._category_items.get("level_entity")
         if level_item:
             level_item.setDisabled(False)
             if is_global_view:
                 level_item.setToolTip(
                     0,
-                    "关卡实体在全局/未分类视图下用于统一编辑本体，具体归属由属性页中的“所属存档”控制（每个存档最多一个）。",
+                    "关卡实体在全局视图下用于统一编辑本体，具体归属由属性页中的“所属存档”控制（每个存档最多一个）。",
                 )
             else:
                 level_item.setToolTip(
@@ -229,32 +356,76 @@ class EntityPlacementWidget(
         def build_items() -> None:
             displayed_instance_ids: set[str] = set()
 
+            shared_instance_ids: set[str] = set()
+            resource_manager_candidate = getattr(self.current_package, "resource_manager", None)
+            if isinstance(resource_manager_candidate, ResourceManager):
+                resource_library_dir = getattr(resource_manager_candidate, "resource_library_dir", None)
+                if isinstance(resource_library_dir, Path):
+                    shared_root_dir = (resource_library_dir / "共享").resolve()
+                    instance_paths = resource_manager_candidate.list_resource_file_paths(ResourceType.INSTANCE)
+                    for resource_id, file_path in instance_paths.items():
+                        if not isinstance(resource_id, str) or not resource_id:
+                            continue
+                        if not isinstance(file_path, Path):
+                            continue
+                        resolved_file = file_path.resolve()
+                        if hasattr(resolved_file, "is_relative_to"):
+                            if resolved_file.is_relative_to(shared_root_dir):  # type: ignore[attr-defined]
+                                shared_instance_ids.add(resource_id)
+                        else:
+                            shared_parts = shared_root_dir.parts
+                            file_parts = resolved_file.parts
+                            if len(file_parts) >= len(shared_parts) and file_parts[: len(shared_parts)] == shared_parts:
+                                shared_instance_ids.add(resource_id)
+
             for instance_id, instance in self.current_package.instances.items():
                 template = self.current_package.get_template(instance.template_id)
-                if not template or template.entity_type not in allowed_types:
+
+                # 设计约定：
+                # - 实体摆放（InstanceConfig）允许“未绑定/找不到元件（TemplateConfig）”的情况；
+                # - UI 列表应仍然展示这些实例，并尽可能从实例 metadata 中回退推导实体类型。
+                resolved_entity_type = ""
+                template_category = ""
+                template_name = ""
+
+                if template is not None:
+                    template_name = str(getattr(template, "name", "") or "").strip()
+                    resolved_entity_type = str(getattr(template, "entity_type", "") or "").strip()
+                    template_metadata = getattr(template, "metadata", {}) or {}
+                    if isinstance(template_metadata, dict):
+                        category_value = template_metadata.get("template_category") or template_metadata.get(
+                            "category"
+                        )
+                        if isinstance(category_value, str):
+                            template_category = category_value.strip()
+                else:
+                    instance_metadata = getattr(instance, "metadata", {}) or {}
+                    if isinstance(instance_metadata, dict):
+                        entity_type_value = instance_metadata.get("entity_type")
+                        if isinstance(entity_type_value, str):
+                            resolved_entity_type = entity_type_value.strip()
+                        category_value = instance_metadata.get("template_category") or instance_metadata.get(
+                            "category"
+                        )
+                        if isinstance(category_value, str):
+                            template_category = category_value.strip()
+
+                # 仅过滤“明确不属于元件库实体类型”的条目：当无法推导类型时，保留在“全部实体”中展示。
+                if resolved_entity_type and resolved_entity_type not in allowed_types:
                     continue
 
                 if (
                     effective_category not in ("all", "")
-                    and template.entity_type != effective_category
+                    and resolved_entity_type != effective_category
                 ):
                     continue
-
-                metadata = getattr(template, "metadata", {}) or {}
-                template_category = ""
-                if isinstance(metadata, dict):
-                    category_value = metadata.get("template_category") or metadata.get(
-                        "category"
-                    )
-                    if isinstance(category_value, str):
-                        template_category = category_value
 
                 if template_category in ("元件组", "掉落物"):
                     icon = get_entity_type_info(template_category).get("icon", "📦")
                     display_type = template_category
                 else:
-                    icon = get_entity_type_info(template.entity_type).get("icon", "📦")
-                    display_type = template.entity_type
+                    icon = get_entity_type_info(resolved_entity_type).get("icon", "📦")
+                    display_type = resolved_entity_type or "未知"
 
                 guid_text = ""
                 instance_metadata = getattr(instance, "metadata", {}) or {}
@@ -274,28 +445,38 @@ class EntityPlacementWidget(
                     f"{instance.rotation[2]:.1f})"
                 )
 
+                is_shared_instance = instance_id in shared_instance_ids
                 display_text = f"{icon} {instance.name}"
 
                 list_item = QtWidgets.QListWidgetItem(display_text)
                 list_item.setData(INSTANCE_ID_ROLE, instance_id)
-                list_item.setData(ENTITY_TYPE_ROLE, template.entity_type)
+                list_item.setData(ENTITY_TYPE_ROLE, resolved_entity_type)
+                list_item.setData(IS_SHARED_INSTANCE_ROLE, bool(is_shared_instance))
+                list_item.setData(SHARED_RESOURCE_BADGE_ROLE, bool(is_shared_instance))
+
+                template_line = template_name if template_name else "(未绑定元件)"
 
                 tooltip_lines: list[str] = [
                     f"实体名称: {instance.name}",
                     f"实体类型: {display_type}",
-                    f"元件: {template.name}",
+                    f"元件: {template_line}",
                     f"位置: {position_text}",
                     f"旋转: {rotation_text}",
                 ]
+                if is_shared_instance:
+                    tooltip_lines.insert(0, "归属: 共享（所有存档可见）")
+                if not template_name and getattr(instance, "template_id", ""):
+                    tooltip_lines.append(f"元件ID: {instance.template_id}")
                 if guid_text:
                     tooltip_lines.append(f"GUID: {guid_text}")
                 list_item.setToolTip("\n".join(tooltip_lines))
 
                 search_tokens = [
                     instance.name,
-                    template.name,
+                    template_name,
                     display_type,
-                    template.entity_type,
+                    resolved_entity_type,
+                    str(getattr(instance, "template_id", "") or "").strip(),
                     guid_text,
                     position_text,
                     rotation_text,
@@ -397,42 +578,19 @@ class EntityPlacementWidget(
         name_edit = builder.add_line_edit("实体名称:", "")
         pos_editors = builder.add_vector3_editor("位置", [0.0, 0.0, 0.0], minimum=-10000, maximum=10000)
         rot_editors = builder.add_vector3_editor("旋转", [0.0, 0.0, 0.0], minimum=-360, maximum=360)
-        variables_group = builder.dialog.add_group_box("初始变量值")
-        variables_layout = QtWidgets.QFormLayout(variables_group)
-        variable_widgets: dict[str, tuple[QtWidgets.QWidget, str]] = {}
-        variables_group.setVisible(False)
         selected_template: Optional[TemplateConfig] = None
-
-        def rebuild_variables(template_obj: Optional[TemplateConfig]) -> None:
-            while variables_layout.count():
-                item = variables_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
-            variable_widgets.clear()
-            if not template_obj or not template_obj.default_variables:
-                variables_group.setVisible(False)
-                return
-            for var in template_obj.default_variables:
-                widget = self._create_variable_widget(var)
-                if widget:
-                    variables_layout.addRow(f"{var.name}:", widget)
-                    variable_widgets[var.name] = (widget, var.variable_type)
-            variables_group.setVisible(True)
 
         def on_template_changed(index: int) -> None:
             nonlocal selected_template
             if index < 0:
                 selected_template = None
-                rebuild_variables(None)
                 return
             template_id = template_combo.itemData(index)
             selected_template = self.current_package.get_template(template_id)
             if not selected_template:
-                rebuild_variables(None)
                 return
             instance_count = len(self.current_package.instances) + 1
             name_edit.setText(f"{selected_template.name}_{instance_count}")
-            rebuild_variables(selected_template)
 
         template_combo.currentIndexChanged.connect(on_template_changed)
         if template_combo.count() > 0:
@@ -465,35 +623,7 @@ class EntityPlacementWidget(
             position=[editor.value() for editor in pos_editors],
             rotation=[editor.value() for editor in rot_editors],
         )
-        for var_name, (widget, var_type) in variable_widgets.items():
-            if var_type == "Boolean":
-                value = str(widget.isChecked())
-            elif var_type in ["Integer", "Float"]:
-                value = str(widget.value())
-            else:
-                value = widget.text()
-            var_config = VariableConfig(name=var_name, variable_type=var_type, default_value=value)
-            instance.override_variables.append(var_config)
         return instance
-
-    def _create_variable_widget(self, var: VariableConfig) -> QtWidgets.QWidget:
-        """根据变量类型创建编辑控件。"""
-        var_type = var.variable_type
-        if var_type == "Boolean":
-            widget = QtWidgets.QCheckBox()
-            if var.default_value:
-                widget.setChecked(str(var.default_value).lower() in {"true", "1", "yes"})
-            return widget
-        if var_type in {"Integer", "Float"}:
-            widget = QtWidgets.QDoubleSpinBox() if var_type == "Float" else QtWidgets.QSpinBox()
-            widget.setRange(-999999, 999999)
-            if var.default_value:
-                widget.setValue(float(var.default_value) if var_type == "Float" else int(var.default_value))
-            return widget
-        widget = QtWidgets.QLineEdit()
-        if var.default_value:
-            widget.setText(str(var.default_value))
-        return widget
 
     def _add_from_template(self) -> None:
         """从元件添加实体（使用新对话框）"""
@@ -537,12 +667,230 @@ class EntityPlacementWidget(
                 context={"scope": describe_resource_view_scope(self.current_package)},
             )
             self.data_changed.emit(event)
+
+    def _duplicate_instance(self) -> None:
+        """复制当前选中的实体（浅复制）。"""
+        if not self.current_package:
+            self.show_warning("警告", "请先选择或创建存档")
+            return
+
+        instance_id = self._current_instance_id()
+        if not instance_id:
+            self.show_warning("提示", "请先选择要复制的实体")
+            return
+
+        instance = self.current_package.get_instance(instance_id)
+        if instance is None:
+            self._rebuild_instances()
+            return
+
+        metadata = getattr(instance, "metadata", {}) or {}
+        if isinstance(metadata, dict) and metadata.get("is_level_entity"):
+            self.show_warning("提示", "关卡实体不支持复制（每个存档仅允许一个）。")
+            return
+
+        new_instance_id = generate_prefixed_id("instance")
+        new_name = f"{instance.name} - 副本"
+
+        new_metadata = copy.deepcopy(metadata) if isinstance(metadata, dict) else {}
+        if isinstance(new_metadata, dict):
+            # GUID 需要保持唯一，复制时默认清空，交由用户在属性面板中重新分配/填写。
+            new_metadata.pop("guid", None)
+            new_metadata.pop("is_level_entity", None)
+
+        new_instance = InstanceConfig(
+            instance_id=new_instance_id,
+            name=new_name,
+            template_id=str(getattr(instance, "template_id", "") or ""),
+            position=list(getattr(instance, "position", [0.0, 0.0, 0.0]) or [0.0, 0.0, 0.0]),
+            rotation=list(getattr(instance, "rotation", [0.0, 0.0, 0.0]) or [0.0, 0.0, 0.0]),
+            override_variables=copy.deepcopy(getattr(instance, "override_variables", []) or []),
+            additional_graphs=list(getattr(instance, "additional_graphs", []) or []),
+            additional_components=copy.deepcopy(getattr(instance, "additional_components", []) or []),
+            metadata=new_metadata if isinstance(new_metadata, dict) else {},
+            graph_variable_overrides=copy.deepcopy(getattr(instance, "graph_variable_overrides", {}) or {}),
+        )
+
+        self.current_package.add_instance(new_instance)
+        self._rebuild_instances()
+        self.select_instance(new_instance_id)
+
+        event = LibraryChangeEvent(
+            kind="instance",
+            id=new_instance_id,
+            operation="create",
+            context={
+                "scope": describe_resource_view_scope(self.current_package),
+                "source": "duplicate",
+            },
+        )
+        self.data_changed.emit(event)
+        ToastNotification.show_message(self, f"已复制实体：{new_name}", "success")
+
+    def _rename_instance(self) -> None:
+        """重命名当前选中的实体（仅修改 name 字段）。"""
+        if not self.current_package:
+            self.show_warning("警告", "请先选择或创建存档")
+            return
+
+        instance_id = self._current_instance_id()
+        if not instance_id:
+            self.show_warning("提示", "请先选择要重命名的实体")
+            return
+
+        instance = self.current_package.get_instance(instance_id)
+        if instance is None:
+            self._rebuild_instances()
+            return
+
+        old_name = str(getattr(instance, "name", "") or "").strip() or instance_id
+        new_name = input_dialogs.prompt_text(
+            self,
+            "重命名实体",
+            "请输入新的实体名称:",
+            text=old_name,
+        )
+        if not new_name:
+            return
+        new_name = str(new_name).strip()
+        if not new_name or new_name == old_name:
+            return
+
+        instance.name = new_name
+        self._rebuild_instances()
+        self.select_instance(instance_id)
+
+        event = LibraryChangeEvent(
+            kind="instance",
+            id=instance_id,
+            operation="update",
+            context={
+                "scope": describe_resource_view_scope(self.current_package),
+                "action": "rename",
+            },
+        )
+        self.data_changed.emit(event)
+        ToastNotification.show_message(self, f"已重命名实体：{new_name}", "info")
+
+    def _change_selected_instance_owner(self) -> None:
+        """修改当前选中实体的归属位置（共享 / 某个项目存档目录）。"""
+        if not self.current_package:
+            self.show_warning("警告", "请先选择或创建存档")
+            return
+
+        instance_id = self._current_instance_id()
+        if not instance_id:
+            self.show_warning("提示", "请先选择要移动的实体")
+            return
+
+        if self._is_level_entity_instance_id(instance_id):
+            self.show_warning("提示", "关卡实体请在右侧属性面板中修改“所属存档/归属位置”。")
+            return
+
+        window = self.window()
+        app_state = getattr(window, "app_state", None) if window is not None else None
+        package_index_manager = getattr(app_state, "package_index_manager", None) if app_state is not None else None
+        if not isinstance(package_index_manager, PackageIndexManager):
+            self.show_warning("警告", "无法移动：PackageIndexManager 不可用。")
+            return
+
+        previous_owner = package_index_manager.get_resource_owner_root_id(
+            resource_type="instance",
+            resource_id=instance_id,
+        )
+
+        packages = package_index_manager.list_packages()
+        choice_labels: list[str] = ["🌐 共享（shared）"]
+        label_to_root_id: dict[str, str] = {"🌐 共享（shared）": "shared"}
+        for pkg in packages:
+            package_id = pkg.get("package_id")
+            if not isinstance(package_id, str) or not package_id:
+                continue
+            display_name = str(pkg.get("name") or package_id).strip() or package_id
+            label = f"{display_name}（{package_id}）"
+            choice_labels.append(label)
+            label_to_root_id[label] = package_id
+
+        current_index = 0
+        if previous_owner == "shared":
+            current_index = 0
+        elif isinstance(previous_owner, str) and previous_owner:
+            for idx, label in enumerate(choice_labels):
+                if label_to_root_id.get(label) == previous_owner:
+                    current_index = idx
+                    break
+
+        selected_label = input_dialogs.prompt_item(
+            self,
+            "移动实体（所属存档）",
+            "请选择目标归属位置:",
+            choice_labels,
+            current_index=current_index,
+            editable=False,
+        )
+        if not selected_label:
+            return
+
+        target_root_id = label_to_root_id.get(selected_label, "")
+        if not target_root_id:
+            return
+        if target_root_id == previous_owner:
+            return
+
+        previous_label = "🌐 共享" if previous_owner == "shared" else (previous_owner or "(未知)")
+        next_label = "🌐 共享" if target_root_id == "shared" else target_root_id
+        if not self.confirm(
+            "确认切换所属存档",
+            f"即将把实体 '{instance_id}' 的归属从「{previous_label}」切换到「{next_label}」。\n\n确定要继续吗？",
+        ):
+            return
+
+        handler = getattr(window, "_on_instance_package_membership_changed", None) if window is not None else None
+        if callable(handler):
+            handler(instance_id, target_root_id, True)
+        else:
+            moved = package_index_manager.move_resource_to_root(target_root_id, "instance", instance_id)
+            if not moved:
+                self.show_warning("警告", "移动失败：未找到资源文件或目标目录不可用。")
+                return
+            if hasattr(self.current_package, "clear_cache"):
+                self.current_package.clear_cache()
+            self._rebuild_instances()
+
+        ToastNotification.show_message(self, "归属已更新。", "info")
+
+    def _locate_issues_for_selected_instance(self) -> None:
+        """打开验证面板并定位到与当前实体相关的问题（若存在）。"""
+        instance_id = self._current_instance_id()
+        if not instance_id:
+            self.show_warning("提示", "请先选择要定位问题的实体")
+            return
+        window = self.window()
+        locate = getattr(window, "_locate_issues_for_resource_id", None) if window is not None else None
+        if callable(locate):
+            locate(instance_id)
     
     def _delete_instance(self) -> None:
-        """删除实体"""
+        """删除实体。
+
+        语义澄清（目录即项目存档模式）：
+        - PackageView：从当前项目存档中移除实体 = 移动该实例 JSON 文件到默认归档项目（不做物理删除）；
+        - GlobalResourceView：删除共享实体 = 物理删除共享根目录下的实例 JSON 文件。
+        """
         instance_id = self._current_instance_id()
         if not instance_id:
             self.show_warning("警告", "请先选择要删除的实体")
+            return
+
+        current_item = self.entity_list.currentItem()
+        is_shared_instance = bool(current_item.data(IS_SHARED_INSTANCE_ROLE)) if current_item is not None else False
+        if isinstance(self.current_package, PackageView) and is_shared_instance:
+            self.show_warning(
+                "提示",
+                "该实体属于【共享】资源，无法在“具体存档”视图下删除。\n\n"
+                "如需删除共享实体，请切换到 <全部资源> 视图执行全局删除；\n"
+                "如需让实体仅属于当前存档，请在右侧属性面板中修改其“所属存档/归属位置”。",
+            )
             return
         instance = self.current_package.get_instance(instance_id)
         
@@ -556,7 +904,48 @@ class EntityPlacementWidget(
             return
 
         if self.confirm("确认删除", f"确定要删除实体 '{instance.name}' 吗？"):
-            self.current_package.remove_instance(instance_id)
+            # ===== 目录模式下的删除语义：按视图区分“移除归属”与“物理删除” =====
+            if isinstance(self.current_package, PackageView):
+                window = self.window()
+                package_index_manager_candidate = (
+                    getattr(window, "package_index_manager", None) if window is not None else None
+                )
+                if not isinstance(package_index_manager_candidate, PackageIndexManager):
+                    self.show_warning(
+                        "警告",
+                        "无法从当前存档移除实体：未找到 PackageIndexManager（无法执行文件移动）。",
+                    )
+                    return
+
+                moved_ok = package_index_manager_candidate.remove_resource_from_package(
+                    self.current_package.package_id,
+                    "instance",
+                    instance_id,
+                )
+                if not moved_ok:
+                    self.show_warning(
+                        "警告",
+                        "无法从当前存档移除实体：资源文件未找到或移动失败。",
+                    )
+                    return
+
+                # 同步当前视图的内存快照与缓存（用于 UI 立即反馈）。
+                self.current_package.remove_instance(instance_id)
+                if hasattr(self.current_package, "clear_cache"):
+                    self.current_package.clear_cache()
+
+            elif isinstance(self.current_package, GlobalResourceView):
+                resource_manager_candidate = getattr(self.current_package, "resource_manager", None)
+                if not isinstance(resource_manager_candidate, ResourceManager):
+                    self.show_warning("警告", "当前视图不支持删除实体：resource_manager 不可用。")
+                    return
+
+                resource_manager_candidate.delete_resource(ResourceType.INSTANCE, instance_id)
+                # 清理当前视图缓存，避免列表刷新仍使用旧实例数据。
+                self.current_package.remove_instance(instance_id)
+                if hasattr(self.current_package, "clear_cache"):
+                    self.current_package.clear_cache()
+
             self._rebuild_instances()
             # 通知上层：实体列表发生了持久化相关变更（需立即保存包索引）
             event = LibraryChangeEvent(
@@ -667,7 +1056,7 @@ class EntityPlacementWidget(
           - 若索引中已有 level_entity_id，直接复用；
           - 若不存在但实例中存在带 is_level_entity 标记的实体，则补写索引；
           - 否则创建新的关卡实体实例并写入索引与资源库。
-        - 对于全局视图/未分类视图：
+        - 对于全局视图：
           - 若已存在带 is_level_entity 标记的实例则复用；
           - 否则创建新的关卡实体实例，仅写入资源库，不修改任何存档索引。
         """
@@ -716,8 +1105,8 @@ class EntityPlacementWidget(
             self.current_package.update_level_entity(new_level)
             return
 
-        # 全局视图/未分类视图：只需在资源库层面保证存在一个带 is_level_entity 标记的实例
-        if isinstance(self.current_package, (GlobalResourceView, UnclassifiedResourceView)):
+        # 全局视图：只需在资源库层面保证存在一个带 is_level_entity 标记的实例
+        if isinstance(self.current_package, GlobalResourceView):
             # level_entity 属性已在开头检查为 None，这里直接创建
             instance_id = generate_prefixed_id("level")
             new_level = InstanceConfig(

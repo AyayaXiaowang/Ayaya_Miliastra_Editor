@@ -26,8 +26,11 @@ def _are_ports_compatible(item_a: Dict[str, Any], item_b: Dict[str, Any]) -> boo
         a_input_types == b_input_types and
         a_output_types == b_output_types and
         a_dynamic == b_dynamic and
+        dict(item_a.get("input_defaults") or {}) == dict(item_b.get("input_defaults") or {}) and
         dict(item_a.get("input_generic_constraints") or {}) == dict(item_b.get("input_generic_constraints") or {}) and
-        dict(item_a.get("output_generic_constraints") or {}) == dict(item_b.get("output_generic_constraints") or {})
+        dict(item_a.get("output_generic_constraints") or {}) == dict(item_b.get("output_generic_constraints") or {}) and
+        dict(item_a.get("input_enum_options") or {}) == dict(item_b.get("input_enum_options") or {}) and
+        dict(item_a.get("output_enum_options") or {}) == dict(item_b.get("output_enum_options") or {})
     )
 
 
@@ -53,6 +56,27 @@ def _merge_same_ports(preferred: Dict[str, Any], secondary: Dict[str, Any]) -> D
     端口完全一致时，合并元数据（别名/作用域等），返回合并后的项。
     """
     merged: Dict[str, Any] = dict(preferred)
+
+    # 合并 semantic_id：优先保留非空值；若两边都非空且不一致则视为错误
+    preferred_semantic_id = str(preferred.get("semantic_id") or "").strip()
+    secondary_semantic_id = str(secondary.get("semantic_id") or "").strip()
+    if preferred_semantic_id and secondary_semantic_id and preferred_semantic_id != secondary_semantic_id:
+        raise ValueError(
+            f"[MERGER] semantic_id 冲突（端口一致但语义不一致）: key={preferred.get('standard_key')}, "
+            f"preferred={preferred_semantic_id!r}, secondary={secondary_semantic_id!r}"
+        )
+    merged["semantic_id"] = preferred_semantic_id or secondary_semantic_id
+
+    # 合并 input_defaults：端口完全一致时，默认值也必须一致（或其中一侧为空）
+    preferred_defaults = dict(preferred.get("input_defaults") or {})
+    secondary_defaults = dict(secondary.get("input_defaults") or {})
+    if preferred_defaults and secondary_defaults and preferred_defaults != secondary_defaults:
+        raise ValueError(
+            f"[MERGER] input_defaults 冲突（端口一致但默认值不一致）: key={preferred.get('standard_key')}, "
+            f"preferred={preferred_defaults}, secondary={secondary_defaults}"
+        )
+    merged["input_defaults"] = preferred_defaults or secondary_defaults
+
     # 合并别名（去重）
     aliases = list(merged.get("aliases") or [])
     for alias in list(secondary.get("aliases") or []):
@@ -68,6 +92,46 @@ def _merge_same_ports(preferred: Dict[str, Any], secondary: Dict[str, Any]) -> D
         if scope_text and scope_text not in scopes:
             scopes.append(scope_text)
     merged["scopes"] = scopes
+
+    def _merge_port_aliases(preferred_map: Dict[str, Any], secondary_map: Dict[str, Any], direction: str) -> Dict[str, List[str]]:
+        merged_map: Dict[str, List[str]] = {}
+        alias_to_owner: Dict[str, str] = {}
+
+        for source in [dict(preferred_map or {}), dict(secondary_map or {})]:
+            for canonical_port, aliases in source.items():
+                canonical_text = str(canonical_port or "").strip()
+                if canonical_text == "":
+                    continue
+                bucket = merged_map.setdefault(canonical_text, [])
+                for alias_value in list(aliases or []):
+                    alias_text = str(alias_value or "").strip()
+                    if alias_text == "":
+                        continue
+                    prev_owner = alias_to_owner.get(alias_text)
+                    if prev_owner is not None and prev_owner != canonical_text:
+                        raise ValueError(
+                            f"[MERGER] {direction}端口别名冲突: key={preferred.get('standard_key')}, "
+                            f"alias={alias_text!r}, ownerA={prev_owner!r}, ownerB={canonical_text!r}"
+                        )
+                    alias_to_owner[alias_text] = canonical_text
+                    if alias_text not in bucket:
+                        bucket.append(alias_text)
+
+        stable: Dict[str, List[str]] = {}
+        for canonical_text in sorted(merged_map.keys()):
+            stable[canonical_text] = sorted(set([v for v in merged_map[canonical_text] if v]))
+        return stable
+
+    merged["input_port_aliases"] = _merge_port_aliases(
+        dict(merged.get("input_port_aliases") or {}),
+        dict(secondary.get("input_port_aliases") or {}),
+        "输入",
+    )
+    merged["output_port_aliases"] = _merge_port_aliases(
+        dict(merged.get("output_port_aliases") or {}),
+        dict(secondary.get("output_port_aliases") or {}),
+        "输出",
+    )
     return merged
 
 
@@ -102,6 +166,20 @@ def merge_specs(valid_items: List[Union[NormalizedSpec, Dict[str, Any]]]) -> Dic
         # 已存在：根据优先级与端口兼容性进行处理
         existing = library_by_key[key_text]
         preferred, secondary = _pick_precedence(existing, item_dict)
+
+        # semantic_id 兼容性检查：同一基键的不同作用域实现必须保持相同语义（或其中一侧为空）
+        preferred_semantic_id = str(preferred.get("semantic_id") or "").strip()
+        secondary_semantic_id = str(secondary.get("semantic_id") or "").strip()
+        if preferred_semantic_id and secondary_semantic_id and preferred_semantic_id != secondary_semantic_id:
+            raise ValueError(
+                f"[MERGER] semantic_id 冲突（同 key 不同实现）: key={key_text}, "
+                f"preferred={preferred_semantic_id!r}, secondary={secondary_semantic_id!r}"
+            )
+        merged_semantic_id = preferred_semantic_id or secondary_semantic_id
+        if merged_semantic_id:
+            preferred["semantic_id"] = merged_semantic_id
+            secondary["semantic_id"] = merged_semantic_id
+
         if _are_ports_compatible(preferred, secondary):
             library_by_key[key_text] = _merge_same_ports(preferred, secondary)
         else:

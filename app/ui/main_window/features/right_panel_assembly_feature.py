@@ -176,6 +176,11 @@ class RightPanelAssemblyFeature(MainWindowFeature):
 
         # 静态标签（由 RIGHT_PANEL_TABS 控制）
         registry.register_static("graph_property", main_window.graph_property_panel, "图属性")
+        registry.register_static(
+            "graph_used_definitions",
+            main_window.graph_used_definitions_panel,
+            "信号/结构体/变量",
+        )
         registry.register_static("composite_property", main_window.composite_property_panel, "复合节点属性")
         registry.register_static("composite_pins", main_window.composite_pin_panel, "虚拟引脚")
         registry.register_static("validation_detail", main_window.validation_detail_panel, "详细信息")

@@ -57,36 +57,46 @@ class TodoNavigationController:
         if not items:
             return
 
+        tree_manager = getattr(self.widget, "tree_manager", None)
         current_item = self.widget.tree.currentItem()
         if current_item is None:
-            self.widget.tree.setCurrentItem(items[-1])
+            target_id = items[-1].data(0, Qt.ItemDataRole.UserRole)
+            if tree_manager is not None and target_id:
+                tree_manager.select_task_by_id(str(target_id))
             return
 
         # 定位当前并循环到上一个
         current_index = items.index(current_item) if current_item in items else 0
         prev_index = (current_index - 1) % len(items)
-        self.widget.tree.setCurrentItem(items[prev_index])
+        target_id = items[prev_index].data(0, Qt.ItemDataRole.UserRole)
+        if tree_manager is not None and target_id:
+            tree_manager.select_task_by_id(str(target_id))
 
     def navigate_to_next_task(self) -> None:
         items = self._get_all_items_in_order()
         if not items:
             return
 
+        tree_manager = getattr(self.widget, "tree_manager", None)
         current_item = self.widget.tree.currentItem()
         if current_item is None:
-            self.widget.tree.setCurrentItem(items[0])
+            target_id = items[0].data(0, Qt.ItemDataRole.UserRole)
+            if tree_manager is not None and target_id:
+                tree_manager.select_task_by_id(str(target_id))
             return
 
         # 定位当前并循环到下一个
         current_index = items.index(current_item) if current_item in items else -1
         next_index = (current_index + 1) % len(items)
-        self.widget.tree.setCurrentItem(items[next_index])
+        target_id = items[next_index].data(0, Qt.ItemDataRole.UserRole)
+        if tree_manager is not None and target_id:
+            tree_manager.select_task_by_id(str(target_id))
 
     # === Ctrl+P 路由 ===
     def _get_active_monitor(self):
         if self.widget._monitor_window is not None:
             return self.widget._monitor_window
-        return self.widget.ui_context.try_get_execution_monitor_panel()
+        return self.widget.ui_context.try_get_execution_monitor()
 
     def on_global_ctrl_p(self) -> None:
         monitor = self._get_active_monitor()

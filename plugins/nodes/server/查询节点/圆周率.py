@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import math
 from engine.nodes.node_spec import node_spec
 from plugins.nodes.shared.server_查询节点_impl_helpers import *
 from engine.utils.logging.logger import log_info
@@ -10,6 +12,6 @@ from engine.utils.logging.logger import log_info
     description="返回圆周率π的近似值，约为3.142",
     doc_reference="服务器节点/查询节点/查询节点.md"
 )
-def 圆周率():
+def 圆周率(game):
     """返回圆周率π的近似值，约为3.142"""
     return math.pi

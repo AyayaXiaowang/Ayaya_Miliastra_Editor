@@ -10,6 +10,6 @@ from engine.utils.logging.logger import log_info
     description="获取在场所有玩家实体组成的列表",
     doc_reference="客户端节点/查询节点/查询节点.md"
 )
-def 获取在场玩家实体列表():
+def 获取在场玩家实体列表(game):
     """获取在场所有玩家实体组成的列表"""
-    return None  # 玩家实体列表
+    return game.get_present_player_entities()

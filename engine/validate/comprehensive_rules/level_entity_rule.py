@@ -65,7 +65,7 @@ def validate_level_entity(validator) -> List[ValidationIssue]:
     attachments = iter_level_entity_graphs(validator.resource_manager, level_entity) or []
     for attachment in attachments:
         issues.extend(
-            validator.validate_graph_data(
+            validator.validate_graph_cache_data(
                 attachment.graph_config.data,
                 "关卡",
                 attachment.location_full,

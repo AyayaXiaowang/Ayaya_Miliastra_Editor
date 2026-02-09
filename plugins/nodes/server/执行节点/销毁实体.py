@@ -14,4 +14,4 @@ from engine.utils.logging.logger import log_info
 def 销毁实体(game, 目标实体):
     """销毁指定实体，会有销毁表现，也可以触发一些销毁后才会触发的逻辑，比如本地投射物中的生命周期结束时行为 在关卡实体上可以监听到【实体销毁时】以及【实体移除/销毁时】事件"""
     game.destroy_entity(目标实体)
-    game.trigger_event("实体销毁时", 目标实体)
+    game.trigger_event("实体销毁时", 目标实体=目标实体)

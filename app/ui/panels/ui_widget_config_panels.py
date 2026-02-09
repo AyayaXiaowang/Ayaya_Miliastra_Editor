@@ -2,6 +2,7 @@
 
 from app.ui.panels.widget_configs import (
     BaseWidgetConfigPanel,
+    ContainerConfigPanel,
     CardSelectorConfigPanel,
     InteractionButtonConfigPanel,
     ItemDisplayConfigPanel,
@@ -18,6 +19,7 @@ __all__ = [
     "BaseWidgetConfigPanel",
     "InteractionButtonConfigPanel",
     "ItemDisplayConfigPanel",
+    "ContainerConfigPanel",
     "TextBoxConfigPanel",
     "PopupConfigPanel",
     "ProgressBarConfigPanel",

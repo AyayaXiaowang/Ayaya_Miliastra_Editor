@@ -257,6 +257,53 @@ class ProgressBarFillMode(str, Enum):
     TOP_TO_BOTTOM = "从上到下"
 
 
+# ============================================================================
+# 进度条颜色（统一口径）
+#
+# 约定：
+# - 这里的五色为“程序内显示/编辑/导出”的统一色值。
+# - 同时与真源 `.gil` 进度条 binding blob 的 `color_code` 对齐：
+#     0=默认(绿色), 1=红色, 2=黄色, 3=蓝色, 4=白色
+# ============================================================================
+
+# 进度条颜色（hex）
+PROGRESSBAR_COLOR_GREEN_HEX = "#92CD21"
+PROGRESSBAR_COLOR_WHITE_HEX = "#E2DBCE"
+PROGRESSBAR_COLOR_YELLOW_HEX = "#F3C330"
+PROGRESSBAR_COLOR_BLUE_HEX = "#36F3F3"
+PROGRESSBAR_COLOR_RED_HEX = "#F47B7B"
+
+# 真源 `.gil` 颜色枚举值 ↔ hex
+PROGRESSBAR_COLOR_HEX_BY_CODE: Dict[int, str] = {
+    0: PROGRESSBAR_COLOR_GREEN_HEX,
+    1: PROGRESSBAR_COLOR_RED_HEX,
+    2: PROGRESSBAR_COLOR_YELLOW_HEX,
+    3: PROGRESSBAR_COLOR_BLUE_HEX,
+    4: PROGRESSBAR_COLOR_WHITE_HEX,
+}
+PROGRESSBAR_COLOR_NAME_BY_CODE: Dict[int, str] = {
+    0: "默认(绿色)",
+    1: "红色",
+    2: "黄色",
+    3: "蓝色",
+    4: "白色",
+}
+
+# 面板展示用：下拉枚举（label, hex）
+PROGRESSBAR_COLOR_OPTIONS: List[Tuple[str, str]] = [
+    ("白色 (White)", PROGRESSBAR_COLOR_WHITE_HEX),
+    ("绿色 (Green)", PROGRESSBAR_COLOR_GREEN_HEX),
+    ("黄色 (Yellow)", PROGRESSBAR_COLOR_YELLOW_HEX),
+    ("蓝色 (Blue)", PROGRESSBAR_COLOR_BLUE_HEX),
+    ("红色 (Red)", PROGRESSBAR_COLOR_RED_HEX),
+]
+
+# 统一色值 hex → 真源 `.gil` color_code（仅包含唯一真版本的五色）
+PROGRESSBAR_COLOR_CODE_BY_HEX: Dict[str, int] = {
+    str(hex_value): int(code) for code, hex_value in PROGRESSBAR_COLOR_HEX_BY_CODE.items()
+}
+
+
 @dataclass
 class ProgressBarConfig:
     """进度条配置"""
@@ -270,7 +317,7 @@ class ProgressBarConfig:
     position: Tuple[float, float] = (0.0, 0.0)
     size: Tuple[float, float] = (200.0, 20.0)
     background_color: str = "#808080"
-    fill_color: str = "#00FF00"
+    fill_color: str = PROGRESSBAR_COLOR_GREEN_HEX
     show_text: bool = True
     text_format: str = "{value}/{max}"  # 显示格式
     
@@ -400,7 +447,7 @@ if __name__ == "__main__":
         fill_mode=ProgressBarFillMode.LEFT_TO_RIGHT,
         max_value=100.0,
         current_value=75.0,
-        fill_color="#00FF00"
+        fill_color=PROGRESSBAR_COLOR_GREEN_HEX
     )
     print(f"   方向：{progress_bar.orientation.value}")
     print(f"   当前值：{progress_bar.current_value}/{progress_bar.max_value}")

@@ -13,8 +13,9 @@ from statistics import median
 import math
 from typing import Any, Dict, Optional, Tuple
 
-from app.automation.input.common import compute_position_thresholds
+from app.automation.input.common import compute_position_thresholds_for_node_view
 from app.automation.editor.editor_mapping import FIXED_SCALE_RATIO
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 
 from .constants import (
     FIT_STRATEGY_RELATIVE_ANCHORS,
@@ -154,7 +155,12 @@ def _evaluate_transform_support(
     tolerance_multiplier: float,
 ) -> dict[str, Any]:
     avg_scale = max((abs(scale_x) + abs(scale_y)) * 0.5, 1e-6)
-    tolerance_x, tolerance_y = compute_position_thresholds(avg_scale)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    tolerance_x, tolerance_y = compute_position_thresholds_for_node_view(
+        scale=float(avg_scale),
+        node_view_width_px=float(node_view_w_px),
+        node_view_height_px=float(node_view_h_px),
+    )
     tolerance_x *= tolerance_multiplier
     tolerance_y *= tolerance_multiplier
     matched = 0

@@ -17,6 +17,23 @@ class _NotExtractable:
 NOT_EXTRACTABLE = _NotExtractable()
 
 
+def _is_hashable_constant_key(value: Any) -> bool:
+    """判断 dict 常量键是否为“可安全构造”的可哈希值。
+
+    说明：
+    - 为避免在常量提取阶段因 `dict[key] = value` 触发 TypeError 而中断解析，
+      这里仅允许项目中常见的可哈希常量类型作为键。
+    - 不使用 try/except：不满足条件直接返回 False（上层会返回 NOT_EXTRACTABLE）。
+    """
+    if value is None:
+        return True
+    if isinstance(value, (str, int, float, bool)):
+        return True
+    if isinstance(value, tuple):
+        return all(_is_hashable_constant_key(item) for item in value)
+    return False
+
+
 # ============================================================================
 # 模块级常量上下文（线程安全）
 # ============================================================================
@@ -102,9 +119,21 @@ def _extract_constant_value_raw(value_node: ast.expr) -> Any:
     
     # 容器字面量
     if isinstance(value_node, ast.List):
-        return [_extract_constant_value_raw(element) for element in value_node.elts]
+        items: list[Any] = []
+        for element in value_node.elts:
+            extracted = _extract_constant_value_raw(element)
+            if extracted is NOT_EXTRACTABLE:
+                return NOT_EXTRACTABLE
+            items.append(extracted)
+        return items
     if isinstance(value_node, ast.Tuple):
-        return tuple(_extract_constant_value_raw(element) for element in value_node.elts)
+        items: list[Any] = []
+        for element in value_node.elts:
+            extracted = _extract_constant_value_raw(element)
+            if extracted is NOT_EXTRACTABLE:
+                return NOT_EXTRACTABLE
+            items.append(extracted)
+        return tuple(items)
     
     return NOT_EXTRACTABLE
 
@@ -115,7 +144,7 @@ def extract_constant_value(value_node: ast.expr) -> Any:
     支持的形式（统一供 IR 与复合节点等场景复用）：
     - 标准常量：int / float / str / bool / None（ast.Constant）
     - 一元运算：数值前的一元正负号（+/-Constant）
-    - 容器字面量：list / tuple（元素递归调用本函数）
+    - 容器字面量：list / tuple / dict（元素/键值递归调用本函数；任一子项不可提取则整体视为不可提取）
     - self.<字段> 访问：
       - self.owner_entity：返回字符串 "self.owner_entity"，由上层按"图所属实体"语义处理；
       - self._xxx：视为运行期状态字段，统一返回 NOT_EXTRACTABLE；
@@ -143,9 +172,41 @@ def extract_constant_value(value_node: ast.expr) -> Any:
     
     # 容器字面量
     if isinstance(value_node, ast.List):
-        return [extract_constant_value(element) for element in value_node.elts]
+        items: list[Any] = []
+        for element in value_node.elts:
+            extracted = extract_constant_value(element)
+            if extracted is NOT_EXTRACTABLE:
+                return NOT_EXTRACTABLE
+            items.append(extracted)
+        return items
     if isinstance(value_node, ast.Tuple):
-        return tuple(extract_constant_value(element) for element in value_node.elts)
+        items: list[Any] = []
+        for element in value_node.elts:
+            extracted = extract_constant_value(element)
+            if extracted is NOT_EXTRACTABLE:
+                return NOT_EXTRACTABLE
+            items.append(extracted)
+        return tuple(items)
+    if isinstance(value_node, ast.Dict):
+        # `{**d}` 在 AST 中会以 key=None 表示，统一视为不可静态提取
+        keys = list(getattr(value_node, "keys", []) or [])
+        values = list(getattr(value_node, "values", []) or [])
+        if len(keys) != len(values):
+            return NOT_EXTRACTABLE
+        result: Dict[Any, Any] = {}
+        for key_node, value_node_item in zip(keys, values):
+            if key_node is None or value_node_item is None:
+                return NOT_EXTRACTABLE
+            key_value = extract_constant_value(key_node)
+            if key_value is NOT_EXTRACTABLE:
+                return NOT_EXTRACTABLE
+            if not _is_hashable_constant_key(key_value):
+                return NOT_EXTRACTABLE
+            value_value = extract_constant_value(value_node_item)
+            if value_value is NOT_EXTRACTABLE:
+                return NOT_EXTRACTABLE
+            result[key_value] = value_value
+        return result
     
     # f-string 无法静态提取
     if isinstance(value_node, ast.JoinedStr):

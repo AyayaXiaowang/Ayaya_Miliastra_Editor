@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from .game_state import GameRuntime
 from .node_impl_loader import load_node_exports_for_scope
+from .resource_definition_validator import validate_runtime_definitions_or_raise
+from engine.graph.models.package_model import GraphVariableConfig  # noqa: F401
 from engine.configs.rules.datatypes_typing import *  # noqa: F401,F403
 from engine.graph.composite.pin_api import (  # noqa: F401,F403
     流程入,
@@ -17,6 +19,9 @@ from engine.graph.composite.pin_api import (  # noqa: F401,F403
     数据出,
 )
 from .node_graph_validator import validate_node_graph  # noqa: F401
+
+# 运行期定义资源（结构体/信号/关卡变量）强校验：一旦有错误直接抛出，避免运行期潜伏。
+validate_runtime_definitions_or_raise()
 
 # 注入所有 client 节点实现（保持 Graph Code 直接调用“节点函数名(...)”的写法）
 globals().update(load_node_exports_for_scope("client"))

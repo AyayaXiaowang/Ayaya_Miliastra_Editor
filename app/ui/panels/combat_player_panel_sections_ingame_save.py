@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from engine.resources.definition_schema_view import get_default_definition_schema_view
+from engine.configs.resource_types import ResourceType
 from engine.resources.global_resource_view import GlobalResourceView
 from app.ui.foundation.theme_manager import Sizes
 from app.runtime.services import get_shared_json_cache_service
@@ -185,19 +185,28 @@ class CombatPlayerPanelSectionsIngameSaveMixin:
 
         # 预先构造 struct_id -> 结构体名称 的映射，便于在表格中展示更友好的名称。
         struct_name_map: Dict[str, str] = {}
-        schema_view = get_default_definition_schema_view()
-        all_structs = schema_view.get_all_struct_definitions()
-        for struct_id, payload in all_structs.items():
-            if not isinstance(payload, dict):
-                continue
-            struct_type_value = payload.get("struct_ype")
-            if not isinstance(struct_type_value, str):
-                continue
-            if struct_type_value.strip() != "ingame_save":
-                continue
-            raw_name = payload.get("name") or payload.get("struct_name") or struct_id
-            display_name = str(raw_name)
-            struct_name_map[str(struct_id)] = display_name
+        from engine.resources.resource_manager import ResourceManager
+
+        if isinstance(self.resource_manager, ResourceManager):
+            struct_ids = self.resource_manager.list_resources(ResourceType.STRUCT_DEFINITION)
+            normalized_ids = [
+                str(value).strip()
+                for value in struct_ids
+                if isinstance(value, str) and str(value).strip()
+            ]
+            normalized_ids.sort(key=lambda text: text.casefold())
+
+            for struct_id in normalized_ids:
+                payload = self.resource_manager.load_resource(ResourceType.STRUCT_DEFINITION, struct_id)
+                if not isinstance(payload, dict):
+                    continue
+                struct_type_value = payload.get("struct_ype") or payload.get("struct_type")
+                if not isinstance(struct_type_value, str):
+                    continue
+                if struct_type_value.strip() != "ingame_save":
+                    continue
+                raw_name = payload.get("name") or payload.get("struct_name") or struct_id
+                struct_name_map[str(struct_id)] = str(raw_name)
 
         if isinstance(entries_value, list):
             for index_in_list, entry_payload in enumerate(entries_value, start=1):
@@ -283,13 +292,24 @@ class CombatPlayerPanelSectionsIngameSaveMixin:
     def _load_ingame_save_struct_ids(self) -> List[str]:
         """加载 struct_ype == "ingame_save" 的结构体 ID 列表。"""
         struct_ids: List[str] = []
-        schema_view = get_default_definition_schema_view()
-        all_structs = schema_view.get_all_struct_definitions()
+        from engine.resources.resource_manager import ResourceManager
 
-        for struct_id, payload in all_structs.items():
+        if not isinstance(self.resource_manager, ResourceManager):
+            return struct_ids
+
+        visible_ids = self.resource_manager.list_resources(ResourceType.STRUCT_DEFINITION)
+        normalized_ids = [
+            str(value).strip()
+            for value in visible_ids
+            if isinstance(value, str) and str(value).strip()
+        ]
+        normalized_ids.sort(key=lambda text: text.casefold())
+
+        for struct_id in normalized_ids:
+            payload = self.resource_manager.load_resource(ResourceType.STRUCT_DEFINITION, str(struct_id))
             if not isinstance(payload, dict):
                 continue
-            struct_type_value = payload.get("struct_ype")
+            struct_type_value = payload.get("struct_ype") or payload.get("struct_type")
             if not isinstance(struct_type_value, str):
                 continue
             if struct_type_value.strip() != "ingame_save":

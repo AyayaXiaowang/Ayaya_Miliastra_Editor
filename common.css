@@ -1,0 +1,117 @@
+/* 供私有 Web 工具复用的基础样式（dark reset + 变量 + 常用组件类）
+ *
+ * 注意：
+ * - 这是“静态页面工具”的样式，不影响 PyQt UI。
+ * - 只提供最小必需能力：全局 reset、主题变量、常用 class（如 text-gold / btn-primary）。
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg-app: #0f0c0c;
+  --bg-panel: rgba(20, 5, 5, 0.9);
+  --bg-input: rgba(255, 255, 255, 0.06);
+
+  --text: #e9e3d6;
+  --muted: #b0a79a;
+
+  /* “赛博新春金” */
+  --accent: #f1c40f;
+  --gold: var(--accent);
+
+  --danger: #ff6b6b;
+
+  --radius: 8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+}
+
+/* ------------------------------ utility */
+.text-gold {
+  color: var(--gold);
+}
+
+.btn-primary {
+  border-color: rgba(241, 196, 15, 0.55);
+  background: rgba(241, 196, 15, 0.16);
+}
+.btn-primary:hover {
+  background: rgba(241, 196, 15, 0.24);
+}
+
+/* ------------------------------ scrollbar */
+.custom-scrollbar {
+  scrollbar-gutter: stable;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(241, 196, 15, 0.22);
+  border-radius: 999px;
+  border: 2px solid rgba(0, 0, 0, 0);
+  background-clip: padding-box;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(241, 196, 15, 0.34);
+  background-clip: padding-box;
+}
+
+/* ------------------------------ corner decorations */
+.corner-decor {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  border: 2px solid rgba(241, 196, 15, 0.55);
+  opacity: 0.85;
+}
+.corner-decor.top-left {
+  top: 10px;
+  left: 10px;
+  border-right: none;
+  border-bottom: none;
+}
+.corner-decor.top-right {
+  top: 10px;
+  right: 10px;
+  border-left: none;
+  border-bottom: none;
+}
+.corner-decor.bottom-left {
+  bottom: 10px;
+  left: 10px;
+  border-right: none;
+  border-top: none;
+}
+.corner-decor.bottom-right {
+  bottom: 10px;
+  right: 10px;
+  border-left: none;
+  border-top: none;
+}
+

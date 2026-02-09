@@ -30,16 +30,16 @@ from engine.nodes.node_definition_loader import NodeDef
 from engine.nodes.node_registry import get_node_registry
 from engine.signal import SignalCodegenAdapter
 from engine.utils.name_utils import make_valid_identifier, sanitize_class_name
+from engine.utils.workspace import render_workspace_bootstrap_lines
 
 
 @dataclass(frozen=True, slots=True)
 class ExecutableCodegenOptions:
     """可执行代码生成选项（上层决定运行时导入与校验策略）。"""
 
-    import_mode: str = "local_prelude"
+    import_mode: str = "workspace_bootstrap"
     """导入模式：
-    - local_prelude：生成 `from _prelude import *`，由同目录的 `_prelude.py` 负责注入 sys.path 与 runtime/节点占位类型
-    - workspace_bootstrap：在生成文件内注入 sys.path（project_root/assets；不要注入 app），再导入 `runtime.engine.graph_prelude_*`
+    - workspace_bootstrap：在生成文件内注入 sys.path（project_root/assets；不要注入 app），再导入 `app.runtime.engine.graph_prelude_*`
     """
 
     enable_auto_validate: bool = True
@@ -50,14 +50,14 @@ class ExecutableCodegenOptions:
     - 实际是否执行校验由 `settings.RUNTIME_NODE_GRAPH_VALIDATION_ENABLED` 决定。
     """
 
-    prelude_module_server: str = "runtime.engine.graph_prelude_server"
-    prelude_module_client: str = "runtime.engine.graph_prelude_client"
+    prelude_module_server: str = "app.runtime.engine.graph_prelude_server"
+    prelude_module_client: str = "app.runtime.engine.graph_prelude_client"
     """workspace_bootstrap 模式下使用的 prelude 模块路径。"""
 
     validator_import_path: str = "engine.validate.node_graph_validator"
     """校验器模块路径（推荐使用引擎侧统一入口）。
 
-    备注：`runtime.engine.node_graph_validator` 仍会 re-export 引擎入口，旧代码可继续使用。
+    备注：`app.runtime.engine.node_graph_validator` 会 re-export 引擎入口，便于节点图源码通过稳定路径调用。
     """
 
 
@@ -127,13 +127,6 @@ class ExecutableCodeGenerator:
         options = self.options
         lines: List[str] = [""]
 
-        if options.import_mode == "local_prelude":
-            lines.append("# 最小化导入：使用同目录的 _prelude 透出运行时、节点函数与占位类型")
-            lines.append("from _prelude import *")
-            if options.enable_auto_validate:
-                lines.append(f"from {options.validator_import_path} import validate_node_graph")
-            return lines
-
         if options.import_mode != "workspace_bootstrap":
             raise ValueError(f"未知 import_mode: {options.import_mode}")
 
@@ -141,22 +134,12 @@ class ExecutableCodeGenerator:
             options.prelude_module_client if graph_type == "client" else options.prelude_module_server
         )
 
-        lines.append("# 让该文件可在任意工作目录下直接运行：注入 project_root/assets 到 sys.path（不要注入 app 目录）")
-        lines.append("import sys")
-        lines.append("from pathlib import Path")
-        lines.append("")
-        lines.append("PROJECT_ROOT = Path(__file__).resolve()")
-        lines.append("for _ in range(12):")
-        lines.append("    if (PROJECT_ROOT / 'pyrightconfig.json').exists():")
-        lines.append("        break")
-        lines.append("    if (PROJECT_ROOT / 'engine').exists() and (PROJECT_ROOT / 'app').exists():")
-        lines.append("        break")
-        lines.append("    PROJECT_ROOT = PROJECT_ROOT.parent")
-        lines.append("ASSETS_ROOT = PROJECT_ROOT / 'assets'")
-        lines.append("if str(PROJECT_ROOT) not in sys.path:")
-        lines.append("    sys.path.insert(0, str(PROJECT_ROOT))")
-        lines.append("if str(ASSETS_ROOT) not in sys.path:")
-        lines.append("    sys.path.insert(1, str(ASSETS_ROOT))")
+        lines.extend(
+            render_workspace_bootstrap_lines(
+                project_root_var="PROJECT_ROOT",
+                assets_root_var="ASSETS_ROOT",
+            )
+        )
         lines.append("")
         lines.append(f"from {prelude_module} import *  # noqa: F401,F403")
         lines.append(f"from {prelude_module} import GameRuntime")

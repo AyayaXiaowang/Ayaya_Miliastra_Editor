@@ -8,8 +8,15 @@ from engine.utils.logging.logger import log_info
     category="查询节点",
     outputs=[("输入设备类型", "枚举")],
     description="获得玩家的客户端输入设备类型，根据用户界面的映射方式决定",
-    doc_reference="客户端节点/查询节点/查询节点.md"
+    doc_reference="客户端节点/查询节点/查询节点.md",
+    output_enum_options={
+        "输入设备类型": [
+            "键盘鼠标",
+            "手柄",
+            "触屏",
+        ],
+    },
 )
 def 获得玩家客户端输入设备类型():
     """获得玩家的客户端输入设备类型，根据用户界面的映射方式决定"""
-    return None  # 输入设备类型
+    return "键盘鼠标"  # 输入设备类型

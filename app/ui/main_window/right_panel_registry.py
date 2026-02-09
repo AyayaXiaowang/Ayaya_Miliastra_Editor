@@ -14,6 +14,7 @@ from typing import Iterable
 from PyQt6 import QtWidgets
 
 from app.models.view_modes import ViewMode, RIGHT_PANEL_TABS
+from app.ui.main_window.right_panel_contracts import RightPanelVisibilityContract
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,66 @@ class RightPanelRegistry:
         panel = spec.widget
         if self._side_tab.indexOf(panel) != -1:
             self._side_tab.setCurrentWidget(panel)
+
+    def apply_visibility_contract(self, contract: RightPanelVisibilityContract) -> None:
+        """按合同一次性收敛右侧标签集：只保留 contract.keep_tab_ids，其余全部移除。
+
+        约定：
+        - keep_tab_ids 决定“允许存在”的集合；
+        - ensure_tab_ids 决定“必须显示”的集合（会按需插入）；
+        - preferred_tab_id 若可见，则 apply 后切换到它。
+
+        该方法用于将“收起别人的，展示自己的”行为配置化，避免散落在各事件入口里写
+        多处 ensure_visible(False)/removeTab 的互斥逻辑。
+        """
+        keep_set = {tab_id for tab_id in contract.keep_tab_ids if isinstance(tab_id, str) and tab_id}
+        ensure_set = {tab_id for tab_id in contract.ensure_tab_ids if isinstance(tab_id, str) and tab_id}
+        preferred_tab_id = (
+            str(contract.preferred_tab_id)
+            if isinstance(contract.preferred_tab_id, str) and contract.preferred_tab_id
+            else None
+        )
+
+        if not ensure_set.issubset(keep_set):
+            raise ValueError("RightPanelVisibilityContract.ensure_tab_ids 必须是 keep_tab_ids 的子集")
+
+        if preferred_tab_id is not None and preferred_tab_id not in keep_set:
+            raise ValueError("RightPanelVisibilityContract.preferred_tab_id 必须在 keep_tab_ids 中")
+
+        # 校验 tab_id 均已注册（尽早暴露配置错误）
+        for tab_id in keep_set | ensure_set:
+            if tab_id not in self._specs:
+                raise KeyError(f"未注册的右侧标签: {tab_id!r}")
+
+        # 1) 先移除所有不在 keep 中的已可见标签（从后往前删除，避免 index 漂移）
+        for index in range(self._side_tab.count() - 1, -1, -1):
+            widget = self._side_tab.widget(index)
+            visible_tab_id = self._find_tab_id_by_widget(widget)
+            if visible_tab_id is None:
+                continue
+            if visible_tab_id in keep_set:
+                continue
+            if self._side_tab.currentWidget() is widget and self._side_tab.count() > 1:
+                self._side_tab.setCurrentIndex(0)
+            self._side_tab.removeTab(index)
+
+        # 2) 再确保 ensure 中的标签全部存在
+        for tab_id in contract.ensure_tab_ids:
+            if not isinstance(tab_id, str) or not tab_id:
+                continue
+            spec = self._specs.get(tab_id)
+            if spec is None:
+                raise KeyError(f"未注册的右侧标签: {tab_id!r}")
+            if self._side_tab.indexOf(spec.widget) == -1:
+                self._side_tab.addTab(spec.widget, spec.title)
+
+        # 3) 最后按需切换到 preferred 标签（若可见）
+        if preferred_tab_id is not None:
+            preferred_spec = self._specs.get(preferred_tab_id)
+            if preferred_spec is not None and self._side_tab.indexOf(preferred_spec.widget) != -1:
+                self._side_tab.setCurrentWidget(preferred_spec.widget)
+
+        self.update_visibility()
 
     # ===== 模式应用与收敛 =====
 

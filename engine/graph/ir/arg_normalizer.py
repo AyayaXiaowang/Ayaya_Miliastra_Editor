@@ -142,13 +142,27 @@ def normalize_call_arguments(call_node: ast.Call, node_def: NodeDef) -> Normaliz
             pos_index += 1
 
     # 关键字参数
+    # - 端口别名兼容：若关键字参数使用历史端口名，则映射为当前端口名；
+    # - 若同一端口同时出现“当前名 + 历史名”，优先保留当前名，忽略历史名。
+    alias_to_canonical: Dict[str, str] = {}
+    input_aliases = getattr(node_def, "input_port_aliases", {}) or {}
+    if isinstance(input_aliases, dict) and input_aliases:
+        for canonical, aliases in input_aliases.items():
+            if not isinstance(canonical, str) or not isinstance(aliases, list):
+                continue
+            for alias in aliases:
+                if isinstance(alias, str) and alias:
+                    alias_to_canonical.setdefault(alias, canonical)
     for keyword in getattr(call_node, "keywords", []):
         name = keyword.arg
         if not name:
             continue
         if name.endswith("_callback"):
             continue
-        kw_mapped[name] = keyword.value
+        mapped = alias_to_canonical.get(name) or name
+        if mapped in kw_mapped and mapped != name:
+            continue
+        kw_mapped[mapped] = keyword.value
 
     return NormalizedArgs(
         positional=pos_mapped,

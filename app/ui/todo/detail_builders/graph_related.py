@@ -13,22 +13,313 @@ from app.ui.todo.detail_builders.shared_builders import (
     ParagraphBlock,
     ParagraphStyle,
     TableBlock,
-    build_simple_title_and_description_document,
+    build_collapsible_raw_section,
+    format_value_preview,
 )
 
 
-@register_detail_type("template_graph_root")
-@register_detail_type("event_flow_root")
 @register_detail_type("graph_create_node")
-@register_detail_type("graph_create_and_connect")
-@register_detail_type("graph_create_and_connect_reverse")
-def build_simple_graph_step_document(
+def build_graph_create_node_document(
     _context: TodoDetailBuildContext,
     todo: TodoItem,
-    _info: dict,
+    info: dict,
     _detail_type: str,
 ) -> DetailDocument:
-    return build_simple_title_and_description_document(todo)
+    document = DetailDocument()
+    section = DetailSection(title=str(todo.title), level=3)
+    if todo.description:
+        section.blocks.append(ParagraphBlock(text=str(todo.description), style=ParagraphStyle.NORMAL))
+
+    node_title = str(info.get("node_title") or "")
+    if node_title:
+        section.blocks.append(ParagraphBlock(text=f"节点：{node_title}", style=ParagraphStyle.EMPHASIS))
+    _append_graph_context_table(section, info)
+    section.blocks.append(build_collapsible_raw_section(title="原始数据（detail_info）", payload=info))
+    document.sections.append(section)
+    return document
+
+
+@register_detail_type("graph_create_and_connect")
+@register_detail_type("graph_create_and_connect_reverse")
+def build_graph_create_and_connect_document(
+    _context: TodoDetailBuildContext,
+    todo: TodoItem,
+    info: dict,
+    detail_type: str,
+) -> DetailDocument:
+    document = DetailDocument()
+    section = DetailSection(title=str(todo.title), level=3)
+    if todo.description:
+        section.blocks.append(ParagraphBlock(text=str(todo.description), style=ParagraphStyle.NORMAL))
+
+    prev_title = str(info.get("prev_node_title") or "")
+    node_title = str(info.get("node_title") or "")
+    arrow = "←" if detail_type == "graph_create_and_connect_reverse" else "→"
+    if prev_title or node_title:
+        section.blocks.append(
+            ParagraphBlock(
+                text=f"{prev_title} {arrow} {node_title}",
+                style=ParagraphStyle.EMPHASIS,
+            )
+        )
+    edge_id = str(info.get("edge_id") or "")
+    if edge_id:
+        section.blocks.append(
+            ParagraphBlock(text=f"edge_id：{edge_id}", style=ParagraphStyle.HINT)
+        )
+    _append_graph_context_table(section, info)
+    section.blocks.append(build_collapsible_raw_section(title="原始数据（detail_info）", payload=info))
+    document.sections.append(section)
+    return document
+
+
+def _append_graph_context_table(section: DetailSection, info: dict) -> None:
+    rows: List[List[str]] = []
+    graph_id = str(info.get("graph_id") or "")
+    if graph_id:
+        rows.append(["节点图ID", graph_id])
+
+    graph_name = str(info.get("graph_name") or "")
+    if graph_name:
+        rows.append(["节点图名", graph_name])
+
+    node_title = str(info.get("node_title") or "")
+    if node_title:
+        rows.append(["节点", node_title])
+    node_id = str(info.get("node_id") or "")
+    if node_id:
+        rows.append(["节点ID", node_id])
+
+    template_id = str(info.get("template_id") or "")
+    if template_id:
+        rows.append(["模板上下文", template_id])
+    instance_id = str(info.get("instance_id") or "")
+    if instance_id:
+        rows.append(["实例上下文", instance_id])
+
+    if rows:
+        section.blocks.append(TableBlock(headers=["字段", "值"], rows=rows))
+
+
+@register_detail_type("template_graph_root")
+def build_template_graph_root_document(
+    _context: TodoDetailBuildContext,
+    todo: TodoItem,
+    info: dict,
+    _detail_type: str,
+) -> DetailDocument:
+    document = DetailDocument()
+    section = DetailSection(title=str(todo.title), level=3)
+    if todo.description:
+        section.blocks.append(ParagraphBlock(text=str(todo.description), style=ParagraphStyle.NORMAL))
+
+    rows: List[List[str]] = []
+    graph_name = str(info.get("graph_name") or "")
+    if graph_name:
+        rows.append(["节点图", graph_name])
+    graph_id = str(info.get("graph_id") or "")
+    if graph_id:
+        rows.append(["graph_id", graph_id])
+    task_type = str(info.get("task_type") or "")
+    if task_type:
+        rows.append(["任务类型", task_type])
+    graph_data_key = str(info.get("graph_data_key") or "")
+    if graph_data_key:
+        rows.append(["graph_data_key", graph_data_key])
+    if rows:
+        section.blocks.append(TableBlock(headers=["字段", "值"], rows=rows))
+
+    section.blocks.append(
+        ParagraphBlock(
+            text="提示：该节点图下的具体步骤会在左侧树中展开；右侧预览可用于对照节点与连线。",
+            style=ParagraphStyle.HINT,
+        )
+    )
+    section.blocks.append(build_collapsible_raw_section(title="原始数据（detail_info）", payload=info))
+    document.sections.append(section)
+    return document
+
+
+@register_detail_type("event_flow_root")
+def build_event_flow_root_document(
+    _context: TodoDetailBuildContext,
+    todo: TodoItem,
+    info: dict,
+    _detail_type: str,
+) -> DetailDocument:
+    document = DetailDocument()
+    section = DetailSection(title=str(todo.title), level=3)
+    if todo.description:
+        section.blocks.append(ParagraphBlock(text=str(todo.description), style=ParagraphStyle.NORMAL))
+
+    rows: List[List[str]] = []
+    rows.append(["节点图ID", str(info.get("graph_id") or "")])
+    rows.append(["事件节点", str(info.get("event_node_title") or "")])
+    rows.append(["事件节点ID", str(info.get("event_node_id") or "")])
+    root_id = str(info.get("graph_root_todo_id") or "")
+    if root_id:
+        rows.append(["图根Todo", root_id])
+    task_type = str(info.get("task_type") or "")
+    if task_type:
+        rows.append(["任务类型", task_type])
+    section.blocks.append(TableBlock(headers=["字段", "值"], rows=rows))
+    section.blocks.append(
+        ParagraphBlock(
+            text="该事件流下的子步骤按顺序执行：创建节点 →（动态端口/类型/参数）→ 连线。",
+            style=ParagraphStyle.HINT,
+        )
+    )
+    document.sections.append(section)
+    return document
+
+
+@register_detail_type("graph_create_and_connect_data")
+def build_graph_create_and_connect_data_document(
+    _context: TodoDetailBuildContext,
+    todo: TodoItem,
+    info: dict,
+    _detail_type: str,
+) -> DetailDocument:
+    document = DetailDocument()
+    section = DetailSection(title=str(todo.title), level=3)
+    if todo.description:
+        section.blocks.append(ParagraphBlock(text=str(todo.description), style=ParagraphStyle.NORMAL))
+
+    target_title = str(info.get("target_node_title") or "")
+    data_title = str(info.get("data_node_title") or "")
+    if target_title or data_title:
+        section.blocks.append(
+            ParagraphBlock(
+                text=f"{target_title} ← {data_title}",
+                style=ParagraphStyle.EMPHASIS,
+            )
+        )
+
+    rows: List[List[str]] = []
+    rows.append(["目标节点ID", str(info.get("target_node_id") or "")])
+    rows.append(["数据节点ID", str(info.get("data_node_id") or "")])
+    rows.append(["edge_id", str(info.get("edge_id") or "")])
+    is_copy = bool(info.get("is_copy", False))
+    rows.append(["是否副本", "是" if is_copy else "否"])
+    original = str(info.get("original_node_id") or "")
+    if original:
+        rows.append(["原始节点ID", original])
+    section.blocks.append(TableBlock(headers=["字段", "值"], rows=rows))
+    _append_graph_context_table(section, info)
+    document.sections.append(section)
+    return document
+
+
+@register_detail_type("graph_connect")
+def build_graph_connect_document(
+    _context: TodoDetailBuildContext,
+    todo: TodoItem,
+    info: dict,
+    _detail_type: str,
+) -> DetailDocument:
+    document = DetailDocument()
+    section = DetailSection(title=str(todo.title), level=3)
+    if todo.description:
+        section.blocks.append(ParagraphBlock(text=str(todo.description), style=ParagraphStyle.NORMAL))
+
+    rows: List[List[str]] = []
+    rows.append(["源节点ID", str(info.get("src_node") or "")])
+    rows.append(["目标节点ID", str(info.get("dst_node") or "")])
+    rows.append(["源端口", str(info.get("src_port") or "")])
+    rows.append(["目标端口", str(info.get("dst_port") or "")])
+    rows.append(["edge_id", str(info.get("edge_id") or "")])
+    section.blocks.append(TableBlock(headers=["字段", "值"], rows=rows))
+    _append_graph_context_table(section, info)
+    document.sections.append(section)
+    return document
+
+
+@register_detail_type("graph_set_port_types_merged")
+def build_graph_set_port_types_merged_document(
+    _context: TodoDetailBuildContext,
+    todo: TodoItem,
+    info: dict,
+    _detail_type: str,
+) -> DetailDocument:
+    document = DetailDocument()
+    section = DetailSection(title=str(todo.title), level=3)
+
+    node_title = str(info.get("node_title", ""))
+    section.blocks.append(
+        ParagraphBlock(text=f"节点：{node_title}", style=ParagraphStyle.EMPHASIS)
+    )
+
+    params = info.get("params", []) or []
+    if isinstance(params, list) and params:
+        headers = ["端口/参数", "示例值（用于推断）"]
+        rows: List[List[str]] = []
+        for entry in params:
+            if not isinstance(entry, dict):
+                rows.append([format_value_preview(entry), "-"])
+                continue
+            name = str(entry.get("param_name") or "")
+            value = entry.get("param_value")
+            rows.append([name, format_value_preview(value)])
+        section.blocks.append(TableBlock(headers=headers, rows=rows))
+        section.blocks.append(
+            ParagraphBlock(
+                text="说明：该步骤用于为泛型端口选择具体类型；示例值仅用于推断提示，不一定需要在本步输入。",
+                style=ParagraphStyle.HINT,
+            )
+        )
+    else:
+        section.blocks.append(
+            ParagraphBlock(
+                text="该节点需要为输出侧泛型端口补齐类型（当前无示例值）。",
+                style=ParagraphStyle.HINT,
+            )
+        )
+
+    _append_graph_context_table(section, info)
+    document.sections.append(section)
+    return document
+
+
+@register_detail_type("graph_add_variadic_inputs")
+@register_detail_type("graph_add_dict_pairs")
+@register_detail_type("graph_add_branch_outputs")
+def build_graph_add_dynamic_ports_document(
+    _context: TodoDetailBuildContext,
+    todo: TodoItem,
+    info: dict,
+    detail_type: str,
+) -> DetailDocument:
+    document = DetailDocument()
+    section = DetailSection(title=str(todo.title), level=3)
+    if todo.description:
+        section.blocks.append(ParagraphBlock(text=str(todo.description), style=ParagraphStyle.NORMAL))
+
+    node_title = str(info.get("node_title") or "")
+    if node_title:
+        section.blocks.append(ParagraphBlock(text=f"节点：{node_title}", style=ParagraphStyle.EMPHASIS))
+
+    add_count = int(info.get("add_count", 0) or 0)
+    section.blocks.append(
+        ParagraphBlock(text=f"需要新增端口：{add_count} 个", style=ParagraphStyle.NORMAL)
+    )
+    tokens = info.get("port_tokens") or []
+    if isinstance(tokens, list) and tokens:
+        max_show = 30
+        rows: List[List[str]] = []
+        for token in tokens[:max_show]:
+            rows.append([format_value_preview(token, max_len=80)])
+        section.blocks.append(TableBlock(headers=["端口标记（预览）"], rows=rows))
+        if len(tokens) > max_show:
+            section.blocks.append(
+                ParagraphBlock(
+                    text="更多端口标记已省略（见下方“原始数据”折叠区）。",
+                    style=ParagraphStyle.HINT,
+                )
+            )
+    section.blocks.append(build_collapsible_raw_section(title=f"原始数据（{detail_type}）", payload=info))
+    _append_graph_context_table(section, info)
+    document.sections.append(section)
+    return document
 
 
 @register_detail_type("graph_config_node_merged")
@@ -54,10 +345,11 @@ def build_graph_config_node_document(
             rows.append(
                 [
                     str(parameter_information.get("param_name", "")),
-                    str(parameter_information.get("param_value", "")),
+                    format_value_preview(parameter_information.get("param_value")),
                 ]
             )
         section.blocks.append(TableBlock(headers=headers, rows=rows))
+        section.blocks.append(build_collapsible_raw_section(title="原始数据（params）", payload=parameters))
 
     document.sections.append(section)
     return document

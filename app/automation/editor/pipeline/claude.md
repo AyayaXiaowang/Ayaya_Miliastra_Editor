@@ -3,6 +3,9 @@
 
 ## 当前状态
 - `step_plans.py`：集中定义 graph_* 步骤的计划表（step_type → plan）与轻量 handler 绑定（handler 仅做业务委托）。
+- `step_plans.py` 已覆盖信号/结构体绑定步骤：`graph_bind_signal` / `graph_bind_struct` 均在此处绑定到 `app.automation.config.*_config.execute_bind_*`，保持“编排层只做委托、业务在 config/editor_* 模块内”的分层约束。
+- 连线链复用：`graph_connect` / `graph_connect_merged` 均会通过执行器的 connect_chain_context 复用首帧截图/节点检测/端口快照；仅在发生视口调度（同屏对齐/拖拽）或步骤失败时清理并触发重新截图，避免多条边重复 OCR/模板匹配。
+- 快速链连接优化：在 fast_chain_mode 下，连接步骤成功后不会强制失效场景快照（scene snapshot），避免执行线程的可见性/守卫检查对每一步重复触发整屏识别造成卡顿。
 - `recognition_prewarm.py`：连线前的识别预热（基于 executor 的 view token 判断是否需要刷新）。
 - `viewport_sync.py`：单步模式下的“可见节点坐标同步”（视口 token 变化才触发）。
 - `cache_policy.py`：步骤前后缓存失效策略（连线链上下文、视觉缓存、场景快照）。

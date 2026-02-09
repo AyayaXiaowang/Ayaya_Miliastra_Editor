@@ -1,14 +1,51 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Literal
 from datetime import datetime
+
+from .deprecated_metadata_writes import (
+    raise_deprecated_signal_bindings_write,
+    raise_deprecated_struct_bindings_write,
+)
 
 
 @dataclass
 class PortModel:
     name: str
     is_input: bool
+
+
+NodeDefRefKind = Literal["builtin", "composite", "event"]
+
+
+@dataclass(frozen=True)
+class NodeDefRef:
+    """稳定 NodeDef 引用（跨链路唯一定位键）。
+
+    约定：
+    - kind=builtin：key 必须为节点库 canonical key（见 `engine.nodes.get_canonical_node_def_key`）
+    - kind=composite：key 必须为复合节点稳定 id（即 composite_id）
+    - kind=event：key 为事件名；该 kind 不参与 NodeDef 解析，仅用于事件节点稳定标识
+    """
+
+    kind: NodeDefRefKind
+    key: str
+
+    def to_dict(self) -> Dict[str, str]:
+        return {"kind": str(self.kind), "key": str(self.key)}
+
+    @staticmethod
+    def from_dict(value: Any) -> "NodeDefRef":
+        if not isinstance(value, dict):
+            raise TypeError("NodeDefRef 反序列化失败：node_def_ref 必须为 dict")
+        kind = str(value.get("kind", "") or "").strip()
+        key = str(value.get("key", "") or "").strip()
+        if kind not in ("builtin", "composite", "event"):
+            raise ValueError(f"NodeDefRef 反序列化失败：kind 非法：{kind!r}")
+        if not key:
+            raise ValueError("NodeDefRef 反序列化失败：key 不能为空")
+        return NodeDefRef(kind=kind, key=key)  # type: ignore[arg-type]
 
 
 @dataclass
@@ -28,8 +65,15 @@ class NodeModel:
     id: str
     title: str
     category: str
+    # 稳定 NodeDef 引用（唯一真源；禁止 title/category 定位 NodeDef）
+    node_def_ref: Optional[NodeDefRef] = None
     inputs: List[PortModel] = field(default_factory=list)
     outputs: List[PortModel] = field(default_factory=list)
+    # 端口类型快照：用于 graph_cache 持久化与工具链/编辑器快速展示（不参与连线判定的单一真源）。
+    # 约定：key 为端口名，value 为中文类型名（如：整数/浮点数/字符串/布尔值/实体/流程/泛型...）。
+    # 推导失败属于配置/节点库缺陷，应在构建 graph_cache 时直接抛错，而不是静默回退。
+    input_types: Dict[str, str] = field(default_factory=dict)
+    output_types: Dict[str, str] = field(default_factory=dict)
     pos: Tuple[float, float] = (0.0, 0.0)
     # 输入常量（用于在UI上显示齿轮并可编辑）
     input_constants: Dict[str, Any] = field(default_factory=dict)
@@ -293,7 +337,7 @@ class GraphModel:
         并触发一次 GraphSemanticPass。
         """
         _ = (node_id, signal_id)
-        raise ValueError("禁止直接写入 metadata['signal_bindings']，请使用 GraphSemanticPass")
+        raise_deprecated_signal_bindings_write()
     
     def get_node_signal_id(self, node_id: str) -> Optional[str]:
         """获取指定节点当前绑定的信号ID（若未绑定则返回None）。"""
@@ -331,7 +375,7 @@ class GraphModel:
         与端口字段集合（动态字段端口），并触发一次 GraphSemanticPass。
         """
         _ = (node_id, binding)
-        raise ValueError("禁止直接写入 metadata['struct_bindings']，请使用 GraphSemanticPass")
+        raise_deprecated_struct_bindings_write()
     
     def get_node_struct_binding(self, node_id: str) -> Optional[Dict[str, Any]]:
         """获取指定节点当前绑定的结构体信息（若未绑定则返回None）。"""
@@ -465,8 +509,11 @@ class GraphModel:
                 id=n.id,
                 title=n.title,
                 category=n.category,
+                node_def_ref=n.node_def_ref,
                 inputs=[PortModel(name=p.name, is_input=True) for p in (n.inputs or [])],
                 outputs=[PortModel(name=p.name, is_input=False) for p in (n.outputs or [])],
+                input_types=dict(n.input_types) if getattr(n, "input_types", None) else {},
+                output_types=dict(n.output_types) if getattr(n, "output_types", None) else {},
                 pos=n.pos,
                 input_constants=dict(n.input_constants) if n.input_constants else {},
                 composite_id=n.composite_id,

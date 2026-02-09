@@ -1,67 +1,38 @@
 ## 目录用途
-- 存放各类“组件配置”的 Schema 与枚举定义，例如自定义变量组件、计时器组件、碰撞组件、背包组件、小地图组件等。
-- 提供结构化的配置数据模型（基于 `dataclass` 与 `Enum`），供管理面板与运行时读取/序列化使用，不直接承载具体关卡或元件实例数据。
+- 存放各类“组件配置”的 **Schema / 枚举 / 数据模型**（以 `dataclass` + `Enum` 为主），供管理配置、校验与运行时做读取/序列化/反序列化。
+- 本目录只关心“组件有哪些字段、字段类型与导出结构”，**不承载运行时逻辑或 UI 代码**。
 
 ## 当前状态
-- 变量组件：
-  - `variable_configs.py` 定义 `VariableDataType` 枚举以及 `CustomVariableConfig / CustomVariableComponentConfig`，用于描述实体上“自定义变量组件”的变量名、数据类型与默认值；规范中文类型名统一来自 `engine/type_registry.py`（避免与节点图变量/结构体/端口类型体系漂移），其中历史枚举值 `DICT_ALL` 作为“字典大类”选择项，落到规范类型名时统一映射为 `字典`。
-- 计时器组件、碰撞组件、状态组件、小地图组件、背包/掉落组件、挂接点组件、运动器组件、商店组件、命中检测组件等均在对应模块中以 dataclass+Enum 形式给出配置 Schema，作为管理面板的表单/表格字段来源。
+- **按功能拆分（单一职责）**：
+  - `variable_configs.py`：自定义变量组件（含 `VariableDataType`、`CustomVariableComponentConfig` 等）；变量中文类型名口径统一来自 `engine/type_registry.py`（历史 `DICT_ALL` 在规范侧统一映射为 `字典`）。
+  - `timer_configs.py`：计时器（含全局计时器/定时器）组件配置。
+  - `collision_configs.py`：碰撞/触发相关组件配置。
+  - `status_configs.py`：单位状态组件配置。
+  - `minimap_configs.py`：小地图标识组件配置。
+  - `backpack_configs.py`：背包/装备栏/战利品组件配置。
+  - `scan_tag_configs.py`：扫描标签组件配置。
+  - `motor_configs.py`：运动器组件配置（投射/跟随/基础/扰动装置等）。
+  - `shop_configs.py`：商店组件配置。
+  - `effect_configs.py`：特效播放组件配置。
+  - `hit_detection_configs.py`：命中检测组件配置。
+  - `ui_configs.py`：UI 组件配置（铭牌/气泡等）。
+  - `attach_point_configs.py`：挂接点组件配置。
+  - `tab_configs.py`：选项卡组件配置（可配置选项卡列表及过滤器挂载信息）。
+  - `component_registry.py`：通用组件注册表元数据（名称/说明/适用实体），供规则与 UI 通过统一入口获取组件类型列表与文案。
+  - `ui_control_group_model.py`：UI 布局/控件模板/控件配置模型（`UILayout` / `UIControlGroupTemplate` / `UIWidgetConfig`）：
+    - 模板支持 `supports_layout_visibility_override`，用于控制“界面布局”中是否允许对该模板做局部显隐覆盖；
+    - `extra` 用于保留未知字段，避免仅浏览/轻量编辑时丢失外部生成数据；
+    - 反序列化容错：缺少必需字段（如 `template_id`）时会 `warnings.warn` 并返回 `None`，由上层跳过该条目。
+    - 进度条预设默认颜色使用统一调色板（`engine.configs.specialized.ui_widget_configs.PROGRESSBAR_COLOR_GREEN_HEX`），避免与 UI 面板/写回工具口径漂移。
+  - `__init__.py`：汇总导出，作为对外稳定 API（外部优先从 `engine.configs.components` import）。
 
 ## 注意事项
-- 本目录仅存放“定义与 Schema”，不存放运行时逻辑或 UI 代码；运行时代码应通过 `engine.configs.components` 导出的类型读取配置。
-- 新增组件配置时，优先按“单一职责”拆分独立文件（例如 `xxx_configs.py`），并在 `__init__.py` 中显式导出需要对外暴露的枚举与配置类。
-- 保持与 `engine.configs.rules` 下的数据类型/实体规则等定义在语义上的一致性，例如变量/端口的中文类型名应与节点图端口类型体系保持统一。 
-## 目录用途
-存放通用组件及相关功能的配置数据类与枚举，例如自定义变量、计时器、全局计时器等组件的结构定义。这里的模块只关心“组件有哪些字段、如何序列化”，不直接参与运行时逻辑。
-
-## 当前状态
-- 以 `dataclass` 和枚举为主，配合规则与校验模块使用。
-- 结构设计贴近编辑器侧展示与导出格式，方便与资源配置、节点图系统对接。
-
-## 注意事项
-- 不在代码中暴露外部文档系统的具体路径或文件名，来源说明保持在“内部设计文档”等抽象层级。
-- 组件字段和枚举值应保持与编辑器/前端约定一致，避免随意重命名破坏兼容性。
-
-# Components 配置
-
-## 目录用途
-组件系统相关的数据类与 UI 控件组模型定义，支撑实体组件化能力与界面配置。
-
-## 文件结构（按功能聚合拆分）
-- `variable_configs.py`：自定义变量组件配置与枚举
-- `timer_configs.py`：计时器组件配置（全局计时器、定时器）
-- `collision_configs.py`：碰撞相关组件配置（触发器、触发源、额外碰撞）
-- `status_configs.py`：单位状态组件配置
-- `minimap_configs.py`：小地图标识组件配置
-- `backpack_configs.py`：背包、装备栏、战利品组件配置
-- `scan_tag_configs.py`：扫描标签组件配置
-- `motor_configs.py`：运动器组件配置（投射、跟随、基础、扰动装置）
-- `shop_configs.py`：商店组件配置
-- `effect_configs.py`：特效播放组件配置
-- `hit_detection_configs.py`：命中检测组件配置
-- `ui_configs.py`：UI 组件配置（铭牌、气泡），其中铭牌组件以 `NameplateConfig`/`NameplateDefinition`/`NameplateContent` 等数据类描述挂点、可见半径、本地过滤器类型与过滤器节点图 ID 以及具体显示内容，用于支撑实体头顶铭牌等 3D UI 表现
-- `attach_point_configs.py`：挂接点组件配置
-- `tab_configs.py`：选项卡组件配置，描述造物实体上的可配置选项卡列表（序号、初始生效、排序等级、图标），并支持为每个选项卡挂接本地过滤器类型与客户端本地过滤器节点图 ID，以按玩家条件决定“对谁显示/对谁不显示”
-- `component_registry.py`：通用组件注册表元数据（名称/说明/适用实体），供规则与 UI 通过统一入口获取组件类型列表与文案
-- `ui_control_group_model.py`：UI 布局、控件模板与控件配置模型
-- `__init__.py`：汇总导出所有组件配置，保持对外 API 不变
-
-## 面向开发者的要点
-- **功能聚合**：组件配置按功能模块拆分，便于维护和扩展
-- **枚举集中**：统一管理各类枚举以避免魔法值；便于 UI 选择与验证
-- **UI 模型**：与界面编辑器的结构保持一致，便于序列化与回显
-- **统一导出**：通过 `__init__.py` 统一导出，外部引用方式不变
-- **布局可见性**：`UILayout` 提供 `visibility_overrides` 字段记录每个控件组的局部显隐，以支撑布局面板在不修改模板本体的情况下定制显示。
-
-## 注意事项与边界条件
-- 字段更改需同步 UI 与验证器，确保配置能被正确编辑与校验
-- UI控件模板反序列化包含容错处理，缺少必需字段时会警告并跳过
-- 新增组件配置时，需在对应功能模块文件中添加，并在 `__init__.py` 中导出
-- 部分模块间存在依赖（如 motor_configs 依赖 collision_configs 的 TriggerArea）
-
-## 当前状态
-组件配置已按功能模块化拆分，并通过 `component_registry.py` 提供统一的通用组件元数据入口，规则与 UI 在查询组件类型和说明时不再各自维护列表；背包组件等简化配置以 `BackpackComponentConfig` 等类型为唯一入口，旧的类名别名不再在本目录导出。
+- 字段或枚举变更需同步：管理面板表单/回显、序列化兼容、校验规则口径（避免“文档/实现/数据格式”三方漂移）。
+- 避免在此目录硬编码外部文档路径或私有文件名，来源说明保持在“内部设计文档/专题文档”等抽象层级。
+- 部分模块间存在轻量依赖（例如 `motor_configs` 依赖 `collision_configs` 的类型）；新增依赖前先确认不会引入循环 import。
 
 ---
 
-注意：本文件不记录任何修改历史。请始终保持对"目录用途、当前状态、注意事项"的实时描述。
+注意：本文件不记录任何修改历史。请始终保持对“目录用途 / 当前状态 / 注意事项”的实时描述。
+
+

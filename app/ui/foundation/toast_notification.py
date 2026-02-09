@@ -1,7 +1,7 @@
 """Toast通知组件 - 非模态的角落提示框"""
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
+from app.ui.foundation.theme_manager import Colors
 
 
 _TOAST_POPUP_ENABLED: bool = False
@@ -63,11 +63,14 @@ class ToastNotification(QtWidgets.QWidget):
         # 彩色左边框
         border_widget = QtWidgets.QWidget()
         border_widget.setFixedWidth(4)
-        border_widget.setStyleSheet(f"background: {self._get_accent_color()}; border-radius: 2px;")
+        border_widget.setObjectName("toastBorder")
+        border_widget.setProperty("toastType", self.toast_type)
         content_layout.addWidget(border_widget)
         
         # 图标
         icon_label = QtWidgets.QLabel()
+        icon_label.setObjectName("toastIcon")
+        icon_label.setProperty("toastType", self.toast_type)
         icon_map = {
             "info": "ℹ",
             "warning": "⚠",
@@ -75,19 +78,15 @@ class ToastNotification(QtWidgets.QWidget):
             "success": "✓"
         }
         icon_label.setText(icon_map.get(self.toast_type, "ℹ"))
-        icon_label.setStyleSheet(f"font-size: {Sizes.FONT_LARGE}px; color: {self._get_accent_color()};")
         content_layout.addWidget(icon_label)
         
         # 消息文本
         message_label = QtWidgets.QLabel(self.message)
+        message_label.setObjectName("toastMessage")
         message_label.setWordWrap(True)
-        message_label.setStyleSheet(f"font-size: {Sizes.FONT_NORMAL}px; color: {Colors.TEXT_PRIMARY};")
         content_layout.addWidget(message_label, 1)
         
         main_layout.addWidget(content_widget)
-        
-        # 使用主题管理器的样式
-        content_widget.setStyleSheet(ThemeManager.toast_style())
         
         # 设置阴影效果
         shadow = QtWidgets.QGraphicsDropShadowEffect()

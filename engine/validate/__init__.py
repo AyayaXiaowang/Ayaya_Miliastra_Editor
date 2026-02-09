@@ -23,6 +23,10 @@ from .node_graph_validator import (
     validate_file,
 )
 from .composite_structural_checks import collect_composite_structural_issues
+from .graph_validation_orchestrator import (
+    ValidateGraphsOrchestrationOptions,
+    collect_validate_graphs_engine_issues,
+)
 
 __all__ = [
     "EngineIssue",
@@ -45,6 +49,8 @@ __all__ = [
     "validate_node_graph",
     "validate_file",
     "collect_composite_structural_issues",
+    "ValidateGraphsOrchestrationOptions",
+    "collect_validate_graphs_engine_issues",
 ]
 
  

@@ -33,6 +33,9 @@ Thumbs.db
 # Jupyter notebooks（只在本地使用，不进仓库）
 *.ipynb
 
+# Local scratch / temporary debug scripts
+.tmp_*.py
+
 # Project caches and local state
 runtime/cache/
 app/runtime/cache/
@@ -44,7 +47,7 @@ engine/app/runtime/cache/
 
 # Directory rules docs:
 # - Public directories: `claude.md` is versioned to document purpose/state/notes.
-# - Private directories: rely on the directory-level ignore rules below (docs/, projects/, assets/资源库/** ...).
+# - Private directories: rely on the directory-level ignore rules below (docs/**, projects/, assets/资源库/** ...).
 
 # 旧版 runtime 缓存路径（兼容历史）
 runtime/graph_cache/
@@ -52,12 +55,17 @@ runtime/resource_cache/
 runtime/node_cache/
 runtime/name_sync_state.json
 
-# 本地私有工程目录（不随仓库分发 / 展示型发布不公开）
-docs/
+# 本地私有工程目录（不随仓库分发）
+docs/**
 projects/
 
-# 本地私有打包脚本目录（不进仓库）
-tools/packaging/
+# 公开用户文档（从 docs/ 目录中精确放行）
+!docs/
+!docs/README.md
+!docs/用户必读.md
+!docs/claude.md
+
+# 打包与分发脚本（版本化；产物仍写入 release/ 并保持忽略）
 
 # ---------- 资源库上传策略 ----------
 # 默认忽略整个资源库内容
@@ -71,25 +79,19 @@ assets/资源库/**
 !assets/资源库/**/示例_*
 !assets/资源库/**/模板示例_*
 
-# 节点图前导脚本（生成的节点图代码会 `from _prelude import *` 依赖它；必须随仓库分发）
-!assets/资源库/节点图/server/_prelude.py
-!assets/资源库/节点图/server/_prelude.pyi
-!assets/资源库/节点图/client/_prelude.py
-!assets/资源库/节点图/client/_prelude.pyi
+# 节点图校验脚本 / 目录规则文档（精确白名单，避免扩大资源库入库范围）
+# - 节点图脚本已迁移为“workspace bootstrap + app.runtime.engine.graph_prelude_*”，不再依赖资源库内的 `_prelude.py/.pyi`
+# - 如需在某个节点图根目录放置 `校验节点图.py` 作为快捷入口，可放行该文件
+!assets/资源库/**/节点图/校验节点图.py
+!assets/资源库/共享/节点图/**/claude.md
 
-# 节点图快速校验脚本（便于只在资源库维度做校验）
-!assets/资源库/节点图/校验节点图.py
-
-# 节点图目录规则文档（只放行节点图相关 claude.md，避免扩大资源库入库范围）
-!assets/资源库/节点图/claude.md
-!assets/资源库/节点图/server/claude.md
-!assets/资源库/节点图/server/模板示例/claude.md
-!assets/资源库/节点图/client/claude.md
-!assets/资源库/节点图/client/技能节点图/claude.md
-!assets/资源库/节点图/client/本地过滤器节点图/claude.md
-
-# 明确白名单：复合节点模板（用于公开测试与示例）
-!assets/资源库/复合节点库/composite_多引脚模板_示例.py
+# ---------- 项目存档上传策略 ----------
+# 项目存档通常包含本地工作内容，默认不入库；仅版本化“示例项目模板”作为公开模板/回归基线。
+assets/资源库/项目存档/**
+!assets/资源库/项目存档/
+!assets/资源库/项目存档/示例项目模板/
+!assets/资源库/项目存档/示例项目模板/**/
+!assets/资源库/项目存档/示例项目模板/**
 
 # 但即使被白名单放行，也必须继续忽略编译产物与缓存目录/文件（否则会把 .pyc 等带进仓库）
 assets/资源库/**/__pycache__/
@@ -97,19 +99,48 @@ assets/资源库/**/*.py[cod]
 assets/资源库/**/*.pyo
 assets/资源库/**/*.pyd
 
-# 明确白名单：官方内置"信号/结构体全类型示例"及其功能包
-!assets/资源库/管理配置/结构体定义/struct_all_supported_types_example.py
-!assets/资源库/管理配置/信号/signal_all_supported_types_example.py
-!assets/资源库/地图索引/pkg_示例_信号全参数类型.json
-
-# 明确白名单：资源库全类型示例功能包索引
-!assets/资源库/功能包索引/pkg_示例_资源库全类型.json
+# 明确白名单：官方内置"信号/结构体全类型示例"
+!assets/资源库/共享/管理配置/结构体定义/基础结构体/全类型结构体示例.py
+!assets/资源库/共享/管理配置/信号/signal_all_supported_types_example.py
 
 # 明确白名单：模板示例节点图依赖的教学示例信号（用于 CI 回归）
-!assets/资源库/管理配置/信号/signal_example_pedal_switch_state.py
-!assets/资源库/管理配置/信号/signal_example_pedal_switch_activation_ack.py
+!assets/资源库/共享/管理配置/信号/signal_example_pedal_switch_state.py
+!assets/资源库/共享/管理配置/信号/signal_example_pedal_switch_activation_ack.py
 
 # 如需额外的测试资源，可以在此处增加精确白名单，例如：
 # !assets/资源库/实例/测试_关卡1.json
 # !assets/资源库/实例/测试用/**
+
+# Release artifacts (local build outputs)
+release/**
+!release/claude.md
+
+# Local scratch / generated artifacts (not versioned)
+tmp/**
+
+# Internal dev tools (not shipped / not versioned)
+tools/**
+
+
+
+
+# # Local private extensions (not shipped / not versioned)
+# private_extensions/**
+
+# # ---------- plugins 目录的版本化策略 ----------
+# # 目标：
+# # - `plugins/nodes/**` 作为公共“节点实现”是版本化内容；
+# # - `plugins/` 下的其它扩展（例如本地私有 UI 扩展）默认不入库，避免误提交。
+# plugins/**
+# !plugins/
+# !plugins/__init__.py
+# !plugins/claude.md
+# !plugins/nodes/
+# !plugins/nodes/**
+
+# # 但 `plugins/nodes/**` 被白名单放行后，仍必须继续忽略 Python 编译缓存
+# plugins/nodes/**/__pycache__/
+# plugins/nodes/**/*.py[cod]
+# plugins/nodes/**/*.pyo
+# plugins/nodes/**/*.pyd
 

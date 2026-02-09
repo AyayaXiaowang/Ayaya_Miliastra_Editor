@@ -113,6 +113,11 @@ class _PackageIndexManagerStub:
     def list_packages(self) -> list[dict]:
         return []
 
+    def get_resource_owner_root_id(self, *, resource_type: str, resource_id: str) -> str:
+        _ = resource_type
+        _ = resource_id
+        return ""
+
 
 class _AppStateStub:
     def __init__(self) -> None:
@@ -153,7 +158,7 @@ def test_management_special_panel_selection_is_parsed_only_once(monkeypatch: pyt
     monkeypatch.setattr(
         struct_definitions_data_module,
         "get_struct_payload",
-        lambda struct_id: {
+        lambda struct_id, _resource_manager=None: {
             "type": "结构体",
             "struct_ype": "ingame_save",
             "name": f"测试结构体_{struct_id}",

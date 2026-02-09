@@ -3,7 +3,7 @@ from __future__ import annotations
 # 仅用于类型检查工具（如 Pyright/Pylance）识别的“占位类型定义”。
 # 运行时无任何行为，仅提供名称以避免“未定义类型”提示。
 # 节点图验证统一由 `engine.validate.node_graph_validator` 提供；
-# runtime 侧（`runtime.engine.node_graph_validator` / `app.runtime.engine.node_graph_validator`）仅做 re-export。
+# runtime 侧（`app.runtime.engine.node_graph_validator`）仅做 re-export。
 #
 # 注意：为减少误报（例如 range(0, 行上界) 中行上界的类型检查错误），
 # 部分占位类型会继承对应的内置类型，使其在静态分析时具备基本的兼容性。

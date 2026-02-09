@@ -15,7 +15,8 @@ from .models import (
     deserialize_graph,
     get_content_hash,
     GraphConfig,
-    VariableConfig,
+    LevelVariableDefinition,
+    LevelVariableOverride,
     GraphVariableConfig,
     SignalParameterConfig,
     SignalConfig,
@@ -36,7 +37,8 @@ __all__ = [
     "deserialize_graph",
     "get_content_hash",
     "GraphConfig",
-    "VariableConfig",
+    "LevelVariableDefinition",
+    "LevelVariableOverride",
     "GraphVariableConfig",
     "SignalParameterConfig",
     "SignalConfig",
@@ -51,14 +53,26 @@ __all__ = [
 图代码解析与生成
 """
 
-from .graph_code_parser import GraphCodeParser, GraphParseError, validate_graph
+from .graph_code_parser import GraphCodeParser, GraphParseError, validate_graph_model
 from .composite_code_parser import CompositeCodeParser
+from .graph_code_reverse_generator import (
+    ReverseGraphCodeError,
+    ReverseGraphCodeOptions,
+    build_semantic_signature,
+    diff_semantic_signature,
+    generate_graph_code_from_model,
+)
 
 __all__ += [
     "GraphCodeParser",
     "GraphParseError",
     "CompositeCodeParser",
-    "validate_graph",
+    "validate_graph_model",
+    "ReverseGraphCodeError",
+    "ReverseGraphCodeOptions",
+    "generate_graph_code_from_model",
+    "build_semantic_signature",
+    "diff_semantic_signature",
 ]
 
 

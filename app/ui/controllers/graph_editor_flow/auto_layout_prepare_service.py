@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from engine.graph.models.graph_model import GraphModel
 from engine.resources.resource_manager import ResourceManager, ResourceType
 
 
@@ -23,17 +22,5 @@ class GraphEditorAutoLayoutPrepareService:
         if not isinstance(graph_data, dict) or not graph_data:
             return GraphReparseResult(graph_data=None)
         return GraphReparseResult(graph_data=graph_data)
-
-    def build_persistent_cache_payload(self, *, graph_id: str, model: GraphModel) -> dict:
-        graph_data = model.serialize()
-        return {
-            "graph_id": str(graph_id),
-            "name": graph_data.get("graph_name", str(graph_id)),
-            "graph_type": graph_data.get("metadata", {}).get("graph_type", "server"),
-            "folder_path": graph_data.get("metadata", {}).get("folder_path", ""),
-            "description": graph_data.get("description", ""),
-            "data": graph_data,
-            "metadata": {},
-        }
 
 

@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Set
 
 from PyQt6 import QtCore, QtWidgets
+from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtCore import Qt
 
 from app.models import TodoItem
@@ -12,6 +13,7 @@ from app.ui.todo.todo_tree import TodoTreeManager
 from app.ui.todo.todo_executor_bridge import TodoExecutorBridge
 from app.ui.todo.todo_context_menu import TodoContextMenu
 from app.ui.todo.todo_runtime_state import TodoRuntimeState
+from app.models.todo_detail_info_accessors import get_detail_type
 from app.ui.todo.recognition_backfill_planner import (
     plan_recognition_backfill,
     get_created_node_id_from_detail,
@@ -26,7 +28,7 @@ def _is_step_auto_checkable(detail_info: Optional[Dict]) -> bool:
     """
     if not isinstance(detail_info, dict):
         return False
-    detail_type = detail_info.get("type", "")
+    detail_type = get_detail_type(detail_info)
     return StepTypeRules.is_auto_checkable_step(detail_type)
 
 
@@ -177,6 +179,7 @@ class TodoListOrchestrator:
             host.RICH_SEGMENTS_ROLE,
             host,
             graph_expand_dependency_getter=self.ui_context.build_graph_expand_dependencies,
+            graph_data_service_getter=self.ui_context.get_graph_data_service,
         )
         host.preview_panel = TodoPreviewPanel(host.right_stack, self.ui_context)
         host.detail_panel = TodoDetailPanel(host.right_stack)
@@ -236,8 +239,6 @@ class TodoListOrchestrator:
     def load_todos(self, todos: List[TodoItem], todo_states: Dict[str, bool]) -> None:
         """加载任务列表并同步到树管理器（TodoTreeManager 作为集中数据源）。"""
         host = self.host
-        # 控制台提示：保留该行仅用于快速定位“任务清单是否完成装配并收到数据”
-        print(f"[TASK-LIST] load_todos: todos={len(todos)}, todo_states={len(todo_states)}")
         host.tree_manager.set_data(todos, todo_states)
         host._update_stats()
 
@@ -282,7 +283,7 @@ class TodoListOrchestrator:
         if not todo:
             return
         if settings.PREVIEW_VERBOSE:
-            detail_type = todo.detail_info.get("type", "") if todo.detail_info else ""
+            detail_type = get_detail_type(todo)
             print(
                 f"[PREVIEW] 选中任务: id={todo_id}, type={detail_type}, title={todo.title}"
             )
@@ -322,7 +323,7 @@ class TodoListOrchestrator:
 
         preview_panel.focus_on_node_group(block_node_ids)
 
-        monitor_panel = self.ui_context.try_get_execution_monitor_panel()
+        monitor_panel = self.ui_context.try_get_execution_monitor()
         workspace_path = self.ui_context.try_get_workspace_path()
         if monitor_panel is not None and workspace_path is not None:
             preview_panel.bind_monitor_panel(monitor_panel, workspace_path)
@@ -334,7 +335,7 @@ class TodoListOrchestrator:
         if not host.current_detail_info:
             host._notify("内部错误：当前详情为空，无法执行", "error")
             return
-        detail_type = host.current_detail_info.get("type", "")
+        detail_type = get_detail_type(host.current_detail_info)
         execution_profile = StepTypeRules.build_execution_profile(detail_type)
 
         # 1) 若当前详情语义为“叶子图步骤”，则严格按照单步执行处理：
@@ -369,7 +370,7 @@ class TodoListOrchestrator:
         if not host.current_detail_info:
             host._notify("内部错误：当前详情为空，无法执行", "error")
             return
-        detail_type = host.current_detail_info.get("type", "")
+        detail_type = get_detail_type(host.current_detail_info)
         execution_profile = StepTypeRules.build_execution_profile(detail_type)
 
         if execution_profile.is_leaf_graph_step:
@@ -405,8 +406,8 @@ class TodoListOrchestrator:
             host.current_todo_id = resolved_todo.todo_id
             host.current_detail_info = resolved_todo.detail_info
             # 如果是通过 graph_id 兜底找到的，尝试同步树选中状态
-            resolved_item = host.tree_manager.get_item_by_id(resolved_todo.todo_id)
-            if resolved_item is not None:
+            tree_manager = host.tree_manager
+            if tree_manager is not None:
                 current_item = host.tree.currentItem()
                 # 只在当前选中项不是解析结果时才同步
                 if (
@@ -414,11 +415,7 @@ class TodoListOrchestrator:
                     or current_item.data(0, Qt.ItemDataRole.UserRole)
                     != resolved_todo.todo_id
                 ):
-                    host.tree.setCurrentItem(resolved_item)
-                    host.tree.scrollToItem(
-                        resolved_item,
-                        QtWidgets.QAbstractItemView.ScrollHint.PositionAtCenter,
-                    )
+                    tree_manager.select_task_by_id(resolved_todo.todo_id)
 
         return resolved_todo
 
@@ -462,7 +459,21 @@ class TodoListOrchestrator:
 
         detail_type_for_expand = (todo.detail_info or {}).get("type", "")
         if StepTypeRules.is_template_graph_root(detail_type_for_expand) and not todo.children:
-            host.tree_manager.expand_graph_on_demand(todo)
+            # 超大图的步骤生成可能耗时较长：用进度条显式提示，并保证 UI 仍可继续浏览其它任务。
+            host.detail_panel.set_generation_progress(
+                0,
+                "正在生成节点图步骤…（你可以先浏览其它任务）",
+            )
+
+            def _on_expand_finished(success: bool) -> None:
+                # 仅当用户仍停留在该图根详情时才隐藏提示，避免误伤其它详情页状态
+                if str(getattr(host, "current_todo_id", "") or "") != str(todo.todo_id or ""):
+                    return
+                host.detail_panel.set_generation_loading_visible(False)
+                if not success:
+                    host._notify("节点图步骤生成失败：请检查节点图资源是否可加载/可解析", "error")
+
+            host.tree_manager.expand_graph_on_demand(todo, on_finished=_on_expand_finished)
 
         # 执行精简模式下：不加载/不切换节点图预览（避免占用空间与重载共享画布）
         if getattr(host, "execution_compact_mode_enabled", False):
@@ -480,7 +491,7 @@ class TodoListOrchestrator:
                 switched_to_preview = True
 
             if switched_to_preview:
-                monitor_panel = self.ui_context.try_get_execution_monitor_panel()
+                monitor_panel = self.ui_context.try_get_execution_monitor()
                 workspace_path = self.ui_context.try_get_workspace_path()
                 if monitor_panel is not None and workspace_path is not None:
                     host.preview_panel.bind_monitor_panel(monitor_panel, workspace_path)
@@ -488,7 +499,7 @@ class TodoListOrchestrator:
             else:
                 host.right_stack.setCurrentIndex(0)
 
-        detail_type = todo.detail_info.get("type", "") if todo.detail_info else ""
+        detail_type = get_detail_type(todo)
         execution_profile = StepTypeRules.build_execution_profile(detail_type)
 
         host.detail_panel.set_execute_visible(execution_profile.is_executable)
@@ -515,7 +526,7 @@ class TodoListOrchestrator:
                 f"flow_root={execution_profile.is_event_flow_root})"
             )
 
-        monitor_panel = self.ui_context.try_get_execution_monitor_panel()
+        monitor_panel = self.ui_context.try_get_execution_monitor()
         if monitor_panel is not None:
             # 精简模式下，执行入口集中在执行监控面板；详情/预览中的执行按钮隐藏以节省空间
             if getattr(host, "execution_compact_mode_enabled", False):
@@ -523,23 +534,17 @@ class TodoListOrchestrator:
                 host.preview_panel.set_execute_visible(False)
                 host.detail_panel.set_execute_remaining_visible(False)
                 host.preview_panel.set_execute_remaining_visible(False)
-                if hasattr(monitor_panel, "set_execute_visible"):
-                    monitor_panel.set_execute_visible(bool(execution_profile.is_executable))
-                if hasattr(monitor_panel, "set_execute_text"):
-                    monitor_panel.set_execute_text(execute_button_text)
-                if hasattr(monitor_panel, "set_execute_remaining_visible"):
-                    monitor_panel.set_execute_remaining_visible(bool(show_exec_remaining))
-                if hasattr(monitor_panel, "set_execute_remaining_text"):
-                    monitor_panel.set_execute_remaining_text(execute_remaining_text)
+                monitor_panel.set_execute_visible(bool(execution_profile.is_executable))
+                monitor_panel.set_execute_text(execute_button_text)
+                monitor_panel.set_execute_remaining_visible(bool(show_exec_remaining))
+                monitor_panel.set_execute_remaining_text(execute_remaining_text)
 
                 # 幂等绑定：监控面板“执行/执行剩余”按钮 → 本编排层的执行入口
                 if self._monitor_panel_for_execute_controls is not monitor_panel:
-                    if hasattr(monitor_panel, "execute_clicked"):
-                        monitor_panel.execute_clicked.connect(self.on_execute_clicked)
-                    if hasattr(monitor_panel, "execute_remaining_clicked"):
-                        monitor_panel.execute_remaining_clicked.connect(
-                            self.on_execute_remaining_clicked
-                        )
+                    monitor_panel.execute_clicked.connect(self.on_execute_clicked)
+                    monitor_panel.execute_remaining_clicked.connect(
+                        self.on_execute_remaining_clicked
+                    )
                     self._monitor_panel_for_execute_controls = monitor_panel
 
             parent_title = ""
@@ -561,20 +566,10 @@ class TodoListOrchestrator:
     ) -> Optional[QtWidgets.QTreeWidgetItem]:
         """选中指定任务（用于联动），返回对应树项。"""
         host = self.host
-        item = host.tree_manager.get_item_by_id(todo_id)
-        if item is None:
+        tree_manager = host.tree_manager
+        if tree_manager is None:
             return None
-        parent_item = item.parent()
-        while parent_item is not None:
-            parent_item.setExpanded(True)
-            parent_item = parent_item.parent()
-        already_selected = host.tree.currentItem() is item
-        if not already_selected:
-            host.tree.setCurrentItem(item)
-        host.tree.scrollToItem(
-            item, QtWidgets.QAbstractItemView.ScrollHint.PositionAtCenter
-        )
-        return item
+        return tree_manager.select_task_by_id(todo_id)
 
     def focus_task_from_external(
         self, todo_id: str, detail_info: Optional[dict] = None

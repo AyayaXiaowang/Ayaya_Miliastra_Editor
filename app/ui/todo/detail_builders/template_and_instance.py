@@ -15,6 +15,8 @@ from app.ui.todo.detail_builders.shared_builders import (
     ParagraphBlock,
     ParagraphStyle,
     TableBlock,
+    build_collapsible_raw_section,
+    format_value_preview,
 )
 
 
@@ -116,32 +118,23 @@ def build_graph_variables_document(
     _detail_type: str,
 ) -> DetailDocument:
     document = DetailDocument()
-    section = DetailSection(level=3)
+    section = DetailSection(title="配置节点图变量", level=3)
 
     hint_paragraph = "节点图变量是生命周期跟随节点图的局部变量，仅在当前节点图内可访问。"
     section.blocks.append(ParagraphBlock(text=hint_paragraph, style=ParagraphStyle.HINT))
 
-    variable_list = info.get("variables", [])
-    if variable_list:
-        headers = ["变量名", "类型", "默认值", "对外暴露", "说明"]
-        rows: List[List[str]] = []
-        for variable_information in variable_list:
-            description_text = variable_information.get("description", "") or "-"
-            is_exposed = bool(variable_information.get("is_exposed", False))
-            exposed_text = "是" if is_exposed else "否"
-            display_value = variable_information.get(
-                "display_value", variable_information.get("default_value", "")
-            )
-            rows.append(
-                [
-                    str(variable_information.get("name", "")),
-                    str(variable_information.get("variable_type", "")),
-                    str(display_value),
-                    exposed_text,
-                    str(description_text),
-                ]
-            )
-        section.blocks.append(TableBlock(headers=headers, rows=rows))
+    section.blocks.append(
+        ParagraphBlock(
+            text="已切换右侧面板：图属性 → 节点图变量。",
+            style=ParagraphStyle.EMPHASIS,
+        )
+    )
+    section.blocks.append(
+        ParagraphBlock(
+            text="说明：该步骤用于浏览变量清单；画布会保持显示，便于对照变量在节点图中的使用位置。",
+            style=ParagraphStyle.HINT,
+        )
+    )
 
     document.sections.append(section)
     return document
@@ -174,8 +167,9 @@ def build_template_components_document(
             if settings_mapping:
                 bullet_items: List[str] = []
                 for key, value in settings_mapping.items():
-                    bullet_items.append(f"{key}: {value}")
+                    bullet_items.append(f"{key}: {format_value_preview(value)}")
                 section.blocks.append(BulletListBlock(items=bullet_items))
+        section.blocks.append(build_collapsible_raw_section(title="原始数据（components）", payload=components))
 
     document.sections.append(section)
     return document

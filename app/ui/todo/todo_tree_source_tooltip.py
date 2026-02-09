@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.models import TodoItem
+from app.models.todo_detail_info_accessors import get_graph_id
+from app.runtime.services.graph_data_service import get_shared_graph_data_service
 from engine.graph.models.graph_model import GraphModel
-from engine.resources.resource_manager import ResourceType
 
 
 class TodoTreeSourceTooltipProvider:
@@ -21,6 +22,21 @@ class TodoTreeSourceTooltipProvider:
         self._graph_expand_dependency_getter = graph_expand_dependency_getter
         self._graph_source_lines_cache: Dict[str, List[str]] = {}
         self._source_tooltip_cache: Dict[str, str] = {}
+        # graph_id -> GraphModel（避免对每个 todo 反复 deserialize 导致卡顿）
+        self._graph_model_cache: Dict[str, GraphModel] = {}
+        # graph_id -> (graph_data, graph_file_path_display)
+        self._graph_payload_cache: Dict[str, Tuple[Dict[str, Any], str]] = {}
+
+    def _resolve_dependency_context(self) -> Tuple[Optional[Any], Optional[Any]]:
+        if self._graph_expand_dependency_getter is None:
+            return (None, None)
+        dependencies = self._graph_expand_dependency_getter()
+        if not isinstance(dependencies, tuple) or len(dependencies) < 2:
+            return (None, None)
+        _package = dependencies[0]
+        resource_manager = dependencies[1]
+        package_index_manager = dependencies[2] if len(dependencies) >= 3 else None
+        return (resource_manager, package_index_manager)
 
     def get_tooltip_for_todo(self, todo: TodoItem) -> str:
         """为图相关步骤构建源码定位提示（悬停时显示）。"""
@@ -28,40 +44,42 @@ class TodoTreeSourceTooltipProvider:
         if isinstance(cached, str):
             return cached
 
-        detail_info = todo.detail_info or {}
-        graph_id_raw = detail_info.get("graph_id", "")
-        graph_id = str(graph_id_raw or "")
+        graph_id = get_graph_id(todo)
         if not graph_id:
             self._source_tooltip_cache[todo.todo_id] = ""
             return ""
 
-        if self._graph_expand_dependency_getter is None:
-            self._source_tooltip_cache[todo.todo_id] = ""
-            return ""
-
-        dependencies = self._graph_expand_dependency_getter()
-        if not isinstance(dependencies, tuple) or len(dependencies) != 2:
-            self._source_tooltip_cache[todo.todo_id] = ""
-            return ""
-
-        _package, resource_manager = dependencies
+        resource_manager, package_index_manager = self._resolve_dependency_context()
         if resource_manager is None:
             self._source_tooltip_cache[todo.todo_id] = ""
             return ""
 
-        graph_payload = resource_manager.load_resource(ResourceType.GRAPH, graph_id)
-        if not graph_payload:
-            self._source_tooltip_cache[todo.todo_id] = ""
-            return ""
+        graph_data: Dict[str, Any]
+        file_display: str
+        cached_payload = self._graph_payload_cache.get(graph_id)
+        if cached_payload is not None:
+            graph_data, file_display = cached_payload
+        else:
+            graph_data_service = get_shared_graph_data_service(
+                resource_manager, package_index_manager
+            )
+            graph_config = graph_data_service.get_graph_config(graph_id)
+            if graph_config is None:
+                self._source_tooltip_cache[todo.todo_id] = ""
+                return ""
+            graph_data = graph_config.data
+            graph_file_path = resource_manager.get_graph_file_path(graph_id)
+            file_display = str(graph_file_path) if graph_file_path is not None else ""
+            self._graph_payload_cache[graph_id] = (graph_data, file_display)
 
-        graph_data = graph_payload.get("data", graph_payload)
-        model = GraphModel.deserialize(graph_data)
+        model = self._graph_model_cache.get(graph_id)
+        if model is None:
+            model = GraphModel.deserialize(graph_data)
+            self._graph_model_cache[graph_id] = model
 
         graph_file_path = resource_manager.get_graph_file_path(graph_id)
-        file_display = ""
-        if graph_file_path is not None:
-            file_display = str(graph_file_path)
 
+        detail_info = todo.detail_info or {}
         related_node_ids = self._collect_related_node_ids(detail_info)
         if not related_node_ids:
             if not file_display:

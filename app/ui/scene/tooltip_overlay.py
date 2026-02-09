@@ -74,6 +74,9 @@ class YDebugTooltipOverlay:
         self._highlight_manager = highlight_manager
         self._widget: Optional[QtWidgets.QFrame] = None
         self._label: Optional[QtWidgets.QLabel] = None
+        # 缓存：节点“导出到 GIA 时的从 1 开始序号”
+        self._export_index_model_id: int = 0
+        self._export_index_by_node_id: dict[str, int] = {}
 
     def open(self, node_id: str, anchor_scene_pos: QtCore.QPointF) -> None:
         debug_map = getattr(self._model_provider(), "_layout_y_debug_info", {}) or {}
@@ -108,6 +111,7 @@ class YDebugTooltipOverlay:
         self._highlight_manager.clear_chain_highlight()
         self.state.reset_tooltip_geometry()
         self.state.set_active_node(None)
+        # 不清空 export_index 缓存：同一张图频繁开关 tooltip 时可复用（model 变化会自动失效）
 
     def refresh(self) -> None:
         if not self._widget or not self._label or not self.state.active_node_id:
@@ -354,6 +358,9 @@ class YDebugTooltipOverlay:
                 )
             if node_id:
                 parts.append(f"<div>— 节点ID：{escape(str(node_id))}</div>")
+                export_index = self._get_gia_export_index_for_node_id(node_id)
+                if export_index is not None:
+                    parts.append(f"<div>— GIA序号：{int(export_index)}</div>")
 
         block_index = info.get("block_index")
         block_id = info.get("block_id")
@@ -404,8 +411,18 @@ class YDebugTooltipOverlay:
         )
         if any_candidate:
             parts.append("<div style='margin-top:6px;'>— 位置依据（候选值，仅供理解）：</div>")
+            column_bottom_label = "同列之下的安全起点（列底）"
+            is_pre_layout_column_bottom = False
+            if isinstance(final_y, (int, float)) and isinstance(column_bottom, (int, float)):
+                # 当最终Y显著高于（更靠上）列底候选时，通常说明节点经历了块内数据Y松弛，
+                # 当前位置不再受“初排时的列底”约束。此处改为明确标注“初排”避免误解。
+                if float(final_y) + 0.1 < float(column_bottom):
+                    column_bottom_label = "同列之下的安全起点（列底，初排）"
+                    is_pre_layout_column_bottom = True
             if column_bottom is not None:
-                parts.append(f"<div style='margin-left:1.5em;'>· 同列之下的安全起点（列底）：{fmt_y(column_bottom)}</div>")
+                parts.append(
+                    f"<div style='margin-left:1.5em;'>· {column_bottom_label}：{fmt_y(column_bottom)}</div>"
+                )
             if chain_port is not None:
                 parts.append(f"<div style='margin-left:1.5em;'>· 对齐右侧关联端口（端口位置+间距）：{fmt_y(chain_port)}</div>")
             if chain_port_min is not None:
@@ -416,9 +433,52 @@ class YDebugTooltipOverlay:
                 parts.append(f"<div style='margin-left:1.5em;'>· 多输出时优先使用中点：{fmt_y(multi_mid)}</div>")
             if base_y is not None:
                 parts.append(f"<div style='margin-left:1.5em;'>· 候选合并后的基础结果：{fmt_y(base_y)}</div>")
+            if is_pre_layout_column_bottom:
+                parts.append(
+                    "<div style='margin-top:4px; color:"
+                    f"{Colors.TEXT_SECONDARY};'>"
+                    "提示：该节点最终位置可能经过块内数据Y松弛调整；“列底，初排”仅用于理解初始候选。</div>"
+                )
         if info.get("forced_by_multi_targets"):
             parts.append("<div>— 本节点受到“多输出中点优先”规则影响。</div>")
         return "".join(parts)
+
+    def _get_gia_export_index_for_node_id(self, node_id: str) -> int | None:
+        """
+        计算节点在“导出到 .gia 时的稳定序号”（从 1 开始）。
+
+        口径：
+        - 与 `ugc_file_tools.node_graph_writeback.layout._sort_graph_nodes_for_stable_ids` 一致：按 (y,x,title,node_id) 排序。
+        - 仅用于 UI 展示/搜索定位；不影响布局与撤销语义。
+        """
+        model = self._model_provider()
+        if model is None:
+            return None
+        nodes_dict = getattr(model, "nodes", None)
+        if not isinstance(nodes_dict, dict) or not nodes_dict:
+            return None
+
+        current_model_id = int(id(model))
+        if current_model_id != int(self._export_index_model_id):
+            self._export_index_model_id = int(current_model_id)
+            self._export_index_by_node_id = {}
+
+            rows: list[tuple[float, float, str, str]] = []
+            for nid, node_obj in nodes_dict.items():
+                nid_text = str(nid or "")
+                title = str(getattr(node_obj, "title", "") or "").strip()
+                pos_value = getattr(node_obj, "pos", (0.0, 0.0))
+                x = float(pos_value[0]) if isinstance(pos_value, (list, tuple)) and len(pos_value) >= 2 else 0.0
+                y = float(pos_value[1]) if isinstance(pos_value, (list, tuple)) and len(pos_value) >= 2 else 0.0
+                rows.append((float(y), float(x), str(title), str(nid_text)))
+
+            rows.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
+            for idx, (_y, _x, _title, nid_text) in enumerate(rows, start=1):
+                if nid_text:
+                    self._export_index_by_node_id[str(nid_text)] = int(idx)
+
+        value = self._export_index_by_node_id.get(str(node_id or ""))
+        return int(value) if isinstance(value, int) and value > 0 else None
 
     def _render_chain_list(self, chains) -> list[str]:
         parts: list[str] = []

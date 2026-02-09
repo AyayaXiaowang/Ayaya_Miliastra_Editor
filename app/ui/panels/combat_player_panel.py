@@ -75,9 +75,6 @@ class CombatPlayerEditorPanel(PanelScaffold, CombatPlayerPanelSectionsMixin):
         )
         self._package_membership_widget: Optional[QtWidgets.QWidget] = None
         self.package_selector: Optional[PackageMembershipSelector] = None
-        # “所属存档”反向索引缓存：避免每次切换玩家模板都遍历并读取全部存档索引文件。
-        self._player_template_membership_signature: Optional[tuple[tuple[str, str], ...]] = None
-        self._player_template_membership_cache: Dict[str, set[str]] = {}
 
         # 节点图相关上下文与服务（复用元件/实例面板的 GraphsTab 实现）
         self._graph_service = TemplateInstanceService()
@@ -187,7 +184,7 @@ class CombatPlayerEditorPanel(PanelScaffold, CombatPlayerPanelSectionsMixin):
         self._set_package_membership_visible(False)
 
     def _update_package_membership_ui(self) -> None:
-        """根据 PackageIndex 刷新玩家模板的所属存档多选下拉。"""
+        """根据物理文件位置刷新玩家模板的所属存档单选下拉。"""
         manager = self.package_index_manager
         selector = self.package_selector
         template_id = self.current_template_id
@@ -201,83 +198,32 @@ class CombatPlayerEditorPanel(PanelScaffold, CombatPlayerPanelSectionsMixin):
             self._clear_package_membership_ui()
             return
 
-        self._ensure_player_template_membership_cache(manager, packages)
-        membership = set(self._player_template_membership_cache.get(template_id, set()))
+        owner_id = manager.get_resource_owner_root_id(
+            resource_type="combat_player_templates",
+            resource_id=template_id,
+        )
+        membership: set[str] = {owner_id} if owner_id else set()
 
         selector.set_packages(packages)
         selector.set_membership(membership)
         self._set_package_membership_visible(True)
 
-    @staticmethod
-    def _build_membership_signature(packages: list[dict]) -> tuple[tuple[str, str], ...]:
-        normalized: list[tuple[str, str]] = []
-        for pkg in packages:
-            package_id_value = pkg.get("package_id")
-            if not isinstance(package_id_value, str) or not package_id_value:
-                continue
-            updated_at_value = pkg.get("updated_at", "")
-            updated_at = str(updated_at_value) if updated_at_value is not None else ""
-            normalized.append((package_id_value, updated_at))
-        normalized.sort(key=lambda pair: pair[0])
-        return tuple(normalized)
-
-    def _ensure_player_template_membership_cache(
-        self,
-        manager: PackageIndexManager,
-        packages: list[dict],
-    ) -> None:
-        signature = self._build_membership_signature(packages)
-        if self._player_template_membership_signature == signature and self._player_template_membership_cache:
-            return
-        self._player_template_membership_signature = signature
-        self._player_template_membership_cache = {}
-
-        for package_info in packages:
-            package_id_value = package_info.get("package_id")
-            if not isinstance(package_id_value, str) or not package_id_value:
-                continue
-            package_id = package_id_value
-
-            resources = manager.get_package_resources(package_id)
-            if not resources:
-                continue
-            preset_ids_any = resources.combat_presets.get("player_templates", [])
-            if not isinstance(preset_ids_any, list):
-                continue
-
-            for preset_id in preset_ids_any:
-                if not isinstance(preset_id, str) or not preset_id:
-                    continue
-                self._player_template_membership_cache.setdefault(preset_id, set()).add(package_id)
-
     def _on_package_membership_changed(self, package_id: str, is_checked: bool) -> None:
-        """所属存档复选变化：写回 PackageIndex.combat_presets.player_templates。"""
+        """所属存档选择变化：移动玩家模板资源文件到目标根目录。"""
         manager = self.package_index_manager
         template_id = self.current_template_id
         if manager is None or not package_id or not template_id:
             return
+        if not bool(is_checked):
+            return
 
-        if is_checked:
-            manager.add_resource_to_package(
-                package_id,
-                "combat_player_templates",
-                template_id,
-            )
-        else:
-            manager.remove_resource_from_package(
-                package_id,
-                "combat_player_templates",
-                template_id,
-            )
-
-        # 同步内存缓存，避免下次 set_context 又全量扫描全部存档索引文件。
-        membership = self._player_template_membership_cache.setdefault(template_id, set())
-        if is_checked:
-            membership.add(package_id)
-        else:
-            membership.discard(package_id)
-        packages = manager.list_packages()
-        self._player_template_membership_signature = self._build_membership_signature(packages)
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="combat_player_templates",
+            resource_id=template_id,
+        )
+        if previous_owner and previous_owner == package_id:
+            return
+        manager.move_resource_to_root(package_id, "combat_player_templates", template_id)
 
         # 若当前上下文是具体存档视图，刷新其战斗预设缓存，确保列表立即反映归属变化
         current_pkg = self.current_package

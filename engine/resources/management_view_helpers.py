@@ -21,6 +21,7 @@ MANAGEMENT_FIELD_TO_RESOURCE_TYPE: dict[str, ResourceType] = {
     "shop_templates": ResourceType.SHOP_TEMPLATE,
     "ui_layouts": ResourceType.UI_LAYOUT,
     "ui_widget_templates": ResourceType.UI_WIDGET_TEMPLATE,
+    "ui_pages": ResourceType.UI_PAGE,
     "multi_language": ResourceType.MULTI_LANGUAGE,
     "main_cameras": ResourceType.MAIN_CAMERA,
     "light_sources": ResourceType.LIGHT_SOURCE,

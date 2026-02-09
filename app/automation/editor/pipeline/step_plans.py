@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, Optional
 from PIL import Image
 
 from app.automation.config.signal_config import execute_bind_signal
+from app.automation.config.struct_config import execute_bind_struct
 from app.automation.editor import editor_connect, editor_nodes
 from engine.graph.models.graph_model import GraphModel
 
@@ -31,6 +32,7 @@ from ..automation_step_types import (
     GRAPH_STEP_ADD_BRANCH_OUTPUTS,
     GRAPH_STEP_CONFIG_BRANCH_OUTPUTS,
     GRAPH_STEP_BIND_SIGNAL,
+    GRAPH_STEP_BIND_STRUCT,
 )
 
 
@@ -90,7 +92,19 @@ def _handle_graph_connect(
     allow_continue,
     visual_callback,
 ) -> bool:
-    return editor_connect.execute_connect(
+    # 连续连接：允许跨多个 graph_connect 步骤复用同一帧 screenshot + 节点/端口快照，
+    # 避免“每连一条边就全图 OCR/模板匹配一次”。
+    reuse_context = executor.begin_connect_chain_step()
+    if not reuse_context:
+        reuse_context = {
+            "node_snapshots": {},
+            "screenshot": None,
+        }
+    else:
+        reuse_context.setdefault("node_snapshots", {})
+        reuse_context.setdefault("screenshot", None)
+
+    ok = editor_connect.execute_connect(
         executor,
         todo_item,
         graph_model,
@@ -98,7 +112,10 @@ def _handle_graph_connect(
         pause_hook,
         allow_continue,
         visual_callback,
+        reuse_context=reuse_context,
     )
+    executor.complete_connect_chain_step(reuse_context, ok)
+    return bool(ok)
 
 
 def _handle_graph_create_and_connect(
@@ -156,8 +173,10 @@ def _handle_graph_connect_merged(
     from app.automation.input import win_input
 
     orig_x, orig_y = editor_capture.get_cursor_pos()
-    # 复用链上下文仅用于保留节点级快照等结构化信息，
-    # 截图与检测结果会在每条连线前强制清理，以便重新截图并识别端口位置。
+    # 合并连线：允许在多条边之间复用同一帧 screenshot + 节点/端口快照，
+    # 即使画面已出现连线变化也不强制重新识别（避免重复 OCR/模板匹配，并避免鼠标遮挡导致识别漂移）。
+    # 若执行过程中发生视口调度/视口变化，底层 `editor_connect` 会显式清理 reuse_context，
+    # 触发重新截图与重新定位，保证跨视口场景仍然可靠。
     reuse_context = executor.begin_connect_chain_step()
     if not reuse_context:
         reuse_context = {
@@ -170,12 +189,6 @@ def _handle_graph_connect_merged(
 
     ok_all = True
     for edge_info in edges_list:
-        # 每条连线开始前显式丢弃上一条连线产生的截图与检测缓存，
-        # 确保当前连线在最新画面上重新截图并识别端口位置。
-        if reuse_context is not None:
-            for key in ("screenshot", "screenshot_token", "detected_nodes", "detected_nodes_token"):
-                if key in reuse_context:
-                    reuse_context.pop(key, None)
         edge_payload = {
             "type": "graph_connect",
             "src_node": node1_id,
@@ -343,6 +356,26 @@ def _handle_graph_bind_signal(
     )
 
 
+def _handle_graph_bind_struct(
+    executor,
+    todo_item: Dict[str, Any],
+    graph_model: GraphModel,
+    log_callback,
+    pause_hook,
+    allow_continue,
+    visual_callback,
+) -> bool:
+    return execute_bind_struct(
+        executor,
+        todo_item,
+        graph_model,
+        log_callback,
+        pause_hook,
+        allow_continue,
+        visual_callback,
+    )
+
+
 STEP_PLANS: Dict[str, StepExecutionPlan] = {
     GRAPH_STEP_CREATE_NODE: StepExecutionPlan(
         handler=_handle_graph_create_node,
@@ -394,6 +427,10 @@ STEP_PLANS: Dict[str, StepExecutionPlan] = {
     ),
     GRAPH_STEP_BIND_SIGNAL: StepExecutionPlan(
         handler=_handle_graph_bind_signal,
+        requires_connect_prepare=True,
+    ),
+    GRAPH_STEP_BIND_STRUCT: StepExecutionPlan(
+        handler=_handle_graph_bind_struct,
         requires_connect_prepare=True,
     ),
 }

@@ -43,7 +43,9 @@ def resolve_graph_preview_context(
             if isinstance(graph_id_candidate, str) and graph_id_candidate:
                 graph_id = graph_id_candidate
 
-            loaded = tree_manager.load_graph_data_for_root(root_todo_for_tree)
+            # 重要：此处只允许读取“进程内 payload 缓存”（graph_data_key），禁止在 UI 线程同步触发磁盘加载。
+            # 磁盘加载应由预览面板在后台线程完成（避免超大图导致进入任务清单/切换步骤时 UI 卡死）。
+            loaded = graph_data_service.resolve_payload_graph_data(root_info)
             if isinstance(loaded, dict) and ("nodes" in loaded or "edges" in loaded):
                 graph_data = loaded
 

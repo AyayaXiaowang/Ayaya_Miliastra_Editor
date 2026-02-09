@@ -112,6 +112,10 @@ class EditorExecutorViewStateMixin:
         # 同步清理“视口识别阶段”缓存的首帧截图与检测结果，避免在视口变化后误用旧画面。
         self._last_recognition_screenshot = None
         self._last_recognition_detected = None
+        # 视口变化会使“基于点击 ROI 识别得到的节点快照预热”整体失效
+        prefilled_cache = getattr(self, "_prefilled_node_ports_snapshots", None)
+        if isinstance(prefilled_cache, dict):
+            prefilled_cache.clear()
 
     def mark_view_changed(self, reason: str = "") -> None:
         """标记视口发生变化，由执行步骤或上层在拖拽/缩放后调用。"""
@@ -166,5 +170,83 @@ class EditorExecutorViewStateMixin:
                 f"↻ 已清空节点创建记录：移除 {cleared_count} 个残留记录（新一轮执行）",
                 log_callback,
             )
+
+    def seed_created_nodes(self, node_ids: list[str], log_callback=None) -> None:
+        """将“图模板原生存在的锚点节点”写入创建 tracking。
+
+        用途：
+        - 当某些节点在新建图时由编辑器自动生成（如 client 的起点/终点锚点），
+          任务清单不会再为其生成 create_node 步骤；
+        - 为了让后续创建步骤仍能优先使用这些节点作为“创建锚点”，需要在执行开始时
+          将其 node_id 预先写入 `_created_node_history/_created_node_lookup`。
+        """
+        if not isinstance(node_ids, list) or not node_ids:
+            return
+        added = 0
+        for node_id in node_ids:
+            node_id_text = str(node_id or "").strip()
+            if not node_id_text:
+                continue
+            if node_id_text in self._created_node_lookup:
+                continue
+            self._created_node_history.append(node_id_text)
+            self._created_node_lookup.add(node_id_text)
+            added += 1
+        if added > 0:
+            self._log(
+                f"· 已预置锚点节点到创建 tracking：{added} 个",
+                log_callback,
+            )
+
+    # ===== 创建节点后的快照预热（ROI识别结果） =====
+    def _ensure_prefilled_node_ports_snapshot_cache(
+        self,
+    ) -> Dict[str, Tuple[int, Image.Image, Tuple[int, int, int, int], list[Any]]]:
+        cache = getattr(self, "_prefilled_node_ports_snapshots", None)
+        if not isinstance(cache, dict):
+            cache = {}
+            setattr(self, "_prefilled_node_ports_snapshots", cache)
+        return cache
+
+    def prefill_node_ports_snapshot(
+        self,
+        node_id: str,
+        screenshot: Image.Image,
+        node_bbox: Tuple[int, int, int, int],
+        ports: list[Any],
+    ) -> None:
+        """写入“节点快照预热”缓存（由创建节点步骤写入，供后续端口/参数步骤复用）。"""
+        node_id_text = str(node_id or "").strip()
+        if node_id_text == "":
+            return
+        bbox_x, bbox_y, bbox_w, bbox_h = node_bbox
+        if int(bbox_w) <= 0 or int(bbox_h) <= 0:
+            return
+        cache = self._ensure_prefilled_node_ports_snapshot_cache()
+        cache[node_id_text] = (
+            int(self._view_state_token),
+            screenshot,
+            (int(bbox_x), int(bbox_y), int(bbox_w), int(bbox_h)),
+            list(ports),
+        )
+
+    def consume_prefilled_node_ports_snapshot(
+        self,
+        node_id: str,
+    ) -> Optional[Tuple[Image.Image, Tuple[int, int, int, int], list[Any]]]:
+        """消费并移除“节点快照预热”缓存；若视口 token 不一致则丢弃并返回 None。"""
+        node_id_text = str(node_id or "").strip()
+        if node_id_text == "":
+            return None
+        cache = getattr(self, "_prefilled_node_ports_snapshots", None)
+        if not isinstance(cache, dict):
+            return None
+        cached = cache.pop(node_id_text, None)
+        if cached is None:
+            return None
+        cached_view_token, cached_screenshot, cached_bbox, cached_ports = cached
+        if int(cached_view_token) != int(self._view_state_token):
+            return None
+        return cached_screenshot, cached_bbox, list(cached_ports)
 
 

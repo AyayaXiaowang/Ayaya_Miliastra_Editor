@@ -43,14 +43,30 @@ class PackageLike(Protocol):
     updated_at: str
     todo_states: Dict[str, bool]
 
-    templates: Dict[str, TemplateConfig]
-    instances: Dict[str, InstanceConfig]
-    combat_presets: CombatPresets
-    management: ManagementData
-    signals: Dict[str, SignalConfig]
+    @property
+    def templates(self) -> Dict[str, TemplateConfig]:
+        ...
+
+    @property
+    def instances(self) -> Dict[str, InstanceConfig]:
+        ...
+
+    @property
+    def combat_presets(self) -> CombatPresets:
+        ...
+
+    @property
+    def management(self) -> ManagementData:
+        ...
+
+    @property
+    def signals(self) -> Dict[str, SignalConfig]:
+        ...
 
     # 关卡实体：具体类型由实现决定，可以是模板也可以是实例
-    level_entity: object | None
+    @property
+    def level_entity(self) -> object | None:
+        ...
 
     def get_template(self, template_id: str) -> Optional[TemplateConfig]:
         ...

@@ -37,7 +37,11 @@ from .mouse_ops import (
     click_right_button,
     drag_left_button,
     drag_right_button,
-    get_cursor_pos
+    drag_left_button_timed,
+    drag_right_button_timed,
+    get_cursor_pos,
+    move_mouse,
+    scroll_wheel,
 )
 from .utils import (
     get_window_rect,
@@ -84,7 +88,11 @@ __all__ = [
     'click_right_button',
     'drag_left_button',
     'drag_right_button',
+    'drag_left_button_timed',
+    'drag_right_button_timed',
     'get_cursor_pos',
+    'move_mouse',
+    'scroll_wheel',
     # 工具函数
     'get_window_rect',
     'input_text',

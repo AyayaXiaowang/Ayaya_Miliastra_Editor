@@ -13,11 +13,14 @@ from engine.graph.utils.metadata_extractor import (
     extract_graph_variables_from_ast,
     extract_metadata_from_docstring,
 )
+from engine.utils.graph_path_inference import infer_graph_type_and_folder_path
+from engine.utils.source_text import read_text
 
 
 @lru_cache(maxsize=256)
 def read_source(file_path: Path) -> str:
-    return file_path.read_text(encoding="utf-8")
+    # 兼容 Windows 常见的 UTF-8 BOM，避免 ast.parse 因 U+FEFF 失败
+    return read_text(file_path)
 
 
 @lru_cache(maxsize=256)
@@ -91,11 +94,11 @@ def infer_graph_scope(ctx: "ValidationContext") -> str:
         return "server"
 
     # 1) 路径快速推断（最稳定且无需依赖 docstring 格式）
-    normalized_path = ctx.file_path.as_posix().lower()
-    if "/assets/资源库/节点图/client/" in normalized_path:
-        return "client"
-    if "/assets/资源库/节点图/server/" in normalized_path:
-        return "server"
+    # 目录结构约定：<资源根>/节点图/<server|client>/...
+    # 其中 <资源根> 可以是：assets/资源库/共享/ 或 assets/资源库/项目存档/<package_id>/
+    inferred_type, _ = infer_graph_type_and_folder_path(ctx.file_path)
+    if inferred_type:
+        return inferred_type
 
     # 2) docstring 回退：graph_type / scope
     tree = get_cached_module(ctx)

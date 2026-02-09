@@ -203,8 +203,21 @@ def rebuild_list_with_preserved_selection(
     - on_first_selection: 无法恢复但列表非空、默认选中第一条记录时的回调（可为空）。
     - on_cleared_selection: 列表从“有选中项”变为空时的回调（可为空）。
     """
-    list_widget.clear()
-    build_items()
+    previous_updates_enabled = bool(list_widget.updatesEnabled())
+    list_widget.setUpdatesEnabled(False)
+
+    # 列表重建期间禁止发射信号，避免：
+    # - clear() 触发一次“空选中”回调；
+    # - build_items() 逐项 addItem 导致的 UI 反复刷新与级联更新（右侧面板/状态徽章等）。
+    signal_blocker = QtCore.QSignalBlocker(list_widget)
+    try:
+        list_widget.clear()
+        build_items()
+    finally:
+        # 必恢复语义：即使 build_items() 抛错，也不能把列表永久留在“禁用更新/阻塞信号”的状态，
+        # 否则 UI 表现为假死（无法重绘/无法触发选中联动）。
+        del signal_blocker
+        list_widget.setUpdatesEnabled(previous_updates_enabled)
 
     item_count = list_widget.count()
 

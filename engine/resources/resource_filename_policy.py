@@ -40,6 +40,7 @@ _RESOURCE_TYPES_PREFER_NAME_OVER_CACHED_FILENAME: set[ResourceType] = {
     ResourceType.SHIELD,
     ResourceType.UI_LAYOUT,
     ResourceType.UI_WIDGET_TEMPLATE,
+    ResourceType.UI_PAGE,
 }
 
 

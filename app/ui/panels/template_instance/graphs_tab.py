@@ -211,7 +211,7 @@ class GraphsTab(TemplateInstanceTabBase):
             show_warning_dialog(
                 self,
                 "无法移除",
-                "继承自模板的节点图无法直接从实例面板移除。\n请前往模板面板进行修改。",
+                "继承自模板的节点图无法直接从实体摆放面板移除。\n请前往模板面板进行修改。",
             )
             return
         graph_id = current_item.data(QtCore.Qt.ItemDataRole.UserRole)

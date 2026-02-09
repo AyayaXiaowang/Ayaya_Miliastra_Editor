@@ -97,6 +97,26 @@ def ensure_detail_builder_plugins_loaded() -> None:
     _plugins_loaded = True
 
 
+def list_registered_detail_types() -> list[str]:
+    """列出已注册的精确 detail_type（用于测试/诊断）。
+
+    注意：该函数只返回精确匹配的类型键；前缀/predicate 规则需通过对应接口获取。
+    """
+
+    ensure_detail_builder_plugins_loaded()
+    return sorted(_builders_by_type.keys())
+
+
+def list_registered_detail_prefixes() -> list[str]:
+    """列出已注册的 detail_type 前缀规则（例如 combat_）。"""
+
+    ensure_detail_builder_plugins_loaded()
+    prefixes: list[str] = []
+    for prefix, _builder in _prefix_builders:
+        prefixes.append(prefix)
+    return prefixes
+
+
 def build_detail_document(
     context: TodoDetailBuildContext,
     todo: TodoItem,

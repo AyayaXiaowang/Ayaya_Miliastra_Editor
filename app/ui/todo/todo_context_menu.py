@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt
 
 from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 from app.ui.todo.todo_config import StepTypeRules
+from app.models.todo_detail_info_accessors import get_detail_type
 
 
 class TodoContextMenu:
@@ -28,7 +29,7 @@ class TodoContextMenu:
         todo = todo_map.get(todo_id)
         if not todo:
             return
-        step_type = todo.detail_info.get("type")
+        step_type = get_detail_type(todo)
         if not StepTypeRules.supports_context_menu_execution(step_type):
             return
 

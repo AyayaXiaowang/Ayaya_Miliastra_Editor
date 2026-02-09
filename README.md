@@ -1,4 +1,4 @@
-# Graph_Generater（小王千星工坊 / Ayaya_Miliastra_Editor）
+# Ayaya_Miliastra_Editor（小王千星工坊）
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
@@ -6,18 +6,28 @@
 
 ---
 
+## 给使用者（必读）
+
+- 你只需要做的事：**编写 Graph Code 节点图源码** → **运行校验** → 在 UI 中预览（需要时再自动搭图）
+  - 节点图源码通常位于：
+    - `assets/资源库/共享/节点图/<server|client>/**/*.py`
+    - `assets/资源库/项目存档/<项目存档名>/节点图/<server|client>/**/*.py`
+  - 校验入口（源码环境）：`python -X utf8 -m app.cli.graph_tools validate-graphs ...`
+  - 校验入口（release）：`Ayaya_Miliastra_Editor_Tools.exe validate-graphs ...`
+- **请不要修改解释器/工具链代码**：`engine/`、`app/`、`plugins/` 等目录默认视为只读，由项目作者维护
+- 解释器 BUG / 缺节点 / 校验规则不合理：请直接反馈给作者（QQ群或 GitHub Issue），附上**最小可复现**（报错输出 + 对应节点图文件路径）
+- 从哪里开始：先读 `docs/用户必读.md`，再按本文档的「节点图开发流程（Graph Code）」写图与验证
+
 ## 项目状态（Beta）
 
 - 本项目目前处于 **Beta** 阶段，迭代可能会非常快：**API、校验规则、资源结构、CLI 参数**都可能调整。
 - 当 README 与实际行为不一致时，优先以以下内容为准：
   - `claude.md`（根目录与各子目录的约束/入口说明）
   - CLI 脚本自身的报错提示与 `--help`
-  - `tools.validate.*` / `engine.validate` 的实现与校验输出
+  - `app.cli.graph_tools` / `engine.validate` 的实现与校验输出
 
-### 展示型发布说明（重要）
-- 本仓库采用“展示型”策略：**`docs/` 不随仓库分发**（避免误公开私有文档/工程内容）。
-- **`tests/` 会公开并用于 CI**（基础回归以 `pytest` 为准）。
-- 资源库 `assets/资源库/` 默认“全量忽略 + 白名单放行示例/模板示例”；请勿扩大白名单范围，除非明确确认资源可公开且不会泄露隐私。
+### 用户文档入口（重要）
+- `docs/用户必读.md`：面向使用者，只覆盖“如何写节点图代码、如何校验、如何预览与反馈问题”。
 
 ### 反馈与交流
 - BUG 反馈交流QQ群：`1073774505`
@@ -175,7 +185,7 @@ git clone <你的仓库地址>
 
 ```powershell
 cd <仓库目录>
-# 本地文件夹名可以和仓库名不同（例如你把仓库放在 Graph_Generater/ 目录下）
+# 本地文件夹名可以和仓库名不同（例如你把仓库放在 Ayaya_Miliastra_Editor/ 目录下）
 ```
 
 ### 2. 安装依赖
@@ -208,27 +218,44 @@ python run_app_debug.py
 
 ## Windows 打包（exe，assets 外置）
 
-本项目提供 Windows 便携版打包脚本（不要求用户安装 Python），但 **`assets/` 不会被打进 exe**，会以“外置目录”的形式与 exe 同级分发（保证资源库可随时替换/增量更新）。
+**目标约束**：便携版分发时 **`assets/` 不会被打进 exe**，而是以“外置目录”的形式与 exe 同级分发（保证资源库可随时替换/增量更新）。
 
-在项目根目录执行（PowerShell，任意版本即可）：
+> 说明：打包脚本属于内部构建工具链，不随仓库公开分发（避免把各种杂项工具一起上传 GitHub）。
+> 使用者请直接使用 release 产物目录；维护者可在私有构建环境中生成同结构便携目录。
+
+便携版目录应包含：
+- UI：`Ayaya_Miliastra_Editor.exe`
+- 校验工具：`Ayaya_Miliastra_Editor_Tools.exe`
+- 外置资源：`assets/`（与 exe 同级）
+
+运行（便携版）：
+- UI（默认工作区=exe 所在目录）：双击 `Ayaya_Miliastra_Editor.exe`（要求 `assets/` 与 exe 同级存在）
+- UI（指定工作区）：
 
 ```powershell
-# 先安装依赖（在干净 venv 里执行）
-pip install -r requirements.txt -c constraints.txt
-
-# 再安装 PyInstaller（已包含在 requirements-dev.txt 中）
-pip install -r requirements-dev.txt -c constraints.txt
-
-# 生成 Windows 便携版目录 + zip
-.\tools\packaging\build_windows_exe.ps1
+.\Ayaya_Miliastra_Editor.exe --root <workspace_root>
 ```
 
-输出：
-- 目录：`release/Graph_Generater_windows_portable/Graph_Generater/`
-- exe：`release/Graph_Generater_windows_portable/Graph_Generater/Graph_Generater.exe`
-- 外置资源：`release/Graph_Generater_windows_portable/Graph_Generater/assets/`
+- 校验（全量，节点图+复合节点）：
 
-运行：双击 `Graph_Generater.exe`（要求 `assets/` 与 exe 同级存在）。
+```powershell
+.\Ayaya_Miliastra_Editor_Tools.exe validate-graphs --all
+```
+
+- 校验（单文件自检）：
+
+```powershell
+.\Ayaya_Miliastra_Editor_Tools.exe validate-file assets\资源库\项目存档\你的项目存档\节点图\server\你的图.py
+```
+
+- 校验（指定工作区）：
+
+```powershell
+.\Ayaya_Miliastra_Editor_Tools.exe --root <workspace_root> validate-graphs --all
+```
+
+> `workspace_root` 约定为“包含 `assets/` 的目录”；便携版默认以 exe 所在目录作为工作区。
+> 说明：便携版会在 exe 同级附带 `plugins/nodes/`（节点实现源码，仅用于静态解析与校验/索引；一般无需修改）。
 
 ---
 
@@ -283,36 +310,29 @@ pip install -r requirements-dev.txt -c constraints.txt
 验证所有节点图：
 
 ```powershell
-python -X utf8 -m tools.validate.validate_graphs --all
+python -X utf8 -m app.cli.graph_tools validate-graphs --all
 ```
 
 验证单个节点图：
 
 ```powershell
-python -X utf8 -m tools.validate.validate_graphs -f assets\资源库\节点图\server\你的图.py
+python -X utf8 -m app.cli.graph_tools validate-graphs -f assets\资源库\项目存档\你的项目存档\节点图\server\你的图.py
 ```
 
-### 验证存档（功能包）
+### 验证项目存档
 
 ```powershell
-python -X utf8 -m tools.validate.validate_package
+python -X utf8 -m app.cli.graph_tools validate-project
 ```
 
-### 清理缓存
-
-清理所有缓存：
+说明：
+- 该命令校验的是 **目录模式项目存档**：`assets/资源库/项目存档/<package_id>/`
+- 典型问题：资源引用闭合（模板/实体摆放/关卡实体/管理配置）、挂载关系（节点图是否挂载）、GUID/ID 冲突等
+- 仅校验单个项目存档：
 
 ```powershell
-python -X utf8 -m tools.clear_caches --clear
+python -X utf8 -m app.cli.graph_tools validate-project --package-id "你的项目存档名"
 ```
-
-清理并重建索引和缓存：
-
-```powershell
-python -X utf8 -m tools.clear_caches --clear --rebuild-index --rebuild-graph-caches
-```
-
-> 注意：`--rebuild-index/--rebuild-graph-caches` 已接入引擎实现，会执行真实重建；如需避免污染仓库缓存目录，可通过 `tools.clear_caches --root <临时目录>` 在临时工作区验证。
 
 ### 运行测试（CI 同源）
 
@@ -335,11 +355,8 @@ repo_root/
 ├── plugins/         # 节点实现及注册表（server/client/shared）
 ├── assets/          # 资源库（节点图、复合节点、预设、OCR 模板等）
 │   └── 资源库/
-│       ├── 节点图/      # Graph Code 节点图文件
-│       ├── 复合节点库/   # 复合节点定义
-│       ├── 管理配置/    # 信号、结构体等配置
-│       └── ...
-├── tools/           # 工具脚本（验证、生成、清理等）
+│       ├── 共享/        # 公共资源（所有存档可见）
+│       └── 项目存档/    # 每个项目存档一个目录（目录名即 package_id）
 └── runtime/         # 预留目录（当前通常为空/不使用）
 ```
 
@@ -349,13 +366,17 @@ repo_root/
 
 ### 1. 编写 Graph Code
 
-在 `assets/资源库/节点图/server/` 目录下创建 `.py` 文件，用类结构 Python 描述节点图逻辑。  
+在任意“资源根目录”下创建 `.py` 文件，用类结构 Python 描述节点图逻辑。  
+常见位置：
+
+- `assets/资源库/项目存档/<项目存档名>/节点图/<server|client>/...`
+- `assets/资源库/共享/节点图/<server|client>/...`
 推荐让 AI 先给出草稿，再由人工审阅与补充注释。
 
 ### 2. 运行验证（必须）
 
 ```powershell
-python -X utf8 -m tools.validate.validate_graphs -f assets\资源库\节点图\server\你的图.py
+python -X utf8 -m app.cli.graph_tools validate-graphs -f assets\资源库\项目存档\你的项目存档\节点图\server\你的图.py
 ```
 
 验证不通过不得继续，必须根据错误提示修复。  
@@ -379,9 +400,8 @@ python -X utf8 -m app.cli.run_app
 
 | 脚本 | 用途 |
 | --- | --- |
-| `tools.validate.validate_graphs` | 节点图 & 复合节点验证（推荐 `python -m ...` 运行；支持全量 / 单文件 / 严格模式） |
-| `tools.validate.validate_package` | 存档级验证，等同 UI 中“验证”按钮（推荐 `python -m ...` 运行） |
-| `tools.clear_caches` | 清理运行期缓存（推荐 `python -m ...` 运行；重建开关当前为占位） |
+| `app.cli.graph_tools validate-graphs` | 节点图 & 复合节点验证（支持全量 / 单文件 / 严格模式） |
+| `app.cli.graph_tools validate-project` | 项目存档（目录模式）验证，等同 UI 中“验证”按钮（`validate-package` 为兼容旧名） |
 | `app.cli.convert_graph_to_executable` | 将 Graph Code 转成可执行 Python（必须使用 `python -m ...` 运行） |
 
 ---
@@ -401,7 +421,7 @@ python -X utf8 -m app.cli.run_app
 
 ### 其他注意事项
 
-- 写完节点图代码后，**必须** 运行 `tools/validate/validate_graphs.py` 验证并根据结果修复
+- 写完节点图代码后，**必须** 运行 `app.cli.graph_tools validate-graphs` 验证并根据结果修复
 - Graph Code 只能使用节点库中已定义的节点（`plugins/nodes` 与复合节点库）
 - 本项目只做静态建模与校验，不在本地执行节点实际业务逻辑
 - 运行期缓存缺失时会自动重建，不影响首次启动

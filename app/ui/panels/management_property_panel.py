@@ -53,7 +53,7 @@ class ManagementPropertyPanel(PanelScaffold):
             self.body_layout,
             self,
             self._on_package_membership_changed,
-            label_text="所属存档:",
+            label_text="所属项目存档:",
         )
         # “所属存档”行在管理模式下经常是唯一一行可编辑内容，此处显式限制其高度，
         # 避免在右侧高面板中被拉伸成一整块大区域，保持与其它属性面板一致的紧凑行高。

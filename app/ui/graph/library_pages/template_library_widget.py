@@ -1,14 +1,24 @@
 """元件库组件"""
 
+import copy
+import json
 import types
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Union, Dict, Any, List
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from app.ui.foundation.theme_manager import Sizes
+from app.ui.foundation.shared_resource_badge_delegate import (
+    SHARED_RESOURCE_BADGE_ROLE,
+    install_shared_resource_badge_delegate,
+)
 from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.foundation.id_generator import generate_prefixed_id
+from app.ui.foundation import input_dialogs
+from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.keymap_store import KeymapStore
 from app.ui.graph.library_mixins import (
     ConfirmDialogMixin,
     SearchFilterMixin,
@@ -19,7 +29,6 @@ from app.ui.forms.schema_dialog import FormDialogBuilder
 from engine.configs.resource_types import ResourceType
 from engine.resources.package_view import PackageView
 from engine.resources.global_resource_view import GlobalResourceView
-from engine.resources.unclassified_resource_view import UnclassifiedResourceView
 from engine.resources.resource_manager import ResourceManager
 from engine.resources.package_index_manager import PackageIndexManager
 from engine.graph.models.package_model import TemplateConfig, ComponentConfig
@@ -28,6 +37,8 @@ from engine.graph.models.entity_templates import (
     get_template_library_entity_types,
 )
 from engine.configs.entities.creature_models import get_creature_model_display_pairs, get_creature_model_category_for_name
+from engine.utils.resource_library_layout import discover_package_resource_roots, get_shared_root_dir
+from engine.resources.custom_variable_file_refs import normalize_custom_variable_file_refs
 from app.ui.graph.library_pages.library_scaffold import (
     DualPaneLibraryScaffold,
     LibraryChangeEvent,
@@ -37,6 +48,10 @@ from app.ui.graph.library_pages.library_scaffold import (
 from app.ui.graph.library_pages.library_view_scope import describe_resource_view_scope
 from app.ui.graph.library_pages.category_tree_mixin import EntityCategoryTreeMixin
 from app.ui.graph.library_pages.standard_dual_pane_list_page import StandardDualPaneListPage
+
+
+TEMPLATE_ID_ROLE = QtCore.Qt.ItemDataRole.UserRole
+IS_SHARED_TEMPLATE_ROLE = QtCore.Qt.ItemDataRole.UserRole + 1
 
 
 @dataclass(frozen=True)
@@ -71,8 +86,9 @@ class TemplateLibraryWidget(
             title="元件库",
             description="按实体类型管理可复用元件，支持快速新建、删除与搜索过滤。",
         )
+        self._standard_shortcuts: list[QtGui.QShortcut] = []
         self.current_package: Optional[
-            Union[PackageView, GlobalResourceView, UnclassifiedResourceView]
+            Union[PackageView, GlobalResourceView]
         ] = None
         # 当前左侧选中的分类 key（"all"、具体实体类型或扩展分类名）
         self._current_category_key: str = "all"
@@ -83,10 +99,11 @@ class TemplateLibraryWidget(
     def _setup_ui(self) -> None:
         """设置UI"""
         self.add_template_btn = QtWidgets.QPushButton("+ 新建元件", self)
+        self.duplicate_template_btn = QtWidgets.QPushButton("复制", self)
         self.delete_template_btn = QtWidgets.QPushButton("删除", self)
         widgets = self.build_standard_dual_pane_list_ui(
             search_placeholder="搜索元件...",
-            toolbar_buttons=[self.add_template_btn, self.delete_template_btn],
+            toolbar_buttons=[self.add_template_btn, self.duplicate_template_btn, self.delete_template_btn],
             left_header_label="元件分类",
             left_title="元件分类",
             left_description="按实体类型过滤元件",
@@ -98,15 +115,128 @@ class TemplateLibraryWidget(
         self.search_edit = widgets.search_edit
         self.category_tree = widgets.category_tree
         self.template_list = widgets.list_widget
+
+        # 与节点图库一致：共享资源使用徽章标注（避免在名称里拼接共享文本前缀）。
+        install_shared_resource_badge_delegate(self.template_list)
         
         # 连接信号
         self.add_template_btn.clicked.connect(self._add_template)
+        self.duplicate_template_btn.clicked.connect(self._duplicate_template)
         self.delete_template_btn.clicked.connect(self._delete_template)
         self.template_list.itemClicked.connect(self._on_template_clicked)
+        self.template_list.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.template_list.customContextMenuRequested.connect(self._show_template_context_menu)
         self.connect_search(self.search_edit, self._filter_templates, placeholder="搜索元件...")
+
+        self._install_standard_shortcuts()
         
         # 初始化分类树
         self._init_category_tree()
+
+    def apply_keymap_shortcuts(self, keymap_store: object) -> None:
+        """由主窗口调用：在快捷键配置变更后刷新本页快捷键绑定。"""
+        self._install_standard_shortcuts(keymap_store=keymap_store)
+
+    def _resolve_keymap_store(self) -> object | None:
+        window_obj = self.window()
+        app_state = getattr(window_obj, "app_state", None)
+        return getattr(app_state, "keymap_store", None) if app_state is not None else None
+
+    def _clear_standard_shortcuts(self) -> None:
+        for shortcut in list(self._standard_shortcuts):
+            shortcut.setEnabled(False)
+            shortcut.deleteLater()
+        self._standard_shortcuts.clear()
+
+    def _primary_shortcut(self, action_id: str) -> str:
+        keymap_store = self._resolve_keymap_store()
+        get_primary = getattr(keymap_store, "get_primary_shortcut", None) if keymap_store is not None else None
+        if callable(get_primary):
+            return str(get_primary(action_id) or "")
+        defaults = KeymapStore.get_default_shortcuts(action_id)
+        return defaults[0] if defaults else ""
+
+    def _install_standard_shortcuts(self, *, keymap_store: object | None = None) -> None:
+        """统一快捷键（尽量与其它库页一致）。"""
+        resolved = keymap_store if keymap_store is not None else self._resolve_keymap_store()
+        get_primary = getattr(resolved, "get_primary_shortcut", None) if resolved is not None else None
+
+        def _primary(action_id: str) -> str:
+            if callable(get_primary):
+                return str(get_primary(action_id) or "")
+            defaults = KeymapStore.get_default_shortcuts(action_id)
+            return defaults[0] if defaults else ""
+
+        self._clear_standard_shortcuts()
+
+        # 新建：挂在页面自身（允许在搜索框聚焦时也能新建）
+        shortcut_new = _primary("library.new")
+        if shortcut_new:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_new), self)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._add_template)
+            self._standard_shortcuts.append(sc)
+
+        # 其余动作：尽量只在列表聚焦时触发，避免干扰输入框编辑
+        shortcut_dup = _primary("library.duplicate")
+        if shortcut_dup:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_dup), self.template_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._duplicate_template)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_delete = _primary("library.delete")
+        if shortcut_delete:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_delete), self.template_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._delete_template)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_rename = _primary("library.rename")
+        if shortcut_rename:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_rename), self.template_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._rename_template)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_move = _primary("library.move")
+        if shortcut_move:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_move), self.template_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._change_selected_template_owner)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_locate = _primary("library.locate_issues")
+        if shortcut_locate:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_locate), self.template_list)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._locate_issues_for_selected_template)
+            self._standard_shortcuts.append(sc)
+
+    def _show_template_context_menu(self, pos: QtCore.QPoint) -> None:
+        """右键菜单：与实体摆放/战斗预设/节点图库保持一致的动作集合。"""
+        has_item = self.template_list.itemAt(pos) is not None
+        shortcut_new = self._primary_shortcut("library.new") or None
+        shortcut_dup = self._primary_shortcut("library.duplicate") or None
+        shortcut_rename = self._primary_shortcut("library.rename") or None
+        shortcut_move = self._primary_shortcut("library.move") or None
+        shortcut_locate = self._primary_shortcut("library.locate_issues") or None
+        shortcut_delete = self._primary_shortcut("library.delete") or None
+        builder = ContextMenuBuilder(self)
+        builder.add_action("新建", self._add_template, shortcut=shortcut_new)
+        builder.add_separator()
+        builder.add_action("复制", self._duplicate_template, enabled=has_item, shortcut=shortcut_dup)
+        builder.add_action("重命名", self._rename_template, enabled=has_item, shortcut=shortcut_rename)
+        builder.add_action(
+            "移动（所属存档）", self._change_selected_template_owner, enabled=has_item, shortcut=shortcut_move
+        )
+        builder.add_separator()
+        builder.add_action(
+            "定位问题", self._locate_issues_for_selected_template, enabled=has_item, shortcut=shortcut_locate
+        )
+        builder.add_separator()
+        builder.add_action("删除", self._delete_template, enabled=has_item, shortcut=shortcut_delete)
+        builder.exec_for(self.template_list, pos)
     
     def _init_category_tree(self) -> None:
         """初始化分类树"""
@@ -126,7 +256,7 @@ class TemplateLibraryWidget(
 
     def set_context(
         self,
-        package: Union[PackageView, GlobalResourceView, UnclassifiedResourceView],
+        package: Union[PackageView, GlobalResourceView],
     ) -> None:
         """设置当前资源视图并全量刷新列表（统一库页入口）。"""
         self.current_package = package
@@ -141,7 +271,7 @@ class TemplateLibraryWidget(
         current_item = self.template_list.currentItem()
         if current_item is None:
             return None
-        value = current_item.data(QtCore.Qt.ItemDataRole.UserRole)
+        value = current_item.data(TEMPLATE_ID_ROLE)
         if not isinstance(value, str) or not value:
             return None
         return LibrarySelection(
@@ -179,12 +309,34 @@ class TemplateLibraryWidget(
         """
         current_item = self.template_list.currentItem()
         previously_selected_id = (
-            current_item.data(QtCore.Qt.ItemDataRole.UserRole) if current_item is not None else None
+            current_item.data(TEMPLATE_ID_ROLE) if current_item is not None else None
         )
 
         def build_items() -> None:
             if not self.current_package:
                 return
+
+            shared_template_ids: set[str] = set()
+            resource_manager_candidate = getattr(self.current_package, "resource_manager", None)
+            if isinstance(resource_manager_candidate, ResourceManager):
+                resource_library_dir = getattr(resource_manager_candidate, "resource_library_dir", None)
+                if isinstance(resource_library_dir, Path):
+                    shared_root_dir = (resource_library_dir / "共享").resolve()
+                    template_paths = resource_manager_candidate.list_resource_file_paths(ResourceType.TEMPLATE)
+                    for resource_id, file_path in template_paths.items():
+                        if not isinstance(resource_id, str) or not resource_id:
+                            continue
+                        if not isinstance(file_path, Path):
+                            continue
+                        resolved_file = file_path.resolve()
+                        if hasattr(resolved_file, "is_relative_to"):
+                            if resolved_file.is_relative_to(shared_root_dir):  # type: ignore[attr-defined]
+                                shared_template_ids.add(resource_id)
+                        else:
+                            shared_parts = shared_root_dir.parts
+                            file_parts = resolved_file.parts
+                            if len(file_parts) >= len(shared_parts) and file_parts[: len(shared_parts)] == shared_parts:
+                                shared_template_ids.add(resource_id)
 
             effective_filter = (
                 filter_type if filter_type is not None else self._current_category_key or "all"
@@ -217,15 +369,28 @@ class TemplateLibraryWidget(
                     icon = get_entity_type_info(category).get("icon", "📦")
                 else:
                     icon = get_entity_type_info(template.entity_type).get("icon", "📦")
-                list_item = QtWidgets.QListWidgetItem(f"{icon} {template.name}")
-                list_item.setData(QtCore.Qt.ItemDataRole.UserRole, template_id)
 
-                tooltip_lines: list[str] = [f"类型: {template.entity_type}"]
+                is_shared_template = template_id in shared_template_ids
+                list_item = QtWidgets.QListWidgetItem(f"{icon} {template.name}")
+                list_item.setData(TEMPLATE_ID_ROLE, template_id)
+                list_item.setData(IS_SHARED_TEMPLATE_ROLE, bool(is_shared_template))
+                list_item.setData(SHARED_RESOURCE_BADGE_ROLE, bool(is_shared_template))
+
+                tooltip_lines: list[str] = []
+                if is_shared_template:
+                    tooltip_lines.append("归属: 共享（所有存档可见）")
+                tooltip_lines.append(f"类型: {template.entity_type}")
                 if category != "掉落物":
                     tooltip_lines.append(
                         f"节点图: {len(getattr(template, 'default_graphs', []))}"
                     )
-                tooltip_lines.append(f"变量: {len(getattr(template, 'default_variables', []))}")
+                variable_ref = ""
+                if isinstance(metadata, dict):
+                    refs = normalize_custom_variable_file_refs(metadata.get("custom_variable_file"))
+                    variable_ref = " / ".join(refs)
+                tooltip_lines.append(
+                    f"变量文件: {variable_ref}" if variable_ref else "变量文件: 未配置"
+                )
                 tooltip_lines.append(
                     f"组件: {len(getattr(template, 'default_components', []))}"
                 )
@@ -234,7 +399,7 @@ class TemplateLibraryWidget(
                 self.template_list.addItem(list_item)
 
         def get_item_key(list_item: QtWidgets.QListWidgetItem) -> Optional[str]:
-            value = list_item.data(QtCore.Qt.ItemDataRole.UserRole)
+            value = list_item.data(TEMPLATE_ID_ROLE)
             if isinstance(value, str):
                 return value
             return None
@@ -623,7 +788,7 @@ class TemplateLibraryWidget(
         # 选中新创建的模板
         for i in range(self.template_list.count()):
             item = self.template_list.item(i)
-            if item.data(QtCore.Qt.ItemDataRole.UserRole) == template_id:
+            if item.data(TEMPLATE_ID_ROLE) == template_id:
                 self.template_list.setCurrentItem(item)
                 selection = LibrarySelection(
                     kind="template",
@@ -642,14 +807,230 @@ class TemplateLibraryWidget(
             context={"scope": describe_resource_view_scope(self.current_package)},
         )
         self.data_changed.emit(event)
+
+    def _duplicate_template(self) -> None:
+        """复制当前选中的元件（浅复制）。
+
+        复制规则：
+        - 生成新的 template_id；
+        - 名称追加“ - 副本”后缀；
+        - 复制默认节点图引用/变量/组件/元数据等内容；
+        - `metadata["guid"]` 默认清空（GUID 需要保持唯一）。
+        """
+        if not self.current_package:
+            self.show_warning("警告", "请先选择或创建存档")
+            return
+
+        current_item = self.template_list.currentItem()
+        if current_item is None:
+            self.show_warning("提示", "请先选择要复制的元件")
+            return
+
+        template_id = current_item.data(TEMPLATE_ID_ROLE)
+        if not isinstance(template_id, str) or not template_id:
+            return
+
+        template = self.current_package.get_template(template_id)  # type: ignore[call-arg]
+        if template is None:
+            self.refresh_templates()
+            return
+
+        new_template_id = generate_prefixed_id("template")
+        new_name = f"{template.name} - 副本"
+
+        new_metadata = copy.deepcopy(getattr(template, "metadata", {}) or {})
+        if isinstance(new_metadata, dict):
+            new_metadata.pop("guid", None)
+        else:
+            new_metadata = {}
+
+        new_template = TemplateConfig(
+            template_id=new_template_id,
+            name=new_name,
+            entity_type=str(getattr(template, "entity_type", "") or ""),
+            description=str(getattr(template, "description", "") or ""),
+            default_graphs=list(getattr(template, "default_graphs", []) or []),
+            default_components=copy.deepcopy(getattr(template, "default_components", []) or []),
+            entity_config=copy.deepcopy(getattr(template, "entity_config", {}) or {}),
+            metadata=new_metadata,
+            graph_variable_overrides=copy.deepcopy(getattr(template, "graph_variable_overrides", {}) or {}),
+        )
+
+        self.current_package.add_template(new_template)
+        self.refresh_templates()
+        self.select_template(new_template_id)
+
+        event = LibraryChangeEvent(
+            kind="template",
+            id=new_template_id,
+            operation="create",
+            context={
+                "scope": describe_resource_view_scope(self.current_package),
+                "source": "duplicate",
+            },
+        )
+        self.data_changed.emit(event)
+        ToastNotification.show_message(self, f"已复制元件：{new_name}", "success")
+
+    def _rename_template(self) -> None:
+        """重命名当前选中的元件（仅修改 name 字段）。"""
+        if not self.current_package:
+            self.show_warning("警告", "请先选择或创建存档")
+            return
+
+        current_item = self.template_list.currentItem()
+        if current_item is None:
+            self.show_warning("提示", "请先选择要重命名的元件")
+            return
+
+        template_id = current_item.data(TEMPLATE_ID_ROLE)
+        if not isinstance(template_id, str) or not template_id:
+            return
+
+        template = self.current_package.get_template(template_id)  # type: ignore[call-arg]
+        if template is None:
+            self.refresh_templates()
+            return
+
+        old_name = str(getattr(template, "name", "") or "").strip() or template_id
+        new_name = input_dialogs.prompt_text(
+            self,
+            "重命名元件",
+            "请输入新的元件名称:",
+            text=old_name,
+        )
+        if not new_name:
+            return
+        new_name = str(new_name).strip()
+        if not new_name or new_name == old_name:
+            return
+
+        template.name = new_name
+        self.refresh_templates()
+        self.select_template(template_id)
+
+        event = LibraryChangeEvent(
+            kind="template",
+            id=template_id,
+            operation="update",
+            context={
+                "scope": describe_resource_view_scope(self.current_package),
+                "action": "rename",
+            },
+        )
+        self.data_changed.emit(event)
+        ToastNotification.show_message(self, f"已重命名元件：{new_name}", "info")
+
+    def _change_selected_template_owner(self) -> None:
+        """修改当前选中元件的归属位置（共享 / 某个项目存档目录）。"""
+        if not self.current_package:
+            self.show_warning("警告", "请先选择或创建存档")
+            return
+
+        current_item = self.template_list.currentItem()
+        if current_item is None:
+            self.show_warning("提示", "请先选择要移动的元件")
+            return
+
+        template_id = current_item.data(TEMPLATE_ID_ROLE)
+        if not isinstance(template_id, str) or not template_id:
+            return
+
+        window = self.window()
+        app_state = getattr(window, "app_state", None) if window is not None else None
+        package_index_manager = getattr(app_state, "package_index_manager", None) if app_state is not None else None
+        if not isinstance(package_index_manager, PackageIndexManager):
+            self.show_warning("警告", "无法移动：PackageIndexManager 不可用。")
+            return
+
+        previous_owner = package_index_manager.get_resource_owner_root_id(
+            resource_type="template",
+            resource_id=template_id,
+        )
+
+        packages = package_index_manager.list_packages()
+        choice_labels: list[str] = ["🌐 共享（shared）"]
+        label_to_root_id: dict[str, str] = {"🌐 共享（shared）": "shared"}
+        for pkg in packages:
+            package_id = pkg.get("package_id")
+            if not isinstance(package_id, str) or not package_id:
+                continue
+            display_name = str(pkg.get("name") or package_id).strip() or package_id
+            label = f"{display_name}（{package_id}）"
+            choice_labels.append(label)
+            label_to_root_id[label] = package_id
+
+        current_index = 0
+        if previous_owner == "shared":
+            current_index = 0
+        elif isinstance(previous_owner, str) and previous_owner:
+            for idx, label in enumerate(choice_labels):
+                if label_to_root_id.get(label) == previous_owner:
+                    current_index = idx
+                    break
+
+        selected_label = input_dialogs.prompt_item(
+            self,
+            "移动元件（所属存档）",
+            "请选择目标归属位置:",
+            choice_labels,
+            current_index=current_index,
+            editable=False,
+        )
+        if not selected_label:
+            return
+
+        target_root_id = label_to_root_id.get(selected_label, "")
+        if not target_root_id:
+            return
+        if target_root_id == previous_owner:
+            return
+
+        previous_label = "🌐 共享" if previous_owner == "shared" else (previous_owner or "(未知)")
+        next_label = "🌐 共享" if target_root_id == "shared" else target_root_id
+        if not self.confirm(
+            "确认切换所属存档",
+            f"即将把元件 '{template_id}' 的归属从「{previous_label}」切换到「{next_label}」。\n\n确定要继续吗？",
+        ):
+            return
+
+        handler = getattr(window, "_on_template_package_membership_changed", None) if window is not None else None
+        if callable(handler):
+            handler(template_id, target_root_id, True)
+        else:
+            moved = package_index_manager.move_resource_to_root(target_root_id, "template", template_id)
+            if not moved:
+                self.show_warning("警告", "移动失败：未找到资源文件或目标目录不可用。")
+                return
+            if hasattr(self.current_package, "clear_cache"):
+                self.current_package.clear_cache()
+            self.refresh_templates()
+
+        ToastNotification.show_message(self, "归属已更新。", "info")
+
+    def _locate_issues_for_selected_template(self) -> None:
+        """打开验证面板并定位到与当前元件相关的问题（若存在）。"""
+        current_item = self.template_list.currentItem()
+        if current_item is None:
+            self.show_warning("提示", "请先选择要定位问题的元件")
+            return
+        template_id = current_item.data(TEMPLATE_ID_ROLE)
+        if not isinstance(template_id, str) or not template_id:
+            return
+        window = self.window()
+        locate = getattr(window, "_locate_issues_for_resource_id", None) if window is not None else None
+        if callable(locate):
+            locate(template_id)
     
     def _delete_template(self) -> None:
         """删除模板。
 
         语义区分：
-        - 具体存档视图（PackageView）：仅从当前存档索引中移除该模板引用，不删除资源文件，
-          以避免影响复用同一模板的其他存档。
-        - 全局视图/未分类视图（GlobalResourceView/UnclassifiedResourceView）：
+        - 具体存档视图（PackageView，目录即存档）：
+          - “从当前存档移除”本质是**改变资源归属**：将模板 JSON 文件从当前项目存档根目录移出
+            （默认移动到“测试项目”等默认归档项目），而不是改写某个 pkg_*.json；
+          - 不执行物理删除，避免误删后难以找回。
+        - 全局视图（GlobalResourceView）：
           视为“硬删除”操作：
             - 在所有存档索引中移除对该模板的引用；
             - 物理删除资源库中的模板 JSON 文件。
@@ -663,7 +1044,16 @@ class TemplateLibraryWidget(
             self.show_warning("警告", "当前视图尚未加载任何资源上下文，无法删除模板")
             return
 
-        template_id = current_item.data(QtCore.Qt.ItemDataRole.UserRole)
+        template_id = current_item.data(TEMPLATE_ID_ROLE)
+        is_shared_template = bool(current_item.data(IS_SHARED_TEMPLATE_ROLE))
+        if isinstance(self.current_package, PackageView) and is_shared_template:
+            self.show_warning(
+                "提示",
+                "该元件属于【共享】资源，无法在“具体存档”视图下执行“从当前存档移除引用”。\n\n"
+                "如需删除共享元件，请切换到 <全部资源> 视图进行全局删除；\n"
+                "如需让元件仅属于当前存档，请在右侧属性面板中修改其“所属存档/归属位置”。",
+            )
+            return
         template = self.current_package.get_template(template_id)  # type: ignore[call-arg]
 
         if not template:
@@ -673,18 +1063,53 @@ class TemplateLibraryWidget(
 
         # 按视图类型区分行为
         if isinstance(self.current_package, PackageView):
-            # 仅移除当前存档中的引用，不删除底层资源文件
+            # 引用影响分析：该元件若被当前存档中的实体引用，移出后实体将变为“未绑定元件”。
+            referenced_instances: list[str] = []
+            for instance_id, instance in self.current_package.instances.items():
+                if str(getattr(instance, "template_id", "") or "") != str(template_id or ""):
+                    continue
+                instance_name = str(getattr(instance, "name", "") or "").strip() or instance_id
+                referenced_instances.append(f"{instance_name}（{instance_id}）")
+            referenced_instances.sort(key=lambda text: text.casefold())
+            reference_hint = ""
+            if referenced_instances:
+                preview = referenced_instances[:12]
+                more_count = max(0, len(referenced_instances) - len(preview))
+                reference_hint = (
+                    "\n\n⚠️ 该元件被以下实体引用，移出后这些实体会变为“未绑定元件”的状态：\n"
+                    + "\n".join(f"- {line}" for line in preview)
+                )
+                if more_count:
+                    reference_hint += f"\n- ... 另有 {more_count} 个引用未展开"
+
+            # 目录模式下：从当前项目存档移除模板 = 移动文件归属（不物理删除）
             if not self.confirm(
                 "确认删除",
                 (
-                    f"将从当前存档中移除元件 '{template.name}' 的引用，"
-                    "不会删除资源库中的模板文件，其他存档中对该元件的使用不受影响。\n\n"
+                    f"将把元件 '{template.name}' 从当前存档中移出（移动到默认归档项目），"
+                    "不会物理删除资源文件。"
+                    f"{reference_hint}\n\n"
                     "确定要继续吗？"
                 ),
             ):
                 return
 
+            # 1) 先执行“归属移出”（物理移动文件），保证重启/重建索引后不会“删了又回来”。
+            window = self.window()
+            package_index_manager_candidate = (
+                getattr(window, "package_index_manager", None) if window is not None else None
+            )
+            if isinstance(package_index_manager_candidate, PackageIndexManager):
+                package_index_manager_candidate.remove_resource_from_package(
+                    self.current_package.package_id,
+                    "template",
+                    template_id,
+                )
+
+            # 2) 同步当前视图的内存快照与缓存（用于 UI 立即反馈）。
             self.current_package.remove_template(template_id)
+            if hasattr(self.current_package, "clear_cache"):
+                self.current_package.clear_cache()
             self.refresh_templates()
             # 通知上层：模板库发生了持久化相关变更（需立即保存包索引）
             event = LibraryChangeEvent(
@@ -699,7 +1124,7 @@ class TemplateLibraryWidget(
             self.data_changed.emit(event)
             return
 
-        # 全局 / 未分类视图：执行全局删除（资源文件 + 所有存档引用）
+        # 全局视图：执行全局删除（资源文件 + 所有存档引用）
         resource_manager_candidate = getattr(self.current_package, "resource_manager", None)
         if not isinstance(resource_manager_candidate, ResourceManager):
             self.show_warning("警告", "当前视图不支持删除模板，请切换到具体存档后重试")
@@ -729,6 +1154,33 @@ class TemplateLibraryWidget(
                 if template_id in package_index.resources.templates:
                     referencing_package_ids.append(package_id)
 
+        # 引用影响分析（实体级）：扫描资源库中实体摆放对该 template_id 的引用。
+        referencing_instance_lines: list[str] = []
+        resource_library_dir = getattr(resource_manager, "resource_library_dir", None)
+        if isinstance(resource_library_dir, Path):
+            shared_root = get_shared_root_dir(resource_library_dir)
+            package_roots = discover_package_resource_roots(resource_library_dir)
+            roots: list[tuple[str, Path]] = [("共享", shared_root)]
+            roots.extend([(path.name, path) for path in package_roots])
+            for pkg_label, root_dir in roots:
+                instances_root = root_dir / "实体摆放"
+                if not instances_root.exists() or not instances_root.is_dir():
+                    continue
+                for json_path in sorted(instances_root.rglob("*.json")):
+                    if not json_path.is_file():
+                        continue
+                    data = json.loads(json_path.read_text(encoding="utf-8"))
+                    if not isinstance(data, dict):
+                        continue
+                    if str(data.get("template_id", "") or "") != str(template_id or ""):
+                        continue
+                    instance_id_value = str(data.get("instance_id", "") or "").strip() or json_path.stem
+                    instance_name_value = str(data.get("name", "") or "").strip() or instance_id_value
+                    referencing_instance_lines.append(
+                        f"[{pkg_label}] {instance_name_value}（{instance_id_value}）"
+                    )
+        referencing_instance_lines.sort(key=lambda text: text.casefold())
+
         # 构建确认文案：提示该模板是否仍被某些存档纳入。
         if referencing_package_ids:
             # 仅在提示中展示少量 ID，避免对话框过长；详细排查可通过存档库页面完成。
@@ -737,18 +1189,42 @@ class TemplateLibraryWidget(
             extra_tail = ""
             if len(referencing_package_ids) > preview_count:
                 extra_tail = f" 等共 {len(referencing_package_ids)} 个存档"
+            instance_hint = ""
+            if referencing_instance_lines:
+                preview_instances = referencing_instance_lines[:8]
+                more_instances = max(0, len(referencing_instance_lines) - len(preview_instances))
+                instance_hint = (
+                    "\n同时检测到以下实体仍在引用该元件（节选）：\n"
+                    + "\n".join(f"- {line}" for line in preview_instances)
+                )
+                if more_instances:
+                    instance_hint += f"\n- ... 另有 {more_instances} 个引用未展开"
+
             message = (
                 f"将从资源库中彻底删除元件 '{template.name}'（ID: {template_id}），"
                 "并从所有存档索引中移除对该元件的引用。\n\n"
                 "当前仍有以下存档纳入了该元件：\n"
                 f"- {preview_ids}{extra_tail}\n\n"
+                f"{instance_hint}\n\n"
                 "此操作无法撤销，可能导致这些存档中原本使用该元件的实体变为“悬空引用”。\n"
                 "如需保留某些存档的使用，请先在对应存档中替换或移除相关实体，再执行删除。\n\n"
                 "确定要继续执行全局删除吗？"
             )
         else:
+            instance_hint = ""
+            if referencing_instance_lines:
+                preview_instances = referencing_instance_lines[:8]
+                more_instances = max(0, len(referencing_instance_lines) - len(preview_instances))
+                instance_hint = (
+                    "\n⚠️ 虽然未发现任何存档显式纳入该元件，但仍检测到实体引用（节选）：\n"
+                    + "\n".join(f"- {line}" for line in preview_instances)
+                )
+                if more_instances:
+                    instance_hint += f"\n- ... 另有 {more_instances} 个引用未展开"
+
             message = (
                 f"将从资源库中彻底删除未被任何存档纳入的元件 '{template.name}'（ID: {template_id}）。\n\n"
+                f"{instance_hint}\n\n"
                 "此操作会删除元件 JSON 文件本身，且无法撤销。\n"
                 "确定要继续吗？"
             )
@@ -757,7 +1233,7 @@ class TemplateLibraryWidget(
             return
 
         # 1. 先让当前视图的缓存失效，避免后续刷新仍使用旧缓存。
-        #    GlobalResourceView/UnclassifiedResourceView 均实现了 remove_template 以清理本地缓存。
+        #    GlobalResourceView 实现了 remove_template 以清理本地缓存。
         self.current_package.remove_template(template_id)  # type: ignore[call-arg]
 
         # 2. 若可用 PackageIndexManager，则从所有存档索引中移除该模板引用。
@@ -791,7 +1267,7 @@ class TemplateLibraryWidget(
     
     def _on_template_clicked(self, item: QtWidgets.QListWidgetItem) -> None:
         """模板点击"""
-        template_id = item.data(QtCore.Qt.ItemDataRole.UserRole)
+        template_id = item.data(TEMPLATE_ID_ROLE)
         if not isinstance(template_id, str) or not template_id:
             self.notify_selection_state(False, context={"source": "template"})
             self.selection_changed.emit(None)
@@ -812,7 +1288,7 @@ class TemplateLibraryWidget(
         """选中指定模板"""
         for i in range(self.template_list.count()):
             item = self.template_list.item(i)
-            if item.data(QtCore.Qt.ItemDataRole.UserRole) == template_id:
+            if item.data(TEMPLATE_ID_ROLE) == template_id:
                 self.template_list.setCurrentItem(item)
                 selection = LibrarySelection(
                     kind="template",

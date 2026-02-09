@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Set
 
 from app.models import TodoItem
+from app.models.todo_detail_info_accessors import get_detail_type
 
 
 @dataclass(frozen=True)
@@ -32,17 +33,12 @@ def get_created_node_id_from_detail(detail_info: object) -> str:
     """
     if not isinstance(detail_info, dict):
         return ""
-    detail_type = detail_info.get("type", "")
+    detail_type = get_detail_type(detail_info)
     field_name = _CREATED_NODE_ID_FIELDS.get(detail_type, "")
     if not field_name:
         return ""
     node_identifier = detail_info.get(field_name)
     return str(node_identifier) if node_identifier is not None else ""
-
-
-def _get_created_node_id_from_detail(detail_info: object) -> str:
-    """兼容旧调用点的私有别名：请改用 `get_created_node_id_from_detail`。"""
-    return get_created_node_id_from_detail(detail_info)
 
 
 def _scan_flows_for_latest_visible_step(

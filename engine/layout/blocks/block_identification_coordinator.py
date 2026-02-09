@@ -29,9 +29,10 @@ from ..internal.constants import (
     DATA_STACK_GAP_DEFAULT,
     FLOW_TO_DATA_GAP_DEFAULT,
     INPUT_PORT_TO_DATA_GAP_DEFAULT,
-    SLOT_WIDTH_MULTIPLIER,
     UI_NODE_HEADER_HEIGHT,
     UI_ROW_HEIGHT,
+    compute_slot_width_from_node_width,
+    scale_layout_gap_y,
 )
 
 from .block_identifier import identify_block_flow_nodes
@@ -53,10 +54,11 @@ class _BlockLayoutScalars:
 
 
 def _make_block_layout_scalars(node_width: float, node_height: float) -> _BlockLayoutScalars:
-    slot_width = node_width * float(SLOT_WIDTH_MULTIPLIER)
+    slot_width = compute_slot_width_from_node_width(node_width)
     flow_y = 0.0
-    data_base_y = node_height + DATA_BASE_EXTRA_MARGIN
-    data_y_spacing = node_height + DATA_STACK_GAP_DEFAULT
+    data_base_y = float(node_height) + scale_layout_gap_y(DATA_BASE_EXTRA_MARGIN)
+    scaled_stack_gap = scale_layout_gap_y(DATA_STACK_GAP_DEFAULT)
+    data_y_spacing = float(node_height) + float(scaled_stack_gap)
     return _BlockLayoutScalars(
         slot_width=slot_width,
         flow_y=flow_y,
@@ -239,11 +241,11 @@ class BlockLayoutExecutor:
             node_width=self.node_width,
             node_height=self.node_height,
             data_base_y=scalars.data_base_y,
-            flow_to_data_gap=FLOW_TO_DATA_GAP_DEFAULT,
-            data_stack_gap=DATA_STACK_GAP_DEFAULT,
+            flow_to_data_gap=scale_layout_gap_y(FLOW_TO_DATA_GAP_DEFAULT),
+            data_stack_gap=scale_layout_gap_y(DATA_STACK_GAP_DEFAULT),
             ui_node_header_height=UI_NODE_HEADER_HEIGHT,
             ui_row_height=UI_ROW_HEIGHT,
-            input_port_to_data_gap=INPUT_PORT_TO_DATA_GAP_DEFAULT,
+            input_port_to_data_gap=scale_layout_gap_y(INPUT_PORT_TO_DATA_GAP_DEFAULT),
             skip_data_node_ids=None,  # 新流程不需要 skip_data_ids
             global_layout_context=ctx_global,
             block_order_index=block_order_index,
@@ -376,7 +378,16 @@ class BlockIdentificationCoordinator:
         event_root_id: Optional[str] = None,
         event_title: Optional[str] = None,
     ) -> None:
-        """阶段1：递归识别基本块的流程节点（不放置数据节点）
+        """阶段1：识别基本块的流程节点（不放置数据节点）。
+
+        重要：此阶段会为每个块分配稳定的 `order_index`（从 1 开始）。
+
+        设计要点（为何不使用递归 DFS）：
+        - 旧的 DFS 会“先走完某一分支的所有后续块，再回头处理另一分支”，
+          导致另一分支里的少量流程节点被分配到很大的块序号（例如 block_9），
+          进而在列内堆叠时被推到最下方，出现“分支初始化节点跑到整张图末尾”的观感问题；
+        - 这里改为 **BFS（按块层级）**：优先把同一层级的分支块识别出来，再继续向下展开，
+          从而让兄弟分支的块序号更接近，排版更符合读者直觉，同时保持完全确定性。
         
         Args:
             start_node_id: 起始节点ID
@@ -396,46 +407,62 @@ class BlockIdentificationCoordinator:
             metadata = (event_root_id, resolved_title)
             self._event_metadata_cache[event_root_id] = metadata
 
-        # 识别流程节点序列
-        current_block_nodes = identify_block_flow_nodes(
-            self.model,
-            start_node_id,
-            global_visited,
-            self.global_layout_ctx,
-        )
-        if not current_block_nodes:
-            return
+        traversal_queue: deque[str] = deque()
+        enqueued: Set[str] = set()
+        traversal_queue.append(start_node_id)
+        enqueued.add(start_node_id)
 
-        if metadata:
-            for flow_node_id in current_block_nodes:
-                self._event_metadata_cache.setdefault(flow_node_id, metadata)
+        while traversal_queue:
+            current_start_id = traversal_queue.popleft()
+            enqueued.discard(current_start_id)
 
-        # 标记流程节点为已访问
-        for node_id in current_block_nodes:
-            global_visited.add(node_id)
+            if current_start_id in global_visited:
+                continue
 
-        # 阶段1：只识别流程节点，创建LayoutBlock框架
-        block_order_index = self._block_sequence
-        layout_block = self._layout_executor.identify_flow_only(
-            current_block_nodes,
-            block_order_index,
-            event_metadata=metadata,
-        )
+            # 识别当前块的流程节点序列
+            current_block_nodes = identify_block_flow_nodes(
+                self.model,
+                current_start_id,
+                global_visited,
+                self.global_layout_ctx,
+            )
+            if not current_block_nodes:
+                continue
 
-        # 分配颜色与稳定序号
-        layout_block.color = self.colors[self._color_index % len(self.colors)]
-        self._color_index += 1
-        layout_block.order_index = block_order_index
-        self._block_sequence += 1
-
-        self.layout_blocks.append(layout_block)
-
-        # 递归处理分支
-        for _, next_node_id in layout_block.last_node_branches:
             if metadata:
-                self.identify_blocks_flow_only(next_node_id, global_visited, metadata[0], metadata[1])
-            else:
-                self.identify_blocks_flow_only(next_node_id, global_visited)
+                for flow_node_id in current_block_nodes:
+                    self._event_metadata_cache.setdefault(flow_node_id, metadata)
+
+            # 标记流程节点为已访问
+            for node_id in current_block_nodes:
+                global_visited.add(node_id)
+
+            # 阶段1：只识别流程节点，创建 LayoutBlock 框架
+            block_order_index = self._block_sequence
+            layout_block = self._layout_executor.identify_flow_only(
+                current_block_nodes,
+                block_order_index,
+                event_metadata=metadata,
+            )
+
+            # 分配颜色与稳定序号
+            layout_block.color = self.colors[self._color_index % len(self.colors)]
+            self._color_index += 1
+            layout_block.order_index = block_order_index
+            self._block_sequence += 1
+
+            self.layout_blocks.append(layout_block)
+
+            # BFS：将下一层块入口加入队列（保持端口顺序稳定，且避免重复入队）
+            for _, next_node_id in layout_block.last_node_branches:
+                if not next_node_id:
+                    continue
+                if next_node_id in global_visited:
+                    continue
+                if next_node_id in enqueued:
+                    continue
+                traversal_queue.append(next_node_id)
+                enqueued.add(next_node_id)
 
     def layout_block_data_phase(
         self,

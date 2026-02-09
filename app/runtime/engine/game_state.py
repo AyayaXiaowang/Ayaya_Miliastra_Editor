@@ -2,6 +2,8 @@
 
 from typing import Any, Dict, List, Optional, Callable, Tuple
 import random
+import time
+import copy
 
 from app.runtime.engine.trace_logging import TraceRecorder
 
@@ -43,12 +45,26 @@ class GameRuntime:
         self.music_volume = 100
         self.current_music = None
         self.timers = {}
+        self._timer_token_counter: int = 0
+
+        # 在场玩家（本地测试：可配置人数，用于“等待其他玩家/投票门槛”等逻辑）
+        self.present_player_count: int = 1
+        self.present_players: List[MockEntity] = []
+
+        # UI 模拟状态（用于本地测试/教学，不代表真实游戏 UI）
+        self.ui_patches: List[Dict[str, Any]] = []
+        self.ui_current_layout_by_player: Dict[str, int] = {}
+        self.ui_widget_state_by_player: Dict[str, Dict[int, str]] = {}
+        self.ui_active_groups_by_player: Dict[str, set[int]] = {}
+        self.ui_binding_root_entity_id: str = ""
+        self.ui_lv_defaults: Dict[str, Any] = {}
 
         # 运行期事件追踪
         self.trace_recorder = TraceRecorder()
         
         # 创建一些默认实体
         self._create_default_entities()
+        self.set_present_player_count(self.present_player_count)
 
     def record_trace_event(self, kind: str, message: str, **details: Any) -> None:
         """将运行时事件写入 TraceRecorder，便于统一的执行链路追踪。"""
@@ -98,6 +114,10 @@ class GameRuntime:
         entity_variables = self.custom_variables.setdefault(entity_id, {})
         entity_label = entity.name if isinstance(entity, MockEntity) else str(entity)
         log_target = f"{entity_label}.{var_name}"
+        # 约定：UI 绑定（lv.*）的根实体通常是“关卡实体”，其自定义变量以 `UI*` 开头。
+        # 本地测试用该字段快速定位 UI 绑定数据来源实体。
+        if str(var_name or "").startswith("UI"):
+            self.ui_binding_root_entity_id = str(entity_id)
         self._update_variable_store(
             entity_variables,
             var_name,
@@ -111,7 +131,21 @@ class GameRuntime:
     def get_custom_variable(self, entity, var_name: str, default=None):
         """获取自定义变量"""
         entity_id = self._get_entity_id(entity)
-        return self.custom_variables.get(entity_id, {}).get(var_name, default)
+        store = self.custom_variables.get(entity_id, {})
+        if isinstance(store, dict) and (var_name in store):
+            return store.get(var_name, default)
+
+        # 本地测试：当 UI HTML 提供了 lv.* 默认值时，允许在首次读取时自动补齐到实体自定义变量中，
+        # 以避免节点图侧“对字典写 key”在变量不存在时变成 no-op（真实游戏中这些 UI 变量通常是预置的）。
+        if isinstance(self.ui_lv_defaults, dict) and (var_name in self.ui_lv_defaults):
+            entity_variables = self.custom_variables.setdefault(entity_id, {})
+            value = copy.deepcopy(self.ui_lv_defaults.get(var_name))
+            entity_variables[var_name] = value
+            if str(var_name or "").startswith("UI"):
+                self.ui_binding_root_entity_id = str(entity_id)
+            return value
+
+        return default
     
     def set_graph_variable(self, var_name: str, value: Any, trigger_event: bool = False):
         """设置节点图变量"""
@@ -168,6 +202,44 @@ class GameRuntime:
         self.entities[entity_id] = entity
         print(f"[创建实体] {name} (ID:{entity_id})")
         return entity
+
+    def find_entity_by_name(self, name: str) -> Optional[MockEntity]:
+        """按名称查找实体（离线模拟：用于复用玩家/owner 等固定命名实体）。"""
+        desired = str(name or "").strip()
+        if not desired:
+            return None
+        for ent in self.entities.values():
+            if getattr(ent, "name", None) == desired:
+                return ent
+        return None
+
+    def set_present_player_count(self, count: int) -> None:
+        """设置在场玩家数量，并确保 `玩家1..玩家N` 实体存在且稳定复用。"""
+        value = int(count)
+        if value <= 0:
+            value = 1
+        self.present_player_count = int(value)
+        players: List[MockEntity] = []
+        for i in range(1, int(value) + 1):
+            name = f"玩家{i}"
+            ent = self.find_entity_by_name(name)
+            if ent is None:
+                ent = self.create_mock_entity(name)
+            players.append(ent)
+        self.present_players = players
+
+    def get_present_player_entities(self) -> List[MockEntity]:
+        """获取在场玩家实体列表（保证至少返回 1 个玩家）。"""
+        if isinstance(self.present_players, list) and self.present_players:
+            return list(self.present_players)
+        self.set_present_player_count(self.present_player_count or 1)
+        return list(self.present_players)
+
+    def set_ui_lv_defaults(self, defaults: Dict[str, Any]) -> None:
+        """设置 UI HTML 的 lv.* 默认值映射（key 为去掉 'lv.' 前缀后的变量名）。"""
+        if not isinstance(defaults, dict):
+            raise TypeError("defaults 必须是 dict")
+        self.ui_lv_defaults = dict(defaults)
     
     def destroy_entity(self, entity):
         """销毁实体"""
@@ -199,9 +271,31 @@ class GameRuntime:
             else:
                 del self.event_handlers[event_name]
     
-    def get_entity(self, entity_id: str) -> Optional[MockEntity]:
+    def get_entity(self, entity_id: str | int) -> Optional[MockEntity]:
         """获取实体"""
-        return self.entities.get(entity_id)
+        # 兼容：部分节点图会以“数值 GUID”查询实体（离线环境下不存在真实 GUID->实体映射），
+        # 这里为本地测试提供“按需创建”的最小可用语义：
+        # - int GUID：以 str(guid) 作为实体ID创建并缓存
+        # - 数字字符串：同上
+        if isinstance(entity_id, int):
+            key = str(int(entity_id))
+            existing = self.entities.get(key)
+            if existing is not None:
+                return existing
+            entity = MockEntity(key, name=f"GUID实体_{key}")
+            self.entities[key] = entity
+            return entity
+        if isinstance(entity_id, str):
+            key = entity_id
+            existing = self.entities.get(key)
+            if existing is not None:
+                return existing
+            if key.isdigit():
+                entity = MockEntity(key, name=f"GUID实体_{key}")
+                self.entities[key] = entity
+                return entity
+            return None
+        return None
     
     def get_all_entities(self) -> List[MockEntity]:
         """获取所有实体"""
@@ -295,6 +389,60 @@ class GameRuntime:
         graph_instance.register_handlers()
         
         return graph_instance
+
+    # ========== UI（离线模拟） ==========
+
+    def drain_ui_patches(self) -> List[Dict[str, Any]]:
+        """取出并清空 UI patch 列表（用于 UIHarness/HTTP API 回显）。"""
+        patches = list(self.ui_patches)
+        self.ui_patches = []
+        return patches
+
+    def ui_switch_layout(self, player_entity, layout_index: int) -> None:
+        """切换玩家当前 UI 布局（离线模拟）。"""
+        player_id = self._get_entity_id(player_entity)
+        index = int(layout_index)
+        self.ui_current_layout_by_player[player_id] = index
+        patch = {"op": "switch_layout", "player_id": player_id, "layout_index": index}
+        self.ui_patches.append(patch)
+        self.record_trace_event(kind="ui", message="switch_layout", **patch)
+
+    def ui_set_widget_state(self, player_entity, widget_index: int, state: str) -> None:
+        """修改界面控件/控件组状态（离线模拟）。"""
+        player_id = self._get_entity_id(player_entity)
+        idx = int(widget_index)
+        state_text = str(state or "")
+        store = self.ui_widget_state_by_player.setdefault(player_id, {})
+        store[idx] = state_text
+        patch = {
+            "op": "set_widget_state",
+            "player_id": player_id,
+            "widget_index": idx,
+            "state": state_text,
+        }
+        self.ui_patches.append(patch)
+        self.record_trace_event(kind="ui", message="set_widget_state", **patch)
+
+    def ui_activate_widget_group(self, player_entity, group_index: int) -> None:
+        """激活控件组库内控件组（离线模拟）。"""
+        player_id = self._get_entity_id(player_entity)
+        idx = int(group_index)
+        active = self.ui_active_groups_by_player.setdefault(player_id, set())
+        active.add(idx)
+        patch = {"op": "activate_widget_group", "player_id": player_id, "group_index": idx}
+        self.ui_patches.append(patch)
+        self.record_trace_event(kind="ui", message="activate_widget_group", **patch)
+
+    def ui_remove_widget_group(self, player_entity, group_index: int) -> None:
+        """移除控件组库内控件组（离线模拟）。"""
+        player_id = self._get_entity_id(player_entity)
+        idx = int(group_index)
+        active = self.ui_active_groups_by_player.setdefault(player_id, set())
+        if idx in active:
+            active.remove(idx)
+        patch = {"op": "remove_widget_group", "player_id": player_id, "group_index": idx}
+        self.ui_patches.append(patch)
+        self.record_trace_event(kind="ui", message="remove_widget_group", **patch)
     
     # ========== Mock系统 ==========
     
@@ -320,14 +468,37 @@ class GameRuntime:
     
     def start_timer(self, entity, timer_name: str, duration: float, is_loop: bool = False):
         """启动定时器（Mock）"""
+        self.start_timer_sequence(entity, timer_name, [float(duration)], is_loop)
+
+    def start_timer_sequence(self, entity, timer_name: str, timer_sequence: List[float], is_loop: bool = False) -> None:
+        """启动“序列定时器”（与 UGC 定时器语义对齐：触发【定时器触发时】事件）。"""
         entity_id = self._get_entity_id(entity)
         timer_key = f"{entity_id}_{timer_name}"
+
+        if not isinstance(timer_sequence, list) or (not timer_sequence):
+            return
+        seq: List[float] = [float(x) for x in timer_sequence]
+        seq = sorted(seq)
+
+        loop_duration = float(seq[-1])
+        if loop_duration <= 0:
+            raise ValueError(f"定时器序列最后一项必须 > 0: {timer_sequence!r}")
+
+        now = float(time.monotonic())
+        self._timer_token_counter += 1
         self.timers[timer_key] = {
-            "duration": duration,
-            "is_loop": is_loop,
-            "remaining": duration
+            "entity_id": str(entity_id),
+            "timer_name": str(timer_name),
+            "sequence": seq,
+            "is_loop": bool(is_loop),
+            "loop_duration": loop_duration,
+            "start_time": now,
+            "token": int(self._timer_token_counter),
+            "loop_count": 0,
+            "next_index": 0,
+            "next_fire_time": now + float(seq[0]),
         }
-        print(f"[定时器] 启动定时器'{timer_name}', 时长={duration}秒, 循环={is_loop}")
+        print(f"[定时器] 启动定时器'{timer_name}', 序列={seq}, 循环={is_loop}")
     
     def stop_timer(self, entity, timer_name: str):
         """停止定时器（Mock）"""
@@ -336,6 +507,98 @@ class GameRuntime:
         if timer_key in self.timers:
             del self.timers[timer_key]
             print(f"[定时器] 停止定时器'{timer_name}'")
+
+    def tick(self, now: Optional[float] = None) -> int:
+        """推进本地 MockRuntime 的时间（用于本地测试的定时器驱动）。"""
+        t = float(time.monotonic() if now is None else now)
+        return int(self._tick_timers(now=t))
+
+    def _tick_timers(self, *, now: float) -> int:
+        fired = 0
+        # 每次只触发“最早到期”的一个定时器节点，避免乱序；循环直到没有到期项。
+        while True:
+            due_key: Optional[str] = None
+            due_time: Optional[float] = None
+            for key, info in list(self.timers.items()):
+                if not isinstance(info, dict):
+                    continue
+                nft = info.get("next_fire_time", None)
+                if not isinstance(nft, (int, float)):
+                    continue
+                if float(nft) > float(now):
+                    continue
+                if due_time is None or float(nft) < float(due_time):
+                    due_key = str(key)
+                    due_time = float(nft)
+
+            if due_key is None:
+                return int(fired)
+
+            info = self.timers.get(due_key, None)
+            if not isinstance(info, dict):
+                continue
+            nft = info.get("next_fire_time", None)
+            if not isinstance(nft, (int, float)) or float(nft) > float(now):
+                continue
+
+            entity_id = str(info.get("entity_id") or "")
+            timer_name = str(info.get("timer_name") or "")
+            sequence = info.get("sequence", None)
+            if not isinstance(sequence, list) or (not sequence):
+                del self.timers[due_key]
+                continue
+
+            next_index = int(info.get("next_index", 0))
+            loop_count = int(info.get("loop_count", 0))
+            token = int(info.get("token", 0))
+            src_entity = self.get_entity(entity_id)
+            if src_entity is None:
+                # 实体不存在：直接销毁定时器
+                del self.timers[due_key]
+                continue
+
+            # 触发事件：与节点图事件 `定时器触发时` 对齐
+            self.trigger_event(
+                "定时器触发时",
+                事件源实体=src_entity,
+                事件源GUID=0,
+                定时器名称=timer_name,
+                定时器序列序号=int(next_index + 1),
+                循环次数=int(loop_count),
+            )
+            fired += 1
+
+            # 事件流中可能终止/重启了定时器；重新取一次确保状态一致
+            info2 = self.timers.get(due_key, None)
+            if not isinstance(info2, dict):
+                continue
+            if int(info2.get("token", 0)) != token:
+                # 定时器在事件流中被重启/替换：不在此处推进序列，避免覆盖新定时器状态
+                continue
+
+            sequence2 = info2.get("sequence", None)
+            if not isinstance(sequence2, list) or (not sequence2):
+                del self.timers[due_key]
+                continue
+
+            is_loop = bool(info2.get("is_loop", False))
+            loop_duration = float(info2.get("loop_duration", float(sequence2[-1])))
+            start_time = float(info2.get("start_time", float(now)))
+
+            next_index2 = int(info2.get("next_index", 0)) + 1
+            loop_count2 = int(info2.get("loop_count", 0))
+
+            if next_index2 >= len(sequence2):
+                if is_loop:
+                    loop_count2 += 1
+                    next_index2 = 0
+                else:
+                    del self.timers[due_key]
+                    continue
+
+            info2["next_index"] = int(next_index2)
+            info2["loop_count"] = int(loop_count2)
+            info2["next_fire_time"] = start_time + loop_count2 * loop_duration + float(sequence2[next_index2])
     
     def show_ui(self, ui_name: str, player_entity):
         """显示UI（Mock）"""

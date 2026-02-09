@@ -1,16 +1,35 @@
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+import re
+import tokenize
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
 
 from engine.configs.resource_types import ResourceType
 from engine.graph.composite_code_parser import CompositeCodeParser
-from engine.nodes.composite_file_policy import discover_composite_definition_files, is_composite_definition_file
+from engine.nodes.composite_file_policy import (
+    discover_composite_library_dirs,
+    is_composite_definition_file,
+)
 from engine.nodes.node_registry import get_node_registry
-from engine.validate import collect_composite_structural_issues, validate_files
+from engine.validate.graph_validation_orchestrator import (
+    ValidateGraphsOrchestrationOptions,
+    collect_validate_graphs_engine_issues,
+)
 from engine.validate.comprehensive_types import ValidationIssue
 from engine.validate.issue import EngineIssue
+from engine.validate.graph_validation_targets import (
+    collect_default_graph_validation_targets,
+    relative_path_for_display as _relative_path_for_display,
+)
+from engine.resources.graph_reference_service import collect_graph_ids_from_resource_payload
+
+
+_COMPOSITE_MODULE_REFERENCE_PATTERN = re.compile(
+    r"(资源库\.复合节点库(?:\.[\w]+)*\.composite_[\w]+)"
+)
 
 
 @dataclass(frozen=True)
@@ -19,21 +38,6 @@ class GraphCodeValidationOptions:
     strict_entity_wire_only: bool = False
     disable_cache: bool = False
     enable_composite_struct_check: bool = True
-
-
-def _normalize_slash(text: str) -> str:
-    return text.replace("\\", "/")
-
-
-def _relative_path_for_display(path: Path, workspace: Path) -> str:
-    resolved_path = path.resolve()
-    resolved_workspace = workspace.resolve()
-    resolved_path_text = _normalize_slash(str(resolved_path))
-    resolved_workspace_text = _normalize_slash(str(resolved_workspace))
-    prefix = resolved_workspace_text + "/"
-    if resolved_path_text.startswith(prefix):
-        return resolved_path_text[len(prefix) :]
-    return resolved_path_text
 
 
 def _split_message_and_suggestion(message: str) -> Tuple[str, str]:
@@ -65,15 +69,16 @@ class GraphCodeValidationService:
         if not targets:
             return []
 
-        report = validate_files(
+        orchestration_options = ValidateGraphsOrchestrationOptions(
+            strict_entity_wire_only=bool(options.strict_entity_wire_only),
+            use_cache=bool(not options.disable_cache),
+            enable_composite_struct_check=bool(options.enable_composite_struct_check),
+        )
+        engine_issues: List[EngineIssue] = collect_validate_graphs_engine_issues(
             targets,
             workspace_path,
-            strict_entity_wire_only=bool(options.strict_entity_wire_only),
-            use_cache=not bool(options.disable_cache),
+            options=orchestration_options,
         )
-        engine_issues: List[EngineIssue] = list(report.issues)
-        if bool(options.enable_composite_struct_check):
-            engine_issues.extend(collect_composite_structural_issues(targets, workspace_path))
 
         file_context = self._build_file_context(
             resource_manager=resource_manager,
@@ -103,31 +108,116 @@ class GraphCodeValidationService:
 
         targets: List[Path] = []
         if scope == "all":
-            targets.extend(self._collect_all_graph_files(workspace_path))
-        else:
-            targets.extend(
-                self._collect_package_graph_files(
-                    resource_manager=resource_manager,
-                    current_package=current_package,
-                )
-            )
+            # 全工程：复用引擎侧“默认校验目标收集”统一逻辑，确保与 CLI 的过滤规则保持一致。
+            return list(collect_default_graph_validation_targets(workspace_path))
 
-        # 复合节点定义文件：始终纳入（复合节点是全局资源，且节点图常会依赖）
-        targets.extend(discover_composite_definition_files(workspace_path))
+        graph_files = self._collect_package_graph_files(
+            resource_manager=resource_manager,
+            current_package=current_package,
+        )
+        targets.extend(graph_files)
+        # 当前存档：仅纳入“被当前存档引用到”的复合节点定义文件，避免无关复合节点问题污染验证面板。
+        targets.extend(
+            self._collect_referenced_composite_definition_files(
+                source_files=graph_files,
+                workspace_path=workspace_path,
+            )
+        )
         return self._deduplicate_preserve_order(targets)
 
-    def _collect_all_graph_files(self, workspace_path: Path) -> List[Path]:
-        graphs_dir = workspace_path / "assets" / "资源库" / "节点图"
-        if not graphs_dir.exists():
-            return []
-        collected: List[Path] = []
-        for path in sorted(graphs_dir.rglob("*.py")):
-            if path.name.startswith("_"):
+    def _collect_referenced_composite_definition_files(
+        self,
+        *,
+        source_files: Sequence[Path],
+        workspace_path: Path,
+    ) -> List[Path]:
+        """从给定源码文件中收敛出“实际被引用”的复合节点定义文件。
+
+        设计目的：在 UI 的“当前存档”校验中避免全量扫描/校验复合节点库，从而让问题列表聚焦于当前存档。
+
+        实现策略：仅基于源码文本扫描 import 语句中的模块引用（不执行 import，不依赖 AST 解析）。
+        """
+        composite_library_dirs: List[Path] = list(discover_composite_library_dirs(workspace_path))
+
+        pending_modules: deque[str] = deque()
+        seen_modules: set[str] = set()
+        for source_file in source_files:
+            for module_name in self._scan_file_for_composite_modules(source_file):
+                if module_name in seen_modules:
+                    continue
+                seen_modules.add(module_name)
+                pending_modules.append(module_name)
+
+        referenced_files: List[Path] = []
+        seen_files: set[str] = set()
+        while pending_modules:
+            module_name = pending_modules.popleft()
+            composite_file = self._resolve_composite_module_to_definition_file(
+                module_name,
+                composite_library_dirs=composite_library_dirs,
+            )
+            if composite_file is None:
                 continue
-            if "校验" in path.stem:
+            resolved_text = str(composite_file.resolve())
+            if resolved_text in seen_files:
                 continue
-            collected.append(path)
-        return collected
+            seen_files.add(resolved_text)
+            referenced_files.append(composite_file)
+
+            for nested_module_name in self._scan_file_for_composite_modules(composite_file):
+                if nested_module_name in seen_modules:
+                    continue
+                seen_modules.add(nested_module_name)
+                pending_modules.append(nested_module_name)
+
+        return referenced_files
+
+    @staticmethod
+    def _scan_file_for_composite_modules(file_path: Path) -> List[str]:
+        if not isinstance(file_path, Path):
+            raise TypeError("file_path 必须是 pathlib.Path 实例")
+
+        with tokenize.open(file_path) as handle:
+            source_text = handle.read()
+
+        matches = _COMPOSITE_MODULE_REFERENCE_PATTERN.findall(source_text)
+        unique_modules: List[str] = []
+        seen: set[str] = set()
+        for module_name in matches:
+            module_text = str(module_name or "")
+            if not module_text:
+                continue
+            if module_text in seen:
+                continue
+            seen.add(module_text)
+            unique_modules.append(module_text)
+        return unique_modules
+
+    @staticmethod
+    def _resolve_composite_module_to_definition_file(
+        module_name: str,
+        *,
+        composite_library_dirs: Sequence[Path],
+    ) -> Optional[Path]:
+        module_text = str(module_name or "")
+        parts = module_text.split(".")
+        if len(parts) < 3:
+            return None
+        if parts[0] != "资源库" or parts[1] != "复合节点库":
+            return None
+        file_stem = str(parts[-1] or "")
+        if not file_stem:
+            return None
+
+        sub_dirs = [str(part or "") for part in parts[2:-1] if str(part or "")]
+        for composite_library_dir in composite_library_dirs:
+            candidate_path = composite_library_dir.joinpath(*sub_dirs, f"{file_stem}.py")
+            if not candidate_path.is_file():
+                continue
+            if not is_composite_definition_file(candidate_path):
+                continue
+            return candidate_path
+        return None
 
     def _collect_package_graph_files(
         self,
@@ -174,6 +264,54 @@ class GraphCodeValidationService:
                 graph_id_set.add(graph_id_text)
                 graph_ids.append(graph_id_text)
 
+        # 战斗预设挂载：技能/玩家模板/职业等
+        combat_presets = getattr(current_package, "combat_presets", None)
+        if combat_presets is not None:
+            skill_map = getattr(combat_presets, "skills", {}) or {}
+            if isinstance(skill_map, dict):
+                for payload in skill_map.values():
+                    if not isinstance(payload, dict):
+                        continue
+                    for graph_id in collect_graph_ids_from_resource_payload(
+                        ResourceType.SKILL,
+                        payload,
+                        package_id=str(getattr(current_package, "package_id", "") or ""),
+                        include_skill_ugc_indirect=False,
+                    ):
+                        if graph_id and graph_id not in graph_id_set:
+                            graph_id_set.add(graph_id)
+                            graph_ids.append(graph_id)
+
+            player_template_map = getattr(combat_presets, "player_templates", {}) or {}
+            if isinstance(player_template_map, dict):
+                for payload in player_template_map.values():
+                    if not isinstance(payload, dict):
+                        continue
+                    for graph_id in collect_graph_ids_from_resource_payload(
+                        ResourceType.PLAYER_TEMPLATE,
+                        payload,
+                        package_id=str(getattr(current_package, "package_id", "") or ""),
+                        include_skill_ugc_indirect=False,
+                    ):
+                        if graph_id and graph_id not in graph_id_set:
+                            graph_id_set.add(graph_id)
+                            graph_ids.append(graph_id)
+
+            player_class_map = getattr(combat_presets, "player_classes", {}) or {}
+            if isinstance(player_class_map, dict):
+                for payload in player_class_map.values():
+                    if not isinstance(payload, dict):
+                        continue
+                    for graph_id in collect_graph_ids_from_resource_payload(
+                        ResourceType.PLAYER_CLASS,
+                        payload,
+                        package_id=str(getattr(current_package, "package_id", "") or ""),
+                        include_skill_ugc_indirect=False,
+                    ):
+                        if graph_id and graph_id not in graph_id_set:
+                            graph_id_set.add(graph_id)
+                            graph_ids.append(graph_id)
+
         target_files: List[Path] = []
         get_graph_file_path = getattr(resource_manager, "get_graph_file_path", None)
         if not callable(get_graph_file_path):
@@ -215,7 +353,8 @@ class GraphCodeValidationService:
         list_resources = getattr(resource_manager, "list_resources", None)
         get_graph_file_path = getattr(resource_manager, "get_graph_file_path", None)
         if callable(list_resources) and callable(get_graph_file_path):
-            graph_ids_all = list(list_resources(ResourceType.GRAPH) or [])
+            list_resources_callable = cast(Callable[[ResourceType], List[str]], list_resources)
+            graph_ids_all = list(list_resources_callable(ResourceType.GRAPH) or [])
             for graph_id_value in graph_ids_all:
                 graph_id = str(graph_id_value or "")
                 if not graph_id:

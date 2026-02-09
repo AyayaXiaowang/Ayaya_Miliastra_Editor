@@ -29,6 +29,7 @@ from app.ui.graph.graph_scene import GraphScene
 from app.ui.graph.graph_view import GraphView
 from app.ui.graph.scene_builder import populate_scene_from_model
 from app.ui.todo.todo_config import TodoStyles, StepTypeRules
+from app.models.todo_detail_info_accessors import get_detail_type
 from engine.nodes.port_type_system import is_flow_port_with_context
 from engine.nodes.composite_node_manager import get_composite_node_manager
 from app.ui.todo import todo_preview_handlers
@@ -183,47 +184,52 @@ class TodoPreviewController:
         current_version = self._focus_operation_version
 
         # 停止正在进行的动画
-        if hasattr(self.view, 'transform_animation') and self.view.transform_animation:
-            if self.view.transform_animation.is_running:
-                self.view.transform_animation.timer.stop()
-                self.view.transform_animation.is_running = False
+        if hasattr(self.view, "transform_animation") and self.view.transform_animation:
+            self.view.transform_animation.stop()
 
         # 停止浮窗动画
         if hasattr(self.view, 'overlay_manager') and self.view.overlay_manager:
             self.view.overlay_manager.stop_all_animations()
 
-        detail_type = todo.detail_info.get("type", "")
+        detail_type = get_detail_type(todo)
 
         # 批处理更新，避免闪烁
-        self._prepare_for_focus()
+        # 重要：预览 handler 可能在异常/边界数据下抛错；Qt 会打印异常但不会让进程立刻退出，
+        # 若此处不做 finally 兜底，view 会永久停留在 updatesDisabled 状态，造成“怎么选都没反应”的假死观感。
+        self.view.setUpdatesEnabled(False)
+        try:
+            self.view.clear_highlights()
+            # 不在此处无条件 restore_all_opacity：连续高亮/聚焦场景下会造成全量遍历卡顿；
+            # 需要恢复透明度的分支由具体 handler 明确调用。
 
-        # 事件流根：若外层已给出节点集合，则优先使用显式参数（避免通过 detail_info 增加额外字段）
-        if StepTypeRules.is_event_flow_root(detail_type) and event_flow_node_ids is not None:
-            self._handle_event_flow_root_with_node_ids(
-                current_version=current_version,
-                node_ids=event_flow_node_ids,
-            )
-            return
+            # 事件流根：若外层已给出节点集合，则优先使用显式参数（避免通过 detail_info 增加额外字段）
+            if StepTypeRules.is_event_flow_root(detail_type) and event_flow_node_ids is not None:
+                self._handle_event_flow_root_with_node_ids(
+                    current_version=current_version,
+                    node_ids=event_flow_node_ids,
+                )
+                return
 
-        handler = self._detail_type_handlers.get(detail_type)
-        if handler is not None:
-            handler(todo, current_version)
-        else:
-            # 未注册类型：仅恢复视图更新状态，保持“清空高亮+还原透明度”的基线视图
-            self.view.restore_all_opacity()
-            self._hide_overlay()
-            self._finalize_updates()
+            handler = self._detail_type_handlers.get(detail_type)
+            if handler is not None:
+                handler(todo, current_version)
+            else:
+                # 未注册类型：仅恢复视图更新状态，保持“清空高亮+还原透明度”的基线视图
+                self.view.restore_all_opacity()
+                self._hide_overlay()
+                self._finalize_updates()
+        finally:
+            # 兜底恢复：不吞异常，只保证 UI 不会因一次 handler 异常进入“永久不刷新”的状态。
+            self.view.setUpdatesEnabled(True)
 
     # === 内部 handler 实现（按任务类型拆分） ===
     # 大多数 handler 已拆分到 `ui.todo.todo_preview_handlers`，通过 `_register_default_handlers` 注册。
 
     def _handle_event_flow_root(self, todo: TodoItem, current_version: int) -> None:
         # 事件流根：调用分组聚焦
-        # 保持兼容：若外层仍通过 detail_info 填充节点集合，则回退读取
-        node_ids = todo.detail_info.get("_flow_node_ids", []) or []
         self._handle_event_flow_root_with_node_ids(
             current_version=current_version,
-            node_ids=list(node_ids) if isinstance(node_ids, list) else [],
+            node_ids=[],
         )
 
     def _handle_event_flow_root_with_node_ids(
@@ -253,13 +259,34 @@ class TodoPreviewController:
         self._finalize_updates()
         self._schedule_focus(
             current_version,
-            lambda use_animation: self.view.fit_all(use_animation=use_animation),
+            lambda use_animation: self.fit_all_or_center(use_animation=use_animation),
         )
 
     # === 工具 ===
     def focus_on_node_group(self, node_ids: List[str], *, use_animation: Optional[bool] = None) -> None:
         """对外公开的分组聚焦接口。"""
         self._focus_on_node_group(node_ids, use_animation=use_animation)
+
+    def fit_all_or_center(self, *, use_animation: Optional[bool] = None) -> None:
+        """按设置决定“适配全图（压缩视图）”还是仅居中（不改变缩放）。
+
+        说明：
+        - 当 `settings.GRAPH_AUTO_FIT_ALL_ENABLED=True` 时，执行 `GraphView.fit_all()`；
+        - 默认关闭时不自动缩放，仅居中到场景内容中心，避免预览侧把共享画布拉到极小缩放。
+        """
+        from engine.configs.settings import settings as _settings_ui
+
+        if bool(getattr(_settings_ui, "GRAPH_AUTO_FIT_ALL_ENABLED", False)):
+            self.view.fit_all(use_animation=use_animation)
+            return
+
+        scene = self.view.scene()
+        if scene is None:
+            return
+        rect = scene.sceneRect()
+        if rect.isEmpty():
+            return
+        self.view.centerOn(rect.center())
 
     # === handlers 公共 API（供 `todo_preview_handlers.py` 使用）===
     # 说明：
@@ -383,41 +410,46 @@ class TodoPreviewController:
     def focus_composite_task(self, todo: TodoItem, composite_obj) -> None:
         if not composite_obj or not self.view or not self.view.scene():
             return
-        # 批处理，避免闪烁
+        # 批处理，避免闪烁（同样需要 finally 兜底恢复 updatesEnabled）
         self.view.setUpdatesEnabled(False)
-        self.view.clear_highlights()
+        try:
+            self.view.clear_highlights()
 
-        detail_type = todo.detail_info.get("type", "")
-        nodes_to_focus: List[str] = []
+            detail_type = get_detail_type(todo)
+            nodes_to_focus: List[str] = []
 
-        if detail_type == "composite_set_pins":
-            expected_inputs = {p.get("name", ""): p for p in (todo.detail_info.get("inputs", []) or [])}
-            expected_outputs = {p.get("name", ""): p for p in (todo.detail_info.get("outputs", []) or [])}
-            for vp in composite_obj.virtual_pins:
-                name = vp.pin_name
-                is_expected = (vp.is_input and name in expected_inputs) or ((not vp.is_input) and name in expected_outputs)
-                if not is_expected:
-                    continue
-                for mp in vp.mapped_ports:
-                    self.view.highlight_node(mp.node_id)
-                    self.view.highlight_port(mp.node_id, mp.port_name, is_input=mp.is_input)
-                    if mp.node_id not in nodes_to_focus:
-                        nodes_to_focus.append(mp.node_id)
-            self.view.dim_unrelated_items(nodes_to_focus, [])
+            if detail_type == "composite_set_pins":
+                expected_inputs = {p.get("name", ""): p for p in (todo.detail_info.get("inputs", []) or [])}
+                expected_outputs = {p.get("name", ""): p for p in (todo.detail_info.get("outputs", []) or [])}
+                for vp in composite_obj.virtual_pins:
+                    name = vp.pin_name
+                    is_expected = (vp.is_input and name in expected_inputs) or ((not vp.is_input) and name in expected_outputs)
+                    if not is_expected:
+                        continue
+                    for mp in vp.mapped_ports:
+                        self.view.highlight_node(mp.node_id)
+                        self.view.highlight_port(mp.node_id, mp.port_name, is_input=mp.is_input)
+                        if mp.node_id not in nodes_to_focus:
+                            nodes_to_focus.append(mp.node_id)
+                self.view.dim_unrelated_items(nodes_to_focus, [])
+
+                def _focus_group() -> None:
+                    if nodes_to_focus:
+                        self.focus_on_node_group(nodes_to_focus)
+                    else:
+                        self.fit_all_or_center()
+
+                QtCore.QTimer.singleShot(TodoStyles.ANIMATION_DELAY, _focus_group)
+                return
+
+            # 默认适应全图
+            self.view.restore_all_opacity()
+            QtCore.QTimer.singleShot(
+                TodoStyles.ANIMATION_DELAY,
+                lambda: self.fit_all_or_center(),
+            )
+        finally:
             self.view.setUpdatesEnabled(True)
-
-            def _focus_group() -> None:
-                if nodes_to_focus:
-                    self.focus_on_node_group(nodes_to_focus)
-                else:
-                    self.view.fit_all()
-            QtCore.QTimer.singleShot(TodoStyles.ANIMATION_DELAY, _focus_group)
-            return
-
-        # 默认适应全图
-        self.view.restore_all_opacity()
-        self.view.setUpdatesEnabled(True)
-        QtCore.QTimer.singleShot(TodoStyles.ANIMATION_DELAY, self.view.fit_all)
 
     # === 内部小工具 ===
     def _schedule(self, version: int, fn) -> None:
@@ -429,10 +461,34 @@ class TodoPreviewController:
     def _schedule_focus(self, version: int, fn: Callable[[bool], None]) -> None:
         use_animation = self._should_use_focus_animation()
 
-        def _wrapped() -> None:
-            if self._focus_operation_version == version:
-                fn(use_animation)
-        QtCore.QTimer.singleShot(TodoStyles.ANIMATION_DELAY, _wrapped)
+        # 关键：GraphView 的聚焦底层会在 viewport 尺寸为 0 时直接 return（见 ViewportNavigator.execute_focus_on_rect）。
+        # 当预览页刚切换/共享画布刚 re-parent/分割器尺寸抖动时，偶发出现“选中项已变但画板不动”，
+        # 本质是聚焦触发得太早导致被短路且没有重试。
+        #
+        # 这里做一次“视图就绪”短重试：仅在当前 version 仍有效时继续，避免旧步骤残留定时器干扰。
+        retry_state = {"attempts": 0}
+        max_attempts = 60  # ~1s（16ms * 60），足以覆盖一次布局/切页的稳定期
+        retry_delay_ms = 16
+
+        def _attempt_focus() -> None:
+            if self._focus_operation_version != version:
+                return
+
+            viewport = self.view.viewport() if self.view is not None else None
+            if viewport is None:
+                return
+
+            size = viewport.size()
+            if size.width() <= 0 or size.height() <= 0:
+                retry_state["attempts"] += 1
+                if int(retry_state["attempts"]) >= int(max_attempts):
+                    return
+                QtCore.QTimer.singleShot(retry_delay_ms, _attempt_focus)
+                return
+
+            fn(use_animation)
+
+        QtCore.QTimer.singleShot(TodoStyles.ANIMATION_DELAY, _attempt_focus)
 
     def _should_use_focus_animation(self) -> bool:
         if not getattr(self.view, 'enable_smooth_transition', False):

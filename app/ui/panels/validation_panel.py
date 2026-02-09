@@ -1,10 +1,11 @@
-"""验证结果面板 - 显示存档验证结果"""
+"""验证结果面板 - 显示项目存档验证结果"""
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from typing import Dict, List, Optional, Tuple
 
 from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.panels.panel_scaffold import PanelScaffold, SectionCard
 from engine.validate.comprehensive_validator import ValidationIssue
 
@@ -21,12 +22,13 @@ class ValidationPanel(PanelScaffold):
         super().__init__(
             parent,
             title="验证状态",
-            description="查看存档综合校验与节点图源码校验结果（双击可跳转到问题来源）",
+            description="查看项目存档综合校验与节点图源码校验结果（双击可跳转到问题来源）",
         )
         self.package_issues: List[ValidationIssue] = []
         self.graph_code_issues: List[ValidationIssue] = []
         self._package_validated = False
         self._graph_code_validated = False
+        self._pending_focus_resource_id: str = ""
         self._build_ui()
         self._update_summary()
     
@@ -36,7 +38,7 @@ class ValidationPanel(PanelScaffold):
         self.refresh_button.clicked.connect(self._on_refresh_clicked)
         self.add_action_widget(self.refresh_button)
 
-        self.validate_graphs_for_package_button = QtWidgets.QPushButton("节点图（当前存档）")
+        self.validate_graphs_for_package_button = QtWidgets.QPushButton("节点图（当前项目存档）")
         self.validate_graphs_for_package_button.setCursor(
             QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         )
@@ -87,15 +89,16 @@ class ValidationPanel(PanelScaffold):
         self.setMinimumWidth(260)
 
     def update_issues(self, issues: List[ValidationIssue]):
-        """兼容入口：默认视为“存档综合校验”结果。"""
+        """兼容入口：默认视为“项目存档综合校验”结果。"""
         self.update_package_issues(issues)
 
     def update_package_issues(self, issues: List[ValidationIssue]) -> None:
-        """更新“存档综合校验”问题列表。"""
+        """更新“项目存档综合校验”问题列表。"""
         self.package_issues = list(issues or [])
         self._package_validated = True
         self._refresh_tree()
         self._update_summary()
+        self._apply_pending_focus()
 
     def update_graph_code_issues(self, issues: List[ValidationIssue]) -> None:
         """更新“节点图源码校验”问题列表。"""
@@ -103,6 +106,108 @@ class ValidationPanel(PanelScaffold):
         self._graph_code_validated = True
         self._refresh_tree()
         self._update_summary()
+        self._apply_pending_focus()
+
+    def request_focus_for_resource_id(self, resource_id: str) -> None:
+        """请求在验证树中定位到“与某个资源ID相关”的第一条问题。
+
+        设计目标：
+        - 供元件库/实体摆放/战斗预设/节点图库等页面统一调用“定位问题”；
+        - 若当前尚未运行校验，则保持 pending，等待下一次 update_*_issues 后自动定位；
+        - 若已运行校验但未命中任何问题，则给出轻量提示。
+        """
+        self._pending_focus_resource_id = str(resource_id or "").strip()
+        self._apply_pending_focus()
+
+    # ------------------------------------------------------------------ 定位辅助
+
+    @staticmethod
+    def _detail_contains_text(payload: object, target_text: str) -> bool:
+        if not target_text:
+            return False
+        if isinstance(payload, str):
+            return target_text in payload
+        if isinstance(payload, dict):
+            for value in payload.values():
+                if ValidationPanel._detail_contains_text(value, target_text):
+                    return True
+            return False
+        if isinstance(payload, (list, tuple, set)):
+            for value in payload:
+                if ValidationPanel._detail_contains_text(value, target_text):
+                    return True
+            return False
+        return False
+
+    def _issue_matches_resource_id(self, issue: ValidationIssue, target_id: str) -> bool:
+        if not target_id:
+            return False
+        location_text = str(getattr(issue, "location", "") or "")
+        if target_id in location_text:
+            return True
+        message_text = str(getattr(issue, "message", "") or "")
+        if target_id in message_text:
+            return True
+        detail = getattr(issue, "detail", None)
+        return self._detail_contains_text(detail, target_id)
+
+    def _select_issue_in_tree(self, issue: ValidationIssue) -> bool:
+        if not hasattr(self, "tree_widget") or self.tree_widget is None:
+            return False
+        iterator = QtWidgets.QTreeWidgetItemIterator(self.tree_widget)
+        while iterator.value() is not None:
+            item = iterator.value()
+            if item is None:
+                iterator += 1
+                continue
+            issue_any = item.data(0, QtCore.Qt.ItemDataRole.UserRole)
+            if issue_any is issue:
+                parent = item.parent()
+                while parent is not None:
+                    parent.setExpanded(True)
+                    parent = parent.parent()
+                self.tree_widget.setCurrentItem(item)
+                self.tree_widget.scrollToItem(
+                    item,
+                    QtWidgets.QAbstractItemView.ScrollHint.PositionAtCenter,
+                )
+                return True
+            iterator += 1
+        return False
+
+    def _apply_pending_focus(self) -> None:
+        target_id = str(self._pending_focus_resource_id or "").strip()
+        if not target_id:
+            return
+        if (not self._package_validated) and (not self._graph_code_validated):
+            return
+
+        all_issues = list(self.package_issues) + list(self.graph_code_issues)
+        if not all_issues:
+            # 已验证但无任何问题：直接给出轻量提示
+            self._pending_focus_resource_id = ""
+            ToastNotification.show_message(self, f"未发现与 '{target_id}' 相关的验证问题。", "info")
+            return
+
+        # 优先定位到更严重的问题
+        all_issues.sort(
+            key=lambda issue: (
+                self._level_priority(str(getattr(issue, "level", "") or "")),
+                str(getattr(issue, "location", "") or ""),
+            )
+        )
+
+        for issue in all_issues:
+            if self._issue_matches_resource_id(issue, target_id):
+                focused = self._select_issue_in_tree(issue)
+                self._pending_focus_resource_id = ""
+                if not focused:
+                    ToastNotification.show_message(self, f"已找到相关问题，但无法在列表中定位：{target_id}", "warning")
+                return
+
+        # 已验证但未命中任何问题：提示并清空 pending
+        self._pending_focus_resource_id = ""
+        ToastNotification.show_message(self, f"未发现与 '{target_id}' 相关的验证问题。", "info")
 
     def get_graph_code_validation_options(self) -> Tuple[bool, bool, bool]:
         """返回节点图校验选项：(strict_entity_wire_only, disable_cache, composite_struct_check_enabled)。"""
@@ -122,9 +227,9 @@ class ValidationPanel(PanelScaffold):
         self.tree_widget.setUpdatesEnabled(False)
         self.tree_widget.clear()
         try:
-            # 两个来源分组：存档综合 + 节点图源码
+            # 两个来源分组：项目存档综合 + 节点图源码
             sources: List[Tuple[str, bool, List[ValidationIssue]]] = [
-                ("存档综合校验", self._package_validated, list(self.package_issues)),
+                ("项目存档综合校验", self._package_validated, list(self.package_issues)),
                 ("节点图源码校验", self._graph_code_validated, list(self.graph_code_issues)),
             ]
 
@@ -214,7 +319,7 @@ class ValidationPanel(PanelScaffold):
 
         parts: List[str] = []
         if self._package_validated:
-            parts.append(f"存档：❌{package_error} ⚠️{package_warning} ℹ️{package_info}")
+            parts.append(f"项目存档：❌{package_error} ⚠️{package_warning} ℹ️{package_info}")
         if self._graph_code_validated:
             parts.append(f"节点图：❌{graph_error} ⚠️{graph_warning} ℹ️{graph_info}")
         if not parts:
@@ -309,7 +414,7 @@ class ValidationPanel(PanelScaffold):
     # 折叠相关行为已删除
     
     def _on_refresh_clicked(self):
-        """刷新按钮点击：默认触发“存档+节点图”全量（当前存档）验证。"""
+        """刷新按钮点击：默认触发“项目存档+节点图”全量（当前项目存档）验证。"""
         parent_window = self.window()
         if hasattr(parent_window, "_trigger_validation_full"):
             parent_window._trigger_validation_full()

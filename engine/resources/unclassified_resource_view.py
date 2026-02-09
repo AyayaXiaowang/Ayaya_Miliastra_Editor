@@ -22,6 +22,9 @@ from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.ingame_save_template_schema_view import (
     get_default_ingame_save_template_schema_view,
 )
+from engine.resources.graph_reference_service import (
+    iter_referenced_graph_ids_from_package_index,
+)
 
 
 class UnclassifiedResourceView:
@@ -69,7 +72,7 @@ class UnclassifiedResourceView:
             "combat:projectiles", "combat:items",
             "management:timers", "management:level_variables", "management:preset_points",
             "management:skill_resources", "management:currency_backpack", "management:equipment_data",
-            "management:shop_templates", "management:ui_layouts", "management:ui_widget_templates",
+            "management:shop_templates", "management:ui_layouts", "management:ui_widget_templates", "management:ui_pages",
             "management:multi_language", "management:main_cameras", "management:light_sources",
             "management:background_music", "management:paths", "management:entity_deployment_groups",
             "management:unit_tags", "management:scan_tags", "management:shields",
@@ -124,37 +127,26 @@ class UnclassifiedResourceView:
         # 已分类：来自 resources.graphs
         classified: set[str] = set(self._classified_ids.get("graphs", set()))
 
-        # 收集模板/实例引用
+        # 收集所有存档的“挂载引用”（模板/实体摆放/关卡实体/战斗预设等）
         packages = self.package_index_manager.list_packages()
         for pkg_info in packages:
-            pkg_id = pkg_info.get("package_id", "")
-            pkg_index = self.package_index_manager.load_package_index(pkg_id)
+            pkg_id = str(pkg_info.get("package_id", "") or "").strip()
+            if not pkg_id:
+                continue
+            pkg_index = self.package_index_manager.load_package_index(
+                pkg_id,
+                refresh_resource_names=False,
+            )
             if not pkg_index:
                 continue
-
-            # 模板 default_graphs
-            for template_id in pkg_index.resources.templates:
-                data = self.resource_manager.load_resource(ResourceType.TEMPLATE, template_id)
-                if data:
-                    default_graphs = data.get("default_graphs", [])
-                    for gid in default_graphs:
-                        classified.add(gid)
-
-            # 实例 additional_graphs
-            for instance_id in pkg_index.resources.instances:
-                data = self.resource_manager.load_resource(ResourceType.INSTANCE, instance_id)
-                if data:
-                    additional_graphs = data.get("additional_graphs", [])
-                    for gid in additional_graphs:
-                        classified.add(gid)
-
-            # 关卡实体 additional_graphs
-            if pkg_index.level_entity_id:
-                le_data = self.resource_manager.load_resource(ResourceType.INSTANCE, pkg_index.level_entity_id)
-                if le_data:
-                    additional_graphs = le_data.get("additional_graphs", [])
-                    for gid in additional_graphs:
-                        classified.add(gid)
+            for graph_id in iter_referenced_graph_ids_from_package_index(
+                package_id=pkg_id,
+                package_index=pkg_index,
+                resource_manager=self.resource_manager,
+                include_combat_presets=True,
+                include_skill_ugc_indirect=False,
+            ):
+                classified.add(graph_id)
 
         # 全量图ID
         all_graph_ids = set(self.resource_manager.list_resources(ResourceType.GRAPH))
@@ -206,7 +198,7 @@ class UnclassifiedResourceView:
         """获取未分类视图下的关卡实体（若存在）。
 
         设计约定：
-        - 仅返回尚未被任何功能包纳入的关卡实体（metadata.is_level_entity 为 True 且未被索引为实例）
+        - 仅返回尚未被任何项目存档纳入的关卡实体（metadata.is_level_entity 为 True 且未被索引为实例）
         - 便于在“未分类资源”模式下为新建的关卡实体设置“所属存档”并完成首次绑定
         """
         if self._level_entity_cache is None:

@@ -157,8 +157,10 @@ class RichTextItemDelegate(QtWidgets.QStyledItemDelegate):
         - 仅当项可用户勾选时响应
         - 只在点击复选框本体时切换勾选状态；点击行文本仅改变选中
         """
-        # 仅处理左键释放以避免多次切换
-        if event.type() == QtCore.QEvent.Type.MouseButtonRelease:
+        # 重要：在部分平台/样式组合下，视图不会将 MouseButtonRelease 可靠地下发到 delegate，
+        # 仅处理 release 会导致“复选框无法勾选”的体验。
+        # 因此这里改为处理 MouseButtonPress，并返回 True 吃掉事件，避免后续 release 造成重复切换。
+        if event.type() == QtCore.QEvent.Type.MouseButtonPress:
             mouse_event = event  # type: ignore[assignment]
             # PyQt6 鼠标事件位置属性兼容
             position = (
@@ -166,7 +168,16 @@ class RichTextItemDelegate(QtWidgets.QStyledItemDelegate):
                 if hasattr(mouse_event, "position")
                 else mouse_event.pos()
             )  # type: ignore[attr-defined]
-            if hasattr(mouse_event, "button") and mouse_event.button() == QtCore.Qt.MouseButton.LeftButton:
+            is_left_button = False
+            if hasattr(mouse_event, "button"):
+                is_left_button = mouse_event.button() == QtCore.Qt.MouseButton.LeftButton  # type: ignore[attr-defined]
+            if (not is_left_button) and hasattr(mouse_event, "buttons"):
+                # 某些事件类型下 button() 可能为 NoButton，buttons() 才表示当前按键状态
+                is_left_button = bool(
+                    mouse_event.buttons() & QtCore.Qt.MouseButton.LeftButton  # type: ignore[attr-defined]
+                )
+
+            if is_left_button:
                 item_flags = index.flags()
                 # 仅叶子项具备此标志；父项不可直接勾选
                 if item_flags & QtCore.Qt.ItemFlag.ItemIsUserCheckable:

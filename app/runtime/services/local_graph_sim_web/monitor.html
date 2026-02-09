@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Local Graph UI Monitor</title>
+  <style>
+    :root{
+      --bg0:#0f1115;
+      --bg1:#151822;
+      --bg2:#1b2030;
+      --fg0:#e6e7ea;
+      --fg1:#aeb4c0;
+      --accent:#5aa2ff;
+      --border:rgba(255,255,255,.08);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "PingFang SC","Microsoft YaHei", sans-serif;
+    }
+    html,body{height:100%;margin:0;background:var(--bg0);color:var(--fg0);font-family:var(--sans);}
+    *{box-sizing:border-box;}
+    a{color:inherit;}
+    button,select,input,textarea{
+      background:var(--bg2);color:var(--fg0);border:1px solid var(--border);
+      border-radius:8px;padding:6px 10px;font:inherit;
+    }
+    button{cursor:pointer;}
+    button:hover{border-color:rgba(90,162,255,.45);}
+    textarea{font-family:var(--mono);font-size:12px;line-height:1.4;resize:vertical;}
+    .layout{
+      height:100%;
+      display:grid;
+      grid-template-columns: 320px 1fr 380px;
+      grid-template-rows: auto 1fr;
+      gap:10px;
+      padding:10px;
+    }
+    .header{
+      grid-column:1 / -1;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 12px;
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius:12px;
+    }
+    .header .title{font-weight:600;}
+    .header .sub{color:var(--fg1);font-size:12px; margin-top:2px;}
+    .header .right{display:flex; gap:8px; align-items:center;}
+    .panel{
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+    }
+    .panel .panel-h{
+      padding:10px 12px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+    .panel .panel-h .h{font-weight:600; font-size:13px;}
+    .panel .panel-b{
+      padding:10px 12px;
+      overflow:auto;
+      min-height:0;
+    }
+    .kv{display:grid;grid-template-columns: 120px 1fr; gap:6px 10px; font-size:12px; color:var(--fg1);}
+    .kv b{color:var(--fg0); font-weight:600;}
+    .row{display:flex;gap:8px;align-items:center; flex-wrap:wrap;}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--fg1);}
+    .stage-wrap{display:flex;flex-direction:column;min-height:0;}
+    .stage-toolbar{
+      padding:10px 12px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .stage-container{
+      padding:10px;
+      overflow:auto;
+      min-height:0;
+    }
+    .stage{
+      position:relative;
+      background:#000;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+      transform-origin: 0 0;
+    }
+    .stage .watermark{
+      position:absolute; inset:0;
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,.04) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,.04) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.04) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.04) 75%);
+      background-size: 40px 40px;
+      background-position: 0 0, 0 20px, 20px -20px, -20px 0px;
+      border-radius:12px;
+      pointer-events:none;
+      opacity:.45;
+    }
+    .stage iframe{
+      position:relative;
+      width:100%;
+      height:100%;
+      border:0;
+      border-radius:12px;
+      background:transparent;
+    }
+    .small{font-size:12px;color:var(--fg1);}
+    hr{border:0;border-top:1px solid var(--border); margin:10px 0;}
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="header">
+      <div>
+        <div class="title">Local Graph UI 监控面板</div>
+        <div class="sub" id="statusSub">正在连接...</div>
+      </div>
+      <div class="right">
+        <span class="badge" id="statusBadge">离线</span>
+        <button id="btnReloadUi">刷新中间页面</button>
+        <button id="btnRestartAll" title="重建模拟会话（相当于重新启动本地测试），并刷新本页。">一键重启</button>
+        <button id="btnClearTrace">清空日志</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">
+        <div class="h">信号 / 控制</div>
+      </div>
+      <div class="panel-b">
+        <div class="row">
+          <label class="small">布局</label>
+          <select id="layoutSelect" style="min-width:180px"></select>
+          <button id="btnApplyLayout">切换</button>
+        </div>
+        <hr/>
+        <div class="row">
+          <label class="small">signal_id</label>
+          <input id="signalId" style="flex:1;min-width:180px" placeholder="例如: signal_level_lobby_start_level" />
+          <button id="btnSendSignal">发送</button>
+        </div>
+        <div class="small" style="margin-top:6px">params（JSON对象，可留空）</div>
+        <textarea id="signalParams" style="width:100%;height:90px" spellcheck="false">{}</textarea>
+        <hr/>
+        <div class="small" style="margin-bottom:6px">当前会话</div>
+        <div class="kv" id="kvSession"></div>
+      </div>
+    </div>
+
+    <div class="panel stage-wrap">
+      <div class="stage-toolbar">
+        <div class="row">
+          <label class="small">分辨率</label>
+          <select id="resPreset">
+            <option value="1920x1080">1920×1080</option>
+            <option value="1600x900">1600×900</option>
+            <option value="1280x720">1280×720</option>
+            <option value="2560x1440">2560×1440</option>
+            <option value="3840x2160">3840×2160</option>
+          </select>
+          <span class="small">或</span>
+          <input id="resW" type="number" min="320" step="10" style="width:110px" />
+          <span class="small">×</span>
+          <input id="resH" type="number" min="240" step="10" style="width:110px" />
+          <button id="btnApplyRes">应用</button>
+        </div>
+        <div class="row">
+          <label class="small"><input id="fitToggle" type="checkbox" checked/> 适配窗口</label>
+          <span class="small" id="fitInfo"></span>
+        </div>
+      </div>
+      <div class="stage-container" id="stageContainer">
+        <div class="stage" id="stage">
+          <div class="watermark"></div>
+          <iframe id="uiFrame" src="/ui.html"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">
+        <div class="h">Trace / 实体</div>
+        <div class="row">
+          <button id="btnRefreshEntities">刷新实体</button>
+        </div>
+      </div>
+      <div class="panel-b">
+        <div class="small" style="margin-bottom:6px">Trace</div>
+        <textarea id="traceBox" style="width:100%;height:240px" spellcheck="false" readonly></textarea>
+        <div class="small" style="margin:10px 0 6px">Entities</div>
+        <textarea id="entitiesBox" style="width:100%;height:240px" spellcheck="false" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    const $ = (id) => document.getElementById(id);
+
+    const uiFrame = $("uiFrame");
+    const stage = $("stage");
+    const stageContainer = $("stageContainer");
+
+    const statusSub = $("statusSub");
+    const statusBadge = $("statusBadge");
+    const layoutSelect = $("layoutSelect");
+    const kvSession = $("kvSession");
+
+    const traceBox = $("traceBox");
+    const entitiesBox = $("entitiesBox");
+
+    const resPreset = $("resPreset");
+    const resW = $("resW");
+    const resH = $("resH");
+    const fitToggle = $("fitToggle");
+    const fitInfo = $("fitInfo");
+
+    let traceCursor = 0;
+    let currentLayoutIndex = 0;
+    let currentStageW = 1920;
+    let currentStageH = 1080;
+
+    function jsonSafeStringify(obj){
+      return JSON.stringify(obj, null, 2);
+    }
+
+    async function getJson(url){
+      const resp = await fetch(url, { cache: "no-store" });
+      const text = await resp.text();
+      const data = text ? JSON.parse(text) : {};
+      if(!resp.ok){ throw new Error("HTTP " + resp.status + " " + text); }
+      return data;
+    }
+    async function postJson(url, body){
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body || {}),
+        cache: "no-store",
+      });
+      const text = await resp.text();
+      const data = text ? JSON.parse(text) : {};
+      if(!resp.ok){ throw new Error("HTTP " + resp.status + " " + text); }
+      return data;
+    }
+
+    function setStatus(ok, text){
+      statusBadge.textContent = ok ? "在线" : "离线";
+      statusBadge.style.borderColor = ok ? "rgba(90,162,255,.45)" : "rgba(255,255,255,.10)";
+      statusBadge.style.color = ok ? "rgba(90,162,255,.95)" : "rgba(255,255,255,.55)";
+      statusSub.textContent = text || (ok ? "已连接" : "未连接");
+    }
+
+    function setStageSize(w, h){
+      currentStageW = Math.max(1, parseInt(w, 10) || 1);
+      currentStageH = Math.max(1, parseInt(h, 10) || 1);
+      stage.style.width = currentStageW + "px";
+      stage.style.height = currentStageH + "px";
+      resW.value = String(currentStageW);
+      resH.value = String(currentStageH);
+      applyFit();
+    }
+
+    function applyFit(){
+      if(!fitToggle.checked){
+        stage.style.transform = "";
+        fitInfo.textContent = "";
+        return;
+      }
+      const cw = stageContainer.clientWidth - 20;
+      const ch = stageContainer.clientHeight - 20;
+      const sx = cw / currentStageW;
+      const sy = ch / currentStageH;
+      const s = Math.max(0.05, Math.min(1.0, sx, sy));
+      stage.style.transform = "scale(" + s.toFixed(4) + ")";
+      fitInfo.textContent = "scale=" + s.toFixed(3);
+    }
+
+    function ensureLayoutOptions(layouts){
+      const existing = new Set(Array.from(layoutSelect.options).map(o => o.value));
+      const incoming = new Set();
+      for(const item of (layouts || [])){
+        const idx = String(item.layout_index);
+        incoming.add(idx);
+        if(existing.has(idx)) continue;
+        const opt = document.createElement("option");
+        opt.value = idx;
+        opt.textContent = idx + " - " + (item.html_stem || item.html_file || "");
+        layoutSelect.appendChild(opt);
+      }
+      for(const opt of Array.from(layoutSelect.options)){
+        if(opt.value && !incoming.has(opt.value)){
+          opt.remove();
+        }
+      }
+    }
+
+    function setLayout(layoutIndex){
+      const idx = parseInt(layoutIndex, 10) || 0;
+      currentLayoutIndex = idx;
+      const want = "/ui.html?layout=" + encodeURIComponent(String(idx));
+      const cur = uiFrame.getAttribute("src") || "";
+      if(cur !== want){
+        uiFrame.setAttribute("src", want);
+      }
+    }
+    window.__localSimSetLayout = setLayout;
+
+    function applyPatchesToUi(patches){
+      const w = uiFrame.contentWindow;
+      if(w && typeof w.__local_sim_apply_patches === "function"){
+        w.__local_sim_apply_patches(patches || []);
+        return true;
+      }
+      return false;
+    }
+
+    async function refreshStatus(){
+      try{
+        const st = await getJson("/api/local_sim/status");
+        const g = st.graph || {};
+        const ui = st.ui || {};
+        setStatus(true, (g.graph_name || "graph") + " · " + (ui.current_ui_html_file || ui.ui_html_file || ""));
+        ensureLayoutOptions(ui.layouts || []);
+        if(typeof ui.current_layout_index === "number"){
+          currentLayoutIndex = ui.current_layout_index;
+        }
+
+        if(layoutSelect.value !== String(currentLayoutIndex)){
+          layoutSelect.value = String(currentLayoutIndex);
+        }
+
+        const rows = [
+          ["graph_name", g.graph_name],
+          ["graph_type", g.graph_type],
+          ["graph_code_file", g.graph_code_file],
+          ["ui_html_file", ui.ui_html_file],
+          ["current_layout_index", ui.current_layout_index],
+        ];
+        kvSession.innerHTML = "";
+        for(const [k,v] of rows){
+          const kEl = document.createElement("div");
+          const vEl = document.createElement("div");
+          kEl.innerHTML = "<b>" + k + "</b>";
+          vEl.textContent = (v === undefined || v === null) ? "" : String(v);
+          kvSession.appendChild(kEl);
+          kvSession.appendChild(vEl);
+        }
+      }catch(err){
+        setStatus(false, String(err || "连接失败"));
+      }
+    }
+
+    async function pollTrace(){
+      try{
+        const data = await getJson("/api/local_sim/trace?since=" + encodeURIComponent(String(traceCursor)));
+        if(data && data.ok){
+          const evs = data.events || [];
+          traceCursor = data.next || traceCursor;
+          if(evs.length){
+            for(const e of evs){
+              const ts = e.timestamp ? ("[" + e.timestamp + "] ") : "";
+              const line = ts + (e.kind || "event") + (e.message ? (": " + e.message) : "");
+              traceBox.value += line + "\n";
+            }
+            traceBox.scrollTop = traceBox.scrollHeight;
+          }
+        }
+      }catch(err){
+        // 不打断 UI
+      }
+    }
+
+    async function refreshEntities(){
+      try{
+        const data = await getJson("/api/local_sim/entities");
+        entitiesBox.value = jsonSafeStringify(data);
+        entitiesBox.scrollTop = 0;
+      }catch(err){
+        entitiesBox.value = String(err || "刷新失败");
+        entitiesBox.scrollTop = 0;
+      }
+    }
+
+    async function clearTrace(){
+      traceCursor = 0;
+      traceBox.value = "";
+      try{
+        await postJson("/api/local_sim/clear_trace", {});
+      }catch(err){
+        // ignore
+      }
+    }
+
+    async function restartAll(){
+      await postJson("/api/local_sim/restart", {});
+      window.location.reload();
+    }
+
+    async function sendSignal(){
+      const signal_id = ($("signalId").value || "").trim();
+      if(!signal_id){
+        alert("请输入 signal_id");
+        return;
+      }
+      let params = {};
+      const raw = ($("signalParams").value || "").trim();
+      if(raw){
+        params = JSON.parse(raw);
+      }
+      const resp = await postJson("/api/local_sim/emit_signal", { signal_id, params });
+      if(resp && resp.ok){
+        const patches = resp.patches || [];
+        applyPatchesToUi(patches);
+      }
+    }
+
+    function applyLayoutFromSelect(){
+      const idx = parseInt(layoutSelect.value, 10) || 0;
+      setLayout(idx);
+    }
+
+    function applyResFromInputs(){
+      setStageSize(resW.value, resH.value);
+    }
+
+    function applyResFromPreset(){
+      const v = String(resPreset.value || "");
+      const m = v.match(/^(\d+)x(\d+)$/);
+      if(!m) return;
+      setStageSize(parseInt(m[1],10), parseInt(m[2],10));
+    }
+
+    $("btnApplyLayout").addEventListener("click", applyLayoutFromSelect);
+    $("btnSendSignal").addEventListener("click", () => { sendSignal().catch(e => alert(String(e))); });
+    $("btnReloadUi").addEventListener("click", () => { uiFrame.setAttribute("src", uiFrame.getAttribute("src") || "/ui.html"); });
+    $("btnRestartAll").addEventListener("click", () => { restartAll().catch(e => alert(String(e))); });
+    $("btnClearTrace").addEventListener("click", () => { clearTrace().catch(()=>{}); });
+    $("btnRefreshEntities").addEventListener("click", () => { refreshEntities().catch(()=>{}); });
+
+    $("btnApplyRes").addEventListener("click", applyResFromInputs);
+    resPreset.addEventListener("change", applyResFromPreset);
+    fitToggle.addEventListener("change", applyFit);
+    window.addEventListener("resize", applyFit);
+
+    // init
+    setStageSize(1920, 1080);
+    refreshStatus().catch(()=>{});
+    refreshEntities().catch(()=>{});
+    setInterval(() => { refreshStatus().catch(()=>{}); }, 1500);
+    setInterval(() => { pollTrace().catch(()=>{}); }, 600);
+  })();
+  </script>
+</body>
+</html>

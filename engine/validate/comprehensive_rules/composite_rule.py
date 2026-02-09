@@ -142,24 +142,6 @@ def validate_virtual_pin_connections(
         src_port = edge.get("src_port", edge.get("source_port", ""))
         dst_node_id = edge.get("dst_node", edge.get("target", ""))
         dst_port = edge.get("dst_port", edge.get("target_port", ""))
-        src_key = (src_node_id, src_port)
-        if src_key in virtual_pin_mappings and not virtual_pin_mappings[src_key]:
-            pin_name = port_to_pin.get(src_key, "未知虚拟引脚")
-            edge_detail = detail.copy()
-            edge_detail["edge_id"] = edge.get("id", "")
-            edge_detail["node_id"] = src_node_id
-            edge_detail["port_name"] = src_port
-            edge_detail["pin_name"] = pin_name
-            issues.append(
-                ValidationIssue(
-                    level="error",
-                    category="复合节点虚拟引脚",
-                    location=f"{location} > 节点 {src_node_id}",
-                    message=f"端口 '{src_port}' 已映射到虚拟输出引脚 '{pin_name}'，不能再有额外的连线",
-                    suggestion="请删除多余连线或取消该端口的虚拟引脚映射。",
-                    detail=edge_detail,
-                )
-            )
         dst_key = (dst_node_id, dst_port)
         if dst_key in virtual_pin_mappings and virtual_pin_mappings[dst_key]:
             pin_name = port_to_pin.get(dst_key, "未知虚拟引脚")

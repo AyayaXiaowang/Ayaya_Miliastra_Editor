@@ -6,9 +6,9 @@
 
 ## 当前状态
 - `coordinator.py`：包装 `TodoGraphTaskGenerator`，集中管理节点图根任务创建、
-  图名解析与图任务展开，向上游暴露无副作用的编排接口。
+  图名解析与图任务展开，向上游暴露无副作用的编排接口；创建图根时会对 `graph_ids` 去重，避免同一父级下生成重复的节点图根任务；图任务展开支持可选透传 `progress_callback(stage, completed, total)`，供 UI 懒加载超大图时驱动百分比进度条。
 - `step_mode.py`：集中读取 `settings.TODO_GRAPH_STEP_MODE` 并提供语义化
-  判定/描述，避免在各模块重复硬编码字符串。
+  判定/描述（人类模式 / AI-先配置后连线 / AI-逐个节点模式），避免在各模块重复硬编码字符串。
 
 ## 注意事项
 - 保持无 PyQt 依赖，仅强调调度逻辑。

@@ -9,9 +9,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from engine.graph.models.entity_templates import get_all_variable_types
-from engine.resources.definition_schema_view import get_default_definition_schema_view
+from engine.configs.specialized.struct_definitions_data import (
+    get_struct_payload,
+    list_struct_ids,
+)
+from engine.resources.custom_variable_file_refs import normalize_custom_variable_file_refs
 from engine.resources.level_variable_schema_view import get_default_level_variable_schema_view
 from engine.utils.name_utils import generate_unique_name
+from engine.utils.path_utils import normalize_slash
 from app.ui.dialogs.struct_viewer_dialog import StructViewerDialog
 
 
@@ -35,9 +40,7 @@ class CombatPlayerPanelSectionsCustomVariablesMixin:
         if not self.current_template_data:
             return
 
-        schema_view = get_default_definition_schema_view()
-        all_structs = schema_view.get_all_struct_definitions()
-        struct_ids = sorted(all_structs.keys())
+        struct_ids = list_struct_ids(self.resource_manager)
         self.player_custom_variable_table.set_struct_id_options(struct_ids)
 
         fields: List[Dict[str, Any]] = []
@@ -104,15 +107,13 @@ class CombatPlayerPanelSectionsCustomVariablesMixin:
         if not isinstance(metadata_value, dict):
             return []
 
-        raw_ref = metadata_value.get("custom_variable_file", "")
-        if not isinstance(raw_ref, str):
-            return []
-        ref_text = raw_ref.strip()
-        if not ref_text:
+        refs = normalize_custom_variable_file_refs(metadata_value.get("custom_variable_file"))
+        if not refs:
             return []
 
-        normalized_ref = ref_text.replace("\\", "/")
-        ref_stem = Path(normalized_ref).stem
+        normalized_refs = [normalize_slash(text) for text in refs]
+        ref_stems = {Path(text).stem for text in normalized_refs if text}
+        raw_ref_set = set(refs)
 
         schema_view = get_default_level_variable_schema_view()
         all_variables = schema_view.get_all_variables()
@@ -137,21 +138,21 @@ class CombatPlayerPanelSectionsCustomVariablesMixin:
 
             # 兼容旧写法：custom_variable_file 为完整相对路径
             if isinstance(source_path_value, str):
-                candidate_path = source_path_value.replace("\\", "/").strip()
-                if candidate_path and candidate_path == normalized_ref:
+                candidate_path = normalize_slash(source_path_value).strip()
+                if candidate_path and candidate_path in set(normalized_refs):
                     matched = True
 
             # 按 VARIABLE_FILE_ID 匹配（推荐写法）
             if not matched:
                 variable_file_id = payload.get("variable_file_id")
                 if isinstance(variable_file_id, str):
-                    if variable_file_id.strip() == ref_text:
+                    if variable_file_id.strip() in raw_ref_set:
                         matched = True
 
             # 兼容写法：custom_variable_file 为文件名（不含扩展名），按 source_stem 匹配。
             if not matched and isinstance(source_stem_value, str):
                 candidate_stem = source_stem_value.strip()
-                if candidate_stem and candidate_stem == ref_stem:
+                if candidate_stem and candidate_stem in ref_stems:
                     matched = True
 
             if not matched:
@@ -175,9 +176,7 @@ class CombatPlayerPanelSectionsCustomVariablesMixin:
         if not self.current_template_data:
             return
 
-        schema_view = get_default_definition_schema_view()
-        all_structs = schema_view.get_all_struct_definitions()
-        struct_ids = sorted(all_structs.keys())
+        struct_ids = list_struct_ids(self.resource_manager)
         self.role_custom_variable_table.set_struct_id_options(struct_ids)
 
         role_section = self.player_editor.role
@@ -377,10 +376,7 @@ class CombatPlayerPanelSectionsCustomVariablesMixin:
         if not struct_id:
             return
 
-        # 从定义视图获取结构体详情
-        schema_view = get_default_definition_schema_view()
-        all_structs = schema_view.get_all_struct_definitions()
-        struct_payload = all_structs.get(struct_id)
+        struct_payload = get_struct_payload(struct_id, self.resource_manager)
 
         # 弹出只读结构体查看对话框
         dialog = StructViewerDialog(

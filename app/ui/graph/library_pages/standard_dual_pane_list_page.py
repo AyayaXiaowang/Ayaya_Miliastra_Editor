@@ -68,7 +68,9 @@ class StandardDualPaneListPage(DualPaneLibraryScaffold):
         category_tree = QtWidgets.QTreeWidget(self)
         category_tree.setHeaderLabel(left_header_label)
         category_tree.setObjectName("leftPanel")
-        category_tree.setFixedWidth(Sizes.LEFT_PANEL_WIDTH)
+        # 不要锁死宽度：该骨架使用 QSplitter，左侧分类树需要允许用户拖拽分隔线改变宽度。
+        # 默认宽度仍以主题 token 为基准，初始分配由 splitter.setSizes(...) 负责。
+        category_tree.setMinimumWidth(Sizes.LEFT_PANEL_WIDTH)
         if tree_indentation is not None:
             category_tree.setIndentation(tree_indentation)
 
@@ -97,6 +99,8 @@ class StandardDualPaneListPage(DualPaneLibraryScaffold):
             right_title=right_title,
             right_description=right_description,
         )
+        # 左侧默认收窄，但允许用户拖到更宽
+        self._splitter.setSizes([Sizes.LEFT_PANEL_WIDTH, 1000])
 
         return StandardDualPaneListWidgets(
             search_edit=search_edit,
@@ -105,6 +109,20 @@ class StandardDualPaneListPage(DualPaneLibraryScaffold):
             list_widget=list_widget,
             right_container=right_container,
         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

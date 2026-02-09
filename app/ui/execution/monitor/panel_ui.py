@@ -45,14 +45,27 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         - stop_button: 终止按钮
         - inspect_button: 检查按钮
         - match_focus_button: 定位镜头按钮
-        - tests_menu_button: 测试工具菜单按钮（默认折叠，点击弹出菜单）
-        - test_ocr_action: 文字OCR测试动作（QAction）
+        - tests_widget: 测试工具区（按钮列表）
+        - test_ocr_button: 文字OCR测试按钮
+        - test_settings_button: Settings扫描测试按钮
+        - test_warning_button: Warning模板测试按钮
+        - test_ocr_zoom_button: OCR缩放测试按钮
+        - test_nodes_button: 节点识别测试按钮
+        - test_ports_button: 端口识别测试按钮
+        - test_ports_deep_button: 端口深度识别测试按钮
+        - test_bool_enum_options_button: 布尔/枚举选项识别测试按钮
+        - test_settings_tpl_button: Settings模板匹配测试按钮
+        - test_add_button: Add模板匹配测试按钮
+        - test_search_button: 搜索框模板匹配测试按钮
+        - test_window_strict_button: 仅窗口截图测试按钮
+        - test_ocr_action: 文字OCR测试动作（QAction，供外部统一连接逻辑复用）
         - test_settings_action: Settings扫描测试动作（QAction）
         - test_warning_action: Warning模板测试动作（QAction）
         - test_ocr_zoom_action: OCR缩放测试动作（QAction）
         - test_nodes_action: 节点识别测试动作（QAction）
         - test_ports_action: 端口识别测试动作（QAction）
         - test_ports_deep_action: 端口深度识别测试动作（QAction）
+        - test_bool_enum_options_action: 布尔/枚举选项识别测试动作（QAction）
         - test_settings_tpl_action: Settings模板匹配测试动作（QAction）
         - test_add_action: Add模板匹配测试动作（QAction）
         - test_search_action: 搜索框模板匹配测试动作（QAction）
@@ -201,83 +214,117 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
 
     scroll_layout.addWidget(controls_widget)
 
-    # 测试功能：不在面板内展开，避免改变窗口最小尺寸导致“阻止缩小/触发自动变大”。
-    # 改为单一菜单按钮：点击弹出 QMenu，所有测试入口都在菜单中。
-    tests_widget = QtWidgets.QWidget()
-    tests_widget.setObjectName("monitorTestsSection")
-    tests_layout = QtWidgets.QHBoxLayout(tests_widget)
+    # 右下角信息区：拆为三个子标签页（测试 / 日志表格 / 日志文本）
+    # - 测试：测试工具按钮列表 + 拖拽测试
+    # - 日志表格：结构化执行事件表格（含“仅错误/警告”过滤）
+    # - 日志文本：原始日志文本（含搜索/筛选）
+
+    # === 测试工具（展开）===
+    # “测试”页签中直接展示按钮列表，不再折叠为菜单。
+    tests_widget = QtWidgets.QGroupBox("测试工具")
+    tests_widget.setObjectName("monitorTestsGroup")
+    tests_layout = QtWidgets.QGridLayout(tests_widget)
     tests_layout.setContentsMargins(0, 0, 0, 0)
-    tests_layout.setSpacing(6)
+    tests_layout.setHorizontalSpacing(6)
+    tests_layout.setVerticalSpacing(6)
 
-    tests_menu_button = QtWidgets.QToolButton()
-    tests_menu_button.setObjectName("monitorTestsMenuButton")
-    tests_menu_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-    tests_menu_button.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
-    tests_menu_button.setArrowType(Qt.ArrowType.DownArrow)
-    tests_menu_button.setText("测试工具")
-    tests_menu_button.setToolTip("调试/排障测试入口（点击打开菜单）")
-    tests_menu_button.setSizePolicy(
-        QtWidgets.QSizePolicy.Policy.Expanding,
-        QtWidgets.QSizePolicy.Policy.Fixed,
-    )
-
-    tests_menu = QtWidgets.QMenu(tests_menu_button)
-    tests_menu.setToolTipsVisible(True)
-
-    test_ocr_action = QtGui.QAction("文字OCR", tests_menu)
+    # 保留 QAction（由面板统一连接到处理函数），按钮仅负责触发 QAction。
+    test_ocr_action = QtGui.QAction("文字OCR", tests_widget)
     test_ocr_action.setToolTip("对顶部标签栏或指定区域执行一次 OCR，并在监控面板叠加展示识别结果")
-    tests_menu.addAction(test_ocr_action)
 
-    test_settings_action = QtGui.QAction("Settings扫描", tests_menu)
+    test_settings_action = QtGui.QAction("Settings扫描", tests_widget)
     test_settings_action.setToolTip("扫描当前图中节点的 Settings 行，标注并输出映射结果")
-    tests_menu.addAction(test_settings_action)
 
-    test_warning_action = QtGui.QAction("Warning模板", tests_menu)
+    test_warning_action = QtGui.QAction("Warning模板", tests_widget)
     test_warning_action.setToolTip("在节点图区域内进行 Warning 模板匹配，展示命中结果")
-    tests_menu.addAction(test_warning_action)
 
-    test_ocr_zoom_action = QtGui.QAction("OCR缩放", tests_menu)
+    test_ocr_zoom_action = QtGui.QAction("OCR缩放", tests_widget)
     test_ocr_zoom_action.setToolTip("对节点图缩放区域执行 OCR，用于验证 50% 缩放识别链路")
-    tests_menu.addAction(test_ocr_zoom_action)
 
-    test_nodes_action = QtGui.QAction("节点识别", tests_menu)
+    test_nodes_action = QtGui.QAction("节点识别", tests_widget)
     test_nodes_action.setToolTip("对当前画面进行节点识别并叠加边框与中文标题")
-    tests_menu.addAction(test_nodes_action)
 
-    test_ports_action = QtGui.QAction("端口识别", tests_menu)
+    test_ports_action = QtGui.QAction("端口识别", tests_widget)
     test_ports_action.setToolTip("为识别出的每个节点列出端口并叠加显示（含 kind/side/index）")
-    tests_menu.addAction(test_ports_action)
 
-    test_ports_deep_action = QtGui.QAction("端口深度识别", tests_menu)
+    test_ports_deep_action = QtGui.QAction("端口深度识别", tests_widget)
     test_ports_deep_action.setToolTip(
         "在端口识别基础上列出置信度≥70%的所有模板命中，包括被去重抑制的候选，并在标签中标注“因XXX被排除”原因"
     )
-    tests_menu.addAction(test_ports_deep_action)
 
-    test_settings_tpl_action = QtGui.QAction("Settings模板", tests_menu)
+    test_bool_enum_options_action = QtGui.QAction("布尔/枚举选项", tests_widget)
+    test_bool_enum_options_action.setToolTip(
+        "识别图上任意一个布尔/枚举端口并执行第一次点击展开下拉，然后扫描 D7D7D7 下拉矩形并进行 OCR（结果会逐步叠加到监控画面）"
+    )
+
+    test_settings_tpl_action = QtGui.QAction("Settings模板", tests_widget)
     test_settings_tpl_action.setToolTip("在节点图区域内匹配 Settings 按钮模板")
-    tests_menu.addAction(test_settings_tpl_action)
 
-    test_add_action = QtGui.QAction("Add模板", tests_menu)
+    test_add_action = QtGui.QAction("Add模板", tests_widget)
     test_add_action.setToolTip("在节点图区域内匹配 Add / Add_Multi 模板")
-    tests_menu.addAction(test_add_action)
 
-    test_search_action = QtGui.QAction("搜索框模板", tests_menu)
+    test_search_action = QtGui.QAction("搜索框模板", tests_widget)
     test_search_action.setToolTip("在窗口内匹配搜索框相关模板（search / search2）")
-    tests_menu.addAction(test_search_action)
 
-    test_window_strict_action = QtGui.QAction("仅窗口截图", tests_menu)
+    test_window_strict_action = QtGui.QAction("仅窗口截图", tests_widget)
     test_window_strict_action.setToolTip(
         "使用实验性的仅窗口截图方式（PrintWindow），在尽量避免遮挡的前提下抓取一帧并展示到监控面板"
     )
-    tests_menu.addAction(test_window_strict_action)
 
-    tests_menu_button.setMenu(tests_menu)
-    tests_layout.addWidget(tests_menu_button)
-    tests_layout.addStretch(1)
-    scroll_layout.addWidget(tests_widget)
+    test_ocr_button = QtWidgets.QPushButton("文字OCR")
+    test_ocr_button.setToolTip(test_ocr_action.toolTip())
+    test_settings_button = QtWidgets.QPushButton("Settings扫描")
+    test_settings_button.setToolTip(test_settings_action.toolTip())
+    test_warning_button = QtWidgets.QPushButton("Warning模板")
+    test_warning_button.setToolTip(test_warning_action.toolTip())
+    test_ocr_zoom_button = QtWidgets.QPushButton("OCR缩放")
+    test_ocr_zoom_button.setToolTip(test_ocr_zoom_action.toolTip())
+    test_nodes_button = QtWidgets.QPushButton("节点识别")
+    test_nodes_button.setToolTip(test_nodes_action.toolTip())
+    test_ports_button = QtWidgets.QPushButton("端口识别")
+    test_ports_button.setToolTip(test_ports_action.toolTip())
+    test_ports_deep_button = QtWidgets.QPushButton("端口深度识别")
+    test_ports_deep_button.setToolTip(test_ports_deep_action.toolTip())
+    test_bool_enum_options_button = QtWidgets.QPushButton("布尔/枚举选项")
+    test_bool_enum_options_button.setToolTip(test_bool_enum_options_action.toolTip())
+    test_settings_tpl_button = QtWidgets.QPushButton("Settings模板")
+    test_settings_tpl_button.setToolTip(test_settings_tpl_action.toolTip())
+    test_add_button = QtWidgets.QPushButton("Add模板")
+    test_add_button.setToolTip(test_add_action.toolTip())
+    test_search_button = QtWidgets.QPushButton("搜索框模板")
+    test_search_button.setToolTip(test_search_action.toolTip())
+    test_window_strict_button = QtWidgets.QPushButton("仅窗口截图")
+    test_window_strict_button.setToolTip(test_window_strict_action.toolTip())
 
-    # 拖拽测试区：压缩占用高度（从 4 行收敛到 3 行）
+    # 排布：3 列，尽量保持紧凑；按钮文本允许在窄宽度下被截断。
+    test_buttons = [
+        test_ocr_button,
+        test_settings_button,
+        test_warning_button,
+        test_ocr_zoom_button,
+        test_nodes_button,
+        test_ports_button,
+        test_ports_deep_button,
+        test_bool_enum_options_button,
+        test_settings_tpl_button,
+        test_add_button,
+        test_search_button,
+        test_window_strict_button,
+    ]
+    for index, button in enumerate(test_buttons):
+        row = index // 3
+        col = index % 3
+        tests_layout.addWidget(button, row, col)
+        button.setMinimumWidth(0)
+        button.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored,
+            QtWidgets.QSizePolicy.Policy.Fixed,
+        )
+
+    for col_index in range(3):
+        tests_layout.setColumnStretch(col_index, 1)
+
+    # === 拖拽测试区 ===
     drag_widget = QtWidgets.QGroupBox("拖拽测试")
     drag_widget.setObjectName("monitorDragTestsGroup")
     drag_layout = QtWidgets.QGridLayout(drag_widget)
@@ -335,13 +382,18 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     drag_layout.setColumnStretch(2, 0)
     drag_layout.setColumnStretch(3, 1)
 
-    scroll_layout.addWidget(drag_widget)
+    # 让关键 label 在窄宽度下优先占空间，减少截断
+    drag_origin_label.setSizePolicy(
+        QtWidgets.QSizePolicy.Policy.Expanding,
+        QtWidgets.QSizePolicy.Policy.Fixed,
+    )
 
-    # 日志：搜索与筛选行
-    filters_widget = QtWidgets.QWidget()
-    filters_layout = QtWidgets.QVBoxLayout(filters_widget)
-    filters_layout.setContentsMargins(0, 0, 0, 0)
-    filters_layout.setSpacing(6)
+    # === 日志文本：搜索与筛选 ===
+    log_filters_widget = QtWidgets.QWidget()
+    log_filters_widget.setObjectName("monitorLogFilters")
+    log_filters_layout = QtWidgets.QVBoxLayout(log_filters_widget)
+    log_filters_layout.setContentsMargins(0, 0, 0, 0)
+    log_filters_layout.setSpacing(6)
 
     # 搜索与筛选拆两行：窄宽度下优先保证搜索框可见
     search_row_widget = QtWidgets.QWidget()
@@ -381,7 +433,11 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     log_clear_button = QtWidgets.QPushButton("清空")
     log_clear_button.setToolTip("清空日志显示（不影响已记录的原始日志数据）")
     search_row.addWidget(log_clear_button)
-    filters_layout.addWidget(search_row_widget)
+
+    export_log_button = QtWidgets.QPushButton("导出")
+    export_log_button.setToolTip("导出当前会话的全部日志为 TXT（不受筛选/搜索影响）")
+    search_row.addWidget(export_log_button)
+    log_filters_layout.addWidget(search_row_widget)
 
     filter_type_row_widget = QtWidgets.QWidget()
     filter_type_row = QtWidgets.QHBoxLayout(filter_type_row_widget)
@@ -389,11 +445,12 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     filter_type_row.setSpacing(6)
     filter_type_row.addWidget(QtWidgets.QLabel("筛选:"))
     filter_type_row.addWidget(log_filter_combo, 1)
-    filters_layout.addWidget(filter_type_row_widget)
+    log_filters_layout.addWidget(filter_type_row_widget)
 
-    # 执行事件过滤行（结构化视图）
-    event_filter_row_widget = QtWidgets.QWidget()
-    event_filter_row = QtWidgets.QHBoxLayout(event_filter_row_widget)
+    # === 执行事件过滤行（结构化视图）===
+    event_filters_widget = QtWidgets.QWidget()
+    event_filters_widget.setObjectName("monitorEventFilters")
+    event_filter_row = QtWidgets.QHBoxLayout(event_filters_widget)
     event_filter_row.setContentsMargins(0, 0, 0, 0)
     event_filter_row.setSpacing(6)
     event_filter_label = QtWidgets.QLabel("执行事件:")
@@ -402,18 +459,8 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     event_errors_only_checkbox = QtWidgets.QCheckBox("仅错误/警告")
     event_filter_row.addWidget(event_errors_only_checkbox)
     event_filter_row.addStretch(1)
-    filters_layout.addWidget(event_filter_row_widget)
 
-    scroll_layout.addWidget(filters_widget)
-
-    # 日志正文与执行事件表格：垂直分隔
-    # 注意：QSplitter.setCollapsible(index, ...) 只能在 addWidget 之后调用，
-    # 否则会在控制台输出 "QSplitter::setCollapsible: Index X out of range" 警告。
-    log_splitter = QtWidgets.QSplitter(Qt.Orientation.Vertical)
-    log_splitter.setChildrenCollapsible(True)
-    log_splitter.setMinimumHeight(0)
-
-    # 执行事件表格
+    # === 执行事件表格 ===
     events_table = QtWidgets.QTableView()
     events_table.setAlternatingRowColors(True)
     events_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
@@ -442,9 +489,8 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     events_table.setPalette(palette)
     events_table.setStyleSheet(ThemeManager.table_style())
     events_table.setMinimumHeight(0)
-    log_splitter.addWidget(events_table)
 
-    # 日志正文（支持可点击锚点）
+    # === 日志正文（支持可点击锚点）===
     log_text = QtWidgets.QTextBrowser()
     # 禁用内部与外部的默认跳转，改由 anchorClicked 信号统一处理
     log_text.setOpenLinks(False)
@@ -452,13 +498,52 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
     log_text.setAcceptRichText(True)
     log_text.setFont(ui_fonts.monospace_font(9))
     log_text.setMinimumHeight(0)
-    log_splitter.addWidget(log_text)
-    # 现在 splitter 已有两个 child，允许折叠设置才是有效的
-    log_splitter.setCollapsible(0, True)
-    log_splitter.setCollapsible(1, True)
-    log_splitter.setStretchFactor(0, 3)
-    log_splitter.setStretchFactor(1, 2)
-    scroll_layout.addWidget(log_splitter, 1)
+
+    # === 信息区 Tab 组装 ===
+    info_tabs = QtWidgets.QTabWidget()
+    info_tabs.setObjectName("monitorInfoTabs")
+    info_tabs.setMinimumHeight(0)
+    info_tabs.setSizePolicy(
+        QtWidgets.QSizePolicy.Policy.Expanding,
+        QtWidgets.QSizePolicy.Policy.Expanding,
+    )
+    info_tabs.setDocumentMode(True)
+    # Qt 默认会在 QTabBar 绘制一条 base 分隔线（深色主题下常显得像“黑线”）
+    # 对本面板而言，这条线没有额外信息量，关闭以获得更干净的视觉效果。
+    info_tabs.tabBar().setDrawBase(False)
+
+    tests_tab = QtWidgets.QWidget()
+    tests_tab.setObjectName("monitorInfoTabTests")
+    tests_tab_layout = QtWidgets.QVBoxLayout(tests_tab)
+    tests_tab_layout.setContentsMargins(0, 0, 0, 0)
+    tests_tab_layout.setSpacing(8)
+    tests_tab_layout.addWidget(tests_widget)
+    tests_tab_layout.addWidget(drag_widget)
+    tests_tab_layout.addStretch(1)
+
+    events_tab = QtWidgets.QWidget()
+    events_tab.setObjectName("monitorInfoTabEventsTable")
+    events_tab_layout = QtWidgets.QVBoxLayout(events_tab)
+    events_tab_layout.setContentsMargins(0, 0, 0, 0)
+    events_tab_layout.setSpacing(6)
+    events_tab_layout.addWidget(event_filters_widget)
+    events_tab_layout.addWidget(events_table, 1)
+
+    log_tab = QtWidgets.QWidget()
+    log_tab.setObjectName("monitorInfoTabLogText")
+    log_tab_layout = QtWidgets.QVBoxLayout(log_tab)
+    log_tab_layout.setContentsMargins(0, 0, 0, 0)
+    log_tab_layout.setSpacing(6)
+    log_tab_layout.addWidget(log_filters_widget)
+    log_tab_layout.addWidget(log_text, 1)
+
+    # 需求：日志文本放在第一位，且默认显示日志文本
+    info_tabs.addTab(log_tab, "日志文本")
+    info_tabs.addTab(events_tab, "日志表格")
+    info_tabs.addTab(tests_tab, "测试")
+    info_tabs.setCurrentWidget(log_tab)
+
+    scroll_layout.addWidget(info_tabs, 1)
 
     monitor_scroll_area.setWidget(scroll_content_widget)
     layout.addWidget(monitor_scroll_area, 1)
@@ -487,6 +572,7 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         drag_left_button,
         drag_right_button,
         log_clear_button,
+        export_log_button,
     ]
     for button in secondary_buttons:
         if isinstance(button, QtWidgets.QAbstractButton):
@@ -496,14 +582,11 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
                 QtWidgets.QSizePolicy.Policy.Fixed,
             )
 
-    # 让关键 label 在窄宽度下优先占空间，减少截断
-    drag_origin_label.setSizePolicy(
-        QtWidgets.QSizePolicy.Policy.Expanding,
-        QtWidgets.QSizePolicy.Policy.Fixed,
-    )
+    # 测试按钮也使用 secondary 样式，但保持 Ignored 水平策略，避免撑大最小宽度
+    for button in test_buttons:
+        button.setProperty("kind", "secondary")
 
-    # 应用紧凑化控件样式
-    _apply_compact_controls_style(parent)
+    # 让关键 label 在窄宽度下优先占空间，减少截断
 
     # 返回所有控件引用
     return {
@@ -525,7 +608,18 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         "inspect_button": inspect_button,
         "match_focus_button": match_focus_button,
         "tests_widget": tests_widget,
-        "tests_menu_button": tests_menu_button,
+        "test_ocr_button": test_ocr_button,
+        "test_settings_button": test_settings_button,
+        "test_warning_button": test_warning_button,
+        "test_ocr_zoom_button": test_ocr_zoom_button,
+        "test_nodes_button": test_nodes_button,
+        "test_ports_button": test_ports_button,
+        "test_ports_deep_button": test_ports_deep_button,
+        "test_bool_enum_options_button": test_bool_enum_options_button,
+        "test_settings_tpl_button": test_settings_tpl_button,
+        "test_add_button": test_add_button,
+        "test_search_button": test_search_button,
+        "test_window_strict_button": test_window_strict_button,
         "test_ocr_action": test_ocr_action,
         "test_settings_action": test_settings_action,
         "test_warning_action": test_warning_action,
@@ -533,6 +627,7 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         "test_nodes_action": test_nodes_action,
         "test_ports_action": test_ports_action,
         "test_ports_deep_action": test_ports_deep_action,
+        "test_bool_enum_options_action": test_bool_enum_options_action,
         "test_settings_tpl_action": test_settings_tpl_action,
         "test_add_action": test_add_action,
         "test_search_action": test_search_action,
@@ -544,97 +639,18 @@ def build_monitor_ui(parent: QtWidgets.QWidget) -> dict:
         "drag_to_target_button": drag_to_target_button,
         "drag_left_button": drag_left_button,
         "drag_right_button": drag_right_button,
-        "filters_widget": filters_widget,
+        "info_tabs": info_tabs,
+        "tests_tab": tests_tab,
+        "events_tab": events_tab,
+        "log_tab": log_tab,
+        "log_filters_widget": log_filters_widget,
         "log_search_input": log_search_input,
         "log_filter_combo": log_filter_combo,
         "log_clear_button": log_clear_button,
+        "export_log_button": export_log_button,
         "events_table": events_table,
+        "event_filters_widget": event_filters_widget,
         "event_errors_only_checkbox": event_errors_only_checkbox,
-        "log_splitter": log_splitter,
         "log_text": log_text,
     }
-
-
-def _apply_compact_controls_style(parent: QtWidgets.QWidget) -> None:
-    """应用紧凑化控件样式，避免按钮文本被挤压"""
-    parent.setStyleSheet(
-        f"""
-        {ThemeManager.group_box_style()}
-
-        ExecutionMonitorPanel QPushButton {{
-            padding: 2px 10px;
-            font-size: 11px;
-            min-height: 28px;
-        }}
-
-        /* 次按钮：用于大多数调试/测试入口，避免整面板全是“主按钮蓝色” */
-        ExecutionMonitorPanel QPushButton[kind="secondary"] {{
-            background-color: {Colors.BG_CARD};
-            color: {Colors.TEXT_PRIMARY};
-            border: 1px solid {Colors.BORDER_LIGHT};
-        }}
-        ExecutionMonitorPanel QPushButton[kind="secondary"]:hover {{
-            background-color: {Colors.BG_CARD_HOVER};
-        }}
-        ExecutionMonitorPanel QPushButton[kind="secondary"]:pressed {{
-            background-color: {Colors.BG_SELECTED_HOVER};
-        }}
-
-        /* 主按钮：执行入口 */
-        ExecutionMonitorPanel QPushButton[kind="primary"] {{
-            background-color: {Colors.PRIMARY};
-            color: {Colors.TEXT_ON_PRIMARY};
-            border: none;
-        }}
-        ExecutionMonitorPanel QPushButton[kind="primary"]:hover {{
-            background-color: {Colors.PRIMARY_DARK};
-        }}
-        ExecutionMonitorPanel QPushButton[kind="primary"]:pressed {{
-            background-color: {Colors.PRIMARY_DARK};
-        }}
-
-        /* 警示按钮：终止 */
-        ExecutionMonitorPanel QPushButton[kind="danger"] {{
-            background-color: {Colors.ERROR};
-            color: {Colors.TEXT_ON_PRIMARY};
-            border: none;
-        }}
-        ExecutionMonitorPanel QPushButton[kind="danger"]:hover {{
-            background-color: {Colors.ERROR_LIGHT};
-        }}
-        ExecutionMonitorPanel QPushButton[kind="danger"]:pressed {{
-            background-color: {Colors.ERROR};
-        }}
-
-        /* Disabled：无效操作一律置灰，避免“看似可点但无作用”，也解释了 disabled 状态下没有 hover。 */
-        ExecutionMonitorPanel QPushButton:disabled {{
-            background-color: {Colors.BG_DISABLED};
-            color: {Colors.TEXT_DISABLED};
-            border: 1px solid {Colors.BORDER_LIGHT};
-        }}
-
-        ExecutionMonitorPanel QCheckBox {{
-            font-size: 11px;
-            padding: 0px 4px;
-            margin-left: 4px;
-        }}
-
-        ExecutionMonitorPanel QToolButton {{
-            border: 1px solid {Colors.BORDER_LIGHT};
-            background-color: {Colors.BG_CARD};
-            color: {Colors.TEXT_PRIMARY};
-            border-radius: 6px;
-            padding: 4px 8px;
-            font-size: 11px;
-            font-weight: bold;
-        }}
-        ExecutionMonitorPanel QToolButton:hover {{
-            background-color: {Colors.BG_CARD_HOVER};
-        }}
-
-        ExecutionMonitorPanel QLabel[muted="true"] {{
-            color: {Colors.TEXT_SECONDARY};
-        }}
-        """
-    )
 

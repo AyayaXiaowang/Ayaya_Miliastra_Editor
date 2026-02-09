@@ -158,6 +158,17 @@ class CoordinateAssigner:
         chain_raw_port_y = snapshot.chain_raw_port_y
         chain_port_debug = snapshot.chain_port_debug
 
+        # 调试：多条链条端口时，额外记录最小/最大端口位置（+间距），便于解释 mid 聚合策略。
+        chain_port_min_candidate = float(start_y_from_chain_ports)
+        if isinstance(chain_port_debug, list) and chain_port_debug:
+            port_y_values = [
+                float(item.get("port_y"))
+                for item in chain_port_debug
+                if isinstance(item, dict) and isinstance(item.get("port_y"), (int, float))
+            ]
+            if port_y_values:
+                chain_port_min_candidate = float(min(port_y_values)) + float(self.context.input_port_to_data_gap)
+
         parts = []
         if forced_by_multi_targets and start_y_from_multi_targets_mid is not None:
             parts.append(f"多输出中点{start_y_from_multi_targets_mid:.1f}")
@@ -206,7 +217,7 @@ class CoordinateAssigner:
             "candidates": {
                 "column_bottom": float(start_y_from_above),
                 "chain_port": float(start_y_from_chain_ports),
-                "chain_port_min": float(start_y_from_chain_ports),
+                "chain_port_min": float(chain_port_min_candidate),
                 "single_target": float(start_y_from_single_target) if start_y_from_single_target is not None else None,
                 "multi_targets_mid": float(start_y_from_multi_targets_mid)
                 if start_y_from_multi_targets_mid is not None

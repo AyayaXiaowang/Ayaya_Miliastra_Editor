@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from plugins.nodes.server import *
 from engine.configs.rules.datatypes_typing import *
+from engine.graph.models.package_model import GraphVariableConfig
 from engine.graph.composite.pin_api import (
     流程入,
     流程入引脚,

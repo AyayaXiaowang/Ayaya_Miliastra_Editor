@@ -74,8 +74,17 @@ class LayoutRegistryContext:
             if isinstance(input_types, dict):
                 for port_name, port_type in input_types.items():
                     port_type_text = str(port_type or "")
-                    if "实体" in port_type_text:
+                    # 实体/结构体：仅允许连线，不提供行内常量输入控件（UI/布局共用该集合）
+                    if ("实体" in port_type_text) or port_type_text.startswith("结构体"):
                         derived_entity_inputs.setdefault(node_name, set()).add(str(port_name))
+                        # 端口别名也应计入（旧图仍可能使用历史端口名）
+                        aliases_map = getattr(node_def, "input_port_aliases", {}) or {}
+                        if isinstance(aliases_map, dict):
+                            aliases = aliases_map.get(str(port_name)) or []
+                            if isinstance(aliases, list):
+                                for alias in aliases:
+                                    if isinstance(alias, str) and alias:
+                                        derived_entity_inputs.setdefault(node_name, set()).add(str(alias))
 
             inputs = getattr(node_def, "inputs", None) or []
             if isinstance(inputs, list) and inputs:

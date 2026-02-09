@@ -30,10 +30,12 @@ from engine.graph.common import (
     STRUCT_MODIFY_STATIC_INPUTS,
     STRUCT_MODIFY_STATIC_OUTPUTS,
     STRUCT_NAME_PORT_NAME,
+    STRUCT_PORT_NAME,
+    STRUCT_PORT_LEGACY_BUILD_OUTPUT_NAME,
+    STRUCT_PORT_LEGACY_INSTANCE_NAME,
 )
-from engine.resources.definition_schema_view import (
-    get_default_definition_schema_view,
-)
+from engine.configs.resource_types import ResourceType
+from engine.resources.resource_manager import ResourceManager
 from engine.graph.semantic import GraphSemanticPass, SEMANTIC_STRUCT_ID_CONSTANT_KEY
 from app.ui.dialogs.struct_binding_dialog import StructBindingDialog
 from app.ui.graph.logic.struct_logic import (
@@ -82,11 +84,21 @@ def get_current_package_structs(scene: "GraphScene") -> Optional[Dict[str, dict]
     if package is None:
         return None
 
-    schema_view = get_default_definition_schema_view()
-    all_structs = schema_view.get_all_struct_definitions()
-
     structs: Dict[str, dict] = {}
-    for struct_id, data in all_structs.items():
+    resource_manager_candidate = getattr(package, "resource_manager", None)
+    if not isinstance(resource_manager_candidate, ResourceManager):
+        return None
+
+    struct_ids = resource_manager_candidate.list_resources(ResourceType.STRUCT_DEFINITION)
+    normalized_ids = [
+        str(value).strip()
+        for value in struct_ids
+        if isinstance(value, str) and str(value).strip()
+    ]
+    normalized_ids.sort(key=lambda text: text.casefold())
+
+    for struct_id in normalized_ids:
+        data = resource_manager_candidate.load_resource(ResourceType.STRUCT_DEFINITION, str(struct_id))
         if not isinstance(data, dict):
             continue
         type_value = data.get("type")
@@ -282,16 +294,8 @@ def bind_struct_for_node(scene: "GraphScene", node_id: str) -> None:
     if not isinstance(node.input_constants, dict):
         node.input_constants = {}
     node.input_constants[SEMANTIC_STRUCT_ID_CONSTANT_KEY] = selected_struct_id
-
-    # 若节点上存在“结构体名”输入端口，则同步其常量值，便于在 Graph Code 与 UI 中直观看到已绑定结构体。
-    has_struct_name_port = any(
-        getattr(port, "name", "") == STRUCT_NAME_PORT_NAME
-        for port in getattr(node, "inputs", []) or []
-    )
-    if has_struct_name_port:
-        if not isinstance(node.input_constants, dict):
-            node.input_constants = {}
-        node.input_constants[STRUCT_NAME_PORT_NAME] = struct_name
+    # “结构体名”不再是端口，仅作为展示/兼容常量保留。
+    node.input_constants[STRUCT_NAME_PORT_NAME] = struct_name
 
     # 基于最新绑定信息补全端口
     sync_struct_ports_for_node(scene, node_id, structs, binding_payload_override=binding_payload)
@@ -313,6 +317,19 @@ def sync_struct_ports_for_node(
     if not node:
         return
 
+    # 兼容迁移：旧结构体节点可能仍带有“结构体名”输入端口（选择端口）。
+    # 新约定下不再声明该端口，需在 UI 预处理阶段移除以保持“仅一个结构体端口”的模型一致性。
+    if node.has_input_port(STRUCT_NAME_PORT_NAME):
+        scene.model.remove_port_connections(node_id, STRUCT_NAME_PORT_NAME, is_input=True)
+        node.remove_input_port(STRUCT_NAME_PORT_NAME)
+
+    # 兼容迁移：旧结构体端口命名（结构体实例/结果）→ 新统一命名（结构体）
+    node_title = getattr(node, "title", "") or ""
+    if node_title in (STRUCT_SPLIT_NODE_TITLE, STRUCT_MODIFY_NODE_TITLE):
+        _rename_struct_input_port_in_model(scene.model, node, old_name=STRUCT_PORT_LEGACY_INSTANCE_NAME)
+    if node_title == STRUCT_BUILD_NODE_TITLE:
+        _rename_struct_output_port_in_model(scene.model, node, old_name=STRUCT_PORT_LEGACY_BUILD_OUTPUT_NAME)
+
     binding_payload = binding_payload_override or scene.model.get_node_struct_binding(node_id)
     context = resolve_struct_binding(binding_payload, structs)
     if context is None:
@@ -323,11 +340,8 @@ def sync_struct_ports_for_node(
     if node_title not in STRUCT_NODE_TITLES:
         return
 
-    has_struct_name_port = any(
-        getattr(port, "name", "") == STRUCT_NAME_PORT_NAME
-        for port in getattr(node, "inputs", []) or []
-    )
-    if has_struct_name_port and plan.struct_name_constant:
+    # “结构体名”不再是端口：始终同步展示常量，供 GraphSemanticPass/校验与 Graph Code 展示复用。
+    if plan.struct_name_constant:
         if not isinstance(node.input_constants, dict):
             node.input_constants = {}
         node.input_constants[STRUCT_NAME_PORT_NAME] = plan.struct_name_constant
@@ -340,6 +354,67 @@ def sync_struct_ports_for_node(
     node_item = scene.node_items.get(node_id)
     if node_item is not None:
         node_item._layout_ports()
+
+
+def _rename_struct_input_port_in_model(model: GraphModel, node: NodeModel, *, old_name: str) -> None:
+    """将旧输入端口名（如“结构体实例”）迁移为统一端口名“结构体”（就地重命名 + 迁移边与快照）。"""
+    old = str(old_name or "").strip()
+    if not old:
+        return
+    if not node.has_input_port(old):
+        return
+    if node.has_input_port(STRUCT_PORT_NAME):
+        return
+
+    for edge in (getattr(model, "edges", None) or {}).values():
+        if getattr(edge, "dst_node", "") == node.id and getattr(edge, "dst_port", "") == old:
+            edge.dst_port = STRUCT_PORT_NAME
+
+    for port in getattr(node, "inputs", None) or []:
+        if getattr(port, "name", "") == old:
+            port.name = STRUCT_PORT_NAME
+    node._rebuild_port_maps()
+
+    if old in (getattr(node, "input_types", {}) or {}):
+        snap = dict(getattr(node, "input_types", {}) or {})
+        if STRUCT_PORT_NAME not in snap:
+            snap[STRUCT_PORT_NAME] = snap.get(old, "")
+        snap.pop(old, None)
+        node.input_types = snap
+
+
+def _rename_struct_output_port_in_model(model: GraphModel, node: NodeModel, *, old_name: str) -> None:
+    """将旧输出端口名（如“结果”）迁移为统一端口名“结构体”（就地重命名 + 迁移边与快照）。"""
+    old = str(old_name or "").strip()
+    if not old:
+        return
+    if not node.has_output_port(old):
+        return
+    if node.has_output_port(STRUCT_PORT_NAME):
+        return
+
+    for edge in (getattr(model, "edges", None) or {}).values():
+        if getattr(edge, "src_node", "") == node.id and getattr(edge, "src_port", "") == old:
+            edge.src_port = STRUCT_PORT_NAME
+
+    for port in getattr(node, "outputs", None) or []:
+        if getattr(port, "name", "") == old:
+            port.name = STRUCT_PORT_NAME
+    node._rebuild_port_maps()
+
+    if old in (getattr(node, "output_types", {}) or {}):
+        snap = dict(getattr(node, "output_types", {}) or {})
+        if STRUCT_PORT_NAME not in snap:
+            snap[STRUCT_PORT_NAME] = snap.get(old, "")
+        snap.pop(old, None)
+        node.output_types = snap
+
+    if old in (getattr(node, "custom_var_names", {}) or {}):
+        mapping = dict(getattr(node, "custom_var_names", {}) or {})
+        if STRUCT_PORT_NAME not in mapping:
+            mapping[STRUCT_PORT_NAME] = mapping.get(old, "")
+        mapping.pop(old, None)
+        node.custom_var_names = mapping
 
 
 __all__ = [

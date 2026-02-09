@@ -48,6 +48,7 @@ def _required_input_ports_by_func(workspace_path: Path, scope: str) -> Dict[str,
             continue
 
         inputs = list(getattr(node_def, "inputs", []) or [])
+        input_defaults = dict(getattr(node_def, "input_defaults", {}) or {})
         required_ports: List[str] = []
         for port_name in inputs:
             if not isinstance(port_name, str) or port_name == "":
@@ -55,6 +56,9 @@ def _required_input_ports_by_func(workspace_path: Path, scope: str) -> Dict[str,
             if "~" in port_name:
                 continue
             if is_flow_port_name(port_name):
+                continue
+            # 若端口声明了默认值，则视为“可选入参”，不要求 Graph Code 必须显式传入。
+            if port_name in input_defaults:
                 continue
             required_ports.append(port_name)
         if required_ports:

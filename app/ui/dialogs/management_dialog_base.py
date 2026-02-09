@@ -6,7 +6,7 @@ from PyQt6 import QtGui, QtWidgets
 
 from app.ui.foundation.base_widgets import BaseDialog
 from app.ui.foundation import fonts as ui_fonts
-from app.ui.foundation.theme_manager import ThemeManager, Colors
+from app.ui.foundation.theme_manager import ThemeManager
 
 
 class ManagementDialogBase(BaseDialog):
@@ -45,14 +45,15 @@ class ManagementDialogBase(BaseDialog):
     def _build_header(self, title_text: str, info_text: str) -> None:
         title_label = QtWidgets.QLabel(title_text)
         title_label.setFont(ui_fonts.ui_font(14, bold=True))
-        title_label.setStyleSheet(f"color: {Colors.TEXT_PRIMARY}; padding: 10px;")
+        # 文本颜色由全局主题控制；这里用 contentsMargins 替代 QSS padding
+        title_label.setContentsMargins(10, 10, 10, 10)
         self.content_layout.insertWidget(0, title_label)
 
         if info_text:
             info_label = QtWidgets.QLabel(info_text)
             info_label.setFont(ui_fonts.ui_font(9))
             info_label.setWordWrap(True)
-            info_label.setStyleSheet(f"{ThemeManager.info_label_dark_style()} border-radius: 4px;")
+            info_label.setStyleSheet(ThemeManager.info_label_dark_style())
             self.content_layout.insertWidget(1, info_label)
 
     def _apply_close_button_label(self, close_button_text: str) -> None:

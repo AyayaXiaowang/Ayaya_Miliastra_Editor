@@ -600,7 +600,8 @@ class DataYRelaxationEngine:
             node_id = node_list[index]
             next_id = node_list[index + 1]
             next_top = float(backward_y[index + 1])
-            max_allowed = next_top - float(height_by_node.get(node_id, 0.0)) - gap
+            base_max_allowed = next_top - float(height_by_node.get(node_id, 0.0)) - gap
+            max_allowed = float(base_max_allowed)
             lb = float(lower_bound_by_node.get(node_id, 0.0))
             hard_min_top = None
             hard_max_top = None
@@ -612,6 +613,19 @@ class DataYRelaxationEngine:
                         hard_min_top, hard_max_top = hard_max_top, hard_min_top
                     lb = max(lb, float(hard_min_top))
                     max_allowed = min(float(max_allowed), float(hard_max_top))
+
+                    # 若“多父区间的上界”使得当前节点在不与下一个节点重叠的前提下无可行位置，
+                    # 则优先保证“不重叠 + 下界”硬约束：回退到不受 hard_max_top 影响的 max_allowed。
+                    # 说明：hard_max_top 是观感约束（尽量把节点中心放到父节点区间内），
+                    # 当它与列内不重叠冲突时，必须让位于不重叠。
+                    if float(lb) > float(max_allowed):
+                        max_allowed = float(base_max_allowed)
+
+            # 若下界仍然高于允许的最大位置，说明该列在当前 next_top 下无可行解。
+            # 在这种情况下继续“反向上移”会引入重叠，因此回退到前向投影结果（前向投影始终可行）。
+            if float(lb) > float(max_allowed):
+                return {node_id_item: float(y_val) for node_id_item, y_val in zip(node_list, forward_y)}
+
             # 允许上移到 max_allowed，但不突破下界；保持尽量靠近 forward 的结果，避免剧烈回跳
             backward_y[index] = max(lb, min(float(backward_y[index]), float(max_allowed)))
 
