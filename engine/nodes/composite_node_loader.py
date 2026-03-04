@@ -16,6 +16,7 @@ from engine.graph.utils.metadata_extractor import extract_metadata_from_code
 from engine.utils.logging.logger import log_info
 from engine.utils.name_utils import sanitize_composite_filename
 from engine.utils.resource_library_layout import discover_resource_root_directories
+from engine.utils.runtime_scope import get_active_package_id
 
 
 class CompositeNodeLoader:
@@ -47,6 +48,8 @@ class CompositeNodeLoader:
         self.verbose = verbose
         self.base_node_library = base_node_library
         self._code_generator = None
+        self._cached_composite_node_defs_for_parse: Optional[Dict[str, NodeDef]] = None
+        self._cached_active_package_id: Optional[str] = None
 
     def set_code_generator(self, code_generator) -> None:
         """注入复合节点代码生成器（应用层实现）。"""
@@ -78,7 +81,22 @@ class CompositeNodeLoader:
                     "CompositeNodeLoader.load_composite_from_file(load_subgraph=True) 需要注入 base_node_library。"
                     "禁止在此处隐式重新扫描实现库或反向触发 NodeRegistry，以避免缓存不一致/循环依赖。"
                 )
-            node_library = self.base_node_library
+            # 关键：解析复合节点子图时需要“基础节点库 + 当前作用域内的复合节点 NodeDef”，
+            # 否则方法体内的 `self.<复合实例>.<入口>(...)` 无法被识别并建模为 IR 节点，
+            # 会表现为“复合节点内部为空壳”（尤其是嵌套复合）。
+            active_package_id = get_active_package_id()
+            if active_package_id != self._cached_active_package_id or self._cached_composite_node_defs_for_parse is None:
+                from engine.nodes.pipeline.composite_runner import run_composite_pipeline
+
+                self._cached_composite_node_defs_for_parse = run_composite_pipeline(
+                    workspace_path=self.workspace_path,
+                    base_node_library=dict(self.base_node_library),
+                    verbose=bool(self.verbose),
+                )
+                self._cached_active_package_id = active_package_id
+
+            node_library: Dict[str, NodeDef] = dict(self.base_node_library)
+            node_library.update(dict(self._cached_composite_node_defs_for_parse or {}))
 
             parser = CompositeCodeParser(
                 node_library,

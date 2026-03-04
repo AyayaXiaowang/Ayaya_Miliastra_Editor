@@ -5,7 +5,7 @@ from __future__ import annotations
 目标
 - 统一“在具体节点图里，泛型端口如何实例化为具体类型”的推断规则；
 - 同一套规则同时服务：
-  - 资源层写入 graph_cache 时的 `NodeModel.input_types/output_types`（可复用的有效类型缓存）
+  - 资源层写入 graph_cache 时的 `NodeModel.effective_input_types/effective_output_types`（可复用的有效类型缓存）
   - UI/工具层展示端口类型（在缺少缓存或需要兜底推断时）
 
 边界
@@ -21,14 +21,17 @@ from engine.type_registry import (
     BASE_TO_LIST_TYPE_MAP,
     LIST_TYPES,
     TYPE_BOOLEAN,
+    TYPE_DICT,
     TYPE_FLOAT,
     TYPE_FLOW,
     TYPE_GENERIC,
     TYPE_INTEGER,
+    TYPE_LIST_PLACEHOLDER,
     TYPE_STRING,
     TYPE_STRUCT,
     TYPE_STRUCT_LIST,
     TYPE_VECTOR3,
+    is_dict_type_name,
     is_list_type_name,
     normalize_type_text,
     parse_typed_dict_alias,
@@ -53,9 +56,16 @@ _VECTOR3_PATTERN = re.compile(
 
 
 def is_generic_type_name(type_name: object) -> bool:
-    """判定是否为“泛型家族”类型名（空字符串也视为待推断占位）。"""
+    """判定是否为“泛型家族”类型名（仍未落地的占位类型）。
+
+    约定：
+    - `""` / `"泛型"` / `"泛型<...>"` 属于泛型家族；
+    - `"列表"` / `"字典"` 也属于“未实例化的容器占位”，视为泛型家族（交付边界必须 fail-fast）。
+    """
     text = normalize_type_text(type_name)
     if text == "":
+        return True
+    if text in {TYPE_LIST_PLACEHOLDER, TYPE_DICT}:
         return True
     if text == TYPE_GENERIC or text.startswith(TYPE_GENERIC):
         return True
@@ -259,6 +269,10 @@ def _infer_scalar_type_from_constant_value(value: object) -> str:
         return TYPE_FLOAT
     if isinstance(value, str):
         text = value.strip()
+        # ui_key: 前缀在节点图中代表“写回阶段回填为整数索引”的占位符（控件/状态组等）。
+        # 其语义应按整数处理，否则会把大量 UI 映射常量推断为“字符串”，导致端口类型漂移。
+        if text.startswith("ui_key:") and len(text) > len("ui_key:"):
+            return TYPE_INTEGER
         lower = text.lower()
         if text in ("是", "否") or lower in ("true", "false"):
             return TYPE_BOOLEAN
@@ -450,7 +464,7 @@ class EffectivePortTypeResolver:
 
         # 1) 声明为具体类型：直接采用（节点库单一真源）
         #
-        # 注意：对声明为“泛型家族”的端口，`NodeModel.input_types/output_types` 可能只是
+        # 注意：对声明为“泛型家族”的端口，`NodeModel.effective_input_types/effective_output_types` 可能只是
         # “展示快照”（例如常量被字符串化后误呈现为“字符串”）。
         # 这类快照不能作为“有效类型”的早返回，否则会阻断后续的 overrides/常量/连线推断。
         if declared_text and (not is_generic_type_name(declared_text)) and declared_text != TYPE_FLOW:
@@ -467,6 +481,82 @@ class EffectivePortTypeResolver:
                 snapshot_existing = existing
 
         title = str(getattr(node_obj, "title", "") or "")
+
+        # 3.2.0) 节点特例：拼装字典/建立字典（输出“字典”端口必须实例化为别名字典类型）
+        #
+        # 背景：
+        # - 这两个节点在节点库中都声明输出为“泛型字典”，但在具体图中必须收敛为
+        #   `键类型-值类型字典`（或 `_` 分隔）才能让后续字典相关节点的键/值端口正确实例化；
+        # - 若不做此特例，通用的“输出从输入常量推断”会误把输出推断为某个标量类型（常见为键口类型），
+        #   导致 UI/graph_model_json 中出现“字典端口类型=整数/字符串”等明显错误。
+        if (not bool(is_input)) and port_text == "字典" and title in {"拼装字典", "建立字典"}:
+            inferred_dict_alias = ""
+
+            def _infer_input_port_type_for_dict_build(input_port: str) -> str:
+                # 1) override（允许作者显式标注键/值类型）
+                t0 = resolve_override_type_for_node_port(self._overrides, str(node_id), str(input_port))
+                if t0:
+                    return normalize_type_text(t0)
+
+                # 2) 入边：优先用上游端口的有效类型
+                for e in self._incoming_edges.get((str(node_id), str(input_port)), []) or []:
+                    src_node_id = str(getattr(e, "src_node", "") or "")
+                    src_port = str(getattr(e, "src_port", "") or "")
+                    if not src_node_id or not src_port:
+                        continue
+                    src_type = normalize_type_text(self.resolve(src_node_id, src_port, is_input=False))
+                    if src_type and (not is_generic_type_name(src_type)) and src_type != TYPE_FLOW:
+                        return src_type
+
+                # 3) 常量：保守按字面量推断（含 ui_key: 整数语义）
+                constants_map = getattr(node_obj, "input_constants", {}) or {}
+                if isinstance(constants_map, dict) and str(input_port) in constants_map:
+                    scalar = _infer_scalar_type_from_constant_value(constants_map.get(str(input_port)))
+                    scalar_text = normalize_type_text(scalar)
+                    if scalar_text and (not is_generic_type_name(scalar_text)) and scalar_text != TYPE_FLOW:
+                        return scalar_text
+                return ""
+
+            if title == "拼装字典":
+                # 按“键N/值N”成对收敛，优先取第一个能同时解析出 K/V 的槽位。
+                key_ports: dict[int, str] = {}
+                value_ports: dict[int, str] = {}
+                for p in (getattr(node_obj, "inputs", None) or []):
+                    name = str(getattr(p, "name", "") or "").strip()
+                    if not name:
+                        continue
+                    if name.startswith("键") and name[1:].isdigit():
+                        key_ports[int(name[1:])] = name
+                    elif name.startswith("值") and name[1:].isdigit():
+                        value_ports[int(name[1:])] = name
+
+                for i in sorted(set(key_ports.keys()) & set(value_ports.keys())):
+                    k_type = _infer_input_port_type_for_dict_build(key_ports[int(i)])
+                    v_type = _infer_input_port_type_for_dict_build(value_ports[int(i)])
+                    if not k_type or not v_type:
+                        continue
+                    if is_generic_type_name(k_type) or is_generic_type_name(v_type):
+                        continue
+                    if k_type == TYPE_FLOW or v_type == TYPE_FLOW:
+                        continue
+                    inferred_dict_alias = f"{k_type}-{v_type}字典"
+                    break
+
+            else:
+                # 建立字典：键/值来自两条列表的元素类型
+                key_list_type = normalize_type_text(self.resolve(str(node_id), "键列表", is_input=True))
+                value_list_type = normalize_type_text(self.resolve(str(node_id), "值列表", is_input=True))
+                k_type = _base_type_from_list_type_text(key_list_type)
+                v_type = _base_type_from_list_type_text(value_list_type)
+                if k_type and v_type and (not is_generic_type_name(k_type)) and (not is_generic_type_name(v_type)):
+                    if k_type != TYPE_FLOW and v_type != TYPE_FLOW:
+                        inferred_dict_alias = f"{k_type}-{v_type}字典"
+
+            inferred_text = normalize_type_text(inferred_dict_alias)
+            if inferred_text and is_dict_type_name(inferred_text):
+                self._visiting.remove(key)
+                self._memo[key] = inferred_text
+                return inferred_text
 
         # 3) 节点特例：列表迭代循环
         # - `迭代列表` 为泛型列表家族；`迭代值` 为泛型；
@@ -527,6 +617,53 @@ class EffectivePortTypeResolver:
                         self._visiting.remove(key)
                         self._memo[key] = value_text
                         return value_text
+
+        # 3.2.1) 节点特例：以键查询字典值（输入“字典”端口必须收敛为别名字典类型）
+        #
+        # 背景：
+        # - 节点库通常将该节点声明为“泛型字典/泛型键/泛型值”；
+        # - 但在具体图中，`字典` 端口必须被实例化为 `键类型-值类型字典`（或 `_`），
+        #   否则后续导出（例如 .gia 的 VarType=27）无法写出字典 K/V 类型信息。
+        #
+        # 策略：
+        # - 优先从 `键` 与 `默认值` 两个输入端口收敛键/值类型（override → 入边 → 常量）；
+        # - 两者都可确定时，构造 `K-V字典` 写回为该端口的有效类型（供 UI/缓存/导出复用）。
+        if bool(is_input) and port_text == "字典" and title == "以键查询字典值":
+            inferred_dict_alias = ""
+
+            def _infer_input_port_type_for_dict_query(input_port: str) -> str:
+                t0 = resolve_override_type_for_node_port(self._overrides, str(node_id), str(input_port))
+                if t0:
+                    return normalize_type_text(t0)
+
+                for e in self._incoming_edges.get((str(node_id), str(input_port)), []) or []:
+                    src_node_id = str(getattr(e, "src_node", "") or "")
+                    src_port = str(getattr(e, "src_port", "") or "")
+                    if not src_node_id or not src_port:
+                        continue
+                    src_type = normalize_type_text(self.resolve(src_node_id, src_port, is_input=False))
+                    if src_type and (not is_generic_type_name(src_type)) and src_type != TYPE_FLOW:
+                        return src_type
+
+                constants_map = getattr(node_obj, "input_constants", {}) or {}
+                if isinstance(constants_map, dict) and str(input_port) in constants_map:
+                    scalar = _infer_scalar_type_from_constant_value(constants_map.get(str(input_port)))
+                    scalar_text = normalize_type_text(scalar)
+                    if scalar_text and (not is_generic_type_name(scalar_text)) and scalar_text != TYPE_FLOW:
+                        return scalar_text
+                return ""
+
+            k_type = _infer_input_port_type_for_dict_query("键")
+            v_type = _infer_input_port_type_for_dict_query("默认值")
+            if k_type and v_type and (not is_generic_type_name(k_type)) and (not is_generic_type_name(v_type)):
+                if k_type != TYPE_FLOW and v_type != TYPE_FLOW:
+                    inferred_dict_alias = f"{k_type}-{v_type}字典"
+
+            inferred_text = normalize_type_text(inferred_dict_alias)
+            if inferred_text and is_dict_type_name(inferred_text):
+                self._visiting.remove(key)
+                self._memo[key] = inferred_text
+                return inferred_text
 
         # 3.0) 节点特例：基础算术节点（加减乘除）
         # - 节点声明为“泛型”但通过泛型约束限制为“整数/浮点数”；
@@ -622,6 +759,49 @@ class EffectivePortTypeResolver:
                     self._visiting.remove(key)
                     self._memo[key] = value_type
                     return value_type
+
+        # 3.0) 节点特例：拼装列表（输出“列表”从元素端口的具体类型反推）
+        #
+        # 背景：list_literal_rewriter 会把 `x = [a, b, c]` 改写为 `x = 拼装列表(self.game, a, b, c)`，
+        # 但节点定义的输出端口类型为“泛型列表”。为避免大量“列表字面量 → 局部变量初始值(泛型)”导致校验失败，
+        # 这里在输出侧从元素端口推断出具体列表类型（例如：元素为整数 → 输出为“整数列表”）。
+        if (not bool(is_input)) and title == "拼装列表" and port_text == "列表":
+            constants_map = getattr(node_obj, "input_constants", {}) or {}
+            element_types: list[str] = []
+            for p in (getattr(node_obj, "inputs", None) or []) or []:
+                p_name = str(getattr(p, "name", "") or "").strip()
+                if not p_name or not p_name.isdigit():
+                    continue
+                incoming = self._incoming_edges.get((str(node_id), str(p_name)), []) or []
+                if incoming:
+                    for edge_like in list(incoming):
+                        src_node_id = ""
+                        src_port = ""
+                        if isinstance(edge_like, (tuple, list)) and len(edge_like) == 2:
+                            src_node_id = str(edge_like[0] or "")
+                            src_port = str(edge_like[1] or "")
+                        else:
+                            # 兼容实现差异：incoming index 可能直接存 EdgeModel
+                            src_node_id = str(getattr(edge_like, "src_node", "") or "")
+                            src_port = str(getattr(edge_like, "src_port", "") or "")
+                        if not src_node_id or not src_port:
+                            continue
+                        inferred = normalize_type_text(self.resolve(str(src_node_id), str(src_port), is_input=False))
+                        if inferred and (not is_generic_type_name(inferred)) and inferred != TYPE_FLOW:
+                            element_types.append(inferred)
+                elif isinstance(constants_map, dict) and p_name in constants_map:
+                    scalar = normalize_type_text(_infer_scalar_type_from_constant_value(constants_map.get(p_name)))
+                    if scalar and (not is_generic_type_name(scalar)) and scalar != TYPE_FLOW:
+                        element_types.append(scalar)
+
+            if element_types:
+                first = element_types[0]
+                if first and all(t == first for t in element_types):
+                    list_type = str(BASE_TO_LIST_TYPE_MAP.get(first) or "").strip()
+                    if list_type and (not is_generic_type_name(list_type)) and list_type != TYPE_FLOW:
+                        self._visiting.remove(key)
+                        self._memo[key] = list_type
+                        return list_type
 
         # 3.0) 节点特例：拼装列表（元素端口随输出“列表”的元素类型收敛）
         # - `列表` 输出端口通常为“泛型列表家族”，会在具体图中被实例化为如“整数列表/字符串列表”；
@@ -813,7 +993,7 @@ def apply_effective_port_type_snapshots(
     node_def_resolver: Callable[[NodeModel], Any],
     port_type_overrides: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> None:
-    """将“有效类型”写回到 NodeModel.input_types/output_types（仅覆盖泛型/缺失项）。
+    """将“有效类型”写回到 NodeModel.effective_input_types/effective_output_types（仅覆盖泛型/缺失项）。
 
 说明：
 - 已存在且为“具体非泛型”的快照类型会被保留；
@@ -828,8 +1008,8 @@ def apply_effective_port_type_snapshots(
 
     for node in (getattr(model, "nodes", None) or {}).values():
         node_id = str(getattr(node, "id", "") or "")
-        existing_in = dict(getattr(node, "input_types", {}) or {})
-        existing_out = dict(getattr(node, "output_types", {}) or {})
+        existing_in = dict(getattr(node, "effective_input_types", {}) or {})
+        existing_out = dict(getattr(node, "effective_output_types", {}) or {})
 
         new_in: Dict[str, str] = {}
         for port in getattr(node, "inputs", None) or []:
@@ -862,8 +1042,8 @@ def apply_effective_port_type_snapshots(
             else:
                 new_out[port_name] = resolved or TYPE_GENERIC
 
-        node.input_types = new_in
-        node.output_types = new_out
+        node.effective_input_types = new_in
+        node.effective_output_types = new_out
 
 
 __all__ = [

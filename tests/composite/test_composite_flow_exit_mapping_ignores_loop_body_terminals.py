@@ -16,7 +16,9 @@ def test_flow_exit_pin_ignores_loop_body_terminals() -> None:
         / "资源库"
         / "共享"
         / "复合节点库"
-        / "composite_布尔值列表_任意为真.py"
+        # 选择一个包含“列表迭代循环 + 循环体内 if + break + 数据语句”的共享复合节点，
+        # 用于回归：循环体内的“双分支/否”可能没有出边（语义上为 continue），不应被误当作方法级出口。
+        / "composite_整数列表_查找首次出现序号.py"
     )
     assert composite_path.is_file()
 

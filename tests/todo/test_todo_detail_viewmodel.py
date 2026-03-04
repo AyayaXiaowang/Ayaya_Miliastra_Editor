@@ -5,10 +5,10 @@ from typing import Dict, Optional
 from app.models import TodoItem
 from engine.graph.models.graph_model import GraphModel, NodeModel
 from app.ui.foundation.theme_manager import Colors as ThemeColors
-from app.ui.todo.todo_config import StepTypeColors
-from app.ui.todo.todo_detail_model import ParagraphBlock, ParagraphStyle, TableBlock
-from app.ui.todo.todo_detail_renderer import TodoDetailBuilder
-from app.ui.todo.todo_rich_text_renderer import build_rich_tokens_for_todo
+from app.ui.todo.misc.todo_config import StepTypeColors
+from app.ui.todo.detail.todo_detail_model import ParagraphBlock, ParagraphStyle, TableBlock
+from app.ui.todo.detail.todo_detail_renderer import TodoDetailBuilder
+from app.ui.todo.list.todo_rich_text_renderer import build_rich_tokens_for_todo
 
 
 def create_todo_item(

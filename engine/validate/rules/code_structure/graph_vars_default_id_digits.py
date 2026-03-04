@@ -16,8 +16,13 @@ from engine.type_registry import (
 from engine.validate.id_digits import is_digits_1_to_10
 from ..ui_key_registry_utils import (
     parse_ui_key_placeholder,
+    try_format_invalid_ui_state_group_placeholder_message,
     try_load_ui_html_ui_keys_for_ctx,
 )
+from ..component_registry_utils import (
+    parse_component_key_placeholder,
+)
+from ..entity_registry_utils import parse_entity_key_placeholder
 
 from ...context import ValidationContext
 from ...issue import EngineIssue
@@ -36,6 +41,18 @@ def _is_ui_key_placeholder(value: object) -> bool:
     if s.startswith("ui:"):
         return s[len("ui:") :].strip() != ""
     return False
+
+
+def _is_component_key_placeholder(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    return parse_component_key_placeholder(str(value)) is not None
+
+
+def _is_entity_key_placeholder(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    return parse_entity_key_placeholder(str(value)) is not None
 
 
 def _iter_graph_variables_list_nodes(tree: ast.AST) -> List[ast.List]:
@@ -159,6 +176,22 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                                 )
                                 continue
                             if ui_view is not None and ui_key not in ui_key_set:
+                                invalid_msg = try_format_invalid_ui_state_group_placeholder_message(str(extracted))
+                                if invalid_msg is not None:
+                                    issues.append(
+                                        create_rule_issue(
+                                            self,
+                                            file_path,
+                                            default_value_node,
+                                            "CODE_UI_STATE_GROUP_PLACEHOLDER_INVALID_FORMAT",
+                                            (
+                                                f"{line_span_text(default_value_node)}: GRAPH_VARIABLES 中图变量"
+                                                f"{('『' + name_text + '』') if name_text else ''} 的类型为『{variable_type_text}』时，"
+                                                f"{invalid_msg} 当前写法为 {str(extracted)!r}"
+                                            ),
+                                        )
+                                    )
+                                    continue
                                 issues.append(
                                     create_rule_issue(
                                         self,
@@ -175,8 +208,18 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                                 )
                                 continue
                             continue
+
+                    # 工程化：GUID 图变量允许 entity_key 占位符（写回/导出阶段替换为真实实体 GUID/ID）
+                    if variable_type_text == TYPE_GUID and _is_entity_key_placeholder(extracted):
+                        continue
                     if is_digits_1_to_10(extracted):
                         continue
+
+                    # 工程化：元件ID 图变量允许 component_key 占位符（编译期替换为真实元件ID）
+                    if variable_type_text == TYPE_COMPONENT_ID and _is_component_key_placeholder(extracted):
+                        # 校验阶段不做“元件名存在性”校验（参考 GIL 在导出/写回阶段才由用户选择）。
+                        continue
+
                     issues.append(
                         create_rule_issue(
                             self,
@@ -243,7 +286,34 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                                     missing_ui_keys = []
                                     break
                                 if ui_view is not None and ui_key not in ui_key_set:
+                                    invalid_msg2 = try_format_invalid_ui_state_group_placeholder_message(str(item))
+                                    if invalid_msg2 is not None:
+                                        issues.append(
+                                            create_rule_issue(
+                                                self,
+                                                file_path,
+                                                default_value_node,
+                                                "CODE_UI_STATE_GROUP_PLACEHOLDER_INVALID_FORMAT",
+                                                (
+                                                    f"{line_span_text(default_value_node)}: GRAPH_VARIABLES 中图变量"
+                                                    f"{('『' + name_text + '』') if name_text else ''} 的类型为『{variable_type_text}』时，"
+                                                    f"{invalid_msg2} 当前写法为 {str(item)!r}"
+                                                ),
+                                            )
+                                        )
+                                        invalid_items = []
+                                        missing_ui_keys = []
+                                        break
                                     missing_ui_keys.append(str(item))
+                                continue
+                            if _is_entity_key_placeholder(item):
+                                continue
+                            invalid_items.append(item)
+                    elif variable_type_text == TYPE_COMPONENT_ID_LIST:
+                        for item in items:
+                            if is_digits_1_to_10(item):
+                                continue
+                            if _is_component_key_placeholder(item):
                                 continue
                             invalid_items.append(item)
                     else:

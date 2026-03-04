@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <title>UI源码预览（复用 Workbench Preview）</title>
+  <title>UI预览</title>
   <style>
     :root {
       color-scheme: dark;
@@ -540,7 +540,7 @@
   <div class="app">
     <div class="header">
       <div class="title">
-        <span>UI源码预览</span>
+        <span>UI预览</span>
         <span class="subtitle" id="appSubtitle">（未连接主程序）</span>
       </div>
       <div class="spacer"></div>
@@ -552,14 +552,6 @@
       <button id="exportGiaButton" class="btn primary" type="button" disabled>直接导出 GIA</button>
       <button id="exportGilButton" class="btn" type="button" disabled title="完整导出：写回 UI 记录 + 自动补齐变量。需要先选择基底 GIL。">导出 GIL</button>
       <button id="importVariableDefaultsButton" class="btn" type="button" disabled title="将当前页面 HTML 的 data-ui-variable-defaults（默认值映射）导入到当前项目的 lv/ps 变量库（写入管理配置/关卡变量）。">导入变量默认值</button>
-      <label class="checkbox" title="兼容策略：多状态按钮在游戏内切换状态时，若出现“底色飞到顶部/层级错乱”，可开启该选项。
-
-开启后：每个状态会导出为独立组件组（整态打组），并将 `<state_group>_content` 这类“共享内容组件”复制进各状态组内（默认态迁入原件 + 其它态克隆），确保状态切换时内容与底色/边框真正整组一起切换；代价是导出控件更多、节点图维护更冗余。
-
-关闭后：启用“组件内合并（最小冗余）”，会把同一组件的多个状态合并到同一模板内，并提升部分完全一致的控件为跨状态共享。">
-        <input id="exportUiStateFullGroupsCheckbox" type="checkbox" checked />
-        <span>多状态整态打组</span>
-      </label>
       <label class="checkbox" title="可选：将识别到的“按钮组件组”（道具展示 can_interact=true）同步保存为【自定义模板】（控件组库内模板 root）。默认关闭。
 
 注意：若你要“用户自定义控件组”存模板（例如：选关 + 退出 两个按钮作为同一个控件组），请在 HTML 上：
@@ -641,6 +633,7 @@
                 <input id="dynamicTextPreviewCheckbox" type="checkbox" />
                 <span>动态文本</span>
               </label>
+              <button id="flattenedTimelapseRevealButton" class="btn" type="button" style="height: 22px; padding: 0 8px; font-size: 11px;" title="对当前预览（扁平化/原稿）执行延时摄影：先隐藏当前可见层，再每 0.1 秒显示一个。">延时摄影</button>
             </div>
           </div>
         </div>
@@ -693,7 +686,7 @@
   </div>
 
   <!-- cache-bust: bump when preview logic changes -->
-  <script type="module" src="ui_app_ui_preview.js?v=2026-02-07-01"></script>
+  <script type="module" src="ui_app_ui_preview.js?v=2026-02-11-02"></script>
 </body>
 </html>
 

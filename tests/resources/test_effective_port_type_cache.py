@@ -35,8 +35,8 @@ def test_effective_port_types_cache_propagates_local_var_value_from_initial_cons
 
     GraphLoader._apply_port_type_snapshots(model, node_library=node_library)
 
-    assert model.nodes["n_local_var"].input_types["初始值"] == "字符串"
-    assert model.nodes["n_local_var"].output_types["值"] == "字符串"
+    assert model.nodes["n_local_var"].effective_input_types["初始值"] == "字符串"
+    assert model.nodes["n_local_var"].effective_output_types["值"] == "字符串"
 
 
 def test_effective_port_types_cache_derives_compose_dict_key_value_from_output_alias() -> None:
@@ -73,9 +73,9 @@ def test_effective_port_types_cache_derives_compose_dict_key_value_from_output_a
 
     GraphLoader._apply_port_type_snapshots(model, node_library=node_library)
 
-    assert model.nodes["n_dict"].output_types["字典"] == "字符串_整数字典"
-    assert model.nodes["n_dict"].input_types["键0"] == "字符串"
-    assert model.nodes["n_dict"].input_types["值0"] == "整数"
+    assert model.nodes["n_dict"].effective_output_types["字典"] == "字符串_整数字典"
+    assert model.nodes["n_dict"].effective_input_types["键0"] == "字符串"
+    assert model.nodes["n_dict"].effective_input_types["值0"] == "整数"
 
 
 def test_effective_port_types_cache_propagates_downstream_input_type_to_upstream_generic_output() -> None:
@@ -130,7 +130,7 @@ def test_effective_port_types_cache_propagates_downstream_input_type_to_upstream
 
     GraphLoader._apply_port_type_snapshots(model, node_library=node_library)
 
-    assert model.nodes["n_dst"].input_types["输入"] == "整数"
-    assert model.nodes["n_src"].output_types["结果"] == "整数"
+    assert model.nodes["n_dst"].effective_input_types["输入"] == "整数"
+    assert model.nodes["n_src"].effective_output_types["结果"] == "整数"
 
 

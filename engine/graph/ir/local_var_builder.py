@@ -272,6 +272,7 @@ def build_local_var_nodes(
     ctx: FactoryContext,
     validators: Validators,
     graph_model: GraphModel,
+    force_materialize_first_write: bool = False,
 ) -> Tuple[
     bool,
     List[NodeModel],
@@ -468,7 +469,24 @@ def build_local_var_nodes(
             new_suppress = result.new_suppress_flag
 
         if not predeclared:
-            return True, nodes, edges, new_prev, new_suppress
+            # 工程化：部分场景需要“首次赋值也强制物化一次设置局部变量”，以避免
+            # lazy/pull 求值导致“读取节点”被推迟到后续使用时才执行（从而读到被写回后的新值）。
+            #
+            # 约定：此时不使用 None 作为“预声明占位初始值”，而是：
+            # - 先生成 获取局部变量(初始值=<原始 value_expr>)
+            # - 再生成 设置局部变量(局部变量=<handle>, 值=<var_name 当前映射的值>)
+            #   这样设置节点作为流程节点会强制触发对“值”的求值，但不会引入 `初始值=None` 常量，
+            #   从而避免写回阶段把 None 当作“整数常量”写入 `.gil`。
+            if not bool(force_materialize_first_write):
+                return True, nodes, edges, new_prev, new_suppress
+
+            handle_src = env.get_variable(handle_key)
+            value_src = env.get_variable(var_name)
+            if handle_src is None or value_src is None:
+                return False, nodes, edges, new_prev, new_suppress
+            # 使用变量名本身作为“值”入参，借助 env 映射把它连回刚生成的获取局部变量输出端口“值”
+            value_expr = ast.Name(id=var_name, ctx=ast.Load())
+            value_expr = _ensure_location(value_expr, stmt)
 
         handle_src = env.get_variable(handle_key)
         value_src = env.get_variable(var_name)

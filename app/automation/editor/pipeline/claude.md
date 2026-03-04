@@ -16,7 +16,4 @@
 - 不在此层新增吞异常的 `try/except`；落盘失败应直接抛错暴露环境问题。
 - 所有落盘路径统一从运行时服务派生：优先使用 `app.runtime.services.json_cache_service.JsonCacheService`（遵循 `settings.RUNTIME_CACHE_ROOT`），默认在 `app/runtime/cache` 下。
 
----
-注意：本文件不记录任何修改历史。请始终保持对「目录用途、当前状态、注意事项」的实时描述。
-
 

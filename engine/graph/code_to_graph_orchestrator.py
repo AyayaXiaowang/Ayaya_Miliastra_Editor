@@ -33,8 +33,11 @@ from engine.utils.logging.logger import log_info
 from engine.graph.utils.composite_instance_utils import iter_composite_instance_pairs
 from engine.graph.utils.ast_utils import (
     collect_module_constants,
+    collect_module_constant_types,
     set_module_constants_context,
+    set_module_constant_types_context,
     clear_module_constants_context,
+    clear_module_constant_types_context,
     extract_constant_value,
     NOT_EXTRACTABLE,
 )
@@ -132,8 +135,11 @@ class CodeToGraphParser:
         # 额外：支持“节点图类体内的类常量”通过 `self.<字段>`（尤其是 self._xxx）在调用参数中被静态提取，
         # 以便 UI 能正确回填到 node.input_constants（例如 定时器名称 / 变量名 等标识性参数）。
         clear_module_constants_context()
+        clear_module_constant_types_context()
         module_constants = collect_module_constants(module)
+        module_constant_types = collect_module_constant_types(module)
         set_module_constants_context(module_constants)
+        set_module_constant_types_context(module_constant_types)
 
         graph_model = GraphModel()
         graph_model.graph_name = graph_name
@@ -147,6 +153,7 @@ class CodeToGraphParser:
         # - 仅收集 class body 顶层的 AnnAssign/Assign，且右值可静态提取；
         # - 写入 key 为 "self.<字段名>"，用于 extract_constant_value 在解析 self.<字段> 时命中。
         class_self_constants: Dict[str, Any] = {}
+        class_self_constant_types: Dict[str, str] = {}
         for stmt in list(getattr(class_def, "body", []) or []):
             if isinstance(stmt, ast.AnnAssign):
                 target = getattr(stmt, "target", None)
@@ -155,6 +162,11 @@ class CodeToGraphParser:
                     const_val = extract_constant_value(value_expr)
                     if const_val is not NOT_EXTRACTABLE:
                         class_self_constants[f"self.{target.id}"] = const_val
+                    annotation_expr = getattr(stmt, "annotation", None)
+                    if isinstance(annotation_expr, ast.Constant) and isinstance(getattr(annotation_expr, "value", None), str):
+                        annotation_text = str(annotation_expr.value or "").strip()
+                        if annotation_text:
+                            class_self_constant_types[f"self.{target.id}"] = annotation_text
             elif isinstance(stmt, ast.Assign):
                 targets = list(getattr(stmt, "targets", []) or [])
                 value_expr = getattr(stmt, "value", None)
@@ -167,11 +179,15 @@ class CodeToGraphParser:
                     if const_val is not NOT_EXTRACTABLE:
                         class_self_constants[f"self.{targets[0].id}"] = const_val
 
-        if class_self_constants:
+        if class_self_constants or class_self_constant_types:
             merged_constants: Dict[str, Any] = dict(module_constants)
             merged_constants.update(class_self_constants)
+            merged_types: Dict[str, str] = dict(module_constant_types)
+            merged_types.update(class_self_constant_types)
             clear_module_constants_context()
+            clear_module_constant_types_context()
             set_module_constants_context(merged_constants)
+            set_module_constant_types_context(merged_types)
 
         if self.verbose:
             log_info("  找到类定义: {}", class_def.name)
@@ -235,7 +251,7 @@ class CodeToGraphParser:
 
             ir_register_event_outputs(event_node, method, self._env, graph_model=graph_model)
 
-            nodes, edges = ir_parse_method_body(
+            nodes, edges, _final_prev = ir_parse_method_body(
                 method.body, event_node, graph_model, False, self._env, self._factory_ctx, self._validators
             )
             for n in nodes:
@@ -256,6 +272,7 @@ class CodeToGraphParser:
 
         # 清理模块常量上下文，避免跨文件残留
         clear_module_constants_context()
+        clear_module_constant_types_context()
         return graph_model
 
 

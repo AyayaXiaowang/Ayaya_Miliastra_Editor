@@ -1,0 +1,152 @@
+{
+  "template_id": "1077936133",
+  "name": "第七关-场景",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936133,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073741882",
+            "displayName": "第七关-场景",
+            "isVisible": true,
+            "assetId": 20001173,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.92930269241333,
+                "y": 0.9199150800704956,
+                "z": -0.0071659088134765625
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073741882,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936133,
+              "asset_id_int": 20001173,
+              "ugc_scale": [
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073741883",
+            "displayName": "第七关-场景",
+            "isVisible": true,
+            "assetId": 20002225,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 5.005064010620117
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073741883,
+              "unit_name": "装饰物_2",
+              "template_root_id_int": 1077936133,
+              "asset_id_int": 20002225,
+              "ugc_scale": [
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073741884",
+            "displayName": "第七关-场景",
+            "isVisible": true,
+            "assetId": 20001173,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.046603679656982,
+                "y": 0.9199150800704956,
+                "z": -0.0071659088134765625
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073741884,
+              "unit_name": "装饰物_3",
+              "template_root_id_int": 1077936133,
+              "asset_id_int": 20001173,
+              "ugc_scale": [
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

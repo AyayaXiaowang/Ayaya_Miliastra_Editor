@@ -407,8 +407,26 @@ function _applyAnchoredTutorialCards(targetDocument, bodyRect, canvasSize) {
             continue;
         }
 
-        card.style.left = String(Math.round(chosen.x)) + "px";
-        card.style.top = String(Math.round(chosen.y)) + "px";
+        // NOTE:
+        // - chosen.x/y 是“画布坐标”（viewport rect - bodyRect），与后续 dom_extract 输出 rect 口径一致。
+        // - 但绝对定位元素的 left/top 是相对其 offsetParent 的 padding box（而不是画布原点）。
+        //   若不做坐标系转换，卡片会在存在 offsetParent（例如容器内 absolute 布局）时整体偏移，
+        //   进而导致“卡片跑出画布”或与高亮区域重叠的回归。
+        var chosenViewportX = chosen.x + bodyRect.left;
+        var chosenViewportY = chosen.y + bodyRect.top;
+        var baseLeft = 0;
+        var baseTop = 0;
+        var offsetParent = card.offsetParent || null;
+        if (offsetParent && offsetParent.getBoundingClientRect) {
+            var parentRect = offsetParent.getBoundingClientRect();
+            // containing block is offsetParent's padding box; getBoundingClientRect() is border box.
+            var parentClientLeft = Number(offsetParent.clientLeft || 0);
+            var parentClientTop = Number(offsetParent.clientTop || 0);
+            baseLeft = Number(parentRect.left || 0) + parentClientLeft;
+            baseTop = Number(parentRect.top || 0) + parentClientTop;
+        }
+        card.style.left = String(Math.round(chosenViewportX - baseLeft)) + "px";
+        card.style.top = String(Math.round(chosenViewportY - baseTop)) + "px";
         // Avoid mixing top/bottom/transform layouts after anchoring.
         card.style.right = "auto";
         card.style.bottom = "auto";

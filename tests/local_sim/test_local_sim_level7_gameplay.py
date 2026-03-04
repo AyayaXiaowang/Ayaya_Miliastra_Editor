@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import app.runtime.engine.game_state as game_state_module
-from app.runtime.services.local_graph_sim_server import _extract_lv_defaults_from_ui_html
+from app.runtime.services.local_graph_sim_server import _build_layout_html_map, _extract_merged_lv_defaults
 from app.runtime.services.local_graph_simulator import GraphMountSpec, build_local_graph_sim_session, stable_layout_index_from_html_stem
 from engine.validate.node_graph_validator import validate_file as validate_node_graph_file
 from tests._helpers.project_paths import get_repo_root
@@ -15,10 +15,17 @@ from tests._helpers.project_paths import get_repo_root
 _LEVEL7_GRAPH_DIR_REL = "assets/资源库/项目存档/测试项目/节点图/server/实体节点图/第七关"
 _LEVEL7_UI_DIR_REL = "assets/资源库/项目存档/测试项目/管理配置/UI源码"
 
-_GRAPH_GAME_IN_REL = f"{_LEVEL7_GRAPH_DIR_REL}/UI第七关_游戏中_交互逻辑.py"
-_GRAPH_DOOR_REL = f"{_LEVEL7_GRAPH_DIR_REL}/第七关_门控制.py"
-_GRAPH_DATA_REL = f"{_LEVEL7_GRAPH_DIR_REL}/第七关_亲戚数据服务.py"
-_GRAPH_RESULT_REL = f"{_LEVEL7_GRAPH_DIR_REL}/UI第七关_结算_交互逻辑.py"
+_GRAPH_GAME_IN_REL = f"{_LEVEL7_GRAPH_DIR_REL}/玩家模板_UI第七关_游戏中_交互逻辑.py"
+_GRAPH_GAME_GLOBAL_REL = f"{_LEVEL7_GRAPH_DIR_REL}/关卡实体_第七关_UI游戏中_公共控制.py"
+_GRAPH_LEVEL_SELECT_REL = f"{_LEVEL7_GRAPH_DIR_REL}/玩家模板_UI选关页_第七关_交互逻辑.py"
+_GRAPH_LEVEL_SELECT_TIMER_REL = f"{_LEVEL7_GRAPH_DIR_REL}/关卡实体_UI选关页_第七关_倒计时执行.py"
+_GRAPH_DOOR_REL = f"{_LEVEL7_GRAPH_DIR_REL}/大门实体_第七关_门控制.py"
+_GRAPH_POSTDOOR_REL = f"{_LEVEL7_GRAPH_DIR_REL}/关卡实体_第七关_门后流程与亲戚生成.py"
+_GRAPH_DATA_REL = f"{_LEVEL7_GRAPH_DIR_REL}/数据元件实体_第七关_亲戚数据服务.py"
+_GRAPH_ROUND_ADVANCE_REL = f"{_LEVEL7_GRAPH_DIR_REL}/关卡实体_第七关_回合推进执行.py"
+_GRAPH_VOTE_SETTLEMENT_REL = f"{_LEVEL7_GRAPH_DIR_REL}/关卡实体_第七关_投票结算.py"
+_GRAPH_RESULT_REL = f"{_LEVEL7_GRAPH_DIR_REL}/玩家模板_UI第七关_结算_交互逻辑.py"
+_GRAPH_PLAYER_SFX_REL = f"{_LEVEL7_GRAPH_DIR_REL}/玩家模板_第七关_音效播放.py"
 
 _UI_GAME_IN_REL = f"{_LEVEL7_UI_DIR_REL}/第七关-游戏中.html"
 _UI_RESULT_REL = f"{_LEVEL7_UI_DIR_REL}/第七关-结算.html"
@@ -28,6 +35,38 @@ _LEVEL_ENTITY_GUID = "1094713345"
 
 def _p(repo_root: Path, rel: str) -> Path:
     return (repo_root / rel).resolve()
+
+
+def _level7_required_fixture_paths(repo_root: Path) -> list[Path]:
+    rels = [
+        _GRAPH_GAME_IN_REL,
+        _GRAPH_GAME_GLOBAL_REL,
+        _GRAPH_LEVEL_SELECT_REL,
+        _GRAPH_LEVEL_SELECT_TIMER_REL,
+        _GRAPH_DOOR_REL,
+        _GRAPH_POSTDOOR_REL,
+        _GRAPH_DATA_REL,
+        _GRAPH_ROUND_ADVANCE_REL,
+        _GRAPH_VOTE_SETTLEMENT_REL,
+        _GRAPH_RESULT_REL,
+        _GRAPH_PLAYER_SFX_REL,
+        _UI_GAME_IN_REL,
+        _UI_RESULT_REL,
+    ]
+    return [_p(repo_root, r) for r in rels]
+
+
+# 部分工作区会裁剪/替换示例资源库中的第七关图文件；
+# 该模块用例依赖一组完整的“真实闭环”图 + UI HTML，缺失时应跳过而不是整体失败。
+_repo_root_for_skip = get_repo_root()
+_missing_level7 = [p for p in _level7_required_fixture_paths(_repo_root_for_skip) if not p.is_file()]
+if _missing_level7:
+    pytest.skip(
+        "local_sim level7 fixtures missing; skipping module.\n"
+        + "\n".join([f"- {p}" for p in _missing_level7[:10]])
+        + ("\n... more" if len(_missing_level7) > 10 else ""),
+        allow_module_level=True,
+    )
 
 
 class _UiButtonKeyParser(HTMLParser):
@@ -49,6 +88,47 @@ def _extract_ui_button_keys_from_html(html_file: Path) -> set[str]:
     parser = _UiButtonKeyParser()
     parser.feed(text)
     return set(parser.keys)
+
+
+def _build_level7_ingame_session(
+    *,
+    repo_root: Path,
+    present_player_count: int,
+    include_result_ui: bool = False,
+):
+    """
+    第七关真实闭环需要的额外挂载图：
+    - 关卡实体（GUID=1094713345）：游戏中公共控制 / 门控 / 门后流程与亲戚生成 / 投票结算 / 回合推进
+    - 数据存放实体：亲戚数据服务
+
+    说明：
+    - LocalGraphSim 约定：owner_entity_name 若为纯数字字符串，则视作 GUID 实体ID 并挂载到该实体，
+      以满足关卡实体图中常见的 `self.owner_entity == 以GUID查询实体(...)` 判定。
+    """
+    extra = [
+        GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_GAME_GLOBAL_REL), owner_entity_name=_LEVEL_ENTITY_GUID),
+        GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name=_LEVEL_ENTITY_GUID),
+        GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_POSTDOOR_REL), owner_entity_name=_LEVEL_ENTITY_GUID),
+        GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_ROUND_ADVANCE_REL), owner_entity_name=_LEVEL_ENTITY_GUID),
+        GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_VOTE_SETTLEMENT_REL), owner_entity_name=_LEVEL_ENTITY_GUID),
+        GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
+    ]
+    if include_result_ui:
+        extra.append(GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_RESULT_REL), owner_entity_name="结算UI实体"))
+
+    session = build_local_graph_sim_session(
+        workspace_root=repo_root,
+        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
+        owner_entity_name="自身实体",
+        present_player_count=int(present_player_count),
+        extra_graph_mounts=extra,
+    )
+    # UI 图会用「获取玩家当前界面布局」做“当前页过滤”。离线模拟默认 layout=0，
+    # 这里把在场玩家的当前 layout 预置为“第七关-游戏中”以对齐真实运行时。
+    game_in_layout = int(stable_layout_index_from_html_stem(Path(_UI_GAME_IN_REL).stem))
+    for p in session.game.get_present_player_entities():
+        session.game.ui_current_layout_by_player[str(p.entity_id)] = int(game_in_layout)
+    return session
 
 
 @pytest.fixture
@@ -93,7 +173,7 @@ def _seed_level7_data_service(session, *, truth_allow_first: bool, first_body: s
 
     truths = [bool(truth_allow_first)] + [bool(truth_allow_first) for _ in range(visits - 1)]
 
-    # 这些外观字段必须落在《UI第七关_游戏中_交互逻辑》的映射字典 key 内，否则查表会失败。
+    # 这些外观字段必须落在《玩家模板_UI第七关_游戏中_交互逻辑》的映射字典 key 内，否则查表会失败。
     body = ["瘦马"] * visits
     body[0] = str(first_body)
     hair = ["大背头"] * visits
@@ -102,14 +182,16 @@ def _seed_level7_data_service(session, *, truth_allow_first: bool, first_body: s
     clothes = ["西装"] * visits
     neckwear = ["领带"] * visits
 
-    l1 = [f"{r}：你好，我来拜年（1）" for r in roles]
-    l2 = [f"{r}：我带了礼物（2）" for r in roles]
-    l3 = [f"{r}：今年一定顺利（3）" for r in roles]
-    l4 = [f"{r}：快让我进门吧（4）" for r in roles]
+    # 注意：对白文本只保留“说话内容”，不带“称谓：”前缀（UI 中间字幕区只显示内容）
+    l1 = ["你好，我来拜年（1）" for _ in roles]
+    l2 = ["我带了礼物（2）" for _ in roles]
+    l3 = ["今年一定顺利（3）" for _ in roles]
+    l4 = ["快让我进门吧（4）" for _ in roles]
 
     clue_title = "测试纸条"
     clue_tags = ["T1", "T2", "T3", "T4", "T5", "T6"]
-    clue_texts = ["X1", "X2", "X3", "X4", "X5", "X6"]
+    # UI 约束：妈妈纸条每条线索文本最多 10 个字（生成数据应已满足约束）
+    clue_texts = ["线索文本1", "线索文本2", "线索文本3", "线索文本4", "线索文本5", "线索文本6"]
 
     session.game.set_custom_variable(store, "l7_rounds_count", 1, trigger_event=False)
     session.game.set_custom_variable(store, "l7_clue_title", clue_title, trigger_event=False)
@@ -196,6 +278,16 @@ def _level_entity(session):
     return ent
 
 
+def _lv(session, var_name: str):
+    level = _level_entity(session)
+    return session.game.get_custom_variable(level, str(var_name))
+
+
+def _lv_int(session, var_name: str) -> int:
+    v = _lv(session, var_name)
+    return int(v or 0)
+
+
 def _get_ui_text_dict(session, var_name: str) -> dict:
     level = _level_entity(session)
     value = session.game.get_custom_variable(level, var_name)
@@ -204,29 +296,60 @@ def _get_ui_text_dict(session, var_name: str) -> dict:
 
 
 def _apply_lv_defaults(session, html_file: Path) -> None:
-    text = Path(html_file).read_text(encoding="utf-8")
-    defaults = _extract_lv_defaults_from_ui_html(text)
-    session.game.set_ui_lv_defaults(defaults)
+    """
+    对齐 LocalGraphSimServer 行为：入口页优先，合并同目录所有 HTML 的 lv.* 默认值（只补缺，不覆盖入口页已有值）。
+    """
+    entry = Path(html_file).resolve()
+    layout_map = _build_layout_html_map(entry)
+    merged = _extract_merged_lv_defaults(entry_ui_file=entry, layout_html_by_index=layout_map)
+    session.game.set_ui_lv_defaults(merged)
 
 
 def test_local_sim_level7_graphs_validate() -> None:
     repo_root = get_repo_root()
     graphs = [
         _p(repo_root, _GRAPH_GAME_IN_REL),
+        _p(repo_root, _GRAPH_GAME_GLOBAL_REL),
+        _p(repo_root, _GRAPH_LEVEL_SELECT_REL),
+        _p(repo_root, _GRAPH_LEVEL_SELECT_TIMER_REL),
         _p(repo_root, _GRAPH_DOOR_REL),
+        _p(repo_root, _GRAPH_POSTDOOR_REL),
         _p(repo_root, _GRAPH_DATA_REL),
+        _p(repo_root, _GRAPH_ROUND_ADVANCE_REL),
+        _p(repo_root, _GRAPH_VOTE_SETTLEMENT_REL),
         _p(repo_root, _GRAPH_RESULT_REL),
+        _p(repo_root, _GRAPH_PLAYER_SFX_REL),
     ]
     for path in graphs:
         passed, errors, warnings = validate_node_graph_file(path)
         assert passed, f"节点图校验失败（errors={len(errors)} warnings={len(warnings)}）：{errors[:5]}"
 
 
-def test_local_sim_level7_door_controller_timer_fallback_emits_close_complete(_clock) -> None:
-    """
-    显式断言门控图在本地测试下可开关门，并能通过“兜底定时器”触发关门完成信号。
+def test_local_sim_level7_level_select_ui_key_placeholders_are_backfilled_before_click() -> None:
+    repo_root = get_repo_root()
+    session = build_local_graph_sim_session(
+        workspace_root=repo_root,
+        graph_code_file=_p(repo_root, _GRAPH_LEVEL_SELECT_REL),
+        owner_entity_name="自身实体",
+        present_player_count=1,
+    )
 
-    注意：离线 MockRuntime 下不保证存在真实“基础运动器停止”事件，因此这里验证 timer fallback 路径。
+    # 关键回归点：模块级常量中的 ui_key 占位符需在挂载前回填为稳定整数索引。
+    btn_exit = session.ui_registry.try_get_index("关卡大厅-选关界面_html__btn_exit__rect")
+    btn_level_select = session.ui_registry.try_get_index("关卡大厅-选关界面_html__btn_level_select__btn_item")
+    assert isinstance(btn_exit, int) and btn_exit > 0
+    assert isinstance(btn_level_select, int) and btn_level_select > 0
+
+    # 触发点击时不应再出现“字符串 + 整数”的类型错误。
+    patches_exit = session.trigger_ui_click(data_ui_key="btn_exit")
+    patches_select = session.trigger_ui_click(data_ui_key="btn_level_select")
+    assert isinstance(patches_exit, list)
+    assert isinstance(patches_select, list)
+
+
+def test_local_sim_level7_door_controller_emits_close_complete_via_motor_stop(_clock) -> None:
+    """
+    显式断言门控图在本地测试下可开关门，并能通过“基础运动器停止时”触发关门完成信号。
     """
     _, advance = _clock
     repo_root = get_repo_root()
@@ -238,20 +361,24 @@ def test_local_sim_level7_door_controller_timer_fallback_emits_close_complete(_c
         present_player_count=1,
     )
 
-    session.emit_signal(signal_id="第七关_门_动作", params={"目标状态": "打开"})
-    assert str(session.game.graph_variables.get("门_运动目标状态") or "") == "打开"
-    assert session.game.graph_variables.get("门_等待关闭完成") is False
+    door = session.owner_entity
+    session.game.trigger_event("实体创建时", 事件源实体=door, 事件源GUID=0)
 
+    # 先开门到“打开位置”，确保关门有非零路程
+    session.emit_signal(signal_id="第七关_门_动作", params={"目标状态": "打开"})
+    _advance_and_tick(session, advance, 1.1)
+
+    # 再关门：应在运动器完成后广播 `第七关_门_关闭完成`
+    base = len(session.game.trace_recorder.events)
     session.emit_signal(signal_id="第七关_门_动作", params={"目标状态": "关闭"})
     assert str(session.game.graph_variables.get("门_运动目标状态") or "") == "关闭"
-    assert session.game.graph_variables.get("门_等待关闭完成") is True
 
-    wait = float(session.game.graph_variables.get("门动作等待秒") or 0.6)
-    _advance_and_tick(session, advance, wait - 0.1)
-    assert session.game.graph_variables.get("门_等待关闭完成") is True
+    _advance_and_tick(session, advance, 0.9)
+    assert not any(e.kind == "event" and e.message == "第七关_门_关闭完成" for e in session.game.trace_recorder.events[base:])
 
     _advance_and_tick(session, advance, 0.2)
-    assert session.game.graph_variables.get("门_等待关闭完成") is False
+    assert any(e.kind == "event" and e.message == "第七关_门_关闭完成" for e in session.game.trace_recorder.events[base:])
+    assert str(session.game.graph_variables.get("门_运动目标状态") or "") == ""
 
 
 def test_local_sim_level7_ui_html_button_keys_are_expected() -> None:
@@ -287,21 +414,12 @@ def test_local_sim_level7_tutorial_countdown_auto_starts_game_without_click(_clo
     覆盖“新手教学倒计时到 0 自动开局”的链路：
     - 不点击任何教程按钮；
     - 倒计时归 0 后应广播开局信号，关闭遮罩/倒计时，解锁帮助；
-    - 随后门控兜底定时器触发关门完成，推进到进场阶段并生成首位亲戚。
+    - 随后门控运动器完成触发关门完成，推进到进场阶段并生成首位亲戚。
     """
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -311,7 +429,7 @@ def test_local_sim_level7_tutorial_countdown_auto_starts_game_without_click(_clo
     assert tutorial_total > 0
     _advance_and_tick(session, advance, float(tutorial_total))
 
-    assert session.game.graph_variables.get("已广播开局信号") is True
+    assert _lv(session, "第七关_已广播开局信号") is True
 
     level = _level_entity(session)
     battle_int = session.game.get_custom_variable(level, "UI战斗_整数")
@@ -320,48 +438,35 @@ def test_local_sim_level7_tutorial_countdown_auto_starts_game_without_click(_clo
 
     # 开局后：遮罩隐藏、倒计时隐藏、帮助显示
     pid = session.player_entity.entity_id
-    help_hidden = int(session.game.graph_variables.get("帮助按钮_hidden组") or 0)
-    help_show = int(session.game.graph_variables.get("帮助按钮_show组") or 0)
-    countdown_hidden = int(session.game.graph_variables.get("新手教程倒计时_hidden组") or 0)
-    countdown_show = int(session.game.graph_variables.get("新手教程倒计时_show组") or 0)
-    tut_hidden = int(session.game.graph_variables.get("新手教程_hidden组") or 0)
-    tut_wait = int(session.game.graph_variables.get("新手教程_wait_others组") or 0)
-    assert all(x > 0 for x in (help_hidden, help_show, countdown_hidden, countdown_show, tut_hidden, tut_wait))
+    help_show = int(session.ui_registry.try_get_index("UI_STATE_GROUP__help_btn_state__show__group") or 0)
+    countdown_show = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_countdown_state__show__group") or 0)
+    tut_guide0 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_0__group") or 0)
+    tut_wait = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__wait_others__group") or 0)
+    assert all(x > 0 for x in (help_show, countdown_show, tut_guide0, tut_wait))
 
     states = session.game.ui_widget_state_by_player.get(pid, {})
-    assert states.get(help_hidden) == "界面控件组状态_关闭"
     assert states.get(help_show) == "界面控件组状态_开启"
-    assert states.get(countdown_show) == "界面控件组状态_关闭"
-    assert states.get(countdown_hidden) == "界面控件组状态_开启"
     assert states.get(tut_wait) == "界面控件组状态_关闭"
-    assert states.get(tut_hidden) == "界面控件组状态_开启"
+    assert states.get(tut_guide0) == "界面控件组状态_关闭"
+    assert states.get(countdown_show) == "界面控件组状态_关闭"
 
-    # 门控兜底：推进一次 tick 即可完成关门并生成首位亲戚，进入进场阶段
+    # 门控：推进一次 tick 即可完成关门并生成首位亲戚，进入进场阶段
     _advance_and_tick(session, advance, 1.0)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 1
+    assert _lv_int(session, "第七关_当前阶段") == 1
 
 
 def test_local_sim_level7_tutorial_next_writes_clues_and_help_opens_review(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     seeded = _seed_level7_data_service(session, truth_allow_first=True)
 
     _start_level7(session)
 
     # 开局前：教程应默认打开 guide_0
-    guide0 = int(session.game.graph_variables.get("新手教程_guide_0组") or 0)
+    guide0 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_0__group") or 0)
     assert guide0 > 0
     pid = session.player_entity.entity_id
     assert session.game.ui_widget_state_by_player.get(pid, {}).get(guide0) == "界面控件组状态_开启"
@@ -377,9 +482,11 @@ def test_local_sim_level7_tutorial_next_writes_clues_and_help_opens_review(_cloc
     assert len(clue_texts) == 6
     for i in range(1, 7):
         assert battle_text.get(f"线索{i}标") == clue_tags[i - 1]
-        assert battle_text.get(f"线索{i}文") == clue_texts[i - 1]
+        got = str(battle_text.get(f"线索{i}文") or "")
+        assert got == clue_texts[i - 1]
+        assert len(got) <= 10
 
-    # 关门完成后会请求下一位亲戚（门控图用定时器兜底），推进一次 tick 即可触发
+    # 关门完成后会请求下一位亲戚（门控依赖基础运动器停止事件），推进一次 tick 即可触发
     _advance_and_tick(session, advance, 1.0)
 
     # 帮助按钮：应写回对白提示，并打开教程回顾（guide_0）
@@ -393,16 +500,7 @@ def test_local_sim_level7_tutorial_next_switches_overlay_groups_in_order(_clock)
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -410,14 +508,14 @@ def test_local_sim_level7_tutorial_next_switches_overlay_groups_in_order(_clock)
 
     pid = session.player_entity.entity_id
 
-    g0 = int(session.game.graph_variables.get("新手教程_guide_0组") or 0)
-    g1 = int(session.game.graph_variables.get("新手教程_guide_1组") or 0)
-    g2 = int(session.game.graph_variables.get("新手教程_guide_2组") or 0)
-    g3 = int(session.game.graph_variables.get("新手教程_guide_3组") or 0)
-    g4 = int(session.game.graph_variables.get("新手教程_guide_4组") or 0)
-    g5 = int(session.game.graph_variables.get("新手教程_guide_5组") or 0)
-    g6 = int(session.game.graph_variables.get("新手教程_guide_6组") or 0)
-    done = int(session.game.graph_variables.get("新手教程_done组") or 0)
+    g0 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_0__group") or 0)
+    g1 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_1__group") or 0)
+    g2 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_2__group") or 0)
+    g3 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_3__group") or 0)
+    g4 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_4__group") or 0)
+    g5 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_5__group") or 0)
+    g6 = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__guide_6__group") or 0)
+    done = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__done__group") or 0)
     assert all(x > 0 for x in (g0, g1, g2, g3, g4, g5, g6, done))
 
     def _is_open(group_guid: int) -> bool:
@@ -458,16 +556,7 @@ def test_local_sim_level7_dialogue_button_cycles_dialogue_lines(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -480,9 +569,20 @@ def test_local_sim_level7_dialogue_button_cycles_dialogue_lines(_clock) -> None:
     battle_text0 = _get_ui_text_dict(session, "UI战斗_文本")
     assert battle_text0.get("对话") == " "
 
+    # 未说话前：对白框应保持关闭（无黑边/无黑底）
+    pid = session.player_entity.entity_id
+    dlg_show = int(session.ui_registry.try_get_index("UI_STATE_GROUP__stage_dialogue_state__show__group") or 0)
+    assert dlg_show > 0
+    states0 = session.game.ui_widget_state_by_player.get(pid, {})
+    assert states0.get(dlg_show) == "界面控件组状态_关闭"
+
     session.trigger_ui_click(data_ui_key="btn_dialogue")
     text1 = str(_get_ui_text_dict(session, "UI战斗_文本").get("对话") or "")
     assert text1.strip() != ""
+
+    # 首次点对话后：对白框应切到开启
+    states1 = session.game.ui_widget_state_by_player.get(pid, {})
+    assert states1.get(dlg_show) == "界面控件组状态_开启"
 
     session.trigger_ui_click(data_ui_key="btn_dialogue")
     text2 = str(_get_ui_text_dict(session, "UI战斗_文本").get("对话") or "")
@@ -500,16 +600,7 @@ def test_local_sim_level7_dialogue_copywriting_matches_each_relative_in_order(_c
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     seeded = _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -541,11 +632,11 @@ def test_local_sim_level7_dialogue_copywriting_matches_each_relative_in_order(_c
 
         # 进场倒计时（1~5s）结束后进入投票阶段
         _advance_and_tick(session, advance, 5.0)
-        assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+        assert _lv_int(session, "第七关_当前阶段") == 2
 
         # 本用例只关心“对白/文案写回”：统一投允许推进回合
         session.trigger_ui_click(data_ui_key="btn_allow")
-        assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+        assert _lv_int(session, "第七关_当前阶段") == 3
 
         if visit_i == visits - 1:
             break
@@ -557,31 +648,22 @@ def test_local_sim_level7_dialogue_copywriting_matches_each_relative_in_order(_c
             data_ui_state="result",
         )
         _advance_and_tick(session, advance, 1.0)
-        assert int(session.game.graph_variables.get("当前阶段") or 0) == 1
-        assert int(session.game.graph_variables.get("当前回合序号") or 0) == visit_i + 2
+        assert _lv_int(session, "第七关_当前阶段") == 1
+        assert _lv_int(session, "第七关_当前回合序号") == visit_i + 2
 
 
 def _reach_voting_stage(session, advance) -> None:
     # 关门完成 → 下发亲戚数据并启动进场倒计时（1~5s）
     _advance_and_tick(session, advance, 1.0)
     _advance_and_tick(session, advance, 5.0)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
 
 
 def test_local_sim_level7_allow_correct_settlement(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -592,7 +674,7 @@ def test_local_sim_level7_allow_correct_settlement(_clock) -> None:
     session.trigger_ui_click(data_ui_key="btn_allow")
 
     # 本地逻辑：单人投票会立即结算并展示揭晓遮罩
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     p = session.player_entity
     pts = session.game.get_custom_variable(p, "ui_battle_points")
@@ -616,16 +698,7 @@ def test_local_sim_level7_reject_correct_settlement(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=False)
 
@@ -635,7 +708,7 @@ def test_local_sim_level7_reject_correct_settlement(_clock) -> None:
 
     session.trigger_ui_click(data_ui_key="btn_reject")
 
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     p = session.player_entity
     pts = session.game.get_custom_variable(p, "ui_battle_points")
@@ -654,16 +727,7 @@ def test_local_sim_level7_exit_switches_to_level_select_and_resets_state(_clock)
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -677,34 +741,25 @@ def test_local_sim_level7_exit_switches_to_level_select_and_resets_state(_clock)
     assert expected == stable_layout_index_from_html_stem("关卡大厅-选关界面")
     assert any(p.get("op") == "switch_layout" and int(p.get("layout_index") or 0) == expected for p in patches)
 
-    assert int(session.game.graph_variables.get("当前阶段", -1)) == 0
-    assert session.game.graph_variables.get("已初始化") is False
-    assert session.game.graph_variables.get("已广播开局信号") is False
+    assert _lv(session, "第七关_当前阶段") == 0
+    assert _lv(session, "第七关_已初始化") is False
+    assert _lv(session, "第七关_已广播开局信号") is False
 
 
 def test_local_sim_level7_relative_entities_spawn_and_exit_cleans_them(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
     _start_level7(session)
     _finish_tutorial(session)
 
-    # 关门完成（兜底定时器）→ 请求并下发亲戚数据 → 创建元件并进入进场阶段
+    # 关门完成（基础运动器停止事件）→ 请求并下发亲戚数据 → 创建元件并进入进场阶段
     _advance_and_tick(session, advance, 1.0)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 1
+    assert _lv_int(session, "第七关_当前阶段") == 1
 
     level = _level_entity(session)
     key_to_entity_id: dict[str, str] = {}
@@ -735,16 +790,7 @@ def test_local_sim_level7_relative_entities_are_replaced_on_next_round(_clock) -
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -760,10 +806,10 @@ def test_local_sim_level7_relative_entities_are_replaced_on_next_round(_clock) -
     body1_id = str(body1.entity_id)
 
     _advance_and_tick(session, advance, 5.0)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
 
     session.trigger_ui_click(data_ui_key="btn_allow")
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     session.trigger_ui_click(
         data_ui_key="btn_reveal_close_result",
@@ -771,7 +817,7 @@ def test_local_sim_level7_relative_entities_are_replaced_on_next_round(_clock) -
         data_ui_state="result",
     )
     _advance_and_tick(session, advance, 1.0)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 1
+    assert _lv_int(session, "第七关_当前阶段") == 1
 
     body2 = session.game.get_custom_variable(level, "第七关_亲戚_身体实体")
     assert isinstance(body2, game_state_module.MockEntity)
@@ -784,16 +830,7 @@ def test_local_sim_level7_level_select_button_switches_to_level_select_and_reset
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -807,25 +844,16 @@ def test_local_sim_level7_level_select_button_switches_to_level_select_and_reset
     assert expected == stable_layout_index_from_html_stem("关卡大厅-选关界面")
     assert any(p.get("op") == "switch_layout" and int(p.get("layout_index") or 0) == expected for p in patches)
 
-    assert int(session.game.graph_variables.get("当前阶段", -1)) == 0
-    assert session.game.graph_variables.get("已初始化") is False
-    assert session.game.graph_variables.get("已广播开局信号") is False
+    assert _lv(session, "第七关_当前阶段") == 0
+    assert _lv(session, "第七关_已初始化") is False
+    assert _lv(session, "第七关_已广播开局信号") is False
 
 
 def test_local_sim_level7_allow_wrong_settlement_applies_score_and_resource_penalties(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=False)
 
@@ -841,7 +869,7 @@ def test_local_sim_level7_allow_wrong_settlement_applies_score_and_resource_pena
 
     session.trigger_ui_click(data_ui_key="btn_allow")
 
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     p = session.player_entity
     pts = int(session.game.get_custom_variable(p, "ui_battle_points") or 0)
@@ -872,16 +900,7 @@ def test_local_sim_level7_allow_wrong_child_deducts_figures(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=False, first_body="小孩马")
 
@@ -897,7 +916,7 @@ def test_local_sim_level7_allow_wrong_child_deducts_figures(_clock) -> None:
 
     session.trigger_ui_click(data_ui_key="btn_allow")
 
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
     assert session.game.graph_variables.get("本回合_是否小孩") is True
 
     p = session.player_entity
@@ -920,16 +939,7 @@ def test_local_sim_level7_reject_wrong_settlement_applies_score_and_integrity_pe
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -944,7 +954,7 @@ def test_local_sim_level7_reject_wrong_settlement_applies_score_and_integrity_pe
 
     session.trigger_ui_click(data_ui_key="btn_reject")
 
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     p = session.player_entity
     pts = int(session.game.get_custom_variable(p, "ui_battle_points") or 0)
@@ -974,16 +984,7 @@ def test_local_sim_level7_continue_advances_next_round_and_updates_remaining_rel
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -995,7 +996,7 @@ def test_local_sim_level7_continue_advances_next_round_and_updates_remaining_rel
     _reach_voting_stage(session, advance)
 
     session.trigger_ui_click(data_ui_key="btn_allow")
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     session.trigger_ui_click(
         data_ui_key="btn_reveal_close_result",
@@ -1004,15 +1005,15 @@ def test_local_sim_level7_continue_advances_next_round_and_updates_remaining_rel
     )
     _advance_and_tick(session, advance, 1.0)
 
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 1
-    assert int(session.game.graph_variables.get("当前回合序号") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 1
+    assert _lv_int(session, "第七关_当前回合序号") == 2
 
     room_text = _get_ui_text_dict(session, "UI房间_文本")
     assert room_text.get("剩余亲戚_总") == "2"
     assert room_text.get("剩余亲戚_当前") == "1"
 
     _advance_and_tick(session, advance, 5.0)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
 
 
 def test_local_sim_level7_settlement_hold_timer_auto_advances_next_round_without_click(_clock) -> None:
@@ -1024,16 +1025,7 @@ def test_local_sim_level7_settlement_hold_timer_auto_advances_next_round_without
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -1045,16 +1037,16 @@ def test_local_sim_level7_settlement_hold_timer_auto_advances_next_round_without
     _reach_voting_stage(session, advance)
 
     session.trigger_ui_click(data_ui_key="btn_allow")
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     hold_total = int(session.game.graph_variables.get("结算停留秒数") or 0)
     assert hold_total > 0
     _advance_and_tick(session, advance, float(hold_total))
-    assert int(session.game.graph_variables.get("当前回合序号") or 0) == 2
+    assert _lv_int(session, "第七关_当前回合序号") == 2
 
-    # 关门完成（兜底定时器）→ 生成下一位亲戚并进入进场阶段
+    # 关门完成（基础运动器停止事件）→ 生成下一位亲戚并进入进场阶段
     _advance_and_tick(session, advance, 1.0)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 1
+    assert _lv_int(session, "第七关_当前阶段") == 1
 
 
 def test_local_sim_level7_settlement_hold_timer_auto_enters_settlement_on_last_round(_clock) -> None:
@@ -1064,16 +1056,7 @@ def test_local_sim_level7_settlement_hold_timer_auto_enters_settlement_on_last_r
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -1084,7 +1067,7 @@ def test_local_sim_level7_settlement_hold_timer_auto_enters_settlement_on_last_r
     _reach_voting_stage(session, advance)
 
     session.trigger_ui_click(data_ui_key="btn_allow")
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     hold_total = int(session.game.graph_variables.get("结算停留秒数") or 0)
     assert hold_total > 0
@@ -1108,16 +1091,7 @@ def test_local_sim_level7_multiplayer_tutorial_shows_wait_others_until_all_done(
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=2,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=2)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -1127,40 +1101,34 @@ def test_local_sim_level7_multiplayer_tutorial_shows_wait_others_until_all_done(
     assert len(players) >= 2
     p1, p2 = players[0], players[1]
 
-    wait_others = int(session.game.graph_variables.get("新手教程_wait_others组") or 0)
-    tut_hidden = int(session.game.graph_variables.get("新手教程_hidden组") or 0)
-    assert wait_others > 0 and tut_hidden > 0
+    wait_others = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_overlay__wait_others__group") or 0)
+    help_show = int(session.ui_registry.try_get_index("UI_STATE_GROUP__help_btn_state__show__group") or 0)
+    countdown_show = int(session.ui_registry.try_get_index("UI_STATE_GROUP__tutorial_countdown_state__show__group") or 0)
+    assert wait_others > 0 and help_show > 0 and countdown_show > 0
 
     _finish_tutorial_for_player(session, p1)
-    assert session.game.graph_variables.get("已广播开局信号") is False
+    assert _lv(session, "第七关_已广播开局信号") is False
     assert session.game.ui_widget_state_by_player.get(p1.entity_id, {}).get(wait_others) == "界面控件组状态_开启"
 
     _finish_tutorial_for_player(session, p2)
-    assert session.game.graph_variables.get("已广播开局信号") is True
+    assert _lv(session, "第七关_已广播开局信号") is True
     assert session.game.ui_widget_state_by_player.get(p1.entity_id, {}).get(wait_others) == "界面控件组状态_关闭"
     assert session.game.ui_widget_state_by_player.get(p2.entity_id, {}).get(wait_others) == "界面控件组状态_关闭"
-    assert session.game.ui_widget_state_by_player.get(p1.entity_id, {}).get(tut_hidden) == "界面控件组状态_开启"
-    assert session.game.ui_widget_state_by_player.get(p2.entity_id, {}).get(tut_hidden) == "界面控件组状态_开启"
+    assert session.game.ui_widget_state_by_player.get(p1.entity_id, {}).get(help_show) == "界面控件组状态_开启"
+    assert session.game.ui_widget_state_by_player.get(p2.entity_id, {}).get(help_show) == "界面控件组状态_开启"
+    assert session.game.ui_widget_state_by_player.get(p1.entity_id, {}).get(countdown_show) == "界面控件组状态_关闭"
+    assert session.game.ui_widget_state_by_player.get(p2.entity_id, {}).get(countdown_show) == "界面控件组状态_关闭"
 
     # 确保能进入后续流程（关门完成→进场阶段）
     _advance_and_tick(session, advance, 1.0)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 1
+    assert _lv_int(session, "第七关_当前阶段") == 1
 
 
 def test_local_sim_level7_multiplayer_vote_reveals_only_after_all_players_voted(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=3,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=3)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -1175,7 +1143,7 @@ def test_local_sim_level7_multiplayer_vote_reveals_only_after_all_players_voted(
     _finish_tutorial_for_player(session, p3)
 
     _reach_voting_stage(session, advance)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
 
     # 让得分排序稳定：预先打散初始分
     session.game.set_custom_variable(p1, "ui_battle_points", 0, trigger_event=False)
@@ -1192,16 +1160,16 @@ def test_local_sim_level7_multiplayer_vote_reveals_only_after_all_players_voted(
 
     # 玩家1投允许：未全员完成选择，不应揭晓
     session.trigger_ui_click(data_ui_key="btn_allow", player_entity=p1)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
     assert session.game.ui_widget_state_by_player.get(p1.entity_id, {}).get(result_group) != "界面控件组状态_开启"
 
     # 玩家2投拒绝：仍不揭晓
     session.trigger_ui_click(data_ui_key="btn_reject", player_entity=p2)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
 
     # 玩家3投允许：此时全员完成选择，应进入结算并揭晓
     session.trigger_ui_click(data_ui_key="btn_allow", player_entity=p3)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     # 计分：真相为允许 → allow +100；reject -50
     assert int(session.game.get_custom_variable(p1, "ui_battle_points") or 0) == 100
@@ -1226,16 +1194,7 @@ def test_local_sim_level7_multiplayer_vote_updates_status_and_disables_buttons_p
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=3,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=3)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -1249,9 +1208,9 @@ def test_local_sim_level7_multiplayer_vote_updates_status_and_disables_buttons_p
     _finish_tutorial_for_player(session, p2)
     _finish_tutorial_for_player(session, p3)
     _reach_voting_stage(session, advance)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
 
-    # 让得分排序稳定（避免 ties 导致 slot 不稳定）
+    # 让得分稳定（用于 HUD 展示一致性；审判庭 slot 不再按得分排序）
     session.game.set_custom_variable(p1, "ui_battle_points", 0, trigger_event=False)
     session.game.set_custom_variable(p2, "ui_battle_points", 30, trigger_event=False)
     session.game.set_custom_variable(p3, "ui_battle_points", 60, trigger_event=False)
@@ -1262,16 +1221,9 @@ def test_local_sim_level7_multiplayer_vote_updates_status_and_disables_buttons_p
     reject_disabled = int(session.game.graph_variables.get("拒绝按钮_disabled组") or 0)
     assert all(x > 0 for x in (allow_enabled, allow_disabled, reject_enabled, reject_disabled))
 
-    def _ranked() -> list:
-        return sorted(
-            [p1, p2, p3],
-            key=lambda p: int(session.game.get_custom_variable(p, "ui_battle_points") or 0),
-            reverse=True,
-        )
-
     def _slot_of(player) -> int:
-        ranked = _ranked()
-        return int(ranked.index(player)) + 1
+        ordered = session.game.get_present_player_entities()
+        return int(ordered.index(player)) + 1
 
     def _expect_state(choice: int) -> str:
         if int(choice) == 0:
@@ -1294,7 +1246,7 @@ def test_local_sim_level7_multiplayer_vote_updates_status_and_disables_buttons_p
 
     # 玩家1投允许：应立刻更新审判庭状态，并禁用该玩家按钮（但仍未全员完成选择，不应揭晓）
     session.trigger_ui_click(data_ui_key="btn_allow", player_entity=p1)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
     assert int(session.game.get_custom_variable(p1, "ui_battle_choice") or 0) == 1
     _assert_player_state_in_judge_table(p1, 1)
     _assert_player_state_in_judge_table(p2, 0)
@@ -1303,7 +1255,7 @@ def test_local_sim_level7_multiplayer_vote_updates_status_and_disables_buttons_p
 
     # 玩家2投拒绝：应立刻更新审判庭状态，并禁用该玩家按钮（仍不揭晓）
     session.trigger_ui_click(data_ui_key="btn_reject", player_entity=p2)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 2
+    assert _lv_int(session, "第七关_当前阶段") == 2
     assert int(session.game.get_custom_variable(p2, "ui_battle_choice") or 0) == 2
     _assert_player_state_in_judge_table(p1, 1)
     _assert_player_state_in_judge_table(p2, 2)
@@ -1312,7 +1264,7 @@ def test_local_sim_level7_multiplayer_vote_updates_status_and_disables_buttons_p
 
     # 玩家3投允许：全员完成选择 → 应进入结算并揭晓；同时按钮禁用
     session.trigger_ui_click(data_ui_key="btn_allow", player_entity=p3)
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
     assert int(session.game.get_custom_variable(p3, "ui_battle_choice") or 0) == 1
     _assert_buttons_disabled(p3)
 
@@ -1321,28 +1273,18 @@ def test_local_sim_level7_multiplayer_vote_updates_status_and_disables_buttons_p
     assert int(session.game.get_custom_variable(p2, "ui_battle_points") or 0) == -20
     assert int(session.game.get_custom_variable(p3, "ui_battle_points") or 0) == 160
 
-    # 计分后审判庭会按新分重排：p3(160) > p1(100) > p2(-20)
+    # 计分后审判庭保持固定顺序（按在场玩家顺序展示前 4）
     battle_text_final = _get_ui_text_dict(session, "UI战斗_文本")
     assert battle_text_final.get("审判1态") == "允许"
-    assert battle_text_final.get("审判2态") == "允许"
-    assert battle_text_final.get("审判3态") == "拒绝"
+    assert battle_text_final.get("审判2态") == "拒绝"
+    assert battle_text_final.get("审判3态") == "允许"
 
 
 def test_local_sim_level7_continue_enters_settlement_and_settlement_back_works(_clock) -> None:
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_RESULT_REL), owner_entity_name="结算UI实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1, include_result_ui=True)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -1354,7 +1296,7 @@ def test_local_sim_level7_continue_enters_settlement_and_settlement_back_works(_
     _reach_voting_stage(session, advance)
 
     session.trigger_ui_click(data_ui_key="btn_allow")
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     # 点击继续：应关门并在门关闭完成后切到结算页
     session.trigger_ui_click(
@@ -1391,17 +1333,7 @@ def test_local_sim_level7_settlement_retry_resets_round_and_stats_and_returns_le
     _, advance = _clock
     repo_root = get_repo_root()
 
-    session = build_local_graph_sim_session(
-        workspace_root=repo_root,
-        graph_code_file=_p(repo_root, _GRAPH_GAME_IN_REL),
-        owner_entity_name="自身实体",
-        present_player_count=1,
-        extra_graph_mounts=[
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DOOR_REL), owner_entity_name="门控制实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_DATA_REL), owner_entity_name="数据服务实体"),
-            GraphMountSpec(graph_code_file=_p(repo_root, _GRAPH_RESULT_REL), owner_entity_name="结算UI实体"),
-        ],
-    )
+    session = _build_level7_ingame_session(repo_root=repo_root, present_player_count=1, include_result_ui=True)
     _apply_lv_defaults(session, _p(repo_root, _UI_GAME_IN_REL))
     _seed_level7_data_service(session, truth_allow_first=True)
 
@@ -1413,7 +1345,7 @@ def test_local_sim_level7_settlement_retry_resets_round_and_stats_and_returns_le
     _reach_voting_stage(session, advance)
 
     session.trigger_ui_click(data_ui_key="btn_allow")
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 3
+    assert _lv_int(session, "第七关_当前阶段") == 3
 
     # 点击继续：应关门并在门关闭完成后切到结算页
     session.trigger_ui_click(
@@ -1447,8 +1379,8 @@ def test_local_sim_level7_settlement_retry_resets_round_and_stats_and_returns_le
     level_select_idx = int(session.game.graph_variables.get("布局索引_选关页") or 0)
     assert any(p.get("op") == "switch_layout" and int(p.get("layout_index") or 0) == level_select_idx for p in patches)
 
-    assert int(session.game.graph_variables.get("当前回合序号") or 0) == 1
-    assert int(session.game.graph_variables.get("当前阶段") or 0) == 0
+    assert _lv_int(session, "第七关_当前回合序号") == 1
+    assert _lv(session, "第七关_当前阶段") == 0
     assert int(session.game.get_custom_variable(p, "ui_battle_choice") or 0) == 0
     assert int(session.game.get_custom_variable(p, "ui_battle_points") or 0) == 0
 

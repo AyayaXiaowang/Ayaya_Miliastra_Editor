@@ -11,10 +11,21 @@
   - 用例：`test_local_graph_sim_multi_graph_mounts.py` 校验同一会话内挂载多图后，同一事件可触发多个回调，且额外挂载图能写入其 owner 实体自定义变量（用于断言挂载与执行链路）。
 - 覆盖本地模拟 HTTP server（`LocalGraphSimServer`）启动与 UI HTML `data-ui-variable-defaults` 注入：
   - 使用 `tests/local_sim/fixture_ui_local_sim_minimal.html` 提供 `lv.*` 默认结构，启动时写入 `GameRuntime.ui_lv_defaults`。
+  - 对齐 server 逻辑：入口页优先，合并同目录多页 HTML 的 `lv.*` 默认值（只补缺，不覆盖入口页已有值），避免跨页切换/流程变量首次读取时得到 `None`。
+  - 覆盖协议自描述：`GET /api/local_sim/protocol` 返回 `schema_version/protocol_version` 与 endpoints，并断言 `status/snapshot` 等响应携带版本字段以形成强契约
+- 覆盖复现包导出（`/api/local_sim/export_repro`）：
+  - 生成 JSON 落盘并提供下载接口，便于把“输入/输出/校验/trace”打包给他人复现
+- 覆盖暂停/继续（`/api/local_sim/pause`）：
+  - 暂停期间虚拟时间不推进，轮询不会推进定时器；恢复后不会补触发
+  - 冻结世界：暂停时 click/emit_signal 会被拒绝（用于断言“没有东西会偷偷跑”）
+  - 单步：`/api/local_sim/step` 推进虚拟时间并最多触发 1 次定时器事件（用于逐步回归）
+- 覆盖选关页“开始关卡”信号参数回归：
+  - `test_local_sim_level_select_start_level_param.py`：点击关卡按钮写入 `ui_sel_level`，点击 `投票此关` 后断言广播 `关卡大厅_开始关卡(第X关)` 参数与当前选中关卡一致（用例以 `rect_level_03` 作为样例；本地模拟需显式设置玩家当前布局为选关页）。
 - 覆盖第七关真实节点图闭环（`tests/local_sim/test_local_sim_level7_gameplay.py`）：
   - 教程“下一步”逐步切换遮罩状态 + “完成”闭环、妈妈纸条线索写回、帮助按钮回顾教程。
   - 线索区：标题 + 6 条线索（标签/正文）逐条写回，确保与数据服务下发一致。
-  - 门控图（开/关门 + 兜底定时器关门完成）与“关门完成→请求并生成亲戚→开门进场”联动闭环。
+    - 妈妈纸条线索正文长度约束：单条 **≤10 字**（离线生成/导入阶段保证，测试侧同步断言）。
+  - 门控图（开/关门 + 运动器停止事件触发关门完成）与“关门完成→请求并生成亲戚→开门进场”联动闭环。
   - 对话按钮：对白按本回合数据服务下发顺序循环写回，并断言跨回合会清空避免残留。
   - 亲戚元件实体生成：断言 `第七关_亲戚_*实体` 写入与实体存在；回合推进时断言旧实体销毁并替换新实体；退出回选关断言清理不残留。
   - 允许/拒绝正确/错误结算（分数 + HUD + 揭晓遮罩），并校验惩罚：

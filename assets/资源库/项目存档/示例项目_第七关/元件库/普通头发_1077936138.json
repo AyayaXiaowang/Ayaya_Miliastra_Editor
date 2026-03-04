@@ -1,0 +1,2940 @@
+{
+  "template_id": "1077936138",
+  "name": "普通头发",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936138,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073743162",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.0800000429153442,
+                "y": 23.10396385192871,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743162,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743163",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.440000057220459,
+                "y": 22.74396324157715,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743163,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743164",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.8999999761581421,
+                "y": 22.74396324157715,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743164,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743165",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": 22.383962631225586,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743165,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743166",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.0800000429153442,
+                "y": 22.383962631225586,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743166,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743167",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.6200000047683716,
+                "y": 22.023963928222656,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743167,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743168",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.8999999761581421,
+                "y": 22.023963928222656,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743168,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743169",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": 21.663963317871094,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743169,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743170",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.6200000047683716,
+                "y": 21.663963317871094,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.4320000112056732,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743170,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.4320000112056732,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743171",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": 21.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743171,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743172",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.880000114440918,
+                "y": 21.30396270751953,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743172,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743173",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.3399999141693115,
+                "y": 21.30396270751953,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743173,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743174",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.2599999904632568,
+                "y": 21.30396270751953,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2880000174045563,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743174,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2880000174045563,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743175",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 21.12396240234375,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743175,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743176",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.9800000190734863,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.4320000112056732,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743176,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.4320000112056732,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743177",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743177,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743178",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743178,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743179",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.36000001430511475,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.11999999731779099,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743179,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.11999999731779099,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743180",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": 20.58396339416504,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743180,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743181",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": 20.58396339416504,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743181,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743182",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 20.58396339416504,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743182,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743183",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.36000001430511475,
+                "y": 20.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743183,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743184",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.8999999761581421,
+                "y": 20.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743184,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743185",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.440000057220459,
+                "y": 20.223962783813477,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.6480000019073486,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743185,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.6480000019073486,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743186",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.700000047683716,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743186,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743187",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743187,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743188",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743188,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743189",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743189,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743190",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743190,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743191",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.5999999046325684,
+                "y": 19.323963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743191,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743192",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.880000114440918,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743192,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743193",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743193,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743194",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743194,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743195",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.440000057220459,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743195,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743196",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743196,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743197",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743197,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743198",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.0800000429153442,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743198,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743199",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.059999942779541,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743199,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743200",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.3399999141693115,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743200,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743201",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.6480000019073486,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743201,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.6480000019073486,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743202",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.240000009536743,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743202,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743203",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743203,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743204",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.6200000047683716,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2880000174045563,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743204,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2880000174045563,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743205",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743205,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743206",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.18000000715255737,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2880000174045563,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743206,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2880000174045563,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743207",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.0800000429153442,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743207,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743208",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.240000009536743,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743208,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743209",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.700000047683716,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743209,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743210",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743210,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743211",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.440000057220459,
+                "y": 18.063962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743211,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743212",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.059999942779541,
+                "y": 18.063962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743212,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743213",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 18.063962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7920000553131104,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743213,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.7920000553131104,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743214",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.240000009536743,
+                "y": 17.523963928222656,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743214,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743215",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.700000047683716,
+                "y": 17.523963928222656,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743215,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743216",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": 17.703962326049805,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743216,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743217",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 17.703962326049805,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743217,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743218",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": 17.523963928222656,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743218,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743219",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 17.703962326049805,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743219,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743220",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.9800000190734863,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743220,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743221",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.8999999761581421,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2880000174045563,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743221,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2880000174045563,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743222",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.36000001430511475,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743222,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743223",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743223,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743224",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.0800000429153442,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743224,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743225",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.880000114440918,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743225,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743226",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743226,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743227",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743227,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743228",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.0800000429153442,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743228,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743229",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.5400000214576721,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743229,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743230",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": 16.62396240234375,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743230,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743231",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.2599999904632568,
+                "y": 16.4439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743231,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073743232",
+            "displayName": "普通头发",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 16.62396240234375,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073743232,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936138,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

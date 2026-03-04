@@ -25,9 +25,7 @@ import { setCatalogCallbacks, refreshCatalog, renderFileList } from "./catalog.j
 import {
   decodeSelectionKey,
   loadCheckedFilesFromStorage,
-  loadExportUiStateFullGroupsFromStorage,
-  pickDefaultSelectableItem,
-  saveExportUiStateFullGroupsToStorage
+  pickDefaultSelectableItem
 } from "./storage.js";
 import { selectFile } from "./selection.js";
 import { updateExportGiaButtonEnabled, updateExportGilButtonEnabled, updateImportVariableDefaultsButtonEnabled, updateVariantButtons } from "./buttons.js";
@@ -35,24 +33,385 @@ import { renderUiStateSelectorsFromCatalog, resetAllUiStatePreviewOverrides, syn
 import { renderPreview } from "./preview_render.js";
 import { exportGiaForCurrentSelection, exportGilForCheckedSelections, exportGilForCurrentSelection, setBaseGilFile, setBaseGilPath } from "./export_actions.js";
 import { importVariableDefaultsForCurrentSelection } from "./import_variable_defaults.js";
-import { refreshExportWidgetListForCurrentSelectionIfNeeded } from "./export_widgets_part2.js";
+import { refreshExportWidgetListForCurrentSelectionIfNeeded, refreshExportWidgetModelForCurrentSelectionInPlace } from "./export_widgets_part2.js";
 import { handlePreviewSelectionChangedForLeftBottomPanels } from "./export_widgets_part3b.js";
-import { renderExportWidgetPreviewHtml } from "./export_widgets_model.js";
+import { updateExportWidgetListSelectionDom } from "./export_widget_list_dom.js";
+import { scheduleRerenderExportWidgetListFromCurrentModel } from "./export_widget_list_render.js";
 import { getCheckedSelectionsInCatalogOrder } from "./storage.js";
 
-function _scrollExportWidgetIntoView(widgetId) {
-  var wid = String(widgetId || "").trim();
-  if (!wid) return;
-  if (!dom.exportWidgetListContainer) return;
-  var node = dom.exportWidgetListContainer.querySelector('[data-export-widget="1"][data-widget-id="' + (window.CSS && CSS.escape ? CSS.escape(wid) : wid) + '"]');
-  if (!node || !node.scrollIntoView) return;
-  node.scrollIntoView({ block: "center" });
+function _syncEyeToggleButtonUi(buttonEl, isHidden) {
+  var btn = buttonEl || null;
+  if (!btn) return;
+  var icon = btn.querySelector ? btn.querySelector(".wb-eye-icon") : null;
+  if (icon) {
+    if (isHidden) icon.setAttribute("data-hidden", "1");
+    else icon.removeAttribute("data-hidden");
+  }
+  if (btn.setAttribute) btn.setAttribute("aria-label", isHidden ? "显示" : "隐藏");
+  if (btn.title !== undefined) btn.title = isHidden ? "点击显示" : "点击隐藏";
 }
 
-function _rerenderExportWidgetList() {
-  if (dom.exportWidgetListContainer && state.exportWidgetPreviewModel) {
-    dom.exportWidgetListContainer.innerHTML = renderExportWidgetPreviewHtml(state.exportWidgetPreviewModel);
+function _syncTrashToggleButtonUi(buttonEl, isExcluded) {
+  var btn = buttonEl || null;
+  if (!btn) return;
+  var icon = btn.querySelector ? btn.querySelector(".wb-trash-icon") : null;
+  if (icon) {
+    if (isExcluded) icon.setAttribute("data-excluded", "1");
+    else icon.removeAttribute("data-excluded");
   }
+  if (btn.setAttribute) btn.setAttribute("aria-label", isExcluded ? "取消排除" : "排除导出");
+  if (btn.title !== undefined) btn.title = isExcluded ? "点击取消排除" : "点击排除导出（GIL/GIA）";
+}
+
+function _refreshExportWidgetListVisibilityIconsInDetails(detailsEl) {
+  var details = detailsEl || null;
+  if (!details || !details.querySelectorAll) return;
+  if (!flattenGroupTreeController || !flattenGroupTreeController.isLayerHidden) return;
+
+  var rows = details.querySelectorAll('[data-export-widget="1"][data-widget-id]');
+  var layerKeys = [];
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (!row || !row.dataset) continue;
+    var lk = String(row.dataset.flatLayerKey || "").trim();
+    if (lk) layerKeys.push(lk);
+    var widgetEyeBtn = row.querySelector ? row.querySelector('.wb-tree-toggle.wb-tree-eye[data-toggle-kind="widget"]') : null;
+    _syncEyeToggleButtonUi(widgetEyeBtn, !!(lk && flattenGroupTreeController.isLayerHidden(lk)));
+  }
+
+  var groupEyeBtn = details.querySelector ? details.querySelector('summary .wb-tree-toggle.wb-tree-eye[data-toggle-kind="group"]') : null;
+  if (groupEyeBtn) {
+    var allHidden = false;
+    if (layerKeys.length > 0) {
+      allHidden = true;
+      for (var j = 0; j < layerKeys.length; j++) {
+        if (!flattenGroupTreeController.isLayerHidden(layerKeys[j])) {
+          allHidden = false;
+          break;
+        }
+      }
+    }
+    _syncEyeToggleButtonUi(groupEyeBtn, allHidden);
+  }
+}
+
+function _refreshExportWidgetListExcludeIconsInDetails(detailsEl) {
+  var details = detailsEl || null;
+  if (!details || !details.querySelectorAll) return;
+  if (!flattenGroupTreeController || !flattenGroupTreeController.isLayerExcluded || !flattenGroupTreeController.isGroupExcluded) return;
+
+  var groupKey = details.dataset ? String(details.dataset.groupKey || "").trim() : "";
+  var isGroupExcluded = !!(groupKey && flattenGroupTreeController.isGroupExcluded(groupKey));
+  var groupTrashBtn = details.querySelector ? details.querySelector('summary .wb-tree-toggle.wb-tree-trash[data-toggle-kind="group"]') : null;
+  _syncTrashToggleButtonUi(groupTrashBtn, isGroupExcluded);
+
+  var rows = details.querySelectorAll('[data-export-widget="1"][data-widget-id]');
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (!row || !row.dataset) continue;
+    var lk = String(row.dataset.flatLayerKey || "").trim();
+    var isExcluded = isGroupExcluded || !!(lk && flattenGroupTreeController.isLayerExcluded(lk));
+    var widgetTrashBtn = row.querySelector ? row.querySelector('.wb-tree-toggle.wb-tree-trash[data-toggle-kind="widget"]') : null;
+    _syncTrashToggleButtonUi(widgetTrashBtn, isExcluded);
+  }
+}
+
+var _isFlattenedTimelapseRunning = false;
+var _isSourceTimelapseRunning = false;
+var _FLATTENED_TIMELAPSE_STEP_MS = 100;
+var _SOURCE_TIMELAPSE_STEP_MS = 100;
+
+function _sleepMs(ms) {
+  var wait = Number(ms);
+  if (!isFinite(wait) || wait < 0) wait = 0;
+  return new Promise(function (resolve) {
+    window.setTimeout(resolve, wait);
+  });
+}
+
+function _setFlattenedTimelapseButtonRunning(isRunning) {
+  if (!dom.flattenedTimelapseRevealButton) return;
+  dom.flattenedTimelapseRevealButton.disabled = !!isRunning;
+  dom.flattenedTimelapseRevealButton.textContent = isRunning ? "播放中…" : "延时摄影";
+}
+
+function _collectVisibleFlattenedElementsForCurrentCanvas() {
+  var doc = preview.getPreviewDocument ? preview.getPreviewDocument() : null;
+  if (!doc || !doc.querySelector) return [];
+  var sizeKey = String(preview.getCurrentSelectedCanvasSizeKey ? (preview.getCurrentSelectedCanvasSizeKey() || "") : (state.canvasSizeKey || "")).trim();
+  var area = null;
+  if (sizeKey) {
+    area = doc.querySelector('.flat-display-area[data-size-key="' + sizeKey + '"]');
+  }
+  if (!area) {
+    area = doc.querySelector(".flat-display-area");
+  }
+  if (!area || !area.querySelectorAll || !doc.defaultView || !doc.defaultView.getComputedStyle) {
+    return [];
+  }
+  var nodeList = area.querySelectorAll(".flat-shadow, .flat-border, .flat-element, .flat-text, .flat-button-anchor");
+  var out = [];
+  for (var i = 0; i < nodeList.length; i++) {
+    var el = nodeList[i];
+    if (!el || !el.style || !el.getBoundingClientRect) continue;
+    var cs = doc.defaultView.getComputedStyle(el);
+    if (!cs) continue;
+    if (String(cs.display || "") === "none") continue;
+    if (String(cs.visibility || "") === "hidden") continue;
+    var opacityValue = Number(cs.opacity);
+    if (isFinite(opacityValue) && opacityValue <= 0.0001) continue;
+    var rect = el.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+    out.push({
+      el: el,
+      visibility: String(el.style.visibility || ""),
+    });
+  }
+  return out;
+}
+
+function _hasVisibleColor(colorText) {
+  var text = String(colorText || "").trim().toLowerCase();
+  if (!text || text === "transparent") {
+    return false;
+  }
+  if (text.indexOf("rgba(") === 0) {
+    var start = text.indexOf("(");
+    var end = text.lastIndexOf(")");
+    if (start >= 0 && end > start) {
+      var parts = text.slice(start + 1, end).split(",");
+      if (parts.length >= 4) {
+        var alpha = Number(String(parts[3] || "").trim());
+        if (isFinite(alpha)) {
+          return alpha > 0.0001;
+        }
+      }
+    }
+    return true;
+  }
+  if (text.indexOf("#") === 0) {
+    if (text.length === 5) {
+      var a4 = parseInt(text.slice(4, 5) + text.slice(4, 5), 16);
+      if (isFinite(a4)) {
+        return a4 > 0;
+      }
+    }
+    if (text.length === 9) {
+      var a8 = parseInt(text.slice(7, 9), 16);
+      if (isFinite(a8)) {
+        return a8 > 0;
+      }
+    }
+    return true;
+  }
+  return text !== "rgba(0, 0, 0, 0)" && text !== "rgba(0,0,0,0)";
+}
+
+function _hasDirectTextNodeContent(el) {
+  if (!el || !el.childNodes || el.childNodes.length <= 0) {
+    return false;
+  }
+  for (var i = 0; i < el.childNodes.length; i++) {
+    var node = el.childNodes[i];
+    if (!node || node.nodeType !== 3) continue;
+    if (String(node.textContent || "").trim()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function _hasVisibleBorder(cs) {
+  if (!cs) return false;
+  var borderWidths = [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth];
+  var borderColors = [cs.borderTopColor, cs.borderRightColor, cs.borderBottomColor, cs.borderLeftColor];
+  for (var i = 0; i < borderWidths.length; i++) {
+    var width = Number(parseFloat(String(borderWidths[i] || "0")));
+    if (!isFinite(width) || width <= 0.0001) continue;
+    if (_hasVisibleColor(borderColors[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function _isSourceIntrinsicVisualTag(tagName) {
+  return tagName === "img"
+    || tagName === "svg"
+    || tagName === "canvas"
+    || tagName === "video"
+    || tagName === "picture"
+    || tagName === "input"
+    || tagName === "select"
+    || tagName === "textarea"
+    || tagName === "progress"
+    || tagName === "meter";
+}
+
+function _isSourceTimelapseRevealCandidate(el, cs) {
+  if (!el || !cs) return false;
+  var tagName = String(el.tagName || "").toLowerCase();
+  if (!tagName) return false;
+  if (tagName === "script" || tagName === "style" || tagName === "link" || tagName === "meta" || tagName === "head" || tagName === "title") {
+    return false;
+  }
+  if (_isSourceIntrinsicVisualTag(tagName)) {
+    return true;
+  }
+  if (_hasDirectTextNodeContent(el)) {
+    return true;
+  }
+  var bgColor = String(cs.backgroundColor || "").trim();
+  if (_hasVisibleColor(bgColor)) {
+    return true;
+  }
+  var bgImage = String(cs.backgroundImage || "").trim().toLowerCase();
+  if (bgImage && bgImage !== "none") {
+    return true;
+  }
+  var boxShadow = String(cs.boxShadow || "").trim().toLowerCase();
+  if (boxShadow && boxShadow !== "none") {
+    return true;
+  }
+  if (_hasVisibleBorder(cs)) {
+    return true;
+  }
+  var outlineWidth = Number(parseFloat(String(cs.outlineWidth || "0")));
+  if (isFinite(outlineWidth) && outlineWidth > 0.0001 && _hasVisibleColor(cs.outlineColor)) {
+    return true;
+  }
+  if (el.hasAttribute && (el.hasAttribute("data-ui-role") || el.hasAttribute("data-ui-key") || el.hasAttribute("data-ui-action"))) {
+    return true;
+  }
+  return false;
+}
+
+function _collectVisibleSourceElementsForCurrentCanvas() {
+  var doc = preview.getPreviewDocument ? preview.getPreviewDocument() : null;
+  if (!doc || !doc.body || !doc.body.querySelectorAll || !doc.defaultView || !doc.defaultView.getComputedStyle) {
+    return [];
+  }
+  var viewportWidth = Number(doc.documentElement ? (doc.documentElement.clientWidth || 0) : 0);
+  var viewportHeight = Number(doc.documentElement ? (doc.documentElement.clientHeight || 0) : 0);
+  var nodeList = doc.body.querySelectorAll("*");
+  var out = [];
+  for (var i = 0; i < nodeList.length; i++) {
+    var el = nodeList[i];
+    if (!el || !el.style || !el.getBoundingClientRect) continue;
+    var cs = doc.defaultView.getComputedStyle(el);
+    if (!cs) continue;
+    if (String(cs.display || "") === "none") continue;
+    if (String(cs.visibility || "") === "hidden") continue;
+    var opacityValue = Number(cs.opacity);
+    if (isFinite(opacityValue) && opacityValue <= 0.0001) continue;
+    var rect = el.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+    if (viewportWidth > 0 && viewportHeight > 0) {
+      if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= viewportWidth || rect.top >= viewportHeight) {
+        continue;
+      }
+    }
+    if (!_isSourceTimelapseRevealCandidate(el, cs)) continue;
+    out.push({
+      el: el,
+      display: String(el.style.display || ""),
+    });
+  }
+  // 关键：不要只保留最外层候选。
+  // 原稿有大量“父容器 + 子组件（flex item）”同时可见的结构，
+  // 若只播放父容器会出现“整块一起出现”，看不到逐个组件重排。
+  return out;
+}
+
+async function _playFlattenedInitialVisibleTimelapse() {
+  if (_isFlattenedTimelapseRunning) return;
+  if (!state.selected || !String((state.selected && state.selected.source_html) || "").trim()) {
+    setStatusText("延时摄影：请先选择一个可预览的 UI 源码文件。");
+    return;
+  }
+  _isFlattenedTimelapseRunning = true;
+  _setFlattenedTimelapseButtonRunning(true);
+  var revealItems = [];
+  try {
+    if (state.currentVariant !== PREVIEW_VARIANT_FLATTENED) {
+      state.currentVariant = PREVIEW_VARIANT_FLATTENED;
+      updateVariantButtons();
+      await renderPreview();
+      setStatusText("预览：扁平化");
+    }
+    if (flattenGroupTreeController && flattenGroupTreeController.indexFlattenedPreviewElements) {
+      flattenGroupTreeController.indexFlattenedPreviewElements();
+    }
+    revealItems = _collectVisibleFlattenedElementsForCurrentCanvas();
+    if (!revealItems || revealItems.length <= 0) {
+      setStatusText("延时摄影：当前画面没有可播放的扁平可见层。");
+      return;
+    }
+
+    setStatusText("延时摄影：准备播放（" + String(revealItems.length) + " 层）…");
+    for (var hideIndex = 0; hideIndex < revealItems.length; hideIndex++) {
+      var hideItem = revealItems[hideIndex];
+      if (!hideItem || !hideItem.el || !hideItem.el.style) continue;
+      hideItem.el.style.visibility = "hidden";
+    }
+
+    for (var i = 0; i < revealItems.length; i++) {
+      await _sleepMs(_FLATTENED_TIMELAPSE_STEP_MS);
+      var item = revealItems[i];
+      if (!item || !item.el || !item.el.style) continue;
+      item.el.style.visibility = item.visibility;
+    }
+    setStatusText("延时摄影：播放完成（" + String(revealItems.length) + " 层）。");
+  } catch (error) {
+    for (var restoreIndex = 0; restoreIndex < revealItems.length; restoreIndex++) {
+      var restoreItem = revealItems[restoreIndex];
+      if (!restoreItem || !restoreItem.el || !restoreItem.el.style) continue;
+      restoreItem.el.style.visibility = restoreItem.visibility;
+    }
+    var msg = error && error.message ? String(error.message) : String(error || "unknown error");
+    setStatusText("延时摄影执行失败：" + msg);
+  } finally {
+    _isFlattenedTimelapseRunning = false;
+    _setFlattenedTimelapseButtonRunning(false);
+  }
+}
+
+async function _playSourceInitialVisibleTimelapse() {
+  if (_isSourceTimelapseRunning || _isFlattenedTimelapseRunning) return;
+  if (!state.selected || !String((state.selected && state.selected.source_html) || "").trim()) {
+    setStatusText("延时摄影：请先选择一个可预览的 UI 源码文件。");
+    return;
+  }
+  if (state.currentVariant !== PREVIEW_VARIANT_SOURCE) {
+    setStatusText("延时摄影（原稿）：请先切换到“原稿”预览。");
+    return;
+  }
+  var revealItems = _collectVisibleSourceElementsForCurrentCanvas();
+  if (!revealItems || revealItems.length <= 0) {
+    setStatusText("延时摄影（原稿）：当前画面没有可播放的可见元素。");
+    return;
+  }
+
+  _isSourceTimelapseRunning = true;
+  _setFlattenedTimelapseButtonRunning(true);
+  setStatusText("延时摄影（原稿）：准备播放（" + String(revealItems.length) + " 层）…");
+  return Promise.resolve().then(async function () {
+    for (var hideIndex = 0; hideIndex < revealItems.length; hideIndex++) {
+      var hideItem = revealItems[hideIndex];
+      if (!hideItem || !hideItem.el || !hideItem.el.style) continue;
+      hideItem.el.style.display = "none";
+    }
+    for (var i = 0; i < revealItems.length; i++) {
+      await _sleepMs(_SOURCE_TIMELAPSE_STEP_MS);
+      var item = revealItems[i];
+      if (!item || !item.el || !item.el.style) continue;
+      item.el.style.display = String(item.display || "");
+    }
+    setStatusText("延时摄影（原稿）：播放完成（" + String(revealItems.length) + " 层）。");
+  }).finally(function () {
+    _isSourceTimelapseRunning = false;
+    _setFlattenedTimelapseButtonRunning(false);
+  });
 }
 
 function _bindPreviewSizeButtons() {
@@ -64,11 +423,16 @@ function _bindPreviewSizeButtons() {
       btn.addEventListener("click", async function () {
         var k = String(btn.getAttribute("data-size-key") || "").trim();
         if (!k) return;
+        // 点击“当前已选中的画布尺寸”应为幂等：避免重复渲染/重复生成 bundle 导致列表抖动与自动化不稳定。
+        if (String(state.canvasSizeKey || "").trim() === k) {
+          preview.setSelectedCanvasSize(k);
+          return;
+        }
         state.canvasSizeKey = k;
         preview.setSelectedCanvasSize(k);
-        // 画布变更后：重绘预览（保持当前变体），并刷新导出控件列表（依赖 canvas size）
-        await renderPreview();
-        await refreshExportWidgetListForCurrentSelectionIfNeeded(true);
+        // 画布变更后：无需重绘 iframe（扁平化输出已包含 4 档尺寸；原稿模式只依赖 CSS 变量）。
+        // 这里仅原地同步导出控件行的 flat_layer_key 映射（不重建列表 DOM），并保持蓝色选中框不闪断。
+        await refreshExportWidgetModelForCurrentSelectionInPlace(false);
       });
     })();
   }
@@ -93,17 +457,11 @@ function _bindExportWidgetListInteractions() {
         if (!gk || !state.exportWidgetPreviewModel) return;
 
         if (action === "exclude") {
-          if (typeof window !== "undefined" && state.exportWidgetPreviewModel) {
-            // group-level exclude uses controller's group exclusion set (same key space)
-            if (state.exportWidgetPreviewModel && state.exportWidgetPreviewModel.groups) {
-              // use controller method if exists
-              // note: group_tree controller uses groupKey for exclusion
-            }
-          }
           if (state.exportWidgetPreviewModel && flattenGroupTreeController && flattenGroupTreeController.setGroupExcluded && flattenGroupTreeController.isGroupExcluded) {
             flattenGroupTreeController.setGroupExcluded(gk, !flattenGroupTreeController.isGroupExcluded(gk));
           }
-          _rerenderExportWidgetList();
+          var details0 = toggle.closest ? toggle.closest("details") : null;
+          _refreshExportWidgetListExcludeIconsInDetails(details0);
           ev.preventDefault();
           ev.stopPropagation();
           return;
@@ -151,7 +509,8 @@ function _bindExportWidgetListInteractions() {
             wantHidden = !allHidden;
           }
           flattenGroupTreeController.setLayersHidden(layerKeys, wantHidden);
-          _rerenderExportWidgetList();
+          var details1 = toggle.closest ? toggle.closest("details") : null;
+          _refreshExportWidgetListVisibilityIconsInDetails(details1);
         }
         ev.preventDefault();
         ev.stopPropagation();
@@ -184,12 +543,23 @@ function _bindExportWidgetListInteractions() {
           if (flattenGroupTreeController.setLayerExcluded && flattenGroupTreeController.isLayerExcluded) {
             flattenGroupTreeController.setLayerExcluded(bestKey, !flattenGroupTreeController.isLayerExcluded(bestKey));
           }
+          var groupKey0 = row && row.dataset ? String(row.dataset.groupKey || "").trim() : "";
+          var isExcluded0 = false;
+          if (flattenGroupTreeController.isGroupExcluded && groupKey0 && flattenGroupTreeController.isGroupExcluded(groupKey0)) {
+            isExcluded0 = true;
+          } else if (flattenGroupTreeController.isLayerExcluded) {
+            isExcluded0 = !!flattenGroupTreeController.isLayerExcluded(bestKey);
+          }
+          _syncTrashToggleButtonUi(toggle, isExcluded0);
         } else {
           if (flattenGroupTreeController.setLayerHidden && flattenGroupTreeController.isLayerHidden) {
             flattenGroupTreeController.setLayerHidden(bestKey, !flattenGroupTreeController.isLayerHidden(bestKey));
           }
+          var isHidden0 = !!(flattenGroupTreeController.isLayerHidden && flattenGroupTreeController.isLayerHidden(bestKey));
+          _syncEyeToggleButtonUi(toggle, isHidden0);
+          var details2 = row && row.closest ? row.closest("details") : null;
+          _refreshExportWidgetListVisibilityIconsInDetails(details2);
         }
-        _rerenderExportWidgetList();
         ev.preventDefault();
         ev.stopPropagation();
         return;
@@ -201,11 +571,22 @@ function _bindExportWidgetListInteractions() {
     if (!btn) return;
     var wid = String(btn.dataset && btn.dataset.widgetId ? btn.dataset.widgetId : "").trim();
     var layerKey = String(btn.dataset && btn.dataset.flatLayerKey ? btn.dataset.flatLayerKey : "").trim();
-    if (!wid || !layerKey) return;
+    var uiKey = String(btn.dataset && btn.dataset.uiKey ? btn.dataset.uiKey : "").trim();
+    if (!wid) return;
+    if (!layerKey) {
+      // 严格口径：缺少 flat_layer_key 则无法在画布中做确定性定位；必须明确拒绝而不是猜测。
+      setExportStatusText(
+        "[定位] 当前条目缺少 data-flat-layer-key（导出端未写入 __flat_layer_key/flat_layer_key），已拒绝定位。\n" +
+        "- widget_id: " + String(wid || "") + (uiKey ? ("\n- ui_key: " + String(uiKey || "")) : "")
+      );
+      ev.preventDefault();
+      ev.stopPropagation();
+      return;
+    }
 
     state.suppressNextExportWidgetAutoScroll = true;
     state.exportSelectedWidgetId = wid;
-    _rerenderExportWidgetList();
+    updateExportWidgetListSelectionDom(wid);
 
     // ensure flattened preview
     if (state.currentVariant !== PREVIEW_VARIANT_FLATTENED) {
@@ -240,7 +621,7 @@ function _bindEvents() {
     dom.leftBottomSearchButton.addEventListener("click", function () {
       state.leftBottomFilterText = String((dom.leftBottomSearchInput && dom.leftBottomSearchInput.value) || "").trim();
       if (state.leftBottomTabMode === "export_widgets") {
-        _rerenderExportWidgetList();
+        scheduleRerenderExportWidgetListFromCurrentModel();
       } else if (flattenGroupTreeController && flattenGroupTreeController.setFilterText) {
         flattenGroupTreeController.setFilterText(state.leftBottomFilterText);
       }
@@ -257,15 +638,37 @@ function _bindEvents() {
   if (dom.leftBottomTabExportWidgetsButton) {
     dom.leftBottomTabExportWidgetsButton.addEventListener("click", function () {
       setLeftBottomTabMode("export_widgets");
-      if (state.pendingScrollExportWidgetId) {
-        _scrollExportWidgetIntoView(state.pendingScrollExportWidgetId);
-        state.pendingScrollExportWidgetId = "";
-      }
+      // Tab 切换后需要对“导出控件列表”做一次重绘：
+      // - 应用共享 filter（leftBottomFilterText）
+      // - 同步眼睛/垃圾桶图标状态（依赖 flattenGroupTreeController 当前隐藏/排除集合）
+      // - 若存在 pendingScroll，则在 DOM 就绪后消费它
+      scheduleRerenderExportWidgetListFromCurrentModel();
     });
   }
   if (dom.leftBottomTabFlattenGroupsButton) {
     dom.leftBottomTabFlattenGroupsButton.addEventListener("click", function () {
       setLeftBottomTabMode("flatten_groups");
+    });
+  }
+
+  if (dom.refreshExportWidgetListButton) {
+    dom.refreshExportWidgetListButton.addEventListener("click", async function () {
+      await refreshExportWidgetListForCurrentSelectionIfNeeded(true);
+    });
+  }
+  if (dom.refreshFlattenGroupTreeButton) {
+    dom.refreshFlattenGroupTreeButton.addEventListener("click", async function () {
+      if (!flattenGroupTreeController || !flattenGroupTreeController.refresh) return;
+      setFlattenGroupTreeStatusText("生成中…");
+      await flattenGroupTreeController.refresh();
+    });
+  }
+  if (dom.resetFlattenGroupTreeVisibilityButton) {
+    dom.resetFlattenGroupTreeVisibilityButton.addEventListener("click", function () {
+      if (!flattenGroupTreeController || !flattenGroupTreeController.resetVisibilityToggles) return;
+      flattenGroupTreeController.resetVisibilityToggles();
+      // 共享“隐藏集合”：重置后导出控件列表也需要刷新图标状态（避免“图标还在隐藏态”的错觉）
+      scheduleRerenderExportWidgetListFromCurrentModel();
     });
   }
 
@@ -313,16 +716,13 @@ function _bindEvents() {
       await renderPreview();
     });
   }
-
-  if (dom.exportUiStateFullGroupsCheckbox) {
-    dom.exportUiStateFullGroupsCheckbox.addEventListener("change", function () {
-      state.exportUiStateFullGroups = !!dom.exportUiStateFullGroupsCheckbox.checked;
-      saveExportUiStateFullGroupsToStorage();
-      // 该开关会改变 bundle/导出控件列表的结构：清空缓存，避免 UI 误导。
-      state.exportWidgetPreviewCache = {};
-      state.exportWidgetPreviewModel = null;
-      state.exportWidgetIdByLayerKey = {};
-      setExportWidgetListStatusText("未生成");
+  if (dom.flattenedTimelapseRevealButton) {
+    dom.flattenedTimelapseRevealButton.addEventListener("click", function () {
+      if (state.currentVariant === PREVIEW_VARIANT_SOURCE) {
+        _playSourceInitialVisibleTimelapse();
+        return;
+      }
+      _playFlattenedInitialVisibleTimelapse();
     });
   }
 
@@ -418,10 +818,6 @@ export async function main() {
   renderUiStateSelectorsFromCatalog({ groups: [] });
   setLeftBottomTabMode(state.leftBottomTabMode);
   loadCheckedFilesFromStorage();
-  loadExportUiStateFullGroupsFromStorage();
-  if (dom.exportUiStateFullGroupsCheckbox) {
-    dom.exportUiStateFullGroupsCheckbox.checked = !!state.exportUiStateFullGroups;
-  }
 
   // group tree controller
   var controller = createFlattenGroupTreeController({

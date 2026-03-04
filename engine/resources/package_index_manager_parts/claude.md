@@ -5,7 +5,7 @@
 
 ## 当前状态
 - `manager.py`：组合各 mixin，定义最终的 `PackageIndexManager` 类与构造逻辑；启动时会拦截旧式索引文件 `pkg_*.json` / `packages.json`（仅检查资源库根目录），避免误扫外部工具产物目录。
-- `naming_listing_mixin.py`：存档列表、路径判定、显示名与 `resource_names` 派生；实体摆放目录名以 `ResourceType.INSTANCE.value` 为唯一真源（不再兼容旧目录名 `实例`）；并提供公开命名清洗 API `sanitize_package_id(name)`（供 UI/扩展调用，避免依赖下划线私有方法）。
+- `naming_listing_mixin.py`：存档列表、路径判定（使用 `is_relative_to/absolute` 的纯路径比较，避免 `Path.resolve/realpath`）、`resource_names` 派生；**项目显示名唯一真源为项目存档目录名（package_id）**，不再从包内“关卡实体文件名”推断；并提供公开命名清洗 API `sanitize_package_id(name)`（供 UI/扩展调用，避免依赖下划线私有方法）。
 - `package_clone_mixin.py`：新建/复制项目存档、目录骨架/文档、克隆 ID 改写与清理；并提供 `ensure_package_directory_structure(package_id)` 用于“导入/解析型流程”在落盘后补齐目录骨架（以 `示例项目模板/` 的目录层级为真源镜像创建缺失目录，跳过 `__pycache__` 与 `文档/共享文档`）。UI 工作流目录骨架仅保留 `管理配置/UI源码`（HTML 为真源；UI 派生物统一写入运行时缓存，不落资源库）。
 - `index_cache_mixin.py`：目录派生 `PackageIndex`、进程内缓存、Todo 状态落盘与基础包操作。
 - `runtime_and_movement_mixin.py`：运行期 package_state（最近打开）与资源“归属根目录”移动（共享/项目存档）。

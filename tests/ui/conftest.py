@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from importlib.util import find_spec
+
 import pytest
 
-# 顺序约束：RapidOCR 必须先于 PyQt6 导入，避免 DLL 冲突（参照 app.bootstrap.ui_bootstrap）。
-from rapidocr_onnxruntime import RapidOCR  # noqa: F401
+# 顺序约束：若 OCR 依赖存在，则 RapidOCR 必须先于 PyQt6 导入，避免 DLL 冲突（参照 app.bootstrap.ui_bootstrap）。
+if find_spec("rapidocr_onnxruntime") is not None:
+    from rapidocr_onnxruntime import RapidOCR  # noqa: F401
+
 from PyQt6 import QtWidgets
 
 _SESSION_QT_APP: QtWidgets.QApplication | None = None

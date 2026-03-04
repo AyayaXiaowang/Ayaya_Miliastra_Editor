@@ -50,6 +50,37 @@ def run_process(
     )
 
 
+def spawn_process(
+    args: Sequence[str],
+    *,
+    working_directory: Optional[Path | str] = None,
+    env: dict[str, str] | None = None,
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    text_mode: bool = False,
+    encoding: str = "utf-8",
+    errors: str = "replace",
+) -> subprocess.Popen:
+    """启动子进程（适用于常驻服务/后台工具）。
+
+    说明：
+    - 不做异常吞没；启动失败会直接抛错；
+    - 若需要捕获输出，建议把 stdout/stderr 重定向到文件（避免 pipe 缓冲区写满导致阻塞）。
+    """
+    return subprocess.Popen(
+        list(args),
+        cwd=str(working_directory) if working_directory is not None else None,
+        env=dict(env) if env is not None else None,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+        text=bool(text_mode),
+        encoding=encoding if text_mode else None,
+        errors=errors if text_mode else None,
+    )
+
+
 def run_capture_script(project_root: Path, extra_args: Sequence[str] | None = None) -> int:
     """以子进程方式运行 `capture_beyondeditor.py`。
 

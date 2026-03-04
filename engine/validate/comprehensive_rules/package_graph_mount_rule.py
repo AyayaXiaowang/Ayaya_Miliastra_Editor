@@ -15,7 +15,6 @@ class PackageGraphMountRule(BaseComprehensiveRule):
     """检查存档目录内的节点图与挂载关系是否一致（目录即存档）。
 
     目标：
-    - 提醒：存档目录下存在但未被任何模板/实体摆放/关卡实体挂载的节点图；
     - 提醒：模板/实体摆放/关卡实体引用了不属于“共享/当前存档目录”的节点图（或节点图文件缺失）。
     """
 
@@ -131,24 +130,7 @@ def validate_package_graph_mount(
 
     issues: List[ValidationIssue] = []
 
-    # 1) 存档目录下存在但未挂载的节点图：仅一条简单提示（不输出额外建议）。
-    for graph_id in sorted(graph_ids_in_package, key=lambda x: x.casefold()):
-        if graph_id in attached_graph_ids:
-            continue
-        issues.append(
-            ValidationIssue(
-                level="warning",
-                category="节点图挂载",
-                location=f"存档 '{package.name}' ({package_id}) > 节点图",
-                message=f"节点图 '{graph_id}' 未挂载到任何模板或实体摆放。",
-                suggestion="",
-                detail={
-                    "type": "unmounted_graph",
-                    "package_id": package_id,
-                    "graph_id": graph_id,
-                },
-            )
-        )
+    # 1) 存档目录下存在但未挂载的节点图：默认不产出 issue（允许模板/测试图存在，避免刷屏）。
 
     # 2) 对挂载的节点图做归属校验：必须在“共享/当前存档目录”之一，且文件存在。
     allowed_graph_ids: Set[str] = set(graph_ids_in_shared) | set(graph_ids_in_package)

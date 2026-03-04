@@ -7,7 +7,7 @@
 ## 当前状态
 - 函数均使用 `@node_spec` 描述端口与类型，部分共享逻辑在 `plugins.nodes.shared.server_运算节点_impl_helpers`。
 - 部分关键语义节点会在 `@node_spec` 中声明 `semantic_id`（稳定语义标识符），供校验/工具链定位语义节点，避免依赖显示名字符串。
-- 通过静态注册表暴露给 `plugins.nodes.server`。
+- 节点库构建由 V2 AST 管线扫描 `@node_spec`（只解析不导入）；运行期需要执行节点函数时，由 `app.runtime.engine.node_impl_loader` 按需加载并注入。
 - 个别节点（如数据类型转换）仅依赖单输入/单输出端口，额外的“目标类型”等配置通过参数面板注入，非端口。
 - 部分运算节点包含枚举输入（如取整方式）；**默认必须**声明 `input_enum_options` 候选集合，以启用 Graph Code 枚举字面量的严格校验与 UI 下拉选项。若枚举候选集合需要由连线来源动态绑定（如 `semantic_id="enum.equals"` 的比较节点），可不声明静态候选集合，由结构校验按连线来源推导并约束常量取值。
 - 结构体拆装节点在本地测试（MockRuntime）下以 `dict` 承载结构体值：字段名 -> 字段值，并携带 `__ayaya_struct__ / __struct_name / __field_order` 等元数据；其中【拆分结构体】返回 `tuple` 以匹配 Graph Code 的解包赋值形态。

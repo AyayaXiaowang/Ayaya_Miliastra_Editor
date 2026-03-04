@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 from app.models import TodoItem
-from app.ui.todo.current_todo_resolver import CurrentTodoContext, resolve_current_todo_for_leaf
+from app.ui.todo.runtime.current_todo_resolver import (
+    CurrentTodoContext,
+    resolve_current_todo_for_leaf,
+)
 
 
 def _make_todo(todo_id: str, *, detail_info: Optional[Dict] = None) -> TodoItem:

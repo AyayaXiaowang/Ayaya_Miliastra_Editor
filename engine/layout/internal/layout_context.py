@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Dict, Set, List, Optional, Tuple
 import hashlib
 from engine.graph.models import GraphModel
-from engine.utils.graph.graph_utils import is_flow_port_name
 from .layout_registry_context import LayoutRegistryContext
 from ..utils.graph_query_utils import (
     estimate_node_height_ui_exact_for_model,
@@ -58,17 +57,8 @@ class LayoutContext:
             self.portMapByNodeIn[node_id] = {port.name: port for port in node.inputs}
             self.portMapByNodeOut[node_id] = {port.name: port for port in node.outputs}
 
-            has_flow_port = False
-            for port in node.inputs:
-                if is_flow_port_name(port.name):
-                    has_flow_port = True
-                    break
-            if not has_flow_port:
-                for port in node.outputs:
-                    if is_flow_port_name(port.name):
-                        has_flow_port = True
-                        break
-            if has_flow_port:
+            # 流程能力：以端口类型快照为真源（名称规则仅作兼容回退），避免多分支/动态端口漏判。
+            if not graph_query_is_pure_data_node(node):
                 self.flowCapableNodeIds.add(node_id)
 
     def _build_edge_caches(self) -> None:

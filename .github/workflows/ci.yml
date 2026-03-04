@@ -31,12 +31,21 @@ jobs:
           python -X utf8 -m app.automation._static_checks.no_custom_chinese_regex_or_similarity
           python -X utf8 -m app.automation._static_checks.check_executor_protocol
 
+      - name: Static checks (ui)
+        shell: pwsh
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          python -X utf8 -m app.ui._static_checks.check_large_files --fail --max-lines 1500
+
       - name: Validate graphs (all)
         shell: pwsh
         env:
           PYTHONUTF8: "1"
         run: |
-          python -X utf8 -m app.cli.graph_tools validate-graphs --all
+          New-Item -ItemType Directory -Force tmp\artifacts | Out-Null
+          python -X utf8 -m app.cli.graph_tools validate-graphs --all --json | Set-Content -Encoding utf8 tmp\artifacts\validate_graphs_ci_report.json
+          python -X utf8 tools\validate_graphs_ci_gate.py tmp\artifacts\validate_graphs_ci_report.json
 
       - name: Pytest
         shell: pwsh

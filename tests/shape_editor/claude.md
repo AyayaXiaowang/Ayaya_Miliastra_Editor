@@ -4,6 +4,7 @@
 
 ## 当前状态
 - 仅包含纯后端测试（不依赖浏览器与 Qt），通过直接调用 `shape_editor_backend.project_persistence` 的函数验证落盘结果。
+- 已覆盖 `实体摆放/instances_index.json`（顶层为 JSON list 的索引文件）存在时，实体列表扫描需跳过该文件，避免误读导致崩溃。
 
 ## 注意事项
 - 测试必须使用 `tmp_path` 创建临时资源库目录，禁止读写真实的 `assets/资源库/`，避免污染用户项目存档。

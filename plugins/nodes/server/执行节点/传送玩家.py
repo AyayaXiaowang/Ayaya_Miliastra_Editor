@@ -21,4 +21,6 @@ def 传送玩家(game, 玩家实体, 目标位置, 目标旋转):
         if isinstance(目标旋转, (list, tuple)) and len(目标旋转) == 3:
             entity.rotation = list(目标旋转)
         log_info(f"[传送玩家] {entity.name} -> 位置{目标位置}, 旋转{目标旋转}")
-        game.trigger_event("玩家传送完成时", 玩家实体)
+        # 事件节点「玩家传送完成时」端口：玩家实体 / 玩家GUID
+        玩家GUID = f"player_guid__{entity_id}"
+        game.trigger_event("玩家传送完成时", 玩家实体=玩家实体, 玩家GUID=玩家GUID)

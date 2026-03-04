@@ -121,19 +121,24 @@ class ResourceManagerGraphMixin:
             if resource_roots is None
             else [root for root in list(resource_roots) if isinstance(root, Path)]
         )
-        resolved_roots = [root.resolve() for root in effective_roots]
+        resolved_roots = [
+            (root if root.is_absolute() else root.absolute())
+            for root in effective_roots
+        ]
 
         def _is_under_any_root(file_path: Path) -> bool:
-            resolved_file = file_path.resolve()
+            file_abs = file_path if file_path.is_absolute() else file_path.absolute()
+            if hasattr(file_abs, "is_relative_to"):
+                for root in resolved_roots:
+                    if file_abs.is_relative_to(root):  # type: ignore[attr-defined]
+                        return True
+                return False
+
+            file_parts = tuple(part.casefold() for part in file_abs.parts)
             for root in resolved_roots:
-                if hasattr(resolved_file, "is_relative_to"):
-                    if resolved_file.is_relative_to(root):
-                        return True
-                else:
-                    root_parts = root.parts
-                    file_parts = resolved_file.parts
-                    if len(file_parts) >= len(root_parts) and file_parts[: len(root_parts)] == root_parts:
-                        return True
+                root_parts = tuple(part.casefold() for part in root.parts)
+                if len(file_parts) >= len(root_parts) and file_parts[: len(root_parts)] == root_parts:
+                    return True
             return False
 
         # 1) 从节点图轻量元数据中收集文件夹路径（避免触发完整解析与自动布局）

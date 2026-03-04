@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import List, Set
+from typing import Dict, List, Set, Tuple
 
 from ...context import ValidationContext
 from ...issue import EngineIssue
@@ -77,6 +77,118 @@ def _collect_method_level_typed_literal_var_names(method: ast.AST) -> Set[str]:
     return out
 
 
+def _iter_assigned_target_names(target: ast.AST | None) -> List[str]:
+    """提取赋值目标里的变量名（仅 Name/Tuple/List 递归展开）。"""
+    if target is None:
+        return []
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        out: List[str] = []
+        for element in list(getattr(target, "elts", []) or []):
+            out.extend(_iter_assigned_target_names(element))
+        return out
+    return []
+
+
+def _collect_method_assignment_events(method: ast.AST) -> Dict[str, List[Tuple[int, str]]]:
+    """收集方法内变量写入事件：name -> [(lineno, kind)]。
+
+    kind:
+    - typed_literal：AnnAssign + 中文类型注解 + 字面量初始化（命名常量声明）
+    - other：其它任何形式的写入（普通赋值/增量赋值/循环目标等）
+    """
+    events: Dict[str, List[Tuple[int, str]]] = {}
+
+    def _add_event(name: str, lineno: int, kind: str) -> None:
+        name_text = str(name or "").strip()
+        if not name_text:
+            return
+        events.setdefault(name_text, []).append((int(lineno), str(kind)))
+
+    for node in ast.walk(method):
+        lineno = int(getattr(node, "lineno", 0) or 0)
+        if isinstance(node, ast.AnnAssign):
+            kind = "typed_literal" if _is_typed_literal_assignment(node) else "other"
+            for name in _iter_assigned_target_names(getattr(node, "target", None)):
+                _add_event(name, lineno, kind)
+            continue
+        if isinstance(node, ast.Assign):
+            for target in list(getattr(node, "targets", []) or []):
+                for name in _iter_assigned_target_names(target):
+                    _add_event(name, lineno, "other")
+            continue
+        if isinstance(node, ast.AugAssign):
+            for name in _iter_assigned_target_names(getattr(node, "target", None)):
+                _add_event(name, lineno, "other")
+            continue
+        if isinstance(node, (ast.For, ast.AsyncFor)):
+            for name in _iter_assigned_target_names(getattr(node, "target", None)):
+                _add_event(name, lineno, "other")
+            continue
+        if isinstance(node, ast.With):
+            for item in list(getattr(node, "items", []) or []):
+                for name in _iter_assigned_target_names(getattr(item, "optional_vars", None)):
+                    _add_event(name, lineno, "other")
+            continue
+        if isinstance(node, ast.AsyncWith):
+            for item in list(getattr(node, "items", []) or []):
+                for name in _iter_assigned_target_names(getattr(item, "optional_vars", None)):
+                    _add_event(name, lineno, "other")
+            continue
+        if isinstance(node, ast.NamedExpr):
+            for name in _iter_assigned_target_names(getattr(node, "target", None)):
+                _add_event(name, lineno, "other")
+            continue
+        if isinstance(node, ast.ExceptHandler):
+            ex_name = getattr(node, "name", None)
+            if isinstance(ex_name, str) and ex_name.strip():
+                _add_event(ex_name, lineno, "other")
+            continue
+
+    for name, seq in events.items():
+        seq.sort(key=lambda item: (int(item[0]), item[1]))
+        events[name] = seq
+    return events
+
+
+def _is_stable_const_alias_assignment(
+    *,
+    source_name: str,
+    alias_node: ast.AST,
+    module_constant_var_names: Set[str],
+    method_assignment_events: Dict[str, List[Tuple[int, str]]],
+) -> bool:
+    """判断 `B = A` 是否可视为“稳定常量折叠”。
+
+    规则（保守）：
+    - 在别名语句之前，`A` 的最近一次写入必须是 `typed_literal`；
+    - 若别名前没有任何方法内写入，则 `A` 必须是模块级命名常量；
+    - 否则视为不稳定（例如运行时节点输出覆盖、分支赋值覆盖等），继续报错。
+    """
+    src = str(source_name or "").strip()
+    if not src:
+        return False
+
+    alias_lineno = int(getattr(alias_node, "lineno", 0) or 0)
+    if alias_lineno <= 0:
+        return False
+
+    events = method_assignment_events.get(src, [])
+    latest_before_alias: Tuple[int, str] | None = None
+    for lineno, kind in events:
+        if int(lineno) < alias_lineno:
+            latest_before_alias = (int(lineno), str(kind))
+            continue
+        break
+
+    if latest_before_alias is None:
+        return src in module_constant_var_names
+
+    _, latest_kind = latest_before_alias
+    return latest_kind == "typed_literal"
+
+
 def _is_literal_expression(expr: ast.AST | None) -> bool:
     """判断表达式是否是纯字面量（含正负号包裹）。"""
     if expr is None:
@@ -122,7 +234,9 @@ class NoLiteralAssignmentRule(ValidationRule):
         module_constant_var_names = _collect_module_level_constant_var_names(tree)
 
         for _, method in iter_class_methods(tree):
-            constant_var_names = module_constant_var_names | _collect_method_level_typed_literal_var_names(method)
+            method_constant_var_names = _collect_method_level_typed_literal_var_names(method)
+            constant_var_names = module_constant_var_names | method_constant_var_names
+            method_assignment_events = _collect_method_assignment_events(method)
             for node in ast.walk(method):
                 if isinstance(node, ast.Assign):
                     value = getattr(node, "value", None)
@@ -141,6 +255,13 @@ class NoLiteralAssignmentRule(ValidationRule):
 
                     # 2) 命名常量的别名赋值：目标变量 = 常量变量
                     if isinstance(value, ast.Name) and value.id in constant_var_names:
+                        if _is_stable_const_alias_assignment(
+                            source_name=str(value.id),
+                            alias_node=node,
+                            module_constant_var_names=module_constant_var_names,
+                            method_assignment_events=method_assignment_events,
+                        ):
+                            continue
                         # 取第一个简单目标名用于错误提示（忽略拆分赋值等复杂形式）
                         target_label = "该变量"
                         targets = getattr(node, "targets", []) or []
@@ -174,6 +295,13 @@ class NoLiteralAssignmentRule(ValidationRule):
 
                     # 2) 命名常量的别名赋值：带类型注解的“目标变量 = 常量变量”
                     if isinstance(value, ast.Name) and value.id in constant_var_names:
+                        if _is_stable_const_alias_assignment(
+                            source_name=str(value.id),
+                            alias_node=node,
+                            module_constant_var_names=module_constant_var_names,
+                            method_assignment_events=method_assignment_events,
+                        ):
+                            continue
                         target = getattr(node, "target", None)
                         target_label = "该变量"
                         if isinstance(target, ast.Name):

@@ -15,6 +15,7 @@ Custom-variable usage auditor (read-only).
 
 import ast
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -24,6 +25,9 @@ from typing import Iterable, Sequence
 _CUSTOM_VAR_READ_FUNCS = {"获取自定义变量"}
 _CUSTOM_VAR_WRITE_FUNCS = {"设置自定义变量"}
 _CUSTOM_VAR_FUNCS = _CUSTOM_VAR_READ_FUNCS | _CUSTOM_VAR_WRITE_FUNCS
+
+_MOUSTACHE_PLACEHOLDER_RE = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")
+_BRACED_PLACEHOLDER_RE = re.compile(r"\{(\d+)\s*:\s*([^{}]+?)\}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +168,7 @@ class CustomVariableAuditReport:
     graph_roots: list[str]
     scanned_files: int
     usages: list[CustomVariableUsage]
+    ui_contract: "UiPlaceholderVarContract | None" = None
 
     def serialize(self) -> dict:
         return {
@@ -171,6 +176,7 @@ class CustomVariableAuditReport:
             "scanned_files": int(self.scanned_files),
             "usages": [u.serialize() for u in self.usages],
             "summary": build_summary(self.usages),
+            "ui_contract": self.ui_contract.serialize() if self.ui_contract is not None else None,
         }
 
 
@@ -204,6 +210,10 @@ def write_report(report: CustomVariableAuditReport, out_dir: Path, *, name_prefi
     json_path.write_text(json.dumps(report.serialize(), ensure_ascii=False, indent=2), encoding="utf-8")
 
     summary = build_summary(report.usages)
+    literal_var_names = sorted(
+        {u.var_name_literal for u in report.usages if u.var_name_literal},
+        key=lambda s: s.casefold(),
+    )
     lines: list[str] = []
     lines.append("# 节点图自定义变量引用审计\n")
     lines.append("## Summary\n")
@@ -213,6 +223,42 @@ def write_report(report: CustomVariableAuditReport, out_dir: Path, *, name_prefi
     lines.append(f"- literal_usages: {summary['literal_usages']}")
     lines.append(f"- dynamic_usages: {summary['dynamic_usages']}")
     lines.append(f"- unique_literal_var_names: {summary['unique_literal_var_names']}\n")
+
+    if report.ui_contract is not None:
+        ui = report.ui_contract
+        lines.append("## UI 占位符变量契约（管理配置/UI源码）\n")
+        lines.append(f"- ui_source_dir: {ui.ui_source_dir}")
+        lines.append(f"- scanned_html_files: {ui.scanned_html_files}")
+        lines.append(f"- lv_scoped_var_names: {len(ui.level_scoped_var_names)}")
+        lines.append(f"- ps_scoped_var_names: {len(ui.player_scoped_var_names)}\n")
+
+        ui_level_set = set(ui.level_scoped_var_names)
+        ui_player_set = set(ui.player_scoped_var_names)
+        graph_literal_set = set(literal_var_names)
+
+        level_used_by_ui_not_in_graph = sorted(ui_level_set - graph_literal_set, key=lambda s: s.casefold())
+        player_used_by_ui_not_in_graph = sorted(ui_player_set - graph_literal_set, key=lambda s: s.casefold())
+        used_by_graph_not_in_ui = sorted(graph_literal_set - (ui_level_set | ui_player_set), key=lambda s: s.casefold())
+
+        lines.append("### 差集摘要（帮助定位“UI/节点图谁在用”）\n")
+        lines.append(f"- UI(lv) 用到但节点图未出现(字面量)：{len(level_used_by_ui_not_in_graph)}")
+        lines.append(f"- UI(ps/p1..p8) 用到但节点图未出现(字面量)：{len(player_used_by_ui_not_in_graph)}")
+        lines.append(f"- 节点图用到但 UI 未出现(字面量)：{len(used_by_graph_not_in_ui)}\n")
+
+        def _emit_first(items: list[str], *, title: str) -> None:
+            lines.append(f"### {title}\n")
+            if not items:
+                lines.append("- <none>\n")
+                return
+            for name in items[:30]:
+                lines.append(f"- {name}")
+            if len(items) > 30:
+                lines.append(f"- ... truncated, total={len(items)}")
+            lines.append("")
+
+        _emit_first(level_used_by_ui_not_in_graph, title="UI(lv) only（first 30）")
+        _emit_first(player_used_by_ui_not_in_graph, title="UI(ps/p1..p8) only（first 30）")
+        _emit_first(used_by_graph_not_in_ui, title="Graph only（first 30）")
     lines.append("## Top literal variable names\n")
     if summary["top_literal_var_names"]:
         for item in summary["top_literal_var_names"]:
@@ -231,4 +277,110 @@ def write_report(report: CustomVariableAuditReport, out_dir: Path, *, name_prefi
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     return json_path, md_path
+
+
+@dataclass(frozen=True, slots=True)
+class UiPlaceholderVarContract:
+    ui_source_dir: str
+    scanned_html_files: int
+    level_scoped_var_names: list[str]
+    player_scoped_var_names: list[str]
+    # var_name -> [html_file_path...]
+    level_var_to_files: dict[str, list[str]]
+    player_var_to_files: dict[str, list[str]]
+
+    def serialize(self) -> dict:
+        return {
+            "ui_source_dir": self.ui_source_dir,
+            "scanned_html_files": int(self.scanned_html_files),
+            "level_scoped_var_names": list(self.level_scoped_var_names),
+            "player_scoped_var_names": list(self.player_scoped_var_names),
+            "level_var_to_files": dict(self.level_var_to_files),
+            "player_var_to_files": dict(self.player_var_to_files),
+        }
+
+
+def _accept_ui_expr_to_contract(
+    *,
+    expr: str,
+    html_path: Path,
+    level_var_to_files: dict[str, set[str]],
+    player_var_to_files: dict[str, set[str]],
+) -> None:
+    e = str(expr or "").strip()
+    if not e or any(ch.isspace() for ch in e):
+        return
+    scope, sep, rest = e.partition(".")
+    if sep != ".":
+        return
+    scope_lower = scope.strip().lower()
+    segments = [s.strip() for s in str(rest or "").split(".") if s.strip()]
+    if not segments:
+        return
+    var_name = segments[0]
+    if not var_name:
+        return
+    file_key = html_path.as_posix()
+    if scope_lower == "lv":
+        level_var_to_files.setdefault(var_name, set()).add(file_key)
+        return
+    if scope_lower == "ps" or (scope_lower.startswith("p") and scope_lower[1:].isdigit()):
+        player_var_to_files.setdefault(var_name, set()).add(file_key)
+        return
+
+
+def collect_ui_placeholder_var_contract_from_ui_source_dir(ui_source_dir: Path) -> UiPlaceholderVarContract | None:
+    """从 UI源码(HTML) 中收集 lv/ps/p1..p8 根变量名集合（用于 where-used 报告）。
+
+    注意：这里只做“占位符契约提取”，不做存在性/类型校验（校验请用 validate-ui）。
+    """
+    ui_source_dir = Path(ui_source_dir).resolve()
+    if not ui_source_dir.exists() or not ui_source_dir.is_dir():
+        return None
+
+    html_files = sorted(
+        [p for p in ui_source_dir.rglob("*.html") if p.is_file() and not p.name.lower().endswith(".flattened.html")],
+        key=lambda p: p.as_posix().casefold(),
+    )
+    if not html_files:
+        return None
+
+    level_var_to_files: dict[str, set[str]] = {}
+    player_var_to_files: dict[str, set[str]] = {}
+
+    for html_path in html_files:
+        text = html_path.read_text(encoding="utf-8")
+        for match in _MOUSTACHE_PLACEHOLDER_RE.finditer(text):
+            _accept_ui_expr_to_contract(
+                expr=match.group(1),
+                html_path=html_path,
+                level_var_to_files=level_var_to_files,
+                player_var_to_files=player_var_to_files,
+            )
+        for match in _BRACED_PLACEHOLDER_RE.finditer(text):
+            _accept_ui_expr_to_contract(
+                expr=match.group(2),
+                html_path=html_path,
+                level_var_to_files=level_var_to_files,
+                player_var_to_files=player_var_to_files,
+            )
+
+    level_names = sorted(level_var_to_files.keys(), key=lambda s: s.casefold())
+    player_names = sorted(player_var_to_files.keys(), key=lambda s: s.casefold())
+    level_map = {
+        k: sorted(v, key=str.casefold)
+        for k, v in sorted(level_var_to_files.items(), key=lambda kv: kv[0].casefold())
+    }
+    player_map = {
+        k: sorted(v, key=str.casefold)
+        for k, v in sorted(player_var_to_files.items(), key=lambda kv: kv[0].casefold())
+    }
+    return UiPlaceholderVarContract(
+        ui_source_dir=ui_source_dir.as_posix(),
+        scanned_html_files=len(html_files),
+        level_scoped_var_names=level_names,
+        player_scoped_var_names=player_names,
+        level_var_to_files=level_map,
+        player_var_to_files=player_map,
+    )
 

@@ -23,7 +23,7 @@ APP_REPO_URL = "https://github.com/AyayaXiaowang/Ayaya_Miliastra_Editor"
 APP_UPDATE_CHECK_MODE = "latest_release_version"
 
 # 本地版本号（发布版请与 GitHub Release tag 同步；开发态可用 "dev"）
-APP_VERSION = "dev"
+APP_VERSION = "0.1.0-beta"
 
 
 __all__ = [

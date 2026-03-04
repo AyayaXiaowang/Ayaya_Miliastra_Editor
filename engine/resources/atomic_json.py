@@ -14,7 +14,8 @@ _LOCK_BY_TARGET: dict[str, threading.Lock] = {}
 
 def _get_lock_for_target(target_file: Path) -> threading.Lock:
     # Windows 下路径大小写不敏感：统一 casefold 作为 key，避免同一文件拿到两把锁。
-    key = str(target_file.resolve()).casefold()
+    normalized = target_file if target_file.is_absolute() else target_file.absolute()
+    key = str(normalized).casefold()
     with _LOCK_GUARD:
         lock = _LOCK_BY_TARGET.get(key)
         if lock is None:

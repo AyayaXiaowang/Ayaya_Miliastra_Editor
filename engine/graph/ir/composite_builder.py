@@ -8,9 +8,10 @@ import ast
 import uuid
 from typing import Dict, List, Optional, Tuple, Set
 
-from engine.graph.models import NodeModel, PortModel, NodeDefRef
+from engine.graph.models import NodeModel, PortModel, NodeDefRef, GraphModel
 from engine.nodes import get_canonical_node_def_key
 from engine.graph.utils.ast_utils import extract_constant_value, NOT_EXTRACTABLE
+from engine.type_registry import TYPE_GENERIC_LIST, is_list_type_name
 from .arg_normalizer import normalize_call_arguments
 
 
@@ -185,7 +186,13 @@ def _track_param_in_expr(expr: ast.expr, node_id: str, port_name: str, comp_ctx:
             comp_ctx.record_param_usage(child.id, node_id, port_name)
 
 
-def create_composite_node_from_instance_call(call_node: ast.Call, node_library: Dict, env) -> Optional[NodeModel]:
+def create_composite_node_from_instance_call(
+    call_node: ast.Call,
+    node_library: Dict,
+    env,
+    *,
+    graph_model: GraphModel | None = None,
+) -> Optional[NodeModel]:
     """识别并创建复合节点实例方法调用的节点
     
     识别形式：self.xxx.yyy(...) 
@@ -285,12 +292,53 @@ def create_composite_node_from_instance_call(call_node: ast.Call, node_library: 
     for dst_port, expr in norm.positional:
         val = extract_constant_value(expr)
         if val is not NOT_EXTRACTABLE:
-            node.input_constants[dst_port] = val
+            expected_type = str((getattr(target_node_def, "input_types", {}) or {}).get(dst_port, "") or "").strip()
+            if expected_type == "三维向量" and isinstance(val, tuple) and len(val) == 3 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in val):
+                node.input_constants[dst_port] = [float(val[0]), float(val[1]), float(val[2])]
+            else:
+                node.input_constants[dst_port] = val
+            # 当入参为列表常量且端口期望类型为明确列表类型时，写入 port_type_overrides 以稳定 UI 预览类型。
+            if (
+                graph_model is not None
+                and isinstance(node.input_constants.get(dst_port), list)
+                and expected_type
+                and is_list_type_name(expected_type)
+                and expected_type != TYPE_GENERIC_LIST
+            ):
+                meta = getattr(graph_model, "metadata", None)
+                if isinstance(meta, dict):
+                    overrides_raw = meta.get("port_type_overrides")
+                    overrides = dict(overrides_raw) if isinstance(overrides_raw, dict) else {}
+                    node_overrides_raw = overrides.get(node.id)
+                    node_overrides = dict(node_overrides_raw) if isinstance(node_overrides_raw, dict) else {}
+                    node_overrides[dst_port] = expected_type
+                    overrides[node.id] = node_overrides
+                    meta["port_type_overrides"] = overrides
     # 关键字参数
     for pname, expr in norm.keywords.items():
         val = extract_constant_value(expr)
         if val is not NOT_EXTRACTABLE:
-            node.input_constants[pname] = val
+            expected_type = str((getattr(target_node_def, "input_types", {}) or {}).get(pname, "") or "").strip()
+            if expected_type == "三维向量" and isinstance(val, tuple) and len(val) == 3 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in val):
+                node.input_constants[pname] = [float(val[0]), float(val[1]), float(val[2])]
+            else:
+                node.input_constants[pname] = val
+            if (
+                graph_model is not None
+                and isinstance(node.input_constants.get(pname), list)
+                and expected_type
+                and is_list_type_name(expected_type)
+                and expected_type != TYPE_GENERIC_LIST
+            ):
+                meta = getattr(graph_model, "metadata", None)
+                if isinstance(meta, dict):
+                    overrides_raw = meta.get("port_type_overrides")
+                    overrides = dict(overrides_raw) if isinstance(overrides_raw, dict) else {}
+                    node_overrides_raw = overrides.get(node.id)
+                    node_overrides = dict(node_overrides_raw) if isinstance(node_overrides_raw, dict) else {}
+                    node_overrides[pname] = expected_type
+                    overrides[node.id] = node_overrides
+                    meta["port_type_overrides"] = overrides
     
     # 记录实例属性关联（用于后续匹配）
     if hasattr(target_node_def, 'composite_id'):

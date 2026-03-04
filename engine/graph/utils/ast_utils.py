@@ -8,6 +8,17 @@ import ast
 import threading
 from typing import Any, Dict, Optional
 
+from engine.type_registry import (
+    BASE_TYPES,
+    LIST_TYPES,
+    TYPE_DICT,
+    TYPE_FLOW,
+    TYPE_GENERIC,
+    TYPE_GENERIC_DICT,
+    TYPE_GENERIC_LIST,
+    TYPE_LIST_PLACEHOLDER,
+    parse_typed_dict_alias,
+)
 
 class _NotExtractable:
     """哨兵：表示无法静态提取常量值"""
@@ -39,6 +50,21 @@ def _is_hashable_constant_key(value: Any) -> bool:
 # ============================================================================
 
 _module_constants_context = threading.local()
+_module_constant_types_context = threading.local()
+
+
+def _get_or_init_stack(container: threading.local, attr_name: str) -> list[dict]:
+    existing = getattr(container, attr_name, None)
+    if existing is None:
+        stack: list[dict] = []
+        setattr(container, attr_name, stack)
+        return stack
+    if isinstance(existing, list):
+        return existing
+    # 兼容历史：若外部误写入了非 list 的值，直接覆盖为新栈（不吞错、不 try/except）
+    stack = []
+    setattr(container, attr_name, stack)
+    return stack
 
 
 def set_module_constants_context(constants: Dict[str, Any]) -> None:
@@ -47,17 +73,94 @@ def set_module_constants_context(constants: Dict[str, Any]) -> None:
     Args:
         constants: 常量名 -> 常量值 的映射
     """
-    _module_constants_context.constants = constants
+    # 重要：使用“栈式上下文”以支持嵌套解析：
+    # - GraphCodeParser 在解析节点图时会在同一线程内调用信号/结构体/关卡变量等 schema 视图；
+    # - 这些 schema 载入同样会临时设置模块常量上下文；
+    # - 若仅使用单一全局槽位，内层 clear 会把外层上下文清空，导致外层 AST 常量无法回填到 input_constants，
+    #   strict 结构校验会误报“缺少数据来源”。
+    stack = _get_or_init_stack(_module_constants_context, "stack")
+    stack.append(dict(constants))
+
+
+def set_module_constant_types_context(type_map: Dict[str, str]) -> None:
+    """设置当前解析上下文的模块级常量类型映射。
+
+    约定：type_map 的 value 必须是“源码中的显式类型注解文本”（中文端口类型）。
+    """
+    stack = _get_or_init_stack(_module_constant_types_context, "stack")
+    stack.append(dict(type_map))
 
 
 def clear_module_constants_context() -> None:
     """清除当前解析上下文的模块级常量映射"""
-    _module_constants_context.constants = None
+    stack = _get_or_init_stack(_module_constants_context, "stack")
+    if stack:
+        stack.pop()
+
+
+def clear_module_constant_types_context() -> None:
+    """清除当前解析上下文的模块级常量类型映射。"""
+    stack = _get_or_init_stack(_module_constant_types_context, "stack")
+    if stack:
+        stack.pop()
 
 
 def get_module_constants_context() -> Optional[Dict[str, Any]]:
     """获取当前解析上下文的模块级常量映射"""
-    return getattr(_module_constants_context, 'constants', None)
+    stack = _get_or_init_stack(_module_constants_context, "stack")
+    return stack[-1] if stack else None
+
+
+def get_module_constant_types_context() -> Optional[Dict[str, str]]:
+    """获取当前解析上下文的模块级常量类型映射。"""
+    stack = _get_or_init_stack(_module_constant_types_context, "stack")
+    return stack[-1] if stack else None
+
+
+def _is_concrete_port_type_text(type_text: object) -> bool:
+    text = str(type_text or "").strip()
+    if text == "":
+        return False
+    if text in {TYPE_GENERIC, TYPE_GENERIC_LIST, TYPE_GENERIC_DICT, TYPE_LIST_PLACEHOLDER, TYPE_DICT, TYPE_FLOW}:
+        return False
+    if text in BASE_TYPES:
+        return True
+    if text in LIST_TYPES:
+        return True
+    is_alias, key_type, value_type = parse_typed_dict_alias(text)
+    if not is_alias:
+        return False
+    return _is_concrete_port_type_text(key_type) and _is_concrete_port_type_text(value_type)
+
+
+def collect_module_constant_types(tree: ast.Module) -> Dict[str, str]:
+    """收集模块顶层“命名常量”的显式类型注解。
+
+    仅收集可静态提取值且类型为“具体类型”的声明，示例：
+    - `常量A: "整数列表" = [1, 2, 3]`
+    - `常量B: "整数-整数字典" = {1: 10, 2: 20}`
+    """
+    result: Dict[str, str] = {}
+    for stmt in list(getattr(tree, "body", []) or []):
+        if not isinstance(stmt, ast.AnnAssign):
+            continue
+        target = getattr(stmt, "target", None)
+        annotation = getattr(stmt, "annotation", None)
+        value_node = getattr(stmt, "value", None)
+        if not isinstance(target, ast.Name):
+            continue
+        if not isinstance(annotation, ast.Constant) or not isinstance(getattr(annotation, "value", None), str):
+            continue
+        if value_node is None:
+            continue
+
+        annotation_text = str(annotation.value or "").strip()
+        if not _is_concrete_port_type_text(annotation_text):
+            continue
+        if _extract_constant_value_raw(value_node) is NOT_EXTRACTABLE:
+            continue
+        result[target.id] = annotation_text
+    return result
 
 
 def collect_module_constants(tree: ast.Module) -> Dict[str, Any]:
@@ -75,27 +178,110 @@ def collect_module_constants(tree: ast.Module) -> Dict[str, Any]:
     Returns:
         常量名 -> 常量值 的映射
     """
-    constants: Dict[str, Any] = {}
-    
-    for stmt in tree.body:
+    # 1) 收集模块顶层“单目标赋值”的 RHS 表达式（按出现顺序，后者覆盖前者）
+    expr_by_name: Dict[str, ast.expr] = {}
+    for stmt in getattr(tree, "body", []) or []:
         # 带类型标注的赋值（AnnAssign）
         if isinstance(stmt, ast.AnnAssign):
-            if isinstance(stmt.target, ast.Name) and stmt.value is not None:
-                var_name = stmt.target.id
-                # 递归提取值（不使用上下文，避免循环）
-                const_val = _extract_constant_value_raw(stmt.value)
-                if const_val is not NOT_EXTRACTABLE:
-                    constants[var_name] = const_val
-        
+            if isinstance(getattr(stmt, "target", None), ast.Name) and isinstance(getattr(stmt, "value", None), ast.expr):
+                expr_by_name[stmt.target.id] = stmt.value
+            continue
+
         # 普通赋值（Assign）
-        elif isinstance(stmt, ast.Assign):
-            if len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
-                var_name = stmt.targets[0].id
-                const_val = _extract_constant_value_raw(stmt.value)
-                if const_val is not NOT_EXTRACTABLE:
-                    constants[var_name] = const_val
-    
-    return constants
+        if isinstance(stmt, ast.Assign):
+            targets = list(getattr(stmt, "targets", []) or [])
+            if len(targets) == 1 and isinstance(targets[0], ast.Name) and isinstance(getattr(stmt, "value", None), ast.expr):
+                expr_by_name[targets[0].id] = stmt.value
+            continue
+
+    # 2) 解析：支持“字面量/容器字面量”以及“引用其他模块常量”的别名链（例如 POS_X = ZERO_FLOAT）
+    resolved: Dict[str, Any] = {}
+    resolving: set[str] = set()
+
+    def _resolve_expr(expr: ast.expr) -> Any:
+        raw = _extract_constant_value_raw(expr)
+        if raw is not NOT_EXTRACTABLE:
+            return raw
+
+        # 变量引用：支持模块级常量别名
+        if isinstance(expr, ast.Name):
+            return _resolve_name(expr.id)
+
+        # 一元 +/-：支持对模块级常量做一元正负号
+        if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, (ast.UAdd, ast.USub)):
+            operand = getattr(expr, "operand", None)
+            if isinstance(operand, ast.expr):
+                inner = _resolve_expr(operand)
+                if isinstance(inner, (int, float)) and not isinstance(inner, bool):
+                    if isinstance(expr.op, ast.USub):
+                        return -inner
+                    return +inner
+            return NOT_EXTRACTABLE
+
+        # 容器字面量：允许元素引用模块级常量（如 LIST = [A, B]）
+        if isinstance(expr, ast.List):
+            items: list[Any] = []
+            for element in list(getattr(expr, "elts", []) or []):
+                if not isinstance(element, ast.expr):
+                    return NOT_EXTRACTABLE
+                extracted = _resolve_expr(element)
+                if extracted is NOT_EXTRACTABLE:
+                    return NOT_EXTRACTABLE
+                items.append(extracted)
+            return items
+        if isinstance(expr, ast.Tuple):
+            items: list[Any] = []
+            for element in list(getattr(expr, "elts", []) or []):
+                if not isinstance(element, ast.expr):
+                    return NOT_EXTRACTABLE
+                extracted = _resolve_expr(element)
+                if extracted is NOT_EXTRACTABLE:
+                    return NOT_EXTRACTABLE
+                items.append(extracted)
+            return tuple(items)
+        if isinstance(expr, ast.Dict):
+            keys = list(getattr(expr, "keys", []) or [])
+            values = list(getattr(expr, "values", []) or [])
+            if len(keys) != len(values):
+                return NOT_EXTRACTABLE
+            result: Dict[Any, Any] = {}
+            for k_node, v_node in zip(keys, values):
+                if (k_node is None) or (v_node is None):
+                    return NOT_EXTRACTABLE
+                if not isinstance(k_node, ast.expr) or not isinstance(v_node, ast.expr):
+                    return NOT_EXTRACTABLE
+                k_val = _resolve_expr(k_node)
+                if k_val is NOT_EXTRACTABLE:
+                    return NOT_EXTRACTABLE
+                if not _is_hashable_constant_key(k_val):
+                    return NOT_EXTRACTABLE
+                v_val = _resolve_expr(v_node)
+                if v_val is NOT_EXTRACTABLE:
+                    return NOT_EXTRACTABLE
+                result[k_val] = v_val
+            return result
+
+        return NOT_EXTRACTABLE
+
+    def _resolve_name(name: str) -> Any:
+        if name in resolved:
+            return resolved[name]
+        if name in resolving:
+            return NOT_EXTRACTABLE
+        expr = expr_by_name.get(name)
+        if expr is None:
+            return NOT_EXTRACTABLE
+        resolving.add(name)
+        val = _resolve_expr(expr)
+        resolving.remove(name)
+        if val is not NOT_EXTRACTABLE:
+            resolved[name] = val
+        return val
+
+    for name in list(expr_by_name.keys()):
+        _resolve_name(name)
+
+    return dict(resolved)
 
 
 def _extract_constant_value_raw(value_node: ast.expr) -> Any:
@@ -134,6 +320,25 @@ def _extract_constant_value_raw(value_node: ast.expr) -> Any:
                 return NOT_EXTRACTABLE
             items.append(extracted)
         return tuple(items)
+    if isinstance(value_node, ast.Dict):
+        keys = list(getattr(value_node, "keys", []) or [])
+        values = list(getattr(value_node, "values", []) or [])
+        if len(keys) != len(values):
+            return NOT_EXTRACTABLE
+        result: Dict[Any, Any] = {}
+        for key_node, value_node_item in zip(keys, values):
+            if key_node is None or value_node_item is None:
+                return NOT_EXTRACTABLE
+            key_value = _extract_constant_value_raw(key_node)
+            if key_value is NOT_EXTRACTABLE:
+                return NOT_EXTRACTABLE
+            if not _is_hashable_constant_key(key_value):
+                return NOT_EXTRACTABLE
+            value_value = _extract_constant_value_raw(value_node_item)
+            if value_value is NOT_EXTRACTABLE:
+                return NOT_EXTRACTABLE
+            result[key_value] = value_value
+        return result
     
     return NOT_EXTRACTABLE
 

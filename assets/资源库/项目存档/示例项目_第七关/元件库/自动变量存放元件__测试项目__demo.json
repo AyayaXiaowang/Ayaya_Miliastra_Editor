@@ -1,0 +1,21 @@
+{
+  "template_id": "template_auto_custom_var_store_b9ec9d81__测试项目",
+  "name": "自动变量存放元件__测试项目__demo",
+  "entity_type": "物件",
+  "description": "自动生成：用于承载『第三方』归属的自定义变量默认值与运行期存取。",
+  "default_graphs": [],
+  "default_components": [],
+  "entity_config": {
+    "render": {
+      "model_name": "空模型",
+      "visible": false
+    }
+  },
+  "graph_variable_overrides": {},
+  "metadata": {
+    "purpose": "auto_custom_var_store",
+    "auto_generated": true,
+    "auto_data_store_key": "demo",
+    "custom_variable_file": "auto_custom_vars__data__d642dfa0__测试项目"
+  }
+}

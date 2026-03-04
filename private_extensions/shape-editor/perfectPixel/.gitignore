@@ -1,0 +1,14 @@
+
+build/
+dist/
+*.egg-info/
+
+venv/
+.venv/
+env/
+
+output/
+
+*.log
+
+.DS_Store

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import re
 from pathlib import Path
 from typing import List
 
@@ -35,8 +34,7 @@ def _resolve_string_constant(expr: ast.AST | None, module_constants: dict) -> st
     return None
 
 
-_UI_CUSTOM_VAR_NAME_MAX_LEN = len("ui_page_level_select")  # 20
-_UI_CUSTOM_VAR_NAME_PATTERN = re.compile(r"^[a-z0-9_]+$", re.IGNORECASE)
+_CUSTOM_VAR_NAME_MAX_LEN = 20
 
 
 class CustomVarNameRequiredRule(ValidationRule):
@@ -140,23 +138,20 @@ class CustomVarNameRequiredRule(ValidationRule):
                     )
                     continue
 
-                # 工程化约束：UI 自定义变量名（snake_case）在写回链路/真源侧存在长度上限。
-                # 仅对 `ui_` 前缀的 ASCII 变量名启用，避免误伤大量中文业务变量名。
-                if resolved.lower().startswith("ui_") and _UI_CUSTOM_VAR_NAME_PATTERN.match(resolved):
-                    if len(resolved) > _UI_CUSTOM_VAR_NAME_MAX_LEN:
-                        issues.append(
-                            create_rule_issue(
-                                self,
-                                file_path,
-                                getattr(var_kw, "value", None) or node,
-                                "CODE_CUSTOM_VAR_NAME_TOO_LONG",
-                                (
-                                    f"{line_span_text(node)}: 自定义变量名过长：{resolved!r} "
-                                    f"（len={len(resolved)}，上限={_UI_CUSTOM_VAR_NAME_MAX_LEN}）。"
-                                    f"请缩短变量名（例如去掉不必要后缀）。"
-                                ),
-                            )
+                if len(resolved) > _CUSTOM_VAR_NAME_MAX_LEN:
+                    issues.append(
+                        create_rule_issue(
+                            self,
+                            file_path,
+                            getattr(var_kw, "value", None) or node,
+                            "CODE_CUSTOM_VAR_NAME_TOO_LONG",
+                            (
+                                f"{line_span_text(node)}: 自定义变量名过长：{resolved!r} "
+                                f"（len={len(resolved)}，上限={_CUSTOM_VAR_NAME_MAX_LEN}）。"
+                                "请压缩变量名（<=20）。"
+                            ),
                         )
+                    )
 
         return issues
 

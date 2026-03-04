@@ -193,11 +193,15 @@ def create_dual_branch_node(
             return None, None
         if isinstance(expr, ast.Call):
             nested_nodes, nested_edges, param_node_map = extract_nested_nodes(
-                expr, ctx, validators, env
+                expr,
+                ctx,
+                validators,
+                env,
+                graph_model=graph_model,
             )
             branch_nodes.extend(nested_nodes)
             branch_edges.extend(nested_edges)
-            cond_node = create_node_from_call(expr, ctx, validators, env=env)
+            cond_node = create_node_from_call(expr, ctx, validators, env=env, graph_model=graph_model)
             if not cond_node:
                 return None, None
             branch_nodes.append(cond_node)
@@ -208,6 +212,7 @@ def create_dual_branch_node(
                 ctx.node_library,
                 ctx.node_name_index,
                 env,
+                graph_model=graph_model,
             )
             branch_edges.extend(data_edges)
             cond_out = _pick_first_data_output_port(cond_node)
@@ -227,7 +232,7 @@ def create_dual_branch_node(
         )
         logic_not_call.lineno = getattr(stmt.test, "lineno", 0)
         logic_not_call.end_lineno = getattr(stmt.test, "end_lineno", getattr(stmt.test, "lineno", 0))
-        not_node = create_node_from_call(logic_not_call, ctx, validators, env=env)
+        not_node = create_node_from_call(logic_not_call, ctx, validators, env=env, graph_model=graph_model)
         if not_node:
             # 确保源码行号可追踪到 if 条件
             not_node.source_lineno = getattr(stmt.test, "lineno", 0)
@@ -272,7 +277,7 @@ def create_dual_branch_node(
         # 避免为只在单一分支中赋值并使用的变量创建不必要的局部变量节点
         combined_assigned = assigned_true & assigned_false
         env.push_multi_assign(combined_assigned)
-        true_nodes, true_edges = parse_method_body_func(stmt.body, (branch_node, "是"), graph_model, False, env, ctx, validators)
+        true_nodes, true_edges, true_final_prev = parse_method_body_func(stmt.body, (branch_node, "是"), graph_model, False, env, ctx, validators)
         env.pop_multi_assign()
         branch_nodes.extend(true_nodes)
         branch_edges.extend(true_edges)
@@ -288,21 +293,17 @@ def create_dual_branch_node(
                         has_break_true = True
                         break
 
-        if true_nodes:
-            last_flow = find_last_flow_node(true_nodes)
-            has_ret = block_has_return(stmt.body)
-            if last_flow and (not has_ret):
-                branch_last_nodes.append(last_flow)
-            elif (not last_flow) and (not has_ret) and (not has_break_true):
-                branch_last_nodes.append((branch_node, "是"))
-        else:
-            # 分支体语法上非空，但未生成任何节点：
-            # - 常见于 `if 条件: pass` 这类显式空体写法；
-            # - 或者分支内只有纯类型标注等被解析器跳过的语句。
-            # 若该分支不包含 return，则允许从对应端口继续接续后续流程，
-            # 避免把后续语句错误地提升为“新的事件入口分叉”。
-            if is_pass_only_block(stmt.body) and (not block_has_return(stmt.body)) and (not has_break_true):
-                branch_last_nodes.append((branch_node, "是"))
+        # 利用 parse_method_body 返回的精确续接信息确定分支出口，
+        # 而不是用 find_last_flow_node 猜测——后者对嵌套分支节点无法
+        # 区分哪个输出端口可以续接（例如内层双分支的"是"可续接、"否"走了 return）。
+        has_ret = block_has_return(stmt.body)
+        if (not has_ret) and (not has_break_true):
+            if true_final_prev is not None:
+                if isinstance(true_final_prev, list):
+                    branch_last_nodes.extend(true_final_prev)
+                else:
+                    branch_last_nodes.append(true_final_prev)
+            # true_final_prev 为 None → 分支体内所有路径均已终止（如嵌套 if 全部 return），不可续接
         env.restore(snapshot)
     else:
         # 空分支体：仅当未出现 break 时才允许从“是”继续向后接续
@@ -319,7 +320,7 @@ def create_dual_branch_node(
         # 只有在多个分支中都被赋值的变量才需要标记为多分支赋值候选
         combined_assigned = assigned_true & assigned_false
         env.push_multi_assign(combined_assigned)
-        false_nodes, false_edges = parse_method_body_func(stmt.orelse, (branch_node, "否"), graph_model, False, env, ctx, validators)
+        false_nodes, false_edges, false_final_prev = parse_method_body_func(stmt.orelse, (branch_node, "否"), graph_model, False, env, ctx, validators)
         env.pop_multi_assign()
         branch_nodes.extend(false_nodes)
         branch_edges.extend(false_edges)
@@ -335,17 +336,15 @@ def create_dual_branch_node(
                         has_break_false = True
                         break
 
-        if false_nodes:
-            last_flow = find_last_flow_node(false_nodes)
-            has_ret2 = block_has_return(stmt.orelse)
-            if last_flow and (not has_ret2):
-                branch_last_nodes.append(last_flow)
-            elif (not last_flow) and (not has_ret2) and (not has_break_false):
-                branch_last_nodes.append((branch_node, "否"))
-        else:
-            # else 分支语法上非空但未生成任何节点（常见于 `else: pass`）。
-            if is_pass_only_block(stmt.orelse) and (not block_has_return(stmt.orelse)) and (not has_break_false):
-                branch_last_nodes.append((branch_node, "否"))
+        # 利用 parse_method_body 返回的精确续接信息（同"是"分支逻辑）
+        has_ret2 = block_has_return(stmt.orelse)
+        if (not has_ret2) and (not has_break_false):
+            if false_final_prev is not None:
+                if isinstance(false_final_prev, list):
+                    branch_last_nodes.extend(false_final_prev)
+                else:
+                    branch_last_nodes.append(false_final_prev)
+            # false_final_prev 为 None → 分支体内所有路径均已终止，不可续接
         env.restore(snapshot)
     else:
         # 空分支体：允许从“否”接续（该分支无 break）
@@ -455,7 +454,7 @@ def create_multi_branch_node(
         branch_port = "默认" if case_value in ("_", None) else str(case_value)
         snapshot = env.snapshot()
         env.push_multi_assign(combined_assigned)
-        case_nodes, case_edges = parse_method_body_func(
+        case_nodes, case_edges, case_final_prev = parse_method_body_func(
             case.body,
             (branch_node, branch_port),
             graph_model,
@@ -479,21 +478,14 @@ def create_multi_branch_node(
                         has_break_case = True
                         break
 
-        if case_nodes:
-            last_flow = find_last_flow_node(case_nodes)
-            has_ret = block_has_return(case.body)
-            if last_flow and (not has_ret) and (not has_break_case):
-                branch_last_nodes.append(last_flow)
-            elif (not last_flow) and (not has_ret) and (not has_break_case):
-                # 分支体生成了节点，但没有任何流程节点（例如只有纯数据赋值/计算）：
-                # 允许从该分支端口直接接续后续流程。
-                branch_last_nodes.append((branch_node, branch_port))
-        else:
-            # 分支体未生成任何节点：
-            # - 若仅包含 pass，则视为“显式空体”，对应的分支端口仍然可以继续向后接续；
-            # - 若包含 return 等提前终止语句，则不应继续接续（例如 `case _: return`）。
-            if (not has_break_case) and (not block_has_return(case.body)):
-                branch_last_nodes.append((branch_node, branch_port))
+        # 利用 parse_method_body 返回的精确续接信息（与双分支逻辑一致）
+        has_ret = block_has_return(case.body)
+        if (not has_ret) and (not has_break_case):
+            if case_final_prev is not None:
+                if isinstance(case_final_prev, list):
+                    branch_last_nodes.extend(case_final_prev)
+                else:
+                    branch_last_nodes.append(case_final_prev)
 
         env.restore(snapshot)
 

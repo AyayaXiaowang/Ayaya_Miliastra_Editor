@@ -222,3 +222,50 @@ def test_list_and_read_entity_placements_roundtrip(tmp_path: Path) -> None:
     assert isinstance(r2.get("canvas_payload"), dict)
     assert len(r2["canvas_payload"]["objects"]) == 5
 
+
+def test_list_entity_placements_skips_instances_index_json(tmp_path: Path) -> None:
+    """
+    `实体摆放/instances_index.json` 是导入器生成的索引文件（顶层为 JSON list），不是实体摆放资源本体。
+    shape-editor 的实体列表扫描必须跳过它，避免把索引当实体读取导致崩溃。
+    """
+    package_id = "测试项目"
+    resource_library_dir = _make_resource_library_dir(tmp_path, package_id=package_id)
+    settings_obj = load_shape_editor_settings()
+
+    created = create_blank_entity_in_project(
+        workspace_root=tmp_path,
+        resource_library_dir=resource_library_dir,
+        package_id=package_id,
+        settings_obj=settings_obj,
+        instance_name="拼贴画画布",
+    )
+    rel_path = str(created["rel_path"])
+
+    project_root = (resource_library_dir / "项目存档" / package_id).resolve()
+    placements_dir = (project_root / "实体摆放").resolve()
+    placements_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create index file with list payload (the real-world failing case).
+    index_file = (placements_dir / "instances_index.json").resolve()
+    index_file.write_text(
+        json.dumps(
+            [
+                {
+                    "instance_id": "dummy_instance_id",
+                    "name": "Dummy",
+                    "template_id": "dummy_template_id",
+                    "output": "实体摆放/dummy.json",
+                }
+            ],
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    cat = list_project_entity_placements(resource_library_dir=resource_library_dir, package_id=package_id, settings_obj=settings_obj)
+    assert cat["ok"] is True
+    rels = {str(it["rel_path"]) for it in (cat.get("placements") or [])}
+    assert rel_path in rels
+    assert "实体摆放/instances_index.json" not in rels
+

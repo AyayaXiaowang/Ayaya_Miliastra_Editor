@@ -77,12 +77,8 @@ export function renderFileList() {
 
     var meta = document.createElement("div");
     meta.className = "item-meta";
-    if (isDerivedHtmlFileName(fileName)) {
-      meta.textContent = "派生";
-    } else {
-      var cacheKey = scope + ":" + fileName;
-      meta.textContent = state.flattened_cache && state.flattened_cache[cacheKey] ? "已扁平" : "自动扁平";
-    }
+    var cacheKey = scope + ":" + fileName;
+    meta.textContent = state.flattened_cache && state.flattened_cache[cacheKey] ? "已扁平" : "自动扁平";
 
     row.appendChild(checkWrap);
     row.appendChild(badge);

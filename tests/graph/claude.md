@@ -7,18 +7,25 @@
 - `test_signal_template_graph.py`：解析公开模板 `模板示例_信号全类型_发送与监听`，验证监听信号事件节点的绑定信息与输出端口覆盖情况。
 - `test_loop_local_variable_modeling.py`：解析公开测试图 `测试_局部变量计数`，验证循环体内变量更新能被正确建模为【获取/设置局部变量】写回。
 - `test_branch_local_variable_modeling.py`：解析公开测试图 `测试_局部变量_分支设置`，验证 if-else 分支合流变量赋值能被正确建模为【获取局部变量】初始化 + 两侧分支【设置局部变量】写回。
+- `test_custom_var_delta_not_self_subtraction.py`：回归“读-改-写同一自定义变量”场景：结算差值（新分-旧分）的【减法运算】左右输入不能被错误合并为同一数据源（避免 X-X=0）。
+- `test_custom_var_read_snapshot_materialization.py`：回归“先读后写再使用旧值”的语义一致性：当读取到的自定义变量在后续被写回且旧值仍被使用时，解析应自动物化为【获取局部变量 + 设置局部变量】快照并挂到流程链上，避免 lazy/pull 下推迟求值读到新值。
+- `test_no_none_input_constants_in_level7_server_graphs.py`：回归“写回 `.gil` 的常量不接受 None”：对第七关 server 图做扫描，确保 GraphModel 中不存在 `input_constants[key]=None`（缺省应通过不写 key 表达），避免写回阶段将 None 强制转整数时报错。
 - `test_nested_controlflow_parsing.py`：回归复杂嵌套控制流（for 内 match/break、match 分支仅含纯数据节点、for 内 if-else 写回）在解析时的流程边与局部变量建模稳定性。
-- `test_composite_match_controlflow_parsing.py`：回归 match over 复合节点流程出口在循环 break、纯数据分支接续、return 分支终止等场景下的流程连线与局部变量合流建模。
+- `test_composite_match_controlflow_parsing.py`：回归 match over 复合节点流程出口在循环 break（通过【跳出循环】节点连接到循环节点输入【跳出循环】）、纯数据分支接续、return 分支终止等场景下的流程连线与局部变量合流建模。
   - 注意：该类测试依赖“演示项目”作用域下的复合节点定义（例如 `多分支_示例_类格式`），运行前需切换 `active_package_id="演示项目"` 并清理 NodeRegistry 缓存，避免复合节点未加载导致解析退化为普通 match。
 - `test_strict_parse_fail_closed.py`：回归严格模式（fail-closed）：遇到 Python 原生方法调用、复合 match 无有效分支等无法可靠建模的写法时，应直接拒绝解析（抛错），避免静默产错图。
   - 同时回归 validate 入口：`validate_file` 必须将 IR 层收集到的 `ir_errors` 作为 error 暴露，避免“UI 严格模式拒绝加载但校验通过”。
   - 校验用例中若使用【设置/获取节点图变量】，需同步在代码级 `GRAPH_VARIABLES` 中声明对应变量，避免被“图变量声明规则”提前拦截而掩盖 IR 相关错误。
 - `test_graph_core_logic.py`：节点图核心纯模型回归（端口规划与 NodeDef 代理构建等），不依赖 PyQt。
+- `test_port_type_effective_resolver_dict_build_nodes.py`：回归 `拼装字典` 等字典构造节点的“有效端口类型”必须收敛为别名字典类型（如 `整数-整数字典`），并覆盖 `ui_key:` 常量按整数语义推断的契约，避免导出/画布端口类型退化为标量。
+- `test_event_node_def_ref_category_title_mapping.py`：回归 `node_def_ref.kind="event"` 在端口类型推断/判定场景可通过 `category/title -> builtin_key` 确定性映射定位 NodeDef，避免 UI/执行侧与导出侧证据来源分叉。
+- `test_validate_graph_model_event_kind_builtin_mapping.py`：回归 `validate_graph_model(...)` 在 `node_def_ref.kind="event"` 场景下，同样支持通过 `category/title -> builtin_key` 映射解析 NodeDef（常见：监听信号事件入口），避免结构校验误报“端口类型仍为泛型”。
 - `test_node_pipeline_scope_inference.py`：回归节点管线 scope 推导规则。
 - `test_node_pipeline_alias_scope_resolution.py`：回归节点管线 alias 的作用域解析规则。
 - `test_scope_aware_node_name_index_from_library.py`：回归 scope-aware 节点名索引必须指向当前作用域可用的 NodeDef，并覆盖关键节点（角度/弧度转换、设置局部变量、基础算术）端口命名契约，避免 UI 连线缺失。
 - `test_reverse_generate_graph_code_roundtrip.py`：回归“反向生成 Graph Code（阶段1线性事件流）”的往返语义一致：从公开模板图解析出 GraphModel，再生成 Graph Code 并正向解析，最终用语义签名比较确保节点/连线/变量/关键元数据一致。
 - `test_reverse_generate_graph_code_roundtrip_controlflow.py`：回归“反向生成 Graph Code（结构化控制流）”：覆盖双分支/多分支/循环/break，以及复合节点多流程出口（match）与默认出口线性接续等场景的往返语义一致。
+- `test_reverse_generate_graph_code_prefer_arithmetic_operators.py`：回归反向生成开启 `prefer_arithmetic_operators` 时，基础算术节点（加减乘除）输出为 `a + b` 等运算符表达式，且 round-trip 语义签名一致。
 
 ## 注意事项
 - 解析类测试应尽量使用仓库内跟踪的模板/示例文件作为输入，避免引用本地私有资源。

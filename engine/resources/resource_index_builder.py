@@ -211,21 +211,39 @@ class ResourceIndexBuilder:
         # 允许“不同项目存档内存在相同 resource_id”的同时，资源索引需要具备稳定的覆盖优先级：
         # - 若同一 resource_id 同时出现在共享根与当前项目存档根，优先使用当前项目存档版本；
         # - 若重复发生在同一根目录内（共享根内部或某项目存档内部），仍视为错误（歧义不可解）。
-        shared_root_dir = get_shared_root_dir(self.resource_library_dir).resolve()
+        shared_root_dir = get_shared_root_dir(self.resource_library_dir)
         active_package_id = str(self._active_package_id or "").strip()
         package_root_dir: Path | None = None
         if active_package_id:
-            package_root_dir = (get_packages_root_dir(self.resource_library_dir) / active_package_id).resolve()
+            package_root_dir = get_packages_root_dir(self.resource_library_dir) / active_package_id
+
+        shared_root_abs = (
+            shared_root_dir if shared_root_dir.is_absolute() else shared_root_dir.absolute()
+        )
+        package_root_abs: Path | None = (
+            package_root_dir if package_root_dir is None else (package_root_dir if package_root_dir.is_absolute() else package_root_dir.absolute())
+        )
 
         def infer_scope(file_path: Path) -> str:
-            resolved = file_path.resolve()
-            if package_root_dir is not None:
-                package_parts = package_root_dir.parts
-                if resolved.parts[: len(package_parts)] == package_parts:
-                    return "package"
-            shared_parts = shared_root_dir.parts
-            if resolved.parts[: len(shared_parts)] == shared_parts:
-                return "shared"
+            file_abs = file_path if file_path.is_absolute() else file_path.absolute()
+            if package_root_abs is not None:
+                if hasattr(file_abs, "is_relative_to"):
+                    if file_abs.is_relative_to(package_root_abs):  # type: ignore[attr-defined]
+                        return "package"
+                else:
+                    package_parts = tuple(part.casefold() for part in package_root_abs.parts)
+                    file_parts = tuple(part.casefold() for part in file_abs.parts)
+                    if len(file_parts) >= len(package_parts) and file_parts[: len(package_parts)] == package_parts:
+                        return "package"
+
+            if hasattr(file_abs, "is_relative_to"):
+                if file_abs.is_relative_to(shared_root_abs):  # type: ignore[attr-defined]
+                    return "shared"
+            else:
+                shared_parts = tuple(part.casefold() for part in shared_root_abs.parts)
+                file_parts = tuple(part.casefold() for part in file_abs.parts)
+                if len(file_parts) >= len(shared_parts) and file_parts[: len(shared_parts)] == shared_parts:
+                    return "shared"
             return "unknown"
 
         # 记录资源索引构建过程中可恢复的问题：
@@ -303,7 +321,7 @@ class ResourceIndexBuilder:
 
                         existing_path = resource_index[resource_type].get(resource_id)
                         if existing_path is not None:
-                            if existing_path.resolve() == py_file.resolve():
+                            if existing_path == py_file:
                                 continue
 
                             existing_scope = infer_scope(existing_path)
@@ -376,7 +394,7 @@ class ResourceIndexBuilder:
 
                     existing_path = resource_index[resource_type].get(resource_id)
                     if existing_path is not None:
-                        if existing_path.resolve() == json_file.resolve():
+                        if existing_path == json_file:
                             continue
 
                         existing_scope = infer_scope(existing_path)
@@ -698,7 +716,7 @@ class ResourceIndexBuilder:
         # 重要：写入“带时间戳的新文件”，避免覆盖写固定文件名在 Windows 下触发 WinError 5（外部短暂占用）。
         # 读取时会选择 mtime 最新的一个作为缓存命中候选。
         now = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        cache_file = (cache_dir / f"resource_index.{now}.{os.getpid()}.json").resolve()
+        cache_file = (cache_dir / f"resource_index.{now}.{os.getpid()}.json").absolute()
         payload = {
             "__manifest__": {
                 "schema": RESOURCE_INDEX_CACHE_SCHEMA,

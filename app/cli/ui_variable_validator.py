@@ -9,6 +9,7 @@ from typing import Iterable, Sequence, Tuple
 
 from engine.resources.custom_variable_file_refs import normalize_custom_variable_file_refs
 from engine.resources.level_variable_schema_view import CATEGORY_CUSTOM, LevelVariableSchemaView
+from engine.type_registry import is_dict_type_name
 
 
 _MOUSTACHE_PATTERN = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")
@@ -473,7 +474,15 @@ def iter_ui_html_files(ui_source_dir: Path) -> Iterable[Path]:
         return []
     if not ui_source_dir.is_dir():
         raise ValueError(f"UI源码路径存在但不是目录：{ui_source_dir}")
-    return sorted(ui_source_dir.rglob("*.html"))
+    # 约定：UI源码目录内可能存在 __hook_tests__ 夹具（用于 hooks/单测），不参与项目 UI 校验。
+    html_files: list[Path] = []
+    for p in ui_source_dir.rglob("*.html"):
+        if not p.is_file():
+            continue
+        if "__hook_tests__" in p.parts:
+            continue
+        html_files.append(p)
+    return sorted(html_files)
 
 
 def validate_ui_source_dir(
@@ -568,7 +577,7 @@ def validate_ui_source_dir(
                 continue
 
             vtype = str(payload.get("variable_type") or "").strip()
-            if vtype != "字典":
+            if not is_dict_type_name(vtype):
                 line, column = _compute_line_col(text, start_offset)
                 all_issues.append(
                     UiVariableIssue(
@@ -606,7 +615,7 @@ def validate_ui_source_dir(
                             token=token,
                             message=(
                                 f"lv 字典键不存在：{var_name!r} 缺少键路径 {'.'.join(key_path)!r}。\n"
-                                "建议：补齐该字典默认值结构；若该变量由 UI 自动生成，可运行 validate-ui --fix 自动补键。"
+                                "建议：在【自定义变量注册表.py】补齐该字典的 default_value 结构（唯一真源）。"
                             ),
                         )
                     )
@@ -680,8 +689,8 @@ def validate_ui_source_dir(
                     "检查项：\n"
                     f"- PackageIndex.resources.combat_presets.player_templates（共享+当前存档）\n"
                     f"- {Path(workspace_root) / 'assets' / '资源库' / '项目存档' / package_id_text / '战斗预设' / '玩家模板'}\n"
-                    "建议：补齐至少一个玩家模板，并在其 metadata.custom_variable_file 中引用包含该变量的普通自定义变量文件；"
-                    "可先运行 validate-ui --fix 生成变量文件，再把模板引用补齐。"
+                            "建议：补齐至少一个玩家模板，并在其 metadata.custom_variable_file 中引用注册表派生的稳定变量文件："
+                            f"auto_custom_vars__player__{package_id_text}（必要时也可附加其它变量文件）。"
                 ),
             )
         )
@@ -806,7 +815,7 @@ def validate_ui_source_dir(
                 if not key_path:
                     continue
                 vtype = str(payload.get("variable_type") or "").strip()
-                if vtype != "字典":
+                if not is_dict_type_name(vtype):
                     wrong_type_templates.append(template_id)
                     continue
                 default_value = payload.get("default_value")
@@ -853,7 +862,9 @@ def validate_ui_source_dir(
                             + "\n"
                             + "\n".join(parts)
                             + "\n"
-                            + "建议：运行 validate-ui --fix 自动生成/补齐变量文件，并确保对应玩家模板引用该文件。"
+                            + "建议：在【自定义变量注册表.py】补齐变量声明/默认结构，并确保对应玩家模板的 "
+                            "metadata.custom_variable_file 引用到注册表派生的稳定文件（例如 "
+                            f"auto_custom_vars__player__{package_id_text}）。"
                         ),
                     )
                 )

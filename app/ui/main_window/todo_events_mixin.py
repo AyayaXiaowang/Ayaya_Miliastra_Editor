@@ -13,7 +13,7 @@ from app.models import TodoItem
 from app.models.view_modes import ViewMode
 from engine.utils.logging.logger import log_info
 from app.runtime.services.graph_data_service import get_shared_graph_data_service
-from app.ui.todo.current_todo_resolver import (
+from app.ui.todo.runtime.current_todo_resolver import (
     CurrentTodoContext,
     build_context_from_host,
     resolve_current_todo_for_leaf,
@@ -222,7 +222,15 @@ class TodoEventsMixin:
         if button is None or not hasattr(self, "graph_controller"):
             return
 
-        button_label = "前往执行"
+        from importlib.util import find_spec
+
+        ocr_available = find_spec("rapidocr_onnxruntime") is not None
+        if ocr_available:
+            button_label = "前往执行"
+            tooltip_text = "前往任务清单并定位/生成当前图对应的执行步骤"
+        else:
+            button_label = "前往任务清单"
+            tooltip_text = "前往任务清单并定位当前图对应的步骤（OCR 未安装，无法执行自动化）"
         current_mode = None
         if hasattr(self, "central_stack"):
             current_mode = ViewMode.from_index(self.central_stack.currentIndex())
@@ -230,6 +238,8 @@ class TodoEventsMixin:
         should_show = current_mode is ViewMode.GRAPH_EDITOR
 
         button.setText(button_label)
+        if hasattr(button, "setToolTip"):
+            button.setToolTip(tooltip_text)
         button.setVisible(should_show)
 
         graph_view = getattr(self.graph_controller, "view", None)

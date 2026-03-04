@@ -38,10 +38,16 @@ class GraphResourceLoadThread(QtCore.QThread):
         if not graph_id:
             self.result = GraphResourceLoadResult(graph_id="", graph_data=None)
             return
+        if self.isInterruptionRequested():
+            self.result = GraphResourceLoadResult(graph_id=graph_id, graph_data=None)
+            return
 
         monitor = get_shared_performance_monitor()
         started = time.perf_counter()
         graph_data = self._resource_manager.load_resource(ResourceType.GRAPH, graph_id)
+        if self.isInterruptionRequested():
+            self.result = GraphResourceLoadResult(graph_id=graph_id, graph_data=None)
+            return
         monitor.record_span(
             name=f"graph.load_resource:{graph_id}",
             dt_ms=float((time.perf_counter() - float(started)) * 1000.0),

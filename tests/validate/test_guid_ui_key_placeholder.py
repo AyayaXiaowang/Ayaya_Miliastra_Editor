@@ -108,17 +108,20 @@ def test_writeback_can_resolve_ui_key_guid_placeholder(monkeypatch) -> None:
     private_extensions_root = repo_root / "private_extensions"
     monkeypatch.syspath_prepend(str(private_extensions_root))
 
-    from ugc_file_tools.node_graph_writeback.var_base import _coerce_constant_value_for_port_type, set_ui_key_guid_registry
+    from ugc_file_tools.node_graph_semantics.var_base import (
+        coerce_constant_value_for_port_type,
+        coerce_constant_value_for_var_type,
+        set_ui_key_guid_registry,
+    )
 
     set_ui_key_guid_registry({"HUD_HP_BAR": 1234567890})
-    assert _coerce_constant_value_for_port_type(port_type="GUID", raw_value="ui:HUD_HP_BAR") == 1234567890
-    assert _coerce_constant_value_for_port_type(port_type="GUID", raw_value="ui_key:HUD_HP_BAR") == 1234567890
+    assert coerce_constant_value_for_port_type(port_type="GUID", raw_value="ui:HUD_HP_BAR") == 1234567890
+    assert coerce_constant_value_for_port_type(port_type="GUID", raw_value="ui_key:HUD_HP_BAR") == 1234567890
     # 工程化：UI 控件索引（整数）也允许用 ui_key 占位符（写回阶段替换为真实整数 ID）
-    assert _coerce_constant_value_for_port_type(port_type="整数", raw_value="ui:HUD_HP_BAR") == 1234567890
-    assert _coerce_constant_value_for_port_type(port_type="整数", raw_value="ui_key:HUD_HP_BAR") == 1234567890
+    assert coerce_constant_value_for_port_type(port_type="整数", raw_value="ui:HUD_HP_BAR") == 1234567890
+    assert coerce_constant_value_for_port_type(port_type="整数", raw_value="ui_key:HUD_HP_BAR") == 1234567890
     # 工程化：GraphVariables(default_value, VarType=整数=3) 同样允许 ui_key 占位符
-    from ugc_file_tools.node_graph_writeback.var_base import _coerce_constant_value_for_var_type
-    assert _coerce_constant_value_for_var_type(var_type_int=3, raw_value="ui:HUD_HP_BAR") == 1234567890
+    assert coerce_constant_value_for_var_type(var_type_int=3, raw_value="ui:HUD_HP_BAR") == 1234567890
     set_ui_key_guid_registry(None)
 
 

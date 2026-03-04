@@ -8,6 +8,7 @@ from .dict_hazards import DictComputeMultiUseHazardRule, DictMutationRequiresGra
 from .entity_destroy_event_mount import EntityDestroyEventMountRule
 from .graph_errors import IrModelingErrorsRule, GraphStructuralErrorsRule
 from .pull_eval_reevaluation_hazard import PullEvalReevaluationHazardRule
+from .pull_eval_same_source_arith_hazard import PullEvalSameSourceArithmeticHazardRule
 from .unused_query_output import UnusedQueryOutputRule
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "EventMultipleFlowOutputsRule",
     "EntityDestroyEventMountRule",
     "PullEvalReevaluationHazardRule",
+    "PullEvalSameSourceArithmeticHazardRule",
     "DictComputeMultiUseHazardRule",
     "DictMutationRequiresGraphVarRule",
     "UnusedQueryOutputRule",

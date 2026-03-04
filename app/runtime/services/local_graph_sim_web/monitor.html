@@ -1,469 +1,372 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Local Graph UI Monitor</title>
+  <title>本地节点图 UI 监控面板</title>
   <style>
-    :root{
-      --bg0:#0f1115;
-      --bg1:#151822;
-      --bg2:#1b2030;
-      --fg0:#e6e7ea;
-      --fg1:#aeb4c0;
-      --accent:#5aa2ff;
-      --border:rgba(255,255,255,.08);
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "PingFang SC","Microsoft YaHei", sans-serif;
+    :root {
+      color-scheme: dark;
+      --bg-app: #121212;
+      --bg-panel: #1e1e1e;
+      --bg-header: #252526;
+      --bg-input: #2d2d2d;
+      --border: #333;
+      --border-active: #555;
+      --text: #e0e0e0;
+      --muted: #888;
+      --accent: #3794ff;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
-    html,body{height:100%;margin:0;background:var(--bg0);color:var(--fg0);font-family:var(--sans);}
-    *{box-sizing:border-box;}
-    a{color:inherit;}
-    button,select,input,textarea{
-      background:var(--bg2);color:var(--fg0);border:1px solid var(--border);
-      border-radius:8px;padding:6px 10px;font:inherit;
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    body { background: var(--bg-app); color: var(--text); font-family: var(--font); font-size: 13px; }
+    a { color: inherit; }
+
+    /* hide scrollbars (still scrollable) */
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; }
+
+    .btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
     }
-    button{cursor:pointer;}
-    button:hover{border-color:rgba(90,162,255,.45);}
-    textarea{font-family:var(--mono);font-size:12px;line-height:1.4;resize:vertical;}
-    .layout{
-      height:100%;
-      display:grid;
-      grid-template-columns: 320px 1fr 380px;
-      grid-template-rows: auto 1fr;
-      gap:10px;
-      padding:10px;
+    .btn:hover { border-color: var(--border-active); background: #3a3a3a; }
+    .btn.primary { border-color: rgba(55,148,255,0.55); background: rgba(55,148,255,0.18); }
+    .btn.primary:hover { background: rgba(55,148,255,0.26); }
+
+    .input, select, textarea {
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      outline: none;
+      font: inherit;
     }
-    .header{
-      grid-column:1 / -1;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:10px 12px;
-      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-      border:1px solid var(--border);
-      border-radius:12px;
+    .input, select { height: 28px; padding: 0 10px; }
+    .input:focus, select:focus { border-color: rgba(55,148,255,0.85); box-shadow: 0 0 0 2px rgba(55,148,255,0.15); }
+
+    textarea.wb-textarea {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+      color: rgba(255,255,255,0.88);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 10px;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+      overflow: auto;
     }
-    .header .title{font-weight:600;}
-    .header .sub{color:var(--fg1);font-size:12px; margin-top:2px;}
-    .header .right{display:flex; gap:8px; align-items:center;}
-    .panel{
-      background:rgba(255,255,255,.03);
-      border:1px solid var(--border);
-      border-radius:12px;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-      min-height:0;
+
+    .app { height: 100vh; display: flex; flex-direction: column; }
+    .header {
+      height: 48px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
     }
-    .panel .panel-h{
-      padding:10px 12px;
-      border-bottom:1px solid var(--border);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
+    .title { font-weight: 700; font-size: 14px; display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+    .subtitle { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .spacer { flex: 1; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      user-select: none;
     }
-    .panel .panel-h .h{font-weight:600; font-size:13px;}
-    .panel .panel-b{
-      padding:10px 12px;
-      overflow:auto;
-      min-height:0;
+
+    .main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+    .col-left {
+      width: 420px;
+      flex-shrink: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
     }
-    .kv{display:grid;grid-template-columns: 120px 1fr; gap:6px 10px; font-size:12px; color:var(--fg1);}
-    .kv b{color:var(--fg0); font-weight:600;}
-    .row{display:flex;gap:8px;align-items:center; flex-wrap:wrap;}
-    .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--fg1);}
-    .stage-wrap{display:flex;flex-direction:column;min-height:0;}
-    .stage-toolbar{
-      padding:10px 12px;
-      border-bottom:1px solid var(--border);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
+    .col-center { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #0f0f0f; }
+    .col-right {
+      width: 420px;
+      flex-shrink: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
     }
-    .stage-container{
-      padding:10px;
-      overflow:auto;
-      min-height:0;
+
+    .section-header {
+      height: 36px;
+      flex-shrink: 0;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      user-select: none;
     }
-    .stage{
-      position:relative;
-      background:#000;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    .section-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 10px; font-size: 12px; color: var(--muted); }
+    .kv b { color: var(--text); font-weight: 700; }
+
+    /* center toolbar (match workbench feel) */
+    .toolbar {
+      min-height: 50px;
+      height: auto;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 12px;
+      flex-wrap: wrap;
+    }
+    .toolbar-group { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+    .btn-group { display: flex; gap: 2px; background: var(--bg-input); padding: 3px; border-radius: 7px; }
+    .btn-group .btn { height: 22px; padding: 0 10px; border: none; background: transparent; color: var(--muted); border-radius: 5px; }
+    .btn-group .btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+    .btn-group .btn.active { background: var(--bg-panel); color: var(--accent); font-weight: 700; }
+    .divider { width: 1px; height: 24px; background: var(--border); }
+    .checkbox { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; user-select: none; cursor: pointer; white-space: nowrap; }
+    .checkbox input { accent-color: var(--accent); }
+    .small { color: var(--muted); font-size: 12px; }
+
+    /* preview canvas (keep ids used by JS: stageContainer/stage/uiFrame) */
+    #stageContainer {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #0d0d0d;
+      background-image: radial-gradient(#2a2a2a 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    #stage {
+      position: relative;
+      background: #000;
+      border: 1px solid #333;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      overflow: hidden;
+      border-radius: 12px;
       transform-origin: 0 0;
     }
-    .stage .watermark{
-      position:absolute; inset:0;
-      background-image:
-        linear-gradient(45deg, rgba(255,255,255,.04) 25%, transparent 25%),
-        linear-gradient(-45deg, rgba(255,255,255,.04) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.04) 75%),
-        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.04) 75%);
-      background-size: 40px 40px;
-      background-position: 0 0, 0 20px, 20px -20px, -20px 0px;
-      border-radius:12px;
-      pointer-events:none;
-      opacity:.45;
+    #uiFrame {
+      border: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
     }
-    .stage iframe{
-      position:relative;
-      width:100%;
-      height:100%;
-      border:0;
-      border-radius:12px;
-      background:transparent;
-    }
-    .small{font-size:12px;color:var(--fg1);}
-    hr{border:0;border-top:1px solid var(--border); margin:10px 0;}
   </style>
 </head>
 <body>
-  <div class="layout">
+  <div class="app">
     <div class="header">
-      <div>
-        <div class="title">Local Graph UI 监控面板</div>
-        <div class="sub" id="statusSub">正在连接...</div>
+      <div class="title">
+        <span>本地节点图 UI 监控面板</span>
+        <span class="subtitle" id="statusSub">正在连接...</span>
       </div>
-      <div class="right">
-        <span class="badge" id="statusBadge">离线</span>
-        <button id="btnReloadUi">刷新中间页面</button>
-        <button id="btnRestartAll" title="重建模拟会话（相当于重新启动本地测试），并刷新本页。">一键重启</button>
-        <button id="btnClearTrace">清空日志</button>
-      </div>
+      <div class="spacer"></div>
+      <span class="badge" id="statusBadge">离线</span>
+      <button id="btnReloadUi" class="btn" type="button">刷新预览</button>
+      <button id="btnRestartAll" class="btn" type="button" title="重建模拟会话（相当于重新启动本地测试），并刷新本页。">一键重启</button>
+      <button id="btnPauseToggle" class="btn primary" type="button" title="暂停/继续：暂停期间虚拟时间不推进，倒计时与定时器不会前进。">暂停</button>
+      <button id="btnStep" class="btn" type="button" title="单步执行：仅在暂停状态下生效。推进虚拟时间 dt 并最多触发一个定时器事件。">单步</button>
+      <button id="btnClearTrace" class="btn" type="button">清空日志</button>
     </div>
 
-    <div class="panel">
-      <div class="panel-h">
-        <div class="h">信号 / 控制</div>
-      </div>
-      <div class="panel-b">
-        <div class="row">
-          <label class="small">布局</label>
-          <select id="layoutSelect" style="min-width:180px"></select>
-          <button id="btnApplyLayout">切换</button>
+    <div class="main">
+      <!-- LEFT -->
+      <div class="col-left">
+        <div class="section-header">
+          <span>信号 / 会话</span>
+          <span class="subtitle" style="max-width: 210px;" title="本地模拟会话（local-sim）">本地模拟（local-sim）</span>
         </div>
-        <hr/>
-        <div class="row">
-          <label class="small">signal_id</label>
-          <input id="signalId" style="flex:1;min-width:180px" placeholder="例如: signal_level_lobby_start_level" />
-          <button id="btnSendSignal">发送</button>
-        </div>
-        <div class="small" style="margin-top:6px">params（JSON对象，可留空）</div>
-        <textarea id="signalParams" style="width:100%;height:90px" spellcheck="false">{}</textarea>
-        <hr/>
-        <div class="small" style="margin-bottom:6px">当前会话</div>
-        <div class="kv" id="kvSession"></div>
-      </div>
-    </div>
+        <div class="section-body no-scrollbar">
+          <div class="row" style="gap:8px;">
+            <span class="small">布局</span>
+            <select id="layoutSelect" class="no-scrollbar" style="flex:1; min-width: 160px;"></select>
+            <button id="btnApplyLayout" class="btn" type="button" style="height: 28px;">切换</button>
+          </div>
 
-    <div class="panel stage-wrap">
-      <div class="stage-toolbar">
-        <div class="row">
-          <label class="small">分辨率</label>
-          <select id="resPreset">
-            <option value="1920x1080">1920×1080</option>
-            <option value="1600x900">1600×900</option>
-            <option value="1280x720">1280×720</option>
-            <option value="2560x1440">2560×1440</option>
-            <option value="3840x2160">3840×2160</option>
-          </select>
-          <span class="small">或</span>
-          <input id="resW" type="number" min="320" step="10" style="width:110px" />
-          <span class="small">×</span>
-          <input id="resH" type="number" min="240" step="10" style="width:110px" />
-          <button id="btnApplyRes">应用</button>
-        </div>
-        <div class="row">
-          <label class="small"><input id="fitToggle" type="checkbox" checked/> 适配窗口</label>
-          <span class="small" id="fitInfo"></span>
-        </div>
-      </div>
-      <div class="stage-container" id="stageContainer">
-        <div class="stage" id="stage">
-          <div class="watermark"></div>
-          <iframe id="uiFrame" src="/ui.html"></iframe>
-        </div>
-      </div>
-    </div>
+          <div class="row">
+            <label class="checkbox" title="使用 UI Workbench 的扁平化算法在浏览器侧生成 flat layers；原始 DOM 仅用于交互/变量绑定。">
+              <input id="flattenToggle" type="checkbox" />
+              <span>扁平化预览</span>
+            </label>
+          </div>
 
-    <div class="panel">
-      <div class="panel-h">
-        <div class="h">Trace / 实体</div>
-        <div class="row">
-          <button id="btnRefreshEntities">刷新实体</button>
+          <div style="height: 1px; background: var(--border); opacity: 0.65; margin: 2px 0;"></div>
+
+          <div class="row">
+            <span class="small" style="min-width:64px;" title="signal_id">信号ID</span>
+            <input id="signalId" class="input" style="flex:1; min-width: 160px;" placeholder="例如：signal_level_lobby_start_level" />
+            <button id="btnSendSignal" class="btn primary" type="button">发送</button>
+          </div>
+          <div class="small">参数（JSON 对象，可留空）</div>
+          <textarea id="signalParams" class="wb-textarea no-scrollbar" style="flex: 0 0 120px;" spellcheck="false">{}</textarea>
+
+          <div style="height: 1px; background: var(--border); opacity: 0.65; margin: 2px 0;"></div>
+
+          <div class="small">当前会话</div>
+          <div class="kv" id="kvSession"></div>
+
+          <div style="height: 1px; background: var(--border); opacity: 0.65; margin: 2px 0;"></div>
+
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;">UI 合约检查</div>
+            <button id="btnUiContractCheck" class="btn primary" type="button" style="height: 28px;" title="扫描当前 iframe UI HTML：按钮/状态组/绑定，并调用后端 resolve_ui_key 做可解析性检查。">运行检查</button>
+          </div>
+          <textarea id="uiContractBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 220px;" placeholder="这里会显示：按钮 data-ui-key 是否可解析、UI_STATE_GROUP 覆盖、lv.* 绑定覆盖等。"></textarea>
         </div>
       </div>
-      <div class="panel-b">
-        <div class="small" style="margin-bottom:6px">Trace</div>
-        <textarea id="traceBox" style="width:100%;height:240px" spellcheck="false" readonly></textarea>
-        <div class="small" style="margin:10px 0 6px">Entities</div>
-        <textarea id="entitiesBox" style="width:100%;height:240px" spellcheck="false" readonly></textarea>
+
+      <!-- CENTER -->
+      <div class="col-center">
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <div class="btn-group" id="sizeButtons">
+              <button class="btn" data-res="1920x1080" type="button">1920×1080</button>
+              <button class="btn active" data-res="1600x900" type="button">1600×900</button>
+              <button class="btn" data-res="1280x720" type="button">1280×720</button>
+              <button class="btn" data-res="2560x1440" type="button">2560×1440</button>
+            </div>
+            <div class="divider"></div>
+            <div class="row" style="gap:6px;">
+              <span class="small">自定义</span>
+              <input id="resW" class="input" type="number" min="320" step="10" style="width:110px" />
+              <span class="small">×</span>
+              <input id="resH" class="input" type="number" min="240" step="10" style="width:110px" />
+              <button id="btnApplyRes" class="btn" type="button" style="height: 28px;">应用</button>
+            </div>
+          </div>
+          <div class="toolbar-group">
+            <!-- keep resPreset/fitToggle/fitInfo ids (JS expects them) -->
+            <select id="resPreset" class="no-scrollbar" style="display:none">
+              <option value="1920x1080">1920×1080</option>
+              <option value="1600x900">1600×900</option>
+              <option value="1280x720">1280×720</option>
+              <option value="2560x1440">2560×1440</option>
+              <option value="3840x2160">3840×2160</option>
+            </select>
+            <label class="checkbox" title="始终缩放适配窗口，避免出现滚动条。">
+              <input id="fitToggle" type="checkbox" checked/>
+              <span>适配窗口</span>
+            </label>
+            <span class="small" id="fitInfo"></span>
+          </div>
+        </div>
+
+        <div id="stageContainer" class="no-scrollbar">
+          <div id="stage">
+            <iframe id="uiFrame" src="/ui.html" scrolling="no"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="col-right">
+        <div class="section-header">
+          <span>日志 / 实体</span>
+          <button id="btnRefreshEntities" class="btn" type="button" style="height: 28px;">刷新实体</button>
+        </div>
+        <div class="section-body no-scrollbar" style="gap:10px;">
+          <div class="small">日志</div>
+          <textarea id="traceBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly></textarea>
+          <div class="small">实体</div>
+          <textarea id="entitiesBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly></textarea>
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;" title="Last Action">最后动作</div>
+            <button id="btnRefreshLastAction" class="btn" type="button" style="height: 28px;">刷新</button>
+            <button id="btnToggleLastActionRaw" class="btn" type="button" style="height: 28px;" title="切换：动作报告 / 原始 JSON">原始JSON</button>
+          </div>
+          <textarea id="lastActionReportBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 240px;" placeholder="这里会显示：动作摘要 / UI patches / 数据 diff / 关联 trace"></textarea>
+          <textarea id="lastActionRawBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="display:none; flex: 0 0 240px;"></textarea>
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;" title="validate-graphs">图校验</div>
+            <button id="btnValidate" class="btn" type="button" style="height: 28px;">运行验证</button>
+          </div>
+          <textarea id="validateBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 180px;"></textarea>
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;">录制/导出（JSON）</div>
+            <span id="recordBadge" class="badge">未录制</span>
+            <button id="btnRecordToggle" class="btn" type="button" style="height: 28px;">开始/停止</button>
+            <button id="btnRecordClear" class="btn" type="button" style="height: 28px;">清空</button>
+            <button id="btnExportRepro" class="btn primary" type="button" style="height: 28px;" title="导出复现包：包含 snapshot/last_action/validate/trace/录制动作（recorded_actions）。">导出复现包</button>
+          </div>
+          <textarea id="recordBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 180px;"></textarea>
+
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;">断言 / 用例</div>
+            <button id="btnAssertionsTemplate" class="btn" type="button" style="height: 28px;" title="写入一个最小断言模板（可编辑）。">模板</button>
+            <button id="btnAssertionsFromLast" class="btn" type="button" style="height: 28px;" title="从“最后动作”的 patches/diff 自动提取一批断言（可编辑）。">从最后动作提取</button>
+            <button id="btnRunAssertions" class="btn primary" type="button" style="height: 28px;" title="对“最后动作”运行断言，输出 PASS/FAIL。">运行</button>
+            <button id="btnGenPytest" class="btn" type="button" style="height: 28px;" title="根据录制动作 + 断言生成 pytest 代码（复制到 tests/local_sim/）。">生成pytest</button>
+          </div>
+          <textarea id="assertionsBox" class="wb-textarea no-scrollbar" spellcheck="false" style="flex: 0 0 200px;" placeholder="断言 JSON（version=1）。例如：patch_contains / path_equals / trace_contains"></textarea>
+          <textarea id="assertionsOutBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 200px;" placeholder="运行结果 / 生成的 pytest 代码会显示在这里。"></textarea>
+
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;">Watch / Breakpoint</div>
+            <button id="btnWatchTemplate" class="btn" type="button" style="height: 28px;" title="写入 watch 模板（可编辑）。">模板</button>
+            <button id="btnApplyWatch" class="btn primary" type="button" style="height: 28px;" title="应用 watch 配置并开始轮询 snapshot（不会推进时间）。">应用</button>
+            <button id="btnClearWatch" class="btn" type="button" style="height: 28px;" title="清空 watch 与状态。">清空</button>
+          </div>
+          <textarea id="watchBox" class="wb-textarea no-scrollbar" spellcheck="false" style="flex: 0 0 160px;" placeholder="Watch JSON（version=1）。支持 break_on_change / break_on_equals"></textarea>
+          <textarea id="watchOutBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 160px;" placeholder="Watch 状态：当前值、变化、是否触发断点等。"></textarea>
+        </div>
       </div>
     </div>
   </div>
 
-  <script>
-  (function(){
-    const $ = (id) => document.getElementById(id);
-
-    const uiFrame = $("uiFrame");
-    const stage = $("stage");
-    const stageContainer = $("stageContainer");
-
-    const statusSub = $("statusSub");
-    const statusBadge = $("statusBadge");
-    const layoutSelect = $("layoutSelect");
-    const kvSession = $("kvSession");
-
-    const traceBox = $("traceBox");
-    const entitiesBox = $("entitiesBox");
-
-    const resPreset = $("resPreset");
-    const resW = $("resW");
-    const resH = $("resH");
-    const fitToggle = $("fitToggle");
-    const fitInfo = $("fitInfo");
-
-    let traceCursor = 0;
-    let currentLayoutIndex = 0;
-    let currentStageW = 1920;
-    let currentStageH = 1080;
-
-    function jsonSafeStringify(obj){
-      return JSON.stringify(obj, null, 2);
-    }
-
-    async function getJson(url){
-      const resp = await fetch(url, { cache: "no-store" });
-      const text = await resp.text();
-      const data = text ? JSON.parse(text) : {};
-      if(!resp.ok){ throw new Error("HTTP " + resp.status + " " + text); }
-      return data;
-    }
-    async function postJson(url, body){
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(body || {}),
-        cache: "no-store",
-      });
-      const text = await resp.text();
-      const data = text ? JSON.parse(text) : {};
-      if(!resp.ok){ throw new Error("HTTP " + resp.status + " " + text); }
-      return data;
-    }
-
-    function setStatus(ok, text){
-      statusBadge.textContent = ok ? "在线" : "离线";
-      statusBadge.style.borderColor = ok ? "rgba(90,162,255,.45)" : "rgba(255,255,255,.10)";
-      statusBadge.style.color = ok ? "rgba(90,162,255,.95)" : "rgba(255,255,255,.55)";
-      statusSub.textContent = text || (ok ? "已连接" : "未连接");
-    }
-
-    function setStageSize(w, h){
-      currentStageW = Math.max(1, parseInt(w, 10) || 1);
-      currentStageH = Math.max(1, parseInt(h, 10) || 1);
-      stage.style.width = currentStageW + "px";
-      stage.style.height = currentStageH + "px";
-      resW.value = String(currentStageW);
-      resH.value = String(currentStageH);
-      applyFit();
-    }
-
-    function applyFit(){
-      if(!fitToggle.checked){
-        stage.style.transform = "";
-        fitInfo.textContent = "";
-        return;
-      }
-      const cw = stageContainer.clientWidth - 20;
-      const ch = stageContainer.clientHeight - 20;
-      const sx = cw / currentStageW;
-      const sy = ch / currentStageH;
-      const s = Math.max(0.05, Math.min(1.0, sx, sy));
-      stage.style.transform = "scale(" + s.toFixed(4) + ")";
-      fitInfo.textContent = "scale=" + s.toFixed(3);
-    }
-
-    function ensureLayoutOptions(layouts){
-      const existing = new Set(Array.from(layoutSelect.options).map(o => o.value));
-      const incoming = new Set();
-      for(const item of (layouts || [])){
-        const idx = String(item.layout_index);
-        incoming.add(idx);
-        if(existing.has(idx)) continue;
-        const opt = document.createElement("option");
-        opt.value = idx;
-        opt.textContent = idx + " - " + (item.html_stem || item.html_file || "");
-        layoutSelect.appendChild(opt);
-      }
-      for(const opt of Array.from(layoutSelect.options)){
-        if(opt.value && !incoming.has(opt.value)){
-          opt.remove();
-        }
-      }
-    }
-
-    function setLayout(layoutIndex){
-      const idx = parseInt(layoutIndex, 10) || 0;
-      currentLayoutIndex = idx;
-      const want = "/ui.html?layout=" + encodeURIComponent(String(idx));
-      const cur = uiFrame.getAttribute("src") || "";
-      if(cur !== want){
-        uiFrame.setAttribute("src", want);
-      }
-    }
-    window.__localSimSetLayout = setLayout;
-
-    function applyPatchesToUi(patches){
-      const w = uiFrame.contentWindow;
-      if(w && typeof w.__local_sim_apply_patches === "function"){
-        w.__local_sim_apply_patches(patches || []);
-        return true;
-      }
-      return false;
-    }
-
-    async function refreshStatus(){
-      try{
-        const st = await getJson("/api/local_sim/status");
-        const g = st.graph || {};
-        const ui = st.ui || {};
-        setStatus(true, (g.graph_name || "graph") + " · " + (ui.current_ui_html_file || ui.ui_html_file || ""));
-        ensureLayoutOptions(ui.layouts || []);
-        if(typeof ui.current_layout_index === "number"){
-          currentLayoutIndex = ui.current_layout_index;
-        }
-
-        if(layoutSelect.value !== String(currentLayoutIndex)){
-          layoutSelect.value = String(currentLayoutIndex);
-        }
-
-        const rows = [
-          ["graph_name", g.graph_name],
-          ["graph_type", g.graph_type],
-          ["graph_code_file", g.graph_code_file],
-          ["ui_html_file", ui.ui_html_file],
-          ["current_layout_index", ui.current_layout_index],
-        ];
-        kvSession.innerHTML = "";
-        for(const [k,v] of rows){
-          const kEl = document.createElement("div");
-          const vEl = document.createElement("div");
-          kEl.innerHTML = "<b>" + k + "</b>";
-          vEl.textContent = (v === undefined || v === null) ? "" : String(v);
-          kvSession.appendChild(kEl);
-          kvSession.appendChild(vEl);
-        }
-      }catch(err){
-        setStatus(false, String(err || "连接失败"));
-      }
-    }
-
-    async function pollTrace(){
-      try{
-        const data = await getJson("/api/local_sim/trace?since=" + encodeURIComponent(String(traceCursor)));
-        if(data && data.ok){
-          const evs = data.events || [];
-          traceCursor = data.next || traceCursor;
-          if(evs.length){
-            for(const e of evs){
-              const ts = e.timestamp ? ("[" + e.timestamp + "] ") : "";
-              const line = ts + (e.kind || "event") + (e.message ? (": " + e.message) : "");
-              traceBox.value += line + "\n";
-            }
-            traceBox.scrollTop = traceBox.scrollHeight;
-          }
-        }
-      }catch(err){
-        // 不打断 UI
-      }
-    }
-
-    async function refreshEntities(){
-      try{
-        const data = await getJson("/api/local_sim/entities");
-        entitiesBox.value = jsonSafeStringify(data);
-        entitiesBox.scrollTop = 0;
-      }catch(err){
-        entitiesBox.value = String(err || "刷新失败");
-        entitiesBox.scrollTop = 0;
-      }
-    }
-
-    async function clearTrace(){
-      traceCursor = 0;
-      traceBox.value = "";
-      try{
-        await postJson("/api/local_sim/clear_trace", {});
-      }catch(err){
-        // ignore
-      }
-    }
-
-    async function restartAll(){
-      await postJson("/api/local_sim/restart", {});
-      window.location.reload();
-    }
-
-    async function sendSignal(){
-      const signal_id = ($("signalId").value || "").trim();
-      if(!signal_id){
-        alert("请输入 signal_id");
-        return;
-      }
-      let params = {};
-      const raw = ($("signalParams").value || "").trim();
-      if(raw){
-        params = JSON.parse(raw);
-      }
-      const resp = await postJson("/api/local_sim/emit_signal", { signal_id, params });
-      if(resp && resp.ok){
-        const patches = resp.patches || [];
-        applyPatchesToUi(patches);
-      }
-    }
-
-    function applyLayoutFromSelect(){
-      const idx = parseInt(layoutSelect.value, 10) || 0;
-      setLayout(idx);
-    }
-
-    function applyResFromInputs(){
-      setStageSize(resW.value, resH.value);
-    }
-
-    function applyResFromPreset(){
-      const v = String(resPreset.value || "");
-      const m = v.match(/^(\d+)x(\d+)$/);
-      if(!m) return;
-      setStageSize(parseInt(m[1],10), parseInt(m[2],10));
-    }
-
-    $("btnApplyLayout").addEventListener("click", applyLayoutFromSelect);
-    $("btnSendSignal").addEventListener("click", () => { sendSignal().catch(e => alert(String(e))); });
-    $("btnReloadUi").addEventListener("click", () => { uiFrame.setAttribute("src", uiFrame.getAttribute("src") || "/ui.html"); });
-    $("btnRestartAll").addEventListener("click", () => { restartAll().catch(e => alert(String(e))); });
-    $("btnClearTrace").addEventListener("click", () => { clearTrace().catch(()=>{}); });
-    $("btnRefreshEntities").addEventListener("click", () => { refreshEntities().catch(()=>{}); });
-
-    $("btnApplyRes").addEventListener("click", applyResFromInputs);
-    resPreset.addEventListener("change", applyResFromPreset);
-    fitToggle.addEventListener("change", applyFit);
-    window.addEventListener("resize", applyFit);
-
-    // init
-    setStageSize(1920, 1080);
-    refreshStatus().catch(()=>{});
-    refreshEntities().catch(()=>{});
-    setInterval(() => { refreshStatus().catch(()=>{}); }, 1500);
-    setInterval(() => { pollTrace().catch(()=>{}); }, 600);
-  })();
-  </script>
+  <script src="/local_sim_shared.js"></script>
+  <script src="/monitor.js"></script>
 </body>
 </html>

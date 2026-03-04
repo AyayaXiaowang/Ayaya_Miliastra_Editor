@@ -124,6 +124,19 @@ class MainWindowV2(
         self.package_controller.load_initial_package()
         log_debug("[BOOT][MainWindow] 初始存档加载流程完成")
 
+        # 启动体验：在首次 show() 前尽量把主视图切到“上一次会话的模式”，
+        # 避免用户看到默认页（template）闪一下后才跳到目标页。
+        initial_mode = None
+        peek_mode = getattr(self, "_peek_last_session_view_mode", None)
+        if callable(peek_mode):
+            initial_mode = peek_mode()
+        if isinstance(initial_mode, str) and initial_mode:
+            log_debug("[BOOT][MainWindow] pre-apply last session view_mode before show: {}", initial_mode)
+            self._on_mode_changed(initial_mode)
+        else:
+            # 兜底：显式执行一次初始模式进入流程，确保右侧面板与 presenter 状态一致。
+            self._on_mode_changed("template")
+
         # 在初始存档与视图装配完成后，尝试恢复上一次会话的 UI 状态
         log_debug("[BOOT][MainWindow] 准备尝试恢复 UI 会话状态（已排队，延后执行）")
         # 延后到事件循环启动后执行，避免在主窗口构造期同步打开上次会话中的大图导致 UI 延迟显示。

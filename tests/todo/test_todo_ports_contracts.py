@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.ui.execution import ExecutionSession
-from app.ui.todo.todo_ports import ExecutionMonitorPort
+from app.ui.todo.ports.todo_ports import ExecutionMonitorPort
 
 
 class _DummySignal:

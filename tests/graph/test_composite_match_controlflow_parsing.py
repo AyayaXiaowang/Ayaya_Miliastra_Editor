@@ -72,6 +72,7 @@ class 复合match_循环内break:
 '''
     for_line = _find_line_number(graph_code, "for 轮次 in range(3):")
     match_line = _find_line_number(graph_code, "match self.分支器.按整数多分支(分支值=轮次):")
+    break_line = _find_line_number(graph_code, "break")
     after_loop_set_line = _find_line_number(
         graph_code,
         '设置节点图变量(self.game, 变量名="调试_结束", 变量值=0, 是否触发事件=False)',
@@ -107,15 +108,34 @@ class 复合match_循环内break:
     assert after_loop_set_nodes, "期望循环后的【设置节点图变量】节点存在"
     after_loop_set_node = after_loop_set_nodes[0]
 
-    break_edges = [
+    break_nodes = [
+        node
+        for node in model.nodes.values()
+        if getattr(node, "title", "") == "跳出循环"
+        and int(getattr(node, "source_lineno", 0) or 0) == break_line
+    ]
+    assert break_nodes, "期望 break 被物化为【跳出循环】节点"
+    break_node = break_nodes[0]
+
+    edge_to_break = [
         edge
         for edge in model.edges.values()
         if edge.src_node == composite_node.id
         and edge.src_port == "分支为0"
+        and edge.dst_node == break_node.id
+        and edge.dst_port == "流程入"
+    ]
+    assert edge_to_break, "回归：未找到复合节点分支为0 ->【跳出循环】的流程边"
+
+    edge_break_to_loop = [
+        edge
+        for edge in model.edges.values()
+        if edge.src_node == break_node.id
+        and edge.src_port == "流程出"
         and edge.dst_node == loop_node.id
         and edge.dst_port == "跳出循环"
     ]
-    assert break_edges, "回归：未找到复合节点分支为0 -> break 的【跳出循环】流程边"
+    assert edge_break_to_loop, "回归：未找到【跳出循环】-> 循环节点【跳出循环】的流程边"
 
     # break 分支不应接续到循环体后续语句（本例中 match 后没有其它循环体语句，主要防止错误接续到循环外）
     fallthrough_edges = [

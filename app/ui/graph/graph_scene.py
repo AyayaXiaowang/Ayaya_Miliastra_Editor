@@ -25,9 +25,17 @@ from engine.graph.models.graph_model import GraphModel, NodeModel
 from app.ui.graph.graph_undo import UndoRedoManager
 from engine.layout import UI_ROW_HEIGHT  # unified row height metric
 from engine.layout import LayoutService
-from engine.layout.flow.preprocess import promote_flow_outputs_for_layout
 from engine.configs.settings import settings as _settings_ui
 from app.models.edit_session_capabilities import EditSessionCapabilities
+from app.runtime.services.graph_scene_policy import (
+    compute_blocks_only_overview_mode,
+    compute_enable_batched_edge_layer,
+    compute_fast_preview_auto_eligible,
+    compute_lod_edges_culled_mode,
+    compute_lod_ports_hidden_mode,
+    compute_should_skip_ports_sync_on_scale_change,
+    is_blocks_only_overview_supported,
+)
 
 if TYPE_CHECKING:
     from app.ui.dynamic_port_widget import AddPortButton
@@ -92,13 +100,13 @@ class GraphScene(
         fast_preview_enabled = bool(getattr(_settings_ui, "GRAPH_FAST_PREVIEW_ENABLED", True))
         fast_preview_node_threshold = int(getattr(_settings_ui, "GRAPH_FAST_PREVIEW_NODE_THRESHOLD", 500))
         fast_preview_edge_threshold = int(getattr(_settings_ui, "GRAPH_FAST_PREVIEW_EDGE_THRESHOLD", 900))
-        self.fast_preview_auto_eligible: bool = bool(
-            fast_preview_enabled
-            and (not bool(effective_capabilities.can_persist))
-            and (
-                node_count >= fast_preview_node_threshold
-                or edge_count >= fast_preview_edge_threshold
-            )
+        self.fast_preview_auto_eligible: bool = compute_fast_preview_auto_eligible(
+            fast_preview_enabled=fast_preview_enabled,
+            can_persist=bool(effective_capabilities.can_persist),
+            node_count=node_count,
+            edge_count=edge_count,
+            node_threshold=fast_preview_node_threshold,
+            edge_threshold=fast_preview_edge_threshold,
         )
         self.fast_preview_mode = bool(self.fast_preview_auto_eligible)
         # ===== 批量连线渲染层（进一步降低超大图边图元数量）=====
@@ -116,17 +124,15 @@ class GraphScene(
         read_only_batched_edge_threshold = int(
             getattr(_settings_ui, "GRAPH_READONLY_BATCHED_EDGES_EDGE_THRESHOLD", 900) or 900
         )
-        if bool(getattr(_settings_ui, "SHOW_LAYOUT_Y_DEBUG", False)):
-            batched_edges_enabled = False
-        enable_batched_layer = bool(self.fast_preview_mode and batched_edges_enabled)
-        if (
-            (not enable_batched_layer)
-            and batched_edges_enabled
-            and read_only_batched_enabled
-            and bool(effective_capabilities.is_read_only)
-            and edge_count >= read_only_batched_edge_threshold
-        ):
-            enable_batched_layer = True
+        enable_batched_layer = compute_enable_batched_edge_layer(
+            fast_preview_mode=bool(self.fast_preview_mode),
+            batched_edges_enabled=bool(batched_edges_enabled),
+            read_only_batched_enabled=bool(read_only_batched_enabled),
+            is_read_only=bool(effective_capabilities.is_read_only),
+            edge_count=edge_count,
+            read_only_edge_threshold=read_only_batched_edge_threshold,
+            force_disable=bool(getattr(_settings_ui, "SHOW_LAYOUT_Y_DEBUG", False)),
+        )
 
         if enable_batched_layer:
             from app.ui.graph.items.batched_edge_layer import BatchedFastPreviewEdgeLayer
@@ -240,6 +246,20 @@ class GraphScene(
             )
             self.model.basic_blocks = _result.basic_blocks
 
+        # 布局 Y 调试：
+        # - SHOW_LAYOUT_Y_DEBUG 启用后，overlay 会依赖 GraphModel 上的 `_layout_y_debug_info` 绘制图标与 tooltip；
+        # - 该调试信息应在加载/重建阶段一次性生成，禁止在 drawForeground 等绘制路径内“临时补算布局”。
+        if bool(getattr(_settings, "SHOW_LAYOUT_Y_DEBUG", False)):
+            debug_map = getattr(self.model, "_layout_y_debug_info", None)
+            if debug_map is None:
+                node_lib = self.node_library if isinstance(self.node_library, dict) else None
+                LayoutService.compute_layout(
+                    self.model,
+                    node_library=node_lib,
+                    include_augmented_model=False,
+                    registry_context=self.layout_registry_context,
+                )
+
         # 自动展开：监听 selectionChanged（仅 fast_preview_mode 生效）
         self.selectionChanged.connect(self._on_selection_changed_fast_preview_auto_expand)
         # 选择变化：在“边裁剪模式”下刷新边可见性（程序性选中/高亮也会触发 selectionChanged）
@@ -251,8 +271,9 @@ class GraphScene(
         self._sync_blocks_only_overview_mode()
         # panning 期间若启用“隐藏图标”，端口可见性由 set_view_panning() 接管，
         # 避免缩放变化触发 LOD 切换把端口又显示出来。
-        skip_ports_sync = bool(getattr(self, "_view_panning", False)) and bool(
-            getattr(_settings_ui, "GRAPH_PAN_HIDE_ICONS_ENABLED", True)
+        skip_ports_sync = compute_should_skip_ports_sync_on_scale_change(
+            is_view_panning=bool(getattr(self, "_view_panning", False)),
+            pan_hide_icons_enabled=bool(getattr(_settings_ui, "GRAPH_PAN_HIDE_ICONS_ENABLED", True)),
         )
         if not skip_ports_sync:
             self._sync_ports_hidden_mode()
@@ -353,33 +374,25 @@ class GraphScene(
         - 需要 basic_blocks 数据，否则进入后会出现“画布空白”；
         - 该模式属于 LOD 能力的一部分，可通过 settings 开关关闭。
         """
-        if not bool(getattr(_settings_ui, "GRAPH_BLOCK_OVERVIEW_ENABLED", True)):
-            return False
-        if not bool(getattr(_settings_ui, "GRAPH_LOD_ENABLED", True)):
-            return False
-        blocks = getattr(getattr(self, "model", None), "basic_blocks", None)
-        return bool(blocks)
+        return is_blocks_only_overview_supported(
+            graph_block_overview_enabled=bool(getattr(_settings_ui, "GRAPH_BLOCK_OVERVIEW_ENABLED", True)),
+            graph_lod_enabled=bool(getattr(_settings_ui, "GRAPH_LOD_ENABLED", True)),
+            basic_blocks=getattr(getattr(self, "model", None), "basic_blocks", None),
+        )
 
     def _sync_blocks_only_overview_mode(self) -> None:
         """根据当前缩放比例自动切换“仅显示块颜色”的鸟瞰模式（带回滞，避免临界抖动）。"""
-        supported = self._is_blocks_only_overview_supported()
-        if not supported:
-            if self.blocks_only_overview_mode:
-                self._set_blocks_only_overview_mode(False)
-            return
-
+        supported = bool(self._is_blocks_only_overview_supported())
         scale_hint = float(getattr(self, "view_scale_hint", 1.0) or 1.0)
-        enter_scale = float(getattr(_settings_ui, "GRAPH_BLOCK_OVERVIEW_ENTER_SCALE", 0.10))
-        default_exit = max(enter_scale * 1.15, enter_scale + 0.02)
-        exit_scale = float(getattr(_settings_ui, "GRAPH_BLOCK_OVERVIEW_EXIT_SCALE", default_exit))
-        if exit_scale < enter_scale:
-            exit_scale = enter_scale
-
-        if (not self.blocks_only_overview_mode) and (scale_hint < enter_scale):
-            self._set_blocks_only_overview_mode(True)
-            return
-        if self.blocks_only_overview_mode and (scale_hint > exit_scale):
-            self._set_blocks_only_overview_mode(False)
+        new_state = compute_blocks_only_overview_mode(
+            supported=supported,
+            prev_enabled=bool(self.blocks_only_overview_mode),
+            scale_hint=scale_hint,
+            enter_scale_value=getattr(_settings_ui, "GRAPH_BLOCK_OVERVIEW_ENTER_SCALE", 0.10),
+            exit_scale_value=getattr(_settings_ui, "GRAPH_BLOCK_OVERVIEW_EXIT_SCALE", None),
+        )
+        if bool(self.blocks_only_overview_mode) != bool(new_state):
+            self._set_blocks_only_overview_mode(bool(new_state))
 
     def _set_blocks_only_overview_mode(self, enabled: bool) -> None:
         """切换鸟瞰模式：隐藏/恢复节点与连线图元。"""
@@ -419,23 +432,17 @@ class GraphScene(
 
     def _sync_ports_hidden_mode(self) -> None:
         """当缩放低于端口阈值时，将端口图元 setVisible(False) 以降低超大图枚举成本。"""
-        if not bool(getattr(_settings_ui, "GRAPH_LOD_ENABLED", True)):
-            if self.lod_ports_hidden_mode:
-                self._set_ports_hidden_mode(False)
-            return
-
+        lod_enabled = bool(getattr(_settings_ui, "GRAPH_LOD_ENABLED", True))
         scale_hint = float(getattr(self, "view_scale_hint", 1.0) or 1.0)
-        enter_scale = float(getattr(_settings_ui, "GRAPH_LOD_PORT_MIN_SCALE", 0.30))
-        default_exit = max(enter_scale * 1.08, enter_scale + 0.02)
-        exit_scale = float(getattr(_settings_ui, "GRAPH_LOD_PORT_VISIBILITY_EXIT_SCALE", default_exit))
-        if exit_scale < enter_scale:
-            exit_scale = enter_scale
-
-        if (not self.lod_ports_hidden_mode) and (scale_hint < enter_scale):
-            self._set_ports_hidden_mode(True)
-            return
-        if self.lod_ports_hidden_mode and (scale_hint > exit_scale):
-            self._set_ports_hidden_mode(False)
+        new_state = compute_lod_ports_hidden_mode(
+            lod_enabled=lod_enabled,
+            prev_enabled=bool(self.lod_ports_hidden_mode),
+            scale_hint=scale_hint,
+            enter_scale_value=getattr(_settings_ui, "GRAPH_LOD_PORT_MIN_SCALE", 0.30),
+            exit_scale_value=getattr(_settings_ui, "GRAPH_LOD_PORT_VISIBILITY_EXIT_SCALE", None),
+        )
+        if bool(self.lod_ports_hidden_mode) != bool(new_state):
+            self._set_ports_hidden_mode(bool(new_state))
 
     def _set_ports_hidden_mode(self, enabled: bool) -> None:
         new_state = bool(enabled)
@@ -539,23 +546,17 @@ class GraphScene(
 
     def _sync_edges_culled_mode(self) -> None:
         """当缩放低于连线阈值时，将“不会被绘制”的边直接 setVisible(False)。"""
-        if not bool(getattr(_settings_ui, "GRAPH_LOD_ENABLED", True)):
-            if self.lod_edges_culled_mode:
-                self._set_edges_culled_mode(False)
-            return
-
+        lod_enabled = bool(getattr(_settings_ui, "GRAPH_LOD_ENABLED", True))
         scale_hint = float(getattr(self, "view_scale_hint", 1.0) or 1.0)
-        enter_scale = float(getattr(_settings_ui, "GRAPH_LOD_EDGE_MIN_SCALE", 0.22))
-        default_exit = max(enter_scale * 1.08, enter_scale + 0.02)
-        exit_scale = float(getattr(_settings_ui, "GRAPH_LOD_EDGE_VISIBILITY_EXIT_SCALE", default_exit))
-        if exit_scale < enter_scale:
-            exit_scale = enter_scale
-
-        if (not self.lod_edges_culled_mode) and (scale_hint < enter_scale):
-            self._set_edges_culled_mode(True)
-            return
-        if self.lod_edges_culled_mode and (scale_hint > exit_scale):
-            self._set_edges_culled_mode(False)
+        new_state = compute_lod_edges_culled_mode(
+            lod_enabled=lod_enabled,
+            prev_enabled=bool(self.lod_edges_culled_mode),
+            scale_hint=scale_hint,
+            enter_scale_value=getattr(_settings_ui, "GRAPH_LOD_EDGE_MIN_SCALE", 0.22),
+            exit_scale_value=getattr(_settings_ui, "GRAPH_LOD_EDGE_VISIBILITY_EXIT_SCALE", None),
+        )
+        if bool(self.lod_edges_culled_mode) != bool(new_state):
+            self._set_edges_culled_mode(bool(new_state))
 
     def _set_edges_culled_mode(self, enabled: bool) -> None:
         new_state = bool(enabled)
@@ -928,14 +929,6 @@ class GraphScene(
         if callable(set_fn):
             set_fn(str(edge_id or ""), bool(excluded))
     
-    def _promote_flow_outputs_for_layout(self, model_copy: GraphModel, node_library: Dict) -> None:
-        """
-        将模型中的“流程输出端口但名称不含‘流程’关键字”的端口临时改名为包含‘流程’的名字，
-        以便布局/分块阶段使用基于端口名的规则正确识别流程边。
-        仅修改 model_copy（克隆体），不影响原始模型与UI展示。
-        """
-        promote_flow_outputs_for_layout(model_copy, node_library)
-    
     def get_node_def(self, node: NodeModel):
         """获取节点定义（包含显式端口类型）。
         
@@ -963,7 +956,11 @@ class GraphScene(
             if chosen_def is None:
                 raise KeyError(f"GraphScene.get_node_def: node_library 中未找到 composite NodeDef（composite_id={ref_key}）")
         elif kind == "event":
-            chosen_def = None
+            # event 的 key 通常为事件实例标识；端口判定/类型推断需要按 (category/title) 映射回 builtin NodeDef。
+            category = str(getattr(node, "category", "") or "").strip()
+            title = str(getattr(node, "title", "") or "").strip()
+            builtin_key = f"{category}/{title}" if (category and title) else ""
+            chosen_def = self.node_library.get(builtin_key) if builtin_key else None
         else:
             raise ValueError(f"GraphScene.get_node_def: 非法 node_def_ref.kind：{kind!r}")
 

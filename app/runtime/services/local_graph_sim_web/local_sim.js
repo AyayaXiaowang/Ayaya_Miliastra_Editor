@@ -1,9 +1,16 @@
 (function () {
-  var API_CLICK = "/api/local_sim/click";
-  var API_STATUS = "/api/local_sim/status";
-  var API_BOOTSTRAP = "/api/local_sim/bootstrap";
-  var API_SYNC = "/api/local_sim/sync";
-  var API_POLL = "/api/local_sim/poll";
+  var NS = (typeof window !== "undefined" && window.__LOCAL_SIM__) ? window.__LOCAL_SIM__ : null;
+
+  function _endpoint(name, fallback) {
+    if (NS && typeof NS.endpoint === "function") return String(NS.endpoint(name, fallback) || "");
+    return String(fallback || "");
+  }
+
+  var API_CLICK = _endpoint("click", "/api/local_sim/click");
+  var API_STATUS = _endpoint("status", "/api/local_sim/status");
+  var API_BOOTSTRAP = _endpoint("bootstrap", "/api/local_sim/bootstrap");
+  var API_SYNC = _endpoint("sync", "/api/local_sim/sync");
+  var API_POLL = _endpoint("poll", "/api/local_sim/poll");
 
   function _trim(text) {
     return String(text || "").replace(/^\s+|\s+$/g, "");
@@ -51,7 +58,7 @@
     badge.style.background = "rgba(0,0,0,0.65)";
     badge.style.border = "1px solid rgba(255,255,255,0.15)";
     badge.style.whiteSpace = "pre-wrap";
-    badge.textContent = "[local_sim] ready";
+    badge.textContent = "[local_sim] 就绪";
     document.body.appendChild(badge);
     return badge;
   }
@@ -62,10 +69,21 @@
   }
 
   function _getQueryParam(name) {
+    if (NS && typeof NS.getQueryParam === "function") return String(NS.getQueryParam(name) || "");
     var s = String(window.location.search || "");
     var m = s.match(new RegExp("[?&]" + String(name || "") + "=([^&]+)"));
     if (!m) return "";
     return String(m[1] || "");
+  }
+
+  function _isFlattenViewEnabled() {
+    var raw = _trim(_getQueryParam("flatten") || _getQueryParam("flat"));
+    if (!raw && document && document.documentElement && document.documentElement.getAttribute) {
+      raw = _trim(String(document.documentElement.getAttribute("data-local-sim-flatten") || ""));
+    }
+    if (NS && typeof NS.isTruthyParam === "function") return !!NS.isTruthyParam(raw);
+    var t = String(raw || "").trim().toLowerCase();
+    return t === "1" || t === "true" || t === "yes" || t === "on";
   }
 
   function requestSwitchLayout(layoutIndex) {
@@ -79,7 +97,9 @@
       return;
     }
 
-    window.location.href = "/ui.html?layout=" + encodeURIComponent(idxText);
+    var flatParam = _isFlattenViewEnabled() ? "&flatten=1" : "";
+    var uiHtml = (NS && NS.WEB && NS.WEB.ui_html) ? String(NS.WEB.ui_html) : "/ui.html";
+    window.location.href = uiHtml + "?layout=" + encodeURIComponent(idxText) + flatParam;
   }
 
   function applyCanvasSizeVars() {
@@ -204,18 +224,18 @@
     if (op === "switch_layout") {
       var idx = p.layout_index;
       document.documentElement.setAttribute("data-local-sim-layout-index", String(idx || ""));
-      setBadge("switch_layout -> " + String(idx || ""));
+      setBadge("切换布局 -> " + String(idx || ""));
       requestSwitchLayout(idx);
       return;
     }
 
     if (op === "activate_widget_group") {
-      setBadge("activate_widget_group: " + String(p.group_index || ""));
+      setBadge("激活控件组：" + String(p.group_index || ""));
       return;
     }
 
     if (op === "remove_widget_group") {
-      setBadge("remove_widget_group: " + String(p.group_index || ""));
+      setBadge("移除控件组：" + String(p.group_index || ""));
       return;
     }
   }
@@ -311,7 +331,7 @@
     var dataUiState = nearestAttr(el, "data-ui-state");
     if (!dataUiKey) return;
 
-    setBadge("click: " + dataUiKey);
+    setBadge("点击：" + dataUiKey);
 
     var payload = {
       data_ui_key: dataUiKey,
@@ -321,12 +341,12 @@
 
     _xhrJson("POST", API_CLICK, payload, function (err, resp) {
       if (err) {
-        setBadge("click failed: " + String(err));
+        setBadge("点击失败：" + String(err));
         return;
       }
       var patches = resp && resp.patches && resp.patches.length ? resp.patches : [];
       for (var pi = 0; pi < patches.length; pi++) applyPatch(patches[pi]);
-      setBadge("patches: " + String(patches.length));
+      setBadge("补丁：" + String(patches.length));
     });
   }
 
@@ -344,38 +364,38 @@
   // status（可视化提示：避免用户误判“按钮点不了”）
   _xhrJson("GET", API_STATUS, null, function (err, s) {
     if (err) {
-      setBadge("status error: " + String(err));
+      setBadge("状态请求失败：" + String(err));
       return;
     }
     if (s && s.ok && s.graph && s.graph.graph_name) {
-      setBadge("connected: " + String(s.graph.graph_name));
+      setBadge("已连接：" + String(s.graph.graph_name));
       return;
     }
-    setBadge("connected");
+    setBadge("已连接");
   });
 
   // 启动补丁：用于 server 侧 auto_emit_signal 的首帧 UI 状态回显
   _xhrJson("GET", API_SYNC, null, function (err, resp) {
     if (err) {
-      setBadge("sync error: " + String(err));
+      setBadge("同步失败：" + String(err));
       return;
     }
     var patches = resp && resp.patches && resp.patches.length ? resp.patches : [];
     for (var pi = 0; pi < patches.length; pi++) applyPatch(patches[pi]);
-    if (patches.length) setBadge("sync patches: " + String(patches.length));
+    if (patches.length) setBadge("同步补丁：" + String(patches.length));
   });
 
   // 兼容旧版：bootstrap 会 drain（用于“异步 auto_emit_signal”补丁回显）
   function pollBootstrap(triesLeft) {
     _xhrJson("GET", API_BOOTSTRAP, null, function (err, resp) {
       if (err) {
-        setBadge("bootstrap error: " + String(err));
+        setBadge("启动补丁失败：" + String(err));
         return;
       }
       var patches = resp && resp.patches && resp.patches.length ? resp.patches : [];
       for (var pi = 0; pi < patches.length; pi++) applyPatch(patches[pi]);
       if (patches.length) {
-        setBadge("bootstrap patches: " + String(patches.length));
+        setBadge("启动补丁：" + String(patches.length));
         return;
       }
       if ((triesLeft || 0) <= 0) return;
@@ -387,7 +407,20 @@
   pollBootstrap(20);
 
   // 轮询：推进定时器并同步 UI 文本绑定（倒计时等）
-  var uiTextEls = qsa("[data-ui-text]");
+  var _uiTextEls = [];
+  var _uiTextElsMode = "";
+
+  function _collectUiTextEls() {
+    if (_isFlattenViewEnabled()) {
+      var overlay = document && document.getElementById ? document.getElementById("local-sim-flatten-overlay") : null;
+      if (overlay && overlay.querySelectorAll) return overlay.querySelectorAll("[data-ui-text]");
+      return qsa("[data-ui-text]");
+    }
+    if (_uiTextElsMode === "raw" && _uiTextEls && _uiTextEls.length) return _uiTextEls;
+    _uiTextElsMode = "raw";
+    _uiTextEls = qsa("[data-ui-text]");
+    return _uiTextEls;
+  }
 
   function _getPath(root, parts) {
     var cur = root;
@@ -444,6 +477,7 @@
       }
     }
     if (!hasKey) return;
+    var uiTextEls = _collectUiTextEls();
     for (var i = 0; i < uiTextEls.length; i++) {
       var el = uiTextEls[i];
       if (!el) continue;
@@ -541,6 +575,10 @@
   }
 
   function updateHighlightDim() {
+    if (_isFlattenViewEnabled()) {
+      if (_highlightDimRoot) _highlightDimRoot.style.display = "none";
+      return;
+    }
     ensureHighlightDim();
     if (!_highlightDimRoot || !_highlightDimLayers) return;
 
@@ -614,7 +652,7 @@
       for (var pi = 0; pi < patches.length; pi++) applyPatch(patches[pi]);
       if (resp && resp.bindings) applyBindings(resp.bindings);
       updateHighlightDim();
-      if (patches.length) setBadge("patches: " + String(patches.length));
+      if (patches.length) setBadge("补丁：" + String(patches.length));
     });
   }
   pollRuntime();

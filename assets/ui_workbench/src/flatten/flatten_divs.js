@@ -709,7 +709,18 @@ export function generateFlattenedDivs(elementsData, sizeKey, opts) {
 
         var originalClassName = elementInfo.className ? String(elementInfo.className) : "";
         var dataLabel = "";
-        if (elementInfo.id) {
+        // 优先使用显式声明（更稳定、可读性更好）：
+        // - data-ui-key：导出/写回/分组的主要稳定键
+        // - data-debug-label：调试/定位辅助键
+        // 再回退到 id / class（历史逻辑）。
+        var attrs = elementInfo.attributes || null;
+        var explicitUiKey = attrs ? String(attrs.dataUiKey || "").trim() : "";
+        var explicitDbg = attrs ? String(attrs.dataDebugLabel || "").trim() : "";
+        if (explicitUiKey) {
+            dataLabel = explicitUiKey;
+        } else if (explicitDbg) {
+            dataLabel = explicitDbg;
+        } else if (elementInfo.id) {
             dataLabel = elementInfo.id;
         } else if (originalClassName) {
             var classParts = originalClassName.split(/\s+/).filter(function (part) { return part.trim().length > 0; });
@@ -721,6 +732,19 @@ export function generateFlattenedDivs(elementsData, sizeKey, opts) {
                 }
             }
         }
+        // 文本层 debug-label 的“基底”（用于拼 text- / text-shadow- 前缀）：
+        // - 若作者已经写成 text-xxx，则这里去掉 text-，避免生成 text-text-xxx
+        // - 若作者写成 text-shadow-xxx，则去掉 text-shadow-，避免生成 text-shadow-text-shadow-xxx
+        var textLabelBase = (function () {
+            var s = String(dataLabel || "").trim();
+            if (s.indexOf("text-shadow-") === 0) {
+                s = s.slice(String("text-shadow-").length);
+            }
+            if (s.indexOf("text-") === 0) {
+                s = s.slice(String("text-").length);
+            }
+            return s;
+        })();
 
         // 边框“只显示不拆层”：对统一边框用 outline 模拟。
         // 注意：若存在 cutout 切分，则 elementRects 会是多个碎片；outline 会围绕每个碎片画边框。
@@ -958,7 +982,7 @@ export function generateFlattenedDivs(elementsData, sizeKey, opts) {
                         },
                         source: elementInfo,
                         html:
-                            '<div class="flat-text flat-text-shadow debug-target size-' + sizeKey + '"' + uiStateDataAttrs + ' style="' + shadowOuterStyleText + '" data-debug-label="text-shadow-' + escapeHtmlText(dataLabel) + "-" + String(tsi) + '">' +
+                            '<div class="flat-text flat-text-shadow debug-target size-' + sizeKey + '"' + uiStateDataAttrs + ' style="' + shadowOuterStyleText + '" data-debug-label="text-shadow-' + escapeHtmlText(textLabelBase) + "-" + String(tsi) + '">' +
                             '<div class="flat-text-inner"' + uiTextDataAttrs + ' style="' + shadowInnerText + '">' + escapeHtmlText(textContent) + "</div>" +
                             "</div>"
                     });
@@ -982,7 +1006,7 @@ export function generateFlattenedDivs(elementsData, sizeKey, opts) {
                 },
                 source: elementInfo,
                 html:
-                    '<div class="flat-text debug-target size-' + sizeKey + '"' + uiStateDataAttrs + ' style="' + outerTextStyleText + '" data-debug-label="text-' + escapeHtmlText(dataLabel) + '">' +
+                    '<div class="flat-text debug-target size-' + sizeKey + '"' + uiStateDataAttrs + ' style="' + outerTextStyleText + '" data-debug-label="text-' + escapeHtmlText(textLabelBase) + '">' +
                     '<div class="flat-text-inner"' + uiTextDataAttrs + ' style="' + innerTextStyleText + '">' + escapeHtmlText(textContent) + "</div>" +
                     "</div>"
             });

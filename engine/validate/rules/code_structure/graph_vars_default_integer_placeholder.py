@@ -13,8 +13,10 @@ from ...pipeline import ValidationRule
 from ..ast_utils import create_rule_issue, get_cached_module, line_span_text
 from ..ui_key_registry_utils import (
     parse_ui_key_placeholder,
+    try_format_invalid_ui_state_group_placeholder_message,
     try_load_ui_html_ui_keys_for_ctx,
 )
+from ..entity_registry_utils import parse_entity_key_placeholder
 
 
 def _iter_graph_variables_list_nodes(tree: ast.AST) -> List[ast.List]:
@@ -40,6 +42,10 @@ def _is_ui_key_placeholder(text: str) -> bool:
     if s.startswith("ui:"):
         return s[len("ui:") :].strip() != ""
     return False
+
+
+def _is_entity_key_placeholder(text: str) -> bool:
+    return parse_entity_key_placeholder(text) is not None
 
 
 _NUMBER_TEXT_RE = re.compile(r"[+-]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[eE][+-]?\d+)?\Z")
@@ -155,6 +161,22 @@ class GraphVarsDefaultIntegerPlaceholderRule(ValidationRule):
                         )
                         return False
                     if ui_view is not None and ui_key not in ui_key_set:
+                        invalid_msg = try_format_invalid_ui_state_group_placeholder_message(str(placeholder_text))
+                        if invalid_msg is not None:
+                            issues.append(
+                                create_rule_issue(
+                                    self,
+                                    file_path,
+                                    default_value_node,
+                                    "CODE_UI_STATE_GROUP_PLACEHOLDER_INVALID_FORMAT",
+                                    (
+                                        f"{line_span_text(default_value_node)}: GRAPH_VARIABLES 中图变量"
+                                        f"{('『' + name_text + '』') if name_text else ''} 的类型为『{var_type_display}』时，"
+                                        f"{invalid_msg} 当前写法为 {placeholder_text!r}"
+                                    ),
+                                )
+                            )
+                            return False
                         issues.append(
                             create_rule_issue(
                                 self,
@@ -191,6 +213,8 @@ class GraphVarsDefaultIntegerPlaceholderRule(ValidationRule):
                         if _is_ui_key_placeholder(s):
                             if _check_ui_key_exists_or_report(s):
                                 continue
+                            continue
+                        if _is_entity_key_placeholder(s):
                             continue
                         if _NUMBER_TEXT_RE.fullmatch(s):
                             continue
@@ -242,6 +266,8 @@ class GraphVarsDefaultIntegerPlaceholderRule(ValidationRule):
                             if _is_ui_key_placeholder(s):
                                 if not _check_ui_key_exists_or_report(s):
                                     break
+                                continue
+                            if _is_entity_key_placeholder(s):
                                 continue
                             if _NUMBER_TEXT_RE.fullmatch(s):
                                 continue

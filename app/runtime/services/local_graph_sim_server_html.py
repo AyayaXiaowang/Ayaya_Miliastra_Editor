@@ -16,7 +16,7 @@ _UI_DEFAULTS_ATTR_RE = re.compile(r"data-ui-variable-defaults\s*=\s*'([\s\S]*?)'
 def _inject_local_sim_script(html_text: str) -> str:
     """向 UI HTML 注入本地测试脚本（/local_sim.js）。"""
     text = str(html_text or "")
-    injection = "\n<script src=\"/local_sim.js\"></script>\n"
+    injection = "\n<script src=\"/local_sim_shared.js\"></script>\n<script src=\"/local_sim.js\"></script>\n"
     if _INJECT_SCRIPT_MARKER in text:
         return text.replace(_INJECT_SCRIPT_MARKER, injection + _INJECT_SCRIPT_MARKER, 1)
     return text + injection

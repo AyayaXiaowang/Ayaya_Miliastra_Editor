@@ -20,11 +20,11 @@ from typing import Any, Optional, Sequence
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from app.runtime.services.json_cache_service import get_shared_json_cache_service
-from app.ui.foundation import input_dialogs
+from app.ui.foundation import dialog_utils, input_dialogs
 from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 from app.ui.foundation.toggle_switch import ToggleSwitch
 from app.ui.panels.panel_dict_utils import ensure_dict_field, ensure_nested_dict, ensure_list_field
-from app.ui.panels.ui_control_group_collapsible_section import CollapsibleSection
+from app.ui.panels.ui.ui_control_group_collapsible_section import CollapsibleSection
 from app.ui.panels.template_instance.tab_base import (
     TemplateInstanceTabBase,
     is_drop_template_config,
@@ -39,6 +39,7 @@ from engine.configs.entities.creature_models import (
 from engine.graph.models.package_model import InstanceConfig, TemplateConfig
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
+from engine.resources.resource_manager import ResourceManager
 
 _INSPECTOR_METADATA_KEY = "common_inspector"
 _ACCORDION_STATE_CACHE_PATH = "ui/template_instance_common_inspector_accordion.json"
@@ -324,6 +325,16 @@ class BasicInfoTab(TemplateInstanceTabBase):
         self.edit_decorations_btn.setStyleSheet(ThemeManager.button_style())
         self.edit_decorations_btn.clicked.connect(self._on_edit_decorations_clicked)
         deco_layout.addWidget(self.edit_decorations_btn)
+
+        self.split_decorations_btn = QtWidgets.QPushButton("打散为元件", deco_row)
+        self.split_decorations_btn.setStyleSheet(ThemeManager.button_style())
+        self.split_decorations_btn.setToolTip(
+            "将当前对象的 decorations 列表打散：\n"
+            "- 每个装饰物生成一个独立的元件模板（空模型载体 + 单个装饰物）\n"
+            "- 新元件写入当前项目存档的 `元件库/`"
+        )
+        self.split_decorations_btn.clicked.connect(self._on_split_decorations_clicked)
+        deco_layout.addWidget(self.split_decorations_btn)
 
         section.add_widget(deco_row)
 
@@ -986,6 +997,77 @@ class BasicInfoTab(TemplateInstanceTabBase):
         self._refresh_model_card()
         self.data_changed.emit()
 
+    def _on_split_decorations_clicked(self) -> None:
+        if self._is_read_only or self.current_object is None:
+            return
+        if self.service is None:
+            return
+        resource_manager = getattr(self, "resource_manager", None)
+        if not isinstance(resource_manager, ResourceManager):
+            return
+        package = self.current_package
+        if not isinstance(package, PackageView):
+            dialog_utils.show_warning_dialog(
+                self,
+                "需要项目存档上下文",
+                "当前视图不是“项目存档视图”，无法将新元件写入项目存档目录。\n"
+                "请切换到某个具体项目存档后再使用该功能。",
+            )
+            return
+
+        metadata = self._read_metadata_dict()
+        inspector = self._read_inspector_dict(metadata)
+        model = inspector.get("model") if isinstance(inspector, dict) else None
+        raw_decorations = model.get("decorations") if isinstance(model, dict) else None
+        if not isinstance(raw_decorations, list) or not raw_decorations:
+            dialog_utils.show_info_dialog(
+                self,
+                "无装饰物",
+                "当前对象的 `metadata.common_inspector.model.decorations` 为空，无法打散。",
+            )
+            return
+
+        decoration_count = len(raw_decorations)
+        confirmed = dialog_utils.ask_yes_no_dialog(
+            self,
+            "确认打散装饰物",
+            "即将执行：\n"
+            f"- 装饰物数量：{decoration_count}\n"
+            f"- 生成元件数量：{decoration_count}\n"
+            "- 写入位置：当前项目存档的 `元件库/`\n\n"
+            "是否继续？",
+            default_yes=False,
+        )
+        if not confirmed:
+            return
+
+        created_template_ids = self.service.split_decorations_to_templates(
+            source=self.current_object,
+            object_type=self.object_type,
+            package=package,
+            resource_manager=resource_manager,
+        )
+        if not created_template_ids:
+            dialog_utils.show_info_dialog(self, "已完成", "未生成任何新元件（可能装饰物列表不包含有效条目）。")
+            return
+
+        # 触发左侧库页刷新（不依赖“属性改动→脏标记”链路，避免误导保存状态）
+        main_window = self.window()
+        template_widget = getattr(main_window, "template_widget", None)
+        refresh = getattr(template_widget, "refresh_templates", None)
+        if callable(refresh):
+            refresh()
+
+        preview_ids = created_template_ids[:8]
+        more = "" if len(created_template_ids) <= 8 else f"\n... 以及另外 {len(created_template_ids) - 8} 个"
+        dialog_utils.show_info_dialog(
+            self,
+            "打散完成",
+            "已生成装饰物元件：\n"
+            + "\n".join([f"- {tid}" for tid in preview_ids])
+            + more,
+        )
+
     def _on_edit_mount_points_clicked(self) -> None:
         if self._is_read_only or self.current_object is None:
             return
@@ -1143,6 +1225,7 @@ class BasicInfoTab(TemplateInstanceTabBase):
         self.model_more_btn.setEnabled(not self._is_read_only)
         self.edit_mount_points_btn.setEnabled(not self._is_read_only)
         self.edit_decorations_btn.setEnabled(not self._is_read_only)
+        self.split_decorations_btn.setEnabled(not self._is_read_only)
 
         self._update_transform_editable_state()
 

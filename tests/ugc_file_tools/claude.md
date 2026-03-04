@@ -1,14 +1,137 @@
+# tests/ugc_file_tools
+
 ## 目录用途
-- 预留给 `private_extensions/ugc_file_tools` 的 **手动/本地集成回归入口**（可用 pytest 组织），用于做“写回闭环/真源约束对照”的验证。
-- 该类用例通常依赖本机真源样本（`.gil/.gia`）与本地路径约束（例如 BeyondLocal 导出目录），**不适合 CI 默认运行**。
+
+- 存放 `private_extensions/ugc_file_tools` 的回归用例（pytest）。
+- 用例类型包含：
+  - **轻量单测**：CLI 参数/selection-json/导入器等（默认可运行；少数用例可能因缺少样本而 skip）。
+  - **可选本机回归**：依赖真源样本（`.gil/.gia`）或写盘的重用例（应显式 skip 或 gated）。
 
 ## 当前状态
-- 当前目录默认不提供可运行用例；如需本机手动回归，可按 “manual” 策略在此处补充：
-  - 默认 **跳过**（skip），仅在显式设置环境变量时运行。
-  - heavy imports / 写盘操作放在 skip 判定之后，避免 CI/无环境时在 import 阶段失败。
+
+- 已包含若干稳定回归：
+  - project CLI 解析（例如 `--ui-export-record`）
+  - project 节点图写回回归：base `.gil` 存在同名图时按 **(scope, graph_name)** 复用 `graph_id_int` 并覆盖写回（避免 server/client 同名互相覆盖）
+  - `.gil` 节点图 overwrite 写回回归：覆盖写回必须“就地替换 entry”并保持 groups 顺序不变，避免 `group_index` 漂移导致官方侧目录/分组错位。覆盖：`test_gil_writeback_overwrite_preserves_group_order.py`
+  - project 节点图冲突策略回归：selection-json 可携带 `node_graph_conflict_resolutions`，支持对同名图选择 `overwrite/add/skip`（add 写入新图名；skip 不导出且可在 report 的 skipped_graphs 中看到）
+  - project 节点图写回回归：单图 strict 解析失败（`GraphParseError`）应跳过并记录到 `skipped_graphs`（不中断整次写回，供导出中心提示）。
+  - selection-json 解析（模板 JSON / 实体摆放 JSON 列表）
+  - 关卡实体自定义变量写回护栏回归：当变量定义的 `owner` 不为 `level` 时，写回应 fail-fast，避免误把玩家/第三方变量写入关卡实体。覆盖：`test_level_custom_variables_importer.py`
+  - 元件模板 importer（非纯数字 template_id 的稳定映射）
+  - 元件模板 `.gia` 导出 ID 回归：`template_root_id_int(0x4040xxxx)` 的 low16 必须 <0x8000（当前固定为 0x4000~0x7FFF），避免真源/工具链把 low16 当作 int16 负数导致“不识别/不可见”
+  - `.gia` 导入项目存档回归：元件模板 + 实体摆放 `.gia` → `元件库/实体摆放` JSON + `templates_index/instances_index`
+    - 兼容数字字段为数字字符串；占位实例名会回退为模板名；overwrite 会同步重命名文件名
+    - 覆盖 `decorations_to_template`：多装饰物 unit 按被引用 `template_id` 分组，写入到对应元件（模板）自身的 `metadata.common_inspector.model.decorations`（以元件为主；不生成实体摆放文件/instances_index）
+    - 覆盖 `decorations_carrier`：多装饰物 unit 合并为 1 个载体实体，装饰物列表写入 `metadata.common_inspector.model.decorations`（避免生成海量实体文件）
+  - `.gia` 导出结构回归：字典 OUT_PARAM 的 `ConcreteBase` **不写** `indexOfConcrete`，但 KV 类型信息必须存在
+  - `.gia` 导出结构回归：字典泛型节点（如 `对字典设置或新增键值对(948)`）当 GraphModel 端口仍为“泛型字典”时，必须从连线推断 (K,V)，并写入 concreteId 与 pins 的 `indexOfConcrete`
+  - `.gia` 导出结构回归：`获取节点图变量(Get_Node_Graph_Variable, 337)` 当 `T=字典(Int->Gid)` 时，必须写入 `NodeInstance.concrete_id=3040` 且 dict OUT_PARAM 的 `indexOfConcrete=20`（否则编辑器回退为实体）
+  - `.gia` 导出结构回归：`是否相等(Equal, 14)` 当输入端口为实体(1)时，两个 IN_PARAM 的 `ConcreteBase.indexOfConcrete` 必须写入 2，且 `NodeInstance.concrete_id` 必须命中 16（不能依赖 genshin-ts report 缺失时的推断）。
+  - `.gil` 写回结构回归：`获取节点图变量(Get_Node_Graph_Variable, 337)` 当 `T=字典(Int->Gid)` 时，必须写入节点 `NodeProperty(runtime_id)=3040`，且 dict OUT_PARAM 必须同时写入 `indexOfConcrete=20` 与 MapBase 的 KV 类型信息（否则编辑器回退默认 concrete/回退为实体-实体字典）。
+  - `.gil` 写回结构回归：`获取节点图变量(Get_Node_Graph_Variable, 337)` 当 `T=Vec` 时，OUT_PARAM 的 `ConcreteBase.indexOfConcrete` 必须写入 11，且 runtime_id 必须命中 node_data TypeMappings（避免外部 concrete_map 缺失时退化）。
+  - `.gil` 写回结构回归：`设置节点图变量(Set_Node_Graph_Variable, 323)` 当 `T=Vec` 且 `变量值` 通过连线输入时，dst InParam pin 仍必须写 `ConcreteBase.indexOfConcrete=11`（不能因“已连线”而省略实例化信息）。
+  - `.gil` 写回结构回归：`设置自定义变量(Set_Custom_Variable, 22)` 当 `变量值` 为别名字典（例如 Str->Int）且通过连线输入时，dst InParam 必须写入 `ConcreteBase.indexOfConcrete`（命中 node_data TypeMappings 的 in_index，常见为 20）且 MapBase 内显式写入 K/V VarType（避免回退默认 concrete/端口类型漂移/导入报错）。
+  - `.gil` 复合节点写回回归：复合节点实例的 InParam **常量** record 也必须写入 `field_7(persistent_uid)`（从 NodeInterface 生成的 record_id_map），避免仅“有连线的端口”带 `field_7` 而常量端口缺失导致复合节点端口映射错位。覆盖：`test_gil_writeback_composite_inparam_constants_write_field7_from_record_id_map.py`
+  - `.gil` 写回结构回归：GraphVariables 的“布局索引_*”默认值允许在 Graph Code 中保持为 0；写回阶段应支持仅基于 base `.gil` 的 UI records 反查 layout root GUID，并回填到 GraphVariables(default_value)（不强依赖外部 `ui_guid_registry.json`）。
+  - `.gil` 写回结构回归：信号节点静态绑定（发送信号/监听信号）必须写入 META pin 的 `source_ref + compositePinIndex`，并且发送信号参数 pins 必须按信号规格覆写 VarType 且写入 compositePinIndex（否则易出现信号名串号/参数端口错位/参数类型错误）。
+    - 覆盖：`test_gil_writeback_signal_meta_binding_writes_source_ref_and_cpi.py`（发送信号）
+    - 覆盖：`test_gil_writeback_listen_signal_meta_binding_writes_source_ref_and_cpi.py`（监听信号）
+    - 额外覆盖：当写回侧命中 base 信号映射并提升为 signal-specific runtime_id 时，信号节点实例必须写入 `node.field_9(signal_index)`（否则官方侧可能无法建立信号主键映射）。
+  - `.gil` 写回 OUT_PARAM 回归：list VarType（如 字符串列表=11）的 OUT_PARAM 若使用 ConcreteBase 包裹，其 inner VarBase 必须为 ArrayBase(10002)，避免 VarType 与 VarBase.cls 不一致导致官方侧更严格校验失败。
+    - 覆盖：`test_gil_writeback_outparam_list_concrete_inner_var_base_is_array_base.py`
+  - VarBase 编码回归：id-like VarType（实体/GUID/配置ID 等）在 value=0 时，常以 `alreadySetVal=1 + empty bytes` 表达（而不是显式写 0），用于对齐“校验成功”真源样本。
+    - 覆盖：`test_var_base_id_like_zero_encodes_as_empty_bytes.py`
+  - VarBase 语义提取回归：`StringBaseValue(field_105)` 在 `alreadySetVal(field_2)` 缺失且为 empty bytes(raw_hex="") 时应视为 **未设置(None)**（常见于已连线 pins 的 type carrier），避免诊断/导出把“连线输入”误读为被写回清空。
+  - `.gil` 写回结构回归：监听信号“事件节点”（GraphModel: `node_def_ref.kind=event` 且 outputs 含 `信号来源实体`）在信号表映射可用时应写为 signal-specific runtime，并写入 `node.field_9(signal_index)`；同时 flow record 的 compositePinIndex 必须为 `信号名端口 index - 1`（避免端口错位）。覆盖：`test_gil_writeback_listen_signal_event_node_writes_meta_flow_cpi_and_signal_index.py`
+  - `.gil` 写回结构回归：信号 META binding 不依赖隐藏语义键 `__signal_id`；即使缺失也必须保证信号参数 pins 的 `pin_index2(kernel)==pin_index(shell)`（避免 kernel 固定为 0 导致端口错位/串号）。
+    - 覆盖：`test_gil_writeback_signal_meta_binding_does_not_require_signal_id.py`
+    - 覆盖：`test_gil_writeback_signal_param_data_edge_kernel_index_matches_shell.py`（data-edge 连接到参数端口）
+  - `.gil` 写回结构回归：信号节点 pins(records) 必须按 `(kind,index)` 稳定排序（flow→inparam→outparam→meta），避免多阶段后补 pin 导致顺序漂移（已观测编辑器可渲染但运行时可能更严格而无法开始游戏）。见 `test_gil_writeback_signal_pin_records_sorted_by_kind_index.py`。
+  - `.gil` 写回结构回归：命中信号静态绑定且 base `.gil` 可提供映射时，信号节点实例的 type_id 应直接使用 base 信号表里的 send/listen/server id（常见 0x4000xxxx/0x4080xxxx，对齐 after_game）；禁止再 OR “提升位”生成 0x6000xxxx/0x6080xxxx。见 `test_signal_specific_type_id_promotes_runtime_id.py`。
+  - project 写回回归：当仅选择写回“节点图”时，pipeline 仍应自动从 GraphModel 收集所需 `signal_ids` 并补齐写回信号定义（含监听信号事件节点的兼容形态；避免空存档 base 导致信号端口无法展开）。见 `test_project_writeback_auto_enables_signals_for_graphs.py`。
+  - project 写回回归：当仅选择写回“元件模板”且模板 JSON 含 `metadata.common_inspector.model.decorations` 时，应将装饰物写回到输出 `.gil` 的 `payload_root['27']`（root27.1 定义 + root27.2 挂载）；并且不应隐式启用“实体摆放”写回。见 `test_project_writeback_auto_enables_instances_for_template_decorations.py`（含：空 base 需自举 root8 父实例以生成 root27.2；父实例 meta40.field50.501 需写入 attachment_id 的 packed varint stream；模板 entry(meta6) 的 meta40.field50.501 需写入 def_id 的 packed varint stream；root22 需包含 ModelDisplay/PropertyAttachArchetypeModel 声明以对齐真源渲染口径）。
+  - project 写回回归：新增/覆盖元件模板后，需要同步补齐 `root4/6` 的模板页签/索引段（未分类页签 kind=100/400 的索引表），否则新增模板在编辑器元件库列表中可能不可见/不稳定。见 `test_project_writeback_template_tabs_registry.py`。
+  - project 写回回归：当同一次写回中“模板装饰物(root27.1) + 新增实例(root5/1)”同时发生时，实例写回阶段必须补齐 `root27.2` 的挂载记录，并同步写入父实例 meta40.field50.501（避免 decorations 未绑定导致进游戏不可见）。见 `test_project_writeback_auto_enables_instances_for_template_decorations.py` 的 `test_project_writeback_when_adding_instances_also_syncs_template_decoration_attachments_to_root27_2`。
+  - project 写回回归：当实体摆放的 `instance_id` 在 base `.gil` 中不存在时，应走“新增实例（克隆样本 entry）”路径写回，而不是静默跳过。
+  - project 写回回归：实体摆放的 `instance_id/template_id` 允许是非数字（稳定业务 key），写回 `.gil` 时必须映射为稳定 int（0x4040xxxx），并能完成新增实例。见 `test_project_writeback_instances_supports_string_ids.py`。
+  - project 写回回归：新增实例时若未提供 `metadata.guid/ugc_guid_int`，写回必须自动分配一个不冲突 GUID（transform[501]），且同次新增多个实例 GUID 必须互不相同。见 `test_project_writeback_instances_supports_string_ids.py`。
+  - project 写回回归：shape-editor 的实体摆放（`template_id=shape_editor_empty__*`）允许在不导出模板段的情况下新增到空存档，且其 `metadata.common_inspector.model.decorations` 必须写回到 `root27` 并挂载到该 parent instance；同时父实例 `meta(id=40).field50.501` 需写入 attachment_id 的 varint stream（否则进游戏不可见）。见 `test_project_writeback_shape_editor_instance_decorations.py`。
+  - project 写回回归：元件模板/实体摆放的 `metadata.custom_variable_file(VARIABLE_FILE_ID)` 应加载变量文件 `LEVEL_VARIABLES` 并写回到对应 entry 的自定义变量 group1（模板：`root4/4/1[*].8`；实体：`root4/5/1[*].7`）；并额外断言无 decorations 的 10005018 实例其 `meta(id=40).field50` 为 empty bytes（避免“新增实体自带特效/挂载引用”）。见 `test_project_writeback_custom_variables_group1.py`。
+  - 信号写回回归：当 template `.gil` 内已包含同名信号时，写回仍应按 base 重新分配 `signal_index/node_def_id`，避免整段克隆 template 编号导致把 `.gia` 风格号段带入 `.gil`。见 `test_signal_writeback_does_not_clone_template_ids.py`。
+  - 信号写回回归：当 base `.gil` 的 `root4/10/5` 在 dump-json 桥接后表现为 `str("<binary_data> ..")` 时，写回应能显式按 message 解码并继续（不得在 ensure_dict 崩溃）。见 `test_signal_writeback_coerces_section5_binary_data_to_dict.py`。
+- 信号写回回归：新增信号定义（signal entries + node_defs）时，必须 **不触碰** base `.gil` 内已有 NodeGraph blob bytes；否则会出现“已有图的信号节点 META value 变空/串号”。见 `test_signal_writeback_preserves_existing_node_graph_blobs.py`。
+  - 信号写回回归：`signal_index` 口径——占位无参信号固定为 `2`；业务信号的 `signal_index` **与参数个数/类型无关**，按信号条目递增；并覆盖“非标量参数的端口按角色分块连续”。覆盖：`test_signal_writeback_signal_index_follows_param_count.py`
+- 信号写回回归：空 base `.gil` 新增信号的端口索引应按“端口块分配”（块宽 `16 + 3*N`，并做 scheme 相关的 baseline 保底；支持 template 抬高 baseline 对齐真源号段），避免端口号段过低/漂移导致官方侧解析不稳定；并覆盖“关闭占位无参信号 entry 写入但仍预留槽位”的行为（预留 node_def_id/端口块；业务 `signal_index` 按“右对齐到 11”的口径分配：2 条→10/11，3 条→9/10/11）。见 `test_signal_writeback_port_block_allocation.py`。
+  - 信号写回回归：signal node_def 的口径对齐（官方更严格校验相关）：
+    - `node_def['102']` param item：`field_3.field_2` 必须表达参数序号（首个参数省略）
+    - server-send（向服务器节点图发送信号）参数 type descriptor type_id 映射（含 GUID→14、Bool→5 + field_101=200001 等）
+    - `node_def['106']`【信号名】端口默认值：补齐 `port4.2(StringBaseValue)=signal_name` 与 `port4.6=1`，并对齐 send/listen vs server-send 的 `VarBase.item_type` 口径
+    - 覆盖：`test_signal_writeback_param_item_ordinal_and_server_send_type_id_mapping.py`、`test_signal_writeback_signal_name_port_default_value_item_type_matches_samples.py`
+  - 信号写回回归：base `.gil` 的信号 `node_def_id` 允许跨 entry 混用 `0x4000xxxx` 与 `0x6000xxxx` 前缀；写回不应一刀切报错，且新增信号前缀选择应可预测。见 `test_signal_writeback_allows_mixed_scope_prefixes.py`。
+  - `.gil` 写回结构回归：Variant/Generic 节点在**无常量**时也必须能从连线/typed JSON 推断并写回 concrete runtime_id（例如 `是否相等(14)` 的输入为实体(1)时，runtime_id 必须命中 node_data TypeMappings 对应 concrete）。见 `test_gil_writeback_variant_concrete_id_inferred_from_edges.py`。
+  - `.gil` 写回结构回归：`拼装列表(Assembly_List, 169)` 的 concrete runtime_id 推断必须使用“元素类型 T”（例如 字符串=6 → concrete=170），不能误用输出端口的“列表容器类型 `L<T>`”（例如 字符串列表=11），否则会阻断 concrete 写回并导致编辑器端口类型收敛异常。
+  - `.gil` 写回结构回归：`列表迭代循环(List_Iteration_Loop, 509)` 当 `迭代列表=实体列表(13)` 时，runtime_id 必须命中实体 concrete（510），且连线 dst InParam(迭代列表) 必须写 `ConcreteBase.indexOfConcrete=1`，避免回退为布尔列表等默认 concrete。
+  - `.gil` 写回结构回归：当 `获取节点图变量(337)` 的 `output_port_types` 缺失/保持泛型时，OUT_PARAM 的 VarType 必须从 `graph_variables(name→variable_type)` 反推补齐，避免端口类型退化为字符串或模板默认值。
+  - `.gil` 写回结构回归：模板克隆/就地 patch 时，若 pin_index.index=0 则不得写入 `field_2=0`（需省略 field_2），否则编辑器可能忽略该 data-link 并表现为“端口无连线”。
+  - `.gil` 写回结构回归：Int 常量为 0 时，IntBaseValue(field_102) 必须显式写入 nested message（`field_1=0`），不能用 empty bytes(raw_hex="") 表达；否则编辑器里“获取列表对应值.序号=0”等端口会显示为空。
+  - pin_rules 回归：字典泛型节点 `Query_Dictionary_Value_by_Key(1158)` 的 OUT_PARAM/indexOfConcrete 必须可从 node_data TypeMappings(`S<K:...,V:...>`) 推断（无 genshin-ts concrete_map 时也可用）。见 `test_pin_rules_query_dict_value_by_key_index_of_concrete.py`。
+  - 节点图写回 pipeline 输入加载回归：scope 一致性校验报错信息稳定；纯 JSON 写回禁止 `component_key:/entity_key:` 占位符（避免误以为支持 IDRef 回填）。
+  - 口径契约层回归：TypeMappings 解析与 concrete/indexOfConcrete 映射统一由 `ugc_file_tools/contracts/node_graph_type_mappings.py` 提供；测试应优先引用该契约层（而不是导出/写回侧的私有函数）。
+  - `.gia` 解析语义回归：VarBase 的 StringBaseValue/嵌套 message 在 protobuf-like 解码被误判为 utf8 时，仍应能从 raw_hex 反解并正确抽取字符串/字典默认值
+  - protobuf-like 解码护栏回归：length-delimited bytes 若 sanitize 需要剔除控制字符，则不输出 `utf8`（仅保留 raw_hex），避免写回重编码导致 `.gil` payload 漂移/存档拒识
+  - 写回保真回归：node_graph_writeback / signal_writeback 写回时必须 **不触碰** base `.gil` 的其它 payload_root 段 bytes（使用 wire-level 只替换 `field_10`），避免 UI base 下 templates 段发生 payload drift。见 `test_writeback_preserves_unrelated_payload_sections_wire_bytes.py`。
+  - UI records → `ui_key` GUID 回填规则回归：`ui_guid_resolution.resolve_ui_key_guid_from_output_gil`（layout 消歧、state group、btn_item fallback）
+  - UI records 辅助规则回归：legacy key 别名回填、registry(group/btn_item) 覆盖推断、缺失 key 从 UI records 反查补齐（均在 `ui_guid_resolution.py`）
+  - 导出中心 UI 写回策略回归：选择 `UI源码(ui_src)` 时 write_ui 必须强制开启；非强制时按用户勾选决定（`ui_integration/export_center/write_ui_policy.py`）。
+  - 资源选择器回归：管理配置（mgmt_cfg）在导出中心收敛为“信号/结构体定义”候选（排除校验脚本与杂项目录），并对代码级资源提取友好显示名（优先 `signal_name/struct_name/VARIABLE_FILE_NAME`），避免仅显示文件名/ID；GIL 模式左侧提供“关卡实体自定义变量（全部）”勾选项，启用后会自动按关卡实体引用的 VARIABLE_FILE_ID 收集候选并全量写回（跳过 owner=player/data），预览文本会显示数量。
+  - 导出中心回归：GIL 模式支持“使用内置空存档（默认布局）”作为 base，允许在不选择输入基础 `.gil` 的情况下构建 plan 并执行导出。见 `test_export_center_builtin_empty_base_gil_option.py`。
+- 空存档样本约定：`ugc_file_tools/builtin_resources/empty_base_samples/empty_base_with_infra.gil` 为“带基础设施的空存档 base”；`empty_base_vacuum.gil` 为极空基底（仅用于 bootstrapping/兼容场景回归）。
+  - `.gil` 基础设施 bootstrap 回归：当“空壳/极简 base `.gil`”缺失 `root4/11` 初始阵营互斥字段（entries 缺 key=13；包含 base entries 的匹配键(key=3)漂移/缺失导致无法命中 bootstrap 的场景）或 `root4/35` 默认分组列表时，应能从 bootstrap `.gil` 复制缺失字段（只补缺失、不覆盖 base 其它业务段），使导出产物更贴近“校验成功”样本口径。见 `test_gil_infrastructure_bootstrap_patches_missing_root4_sections.py`。
+  - project 写回回归：当 pipeline 触发基础设施 bootstrap 但 bootstrap 判定无需写盘（`changed=False`）时，后续步骤必须继续使用原始 base 作为输入（不得切换到不存在的中间产物导致导出中心失败）。见 `test_project_writeback_bootstrap_changed_false_does_not_break_pipeline.py`。
+  - 导出中心预览/回填面板纯逻辑回归：预览摘要文本与回填依赖清单/签名（含 target 路径与关键开关字段）收口到 `ui_integration/export_center/preview_models.py` 与 `backfill_panel_models.py`，测试锁住关键输出片段。
+  - 导出中心回归：GIA 模式支持“基底 `.gil` 作为占位符参考回退”（未填写占位符参考时使用基底用于 `entity_key/component_key` 回填）。见 `test_export_center_validate_gia_plan_uses_base_gil_as_id_ref_fallback.py`。
+  - 导出中心回填识别进度回归：`identify_gil_backfill_comparison` 应发出 `progress_cb(current,total,label)` 进度事件，供 UI 进度条展示（见 `test_export_center_backfill_inspector.py`）。
+  - 导出中心回填识别缓存回归：同一份 `.gil` 重复识别应命中运行期缓存；当 `.gil` 变化（size/mtime）时缓存应自动失效并重新解析（见 `test_export_center_backfill_inspector.py`）。
+  - 导出中心回填识别（UI占位符变量自动同步）回归：当启用 `scan_ui_placeholder_variables` 且 UI源码引用变量但 base 缺失时，识别表应标为“一同导出”（写回会自动补齐；见 `test_export_center_backfill_inspector.py`）。
+  - `.gil` 元件/实体 ID 抽取回归：`test_list_gil_ids.py`（合成最小 `.gil`，校验 component template_id 与 entity instance_id 的提取与去重排序）
+  - `.gil` 占位符参考映射回归：`test_id_ref_from_gil.py`（合成最小 `.gil`，校验 `component_key:` 回填使用模板条目ID而非类型码；并覆盖模板名以 `<binary_data> 0A ..`（嵌套 message bytes）形态出现时仍能解包得到可读名称，避免识别/候选列表出现 `<binary_data>` 噪音）
+  - `.gil` 占位符手动 overrides 回归：`test_id_ref_overrides.py`（JSON loader/合并策略；导出侧占位符回填应用 overrides 后缺失列表应清空）
+  - `.gil` 实体“运动器(Motioner)”组项补丁回归：`test_motioner_group.py`（合成最小 instance entry dict，验证 `root4/5/1[*].7` 追加/修补 `{1:4,2:1,14:{505:1}}` 的行为）。
+  - `.gil` 容器切片不变量回归：`test_gil_container_meta_invariants.py`（内置空存档样本；锁住 header/body/footer 的长度与 offset 关系，避免多处手搓容器解析口径漂移）。
+  - `.gia` 装饰物 wire-level 变换回归：`test_gia_merge_and_center_decorations_wire_synthetic.py`（合成最小“空物体+装饰物” `.gia`，覆盖 `keep_world/move_decorations` 的 merge/center；并覆盖父节点 rotation/scale 存在时的 keep_world 补偿与 reparent）
+  - `.gia` 元件模板↔实体摆放 bundle 转换回归：`test_gia_convert_component_entity_wire_synthetic.py`（合成最小 bundle.gia，验证 templates→instances / instances→templates 裁剪与清空）
+  - `.gia` 元件模板+实体摆放 bundle **保真切片导出**回归：`test_export_templates_instances_bundle_gia_synthetic_slice.py`（合成 source bundle 混入不完整 GraphUnitId，确保导出侧跳过无效 unit 且输出包含 Root.field_2 instances）
+  - `.gia` 预览实体打包处理回归：`test_gia_process_preview_entities_in_pack_wire_synthetic_instance_transform.py`（合成最小 pack.gia；确保 instances(GraphUnit type=14,which=28) 的 position 补丁走 wrapper.payload.transform，而不是误补丁 payload 内的 dummy Vector3）
+  - `.gia` 导出上下文口径回归：`test_gia_export_graph_context_enriches_port_types.py`：上下文构建阶段必须强制补齐 GraphModel payload 的 `input_port_types/output_port_types`（有效类型快照），消除字段形态分叉并确保导出/预览/写回同口径。
+  - `.gil` 复合节点写回回归：复合节点子图（composite.sub_graph）也必须执行 EffectivePortTypeResolver enrich（补齐 `input/output_port_types` 与 declared types），避免子图内字典/动态端口等类型推断退化导致 pins/records/Concrete 错漏。覆盖：`test_gil_writeback_composite_subgraph_port_types_are_enriched.py`
+  - `.gil` 复合节点写回回归：复合子图 inner node 的列表/字典 pins 必须补齐 `ConcreteBase.indexOfConcrete` 与字典 K/V 类型载体（否则编辑器回退显示为“整数列表/泛型字典”）。覆盖：`test_gil_writeback_composite_subgraph_port_type_overrides_applied.py`、`test_gil_writeback_composite_inner_graph_dict_pin_concrete_carries_kv_types.py`
+  - `.gil` 复合节点 port_mappings 回归：复合子图内【发送信号/监听信号】的 “信号名” 端口是 META(kind=5)，不得占用 data InParam(kind=3) 的 ordinal；否则会出现“第一个参数端口空、后续参数整体错位”。覆盖：`test_gil_writeback_composite_port_mappings_signal_params_do_not_shift_by_signal_name.py`
+  - 复合节点写回测试夹具：回归用复合节点库/节点图/信号定义位于 `assets/资源库/项目存档/测试项目/`（测试用例以 `active_package_id="测试项目"` 加载）。
+  - `.gil` 复合节点 NodeInterface 回归：Vec3(三维向量, VarType=12) 的虚拟引脚 type_info 必须写入 `widget_type(field_1)=7`，否则导出存档会缺失 `section10.2.*.102/103[*].4.1` 导致编辑器/游戏侧输入控件退化。覆盖：`test_gil_writeback_composite_node_interface_vec3_widget_type_is_7.py`
+  - `.gil` 复合节点 NodeInterface 回归：虚拟引脚的 `persistent_uid(field_8)` 需按 kind 顺序连续分配且常见从 `24` 起（InFlow=24, OutFlow=25, InParam=26...），避免导入后编辑器自动重排导致端口映射错位。覆盖：`test_gil_writeback_composite_node_interface_persistent_uid_allocation_starts_at_24.py`
+  - `.gil` 复合节点写回回归：CompositeGraph.inner_nodes 的 NodePin 允许省略 `PinIndex2(field_2)`（signal-specific runtime 的 META pin 常见），解码 records→pin_messages 时必须保留并归一化补齐，避免复合子图内信号名绑定落盘为空。覆盖：`test_composite_inner_graph_pin_decode_accepts_missing_pin_index2.py`
+  - `.gil` 写回信号回归：信号节点 type_id 提升（generic 300000/300001/300002 → signal-specific node_def_id）不应依赖 `__signal_id`；当信号名为字符串常量且该端口无入边、并且 base 提供映射时必须提升，否则编辑器不展开动态端口。覆盖：`test_node_index_promotes_signal_specific_type_id_without_signal_id.py`
+  - 端口类型缺口报告回归：`test_port_type_gap_report_marks_dict_mutation_as_error.py`：当“字典原地修改”节点的端口仍为泛型家族时，报告必须标记为 error（用于导出/写回 fail-fast 分级与诊断）。
+  - 缺口条目需标注 `evidence_source`（例如 `port_types`），便于导出/写回 report 明确“证据来自哪里”；当 `node_def_ref.kind="event"` 时条目需携带 `event_mapping(event_key/mapped_builtin_key)` 证据，便于定位 event 映射口径与失败原因。
+  - `.gil` 节点图写回 roundtrip 金样快照：`test_gil_writeback_roundtrip_golden_snapshot.py`（GraphModel(JSON) → `.gil` pure-json 写回 → payload 直读 Graph IR；快照落在 `tests/snapshots/gil_writeback_roundtrip_golden__*.json`）
+  - 修复信号 scoped 回归：`test_repair_gil_signals_scoped.py`（仅修复 `.gia` 提取到的信号名范围；同 `signal_index` 不同名跳过合并；不触碰无关信号；当存在占位符 `信号_1/信号_2` 时，支持基于 `.gia` 提取到的 param_count 做唯一映射并重命名）
+  - 修复信号图级回归：`test_repair_gil_signals_scoped.py` 覆盖“修补运行时信号名时不得覆盖发送信号节点参数字符串常量（如 打开/关闭）”。
+  - UI Workbench → `.gil` 写回回归：空/极简基底 `.gil` 缺失 UI 段（`root4/9=None`）时，“同名布局复用”预扫描不得崩溃，应继续进入后续写回/bootstrapping。见 `test_ui_workbench_importer_empty_base_does_not_crash.py`。
+  - 同文件也覆盖：bootstrap 必须从 `ugc_file_tools/builtin_resources/*` 读取最小 UI 夹具/seed（而不是错误的 `ui_patchers/save/*`）。
+  - UI Workbench → `.gil` 写回回归：当 base `.gil` 已存在同名布局时，workbench 写回支持按布局名逐条指定 `overwrite/add/skip` 冲突策略（新增布局需提供 `new_layout_name`）。见 `test_ui_workbench_importer_layout_conflict_resolutions.py`。
+- UI 自定义变量自动补齐回归：当 UI 写回/补齐引用到 `玩家自身.*` 变量时，除玩家实体外，也应同步写入玩家模板（战斗预设）条目（root5 wrapper 的 `group_list_key=7` 与 root4 template 的 `group_list_key=8`）。见 `test_ui_custom_variables_sync_writes_player_template_vars.py`。
+- UI Workbench → `.gil` 批量写回回归：多页面导出到同一份 `.gil` 时，`4/9/502` 的 record GUID 必须唯一，且 layout 树 parent/children 不变量成立；并覆盖“以含组件组容器的 layout 作为 base_layout_guid clone_children”时不得跨布局引用旧 GUID（避免串页/共享控件）。
+  - 额外护栏：当 base 为“极空存档”（root4 缺失大量段）时，写回后必须补齐关键 root4 段（例如 10/11/12），否则编辑器侧可能表现为“布局切换异常/页面叠加（看起来像串页）”。见 `test_web_ui_import_batch_layout_tree_invariants.py`。
+  - 项目存档 → `.gil` 写回回归：当 base `.gil` 为“空/极简基底”且模板段(`root4/4/1`)或实体段(`root4/5/1`)为空时，导入器应能自动从 seed `.gil` 获取可克隆样本 entry 作为原型，完成新增而不抛“无可克隆样本”。见 `test_project_archive_importer_bootstrap_empty_base_templates_instances.py`。
+  - 信号对照诊断回归（本机样本）：`inspect_gil_signals --reference-gil` 必须能检测同名信号 id 不一致（避免导出产物“看起来对但运行时按另一套主键分发失败”）。见 `test_inspect_gil_signals_detects_reference_id_mismatch.py`。
+  - 信号对照诊断回归（合成最小样本）：`inspect_gil_signals --reference-gil` 必须能检测同名信号 `signal_index` 不一致（避免“保留位/占位策略”不同导致 `signal_entry.field_6 / node_def.meta.field_5` 口径漂移）。见 `test_inspect_gil_signals_detects_reference_signal_index_mismatch_synthetic.py`。
+- 信号占位保留位诊断回归（本机样本 + 合成最小样本）：`inspect_gil_signals` 必须能在无需 reference 的情况下检测 `0x6000/0x6080` 口径下 `0x..0004` 保留位被带参信号占用/缺失占位项（常见现象：能渲染但无法开始游戏）。见 `test_inspect_gil_signals_detects_reserved_placeholder_mismatch.py`。
+  - 信号相关对照/保留位诊断用例优先使用 `tmp_path` 构造合成最小样本，避免依赖本机私有存档路径。
 
 ## 注意事项
+
 - 这些用例应尽量 **复用 `ugc_file_tools` 现有的公共函数**（commands 下的实现函数、codec/patch 等），只在测试层做编排与断言。
 - 不要让用例在 import 阶段就触发重写/拷贝等副作用：需要在 test 函数内先做 skip 判定，再进行重操作。
-- 本目录不追求覆盖率；只追求在关键链路（写回/导出/断言）上提供可重复的手动回归入口。
-
+- 本目录用例依赖 `private_extensions/ugc_file_tools`：测试文件应在模块顶层将 `private_extensions/` 注入 `sys.path`（仓库内默认包含该扩展）。
+- 本目录不追求覆盖率；优先保证“关键契约不回退”的可重复验证。
+- 构造最小 GraphModel 节点夹具时，如测试依赖“declared generic/反射端口”的分支，应显式提供 `input_port_declared_types/output_port_declared_types`，避免对 NodeDef stub 的方法形态产生隐式依赖。

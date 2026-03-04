@@ -4,6 +4,5 @@
 #   pip install -r requirements-dev.txt -c constraints.txt
 -r requirements.txt
 pytest==8.3.4
-pyinstaller==6.11.1
 
 

@@ -16,6 +16,12 @@ from engine.validate.comprehensive_validator import ComprehensiveValidator
 class ValidationAndSettingsMixin:
     """封装验证触发、设置对话框、资源库手动刷新与更新/环境检查入口。"""
 
+    def _open_effect_preview(self) -> None:
+        """打开“特效预览”网页（系统默认浏览器）。"""
+        from app.ui.controllers.ui_pages_browser import open_effect_preview_browser_or_raise
+
+        open_effect_preview_browser_or_raise()
+
     def _get_graph_code_validation_service(self) -> GraphCodeValidationService:
         service = getattr(self, "_graph_code_validation_service", None)
         if service is None:

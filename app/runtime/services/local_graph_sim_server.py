@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import functools
 import http.server
 import os
 import socket
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -114,6 +116,8 @@ class LocalGraphSimServer:
         self._lock = threading.RLock()
         self._session: LocalGraphSimSession | None = None
         self._bootstrap_patches: list[dict[str, Any]] = []
+        self._last_action: dict[str, Any] | None = None
+        self._last_validation_report: dict[str, Any] | None = None
         self._layout_html_by_index: dict[int, Path] = {}
         self._current_layout_index: int = 0
         self._auto_emit_signal_pending: bool = False
@@ -122,6 +126,42 @@ class LocalGraphSimServer:
         self._httpd: http.server.ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self.port: int = 0
+        self._clock = _LocalSimClock()
+
+    def _sync_player_layouts_to_current_layout_index(self) -> None:
+        """
+        将 server 的 current_layout_index 同步写入 GameRuntime（离线 UI 语义）：
+        - 节点图侧常用 `获取玩家当前界面布局` 做“当前页门控”；
+        - 本地 HTTP 预览的 UI 页面本身不直接改变运行态；
+        - 因此需要在 server 侧把“当前预览页”映射为运行态的 player layout，避免点击一直被 layout=0 过滤。
+        """
+        session = self._session
+        if session is None:
+            return
+        idx = int(self._current_layout_index)
+        game = session.game
+        for p in game.get_present_player_entities():
+            game.ui_current_layout_by_player[str(p.entity_id)] = int(idx)
+
+    def get_sim_time(self) -> float:
+        """返回本地测试会话的“虚拟时间”（可暂停）。用于驱动 GameRuntime.tick(now=...)。"""
+        return float(self._clock.now())
+
+    @contextlib.contextmanager
+    def locked(self) -> Any:
+        """获取 server 内部锁的上下文管理器（避免 HTTP 层穿透访问 `_lock`）。"""
+        with self._lock:
+            yield
+
+    def is_paused(self) -> bool:
+        return bool(self._clock.is_paused)
+
+    def set_paused(self, paused: bool) -> None:
+        self._clock.set_paused(bool(paused))
+
+    def advance_sim_time(self, dt: float) -> float:
+        """仅在 paused 时推进虚拟时间，用于单步调试。"""
+        return float(self._clock.advance(float(dt)))
 
     @property
     def session(self) -> LocalGraphSimSession:
@@ -140,7 +180,10 @@ class LocalGraphSimServer:
             raise FileNotFoundError(str(ui_file))
 
         self._bootstrap_patches = []
+        self._last_action = None
+        self._last_validation_report = None
         self._auto_emit_signal_pending = False
+        self._clock.reset()
         self._layout_html_by_index = _build_layout_html_map(ui_file)
         self._current_layout_index = int(stable_layout_index_from_html_stem(ui_file.stem))
 
@@ -154,17 +197,26 @@ class LocalGraphSimServer:
             resource_mounts=list(self._config.resource_mounts or []),
         )
         self._session_generation += 1
+        self._sync_player_layouts_to_current_layout_index()
 
         # UI HTML 默认值：用于在本地测试中补齐 lv.* 对应的“关卡实体自定义变量”默认结构，
         # 避免节点图对字典写 key 时因为变量不存在而变成 no-op（导致倒计时/文本不刷新）。
         lv_defaults = _extract_merged_lv_defaults(entry_ui_file=ui_file, layout_html_by_index=self._layout_html_by_index)
         if lv_defaults:
             self._session.game.set_ui_lv_defaults(lv_defaults)
+            if isinstance(self._session.sim_notes, dict):
+                self._session.sim_notes["ui_lv_defaults_keys"] = sorted([str(k) for k in lv_defaults.keys()])
+                self._session.sim_notes["ui_lv_defaults_count"] = int(len(lv_defaults.keys()))
+
+        # 启动即跑一遍 validate-graphs（报告写入 last_validation_report，供监控面板展示/回放导出前确认）。
+        self.validate_now()
+
+        from app.runtime.services.local_graph_sim_server_http_facade import LocalGraphSimHttpFacade
 
         handler_factory = functools.partial(
             _LocalSimRequestHandler,
-            ui_html_file=ui_file,
-            server_impl=self,
+            entry_ui_html_file=ui_file,
+            http_facade=LocalGraphSimHttpFacade(server=self),
         )
         host = str(self._config.host or "127.0.0.1")
         preferred_port = int(self._config.port or 0)
@@ -208,7 +260,10 @@ class LocalGraphSimServer:
 
         with self._lock:
             self._bootstrap_patches = []
+            self._last_action = None
+            self._last_validation_report = None
             self._auto_emit_signal_pending = False
+            self._clock.reset()
             self._layout_html_by_index = _build_layout_html_map(ui_file)
             self._current_layout_index = int(stable_layout_index_from_html_stem(ui_file.stem))
 
@@ -222,10 +277,16 @@ class LocalGraphSimServer:
                 resource_mounts=list(self._config.resource_mounts or []),
             )
             self._session_generation += 1
+            self._sync_player_layouts_to_current_layout_index()
 
             lv_defaults = _extract_merged_lv_defaults(entry_ui_file=ui_file, layout_html_by_index=self._layout_html_by_index)
             if lv_defaults:
                 self._session.game.set_ui_lv_defaults(lv_defaults)
+                if isinstance(self._session.sim_notes, dict):
+                    self._session.sim_notes["ui_lv_defaults_keys"] = sorted([str(k) for k in lv_defaults.keys()])
+                    self._session.sim_notes["ui_lv_defaults_count"] = int(len(lv_defaults.keys()))
+
+            self.validate_now()
 
             auto_sid = str(self._config.auto_emit_signal_id or "").strip()
             if not auto_sid:
@@ -267,12 +328,91 @@ class LocalGraphSimServer:
             self._bootstrap_patches = []
             return patches
 
+    def set_last_action(self, payload: dict[str, Any]) -> None:
+        with self._lock:
+            self._last_action = dict(payload)
+
+    def get_last_action(self) -> dict[str, Any] | None:
+        with self._lock:
+            return dict(self._last_action) if isinstance(self._last_action, dict) else None
+
+    def validate_now(
+        self,
+        *,
+        strict_entity_wire_only: bool = False,
+        disable_cache: bool = False,
+        disable_composite_struct_check: bool = False,
+    ) -> dict[str, Any]:
+        """
+        对当前会话已挂载的节点图源码执行引擎校验（validate-graphs 口径）。
+        返回结构化报告（issues + summary + targets）。
+        """
+        from engine.validate.graph_validation_orchestrator import (
+            ValidateGraphsOrchestrationOptions,
+            collect_validate_graphs_engine_issues,
+        )
+
+        session = self.session
+        targets: list[Path] = []
+        mounted = getattr(session, "mounted_graphs", None)
+        if isinstance(mounted, list) and mounted:
+            for g in mounted:
+                p = Path(str(getattr(g, "graph_code_file", "") or "")).resolve()
+                if p.is_file():
+                    targets.append(p)
+        if not targets:
+            p2 = Path(session.graph_code_file).resolve()
+            if p2.is_file():
+                targets.append(p2)
+
+        uniq: list[Path] = []
+        seen: set[str] = set()
+        for p in targets:
+            key = p.as_posix().casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            uniq.append(p)
+        targets = uniq
+
+        options = ValidateGraphsOrchestrationOptions(
+            strict_entity_wire_only=bool(strict_entity_wire_only),
+            use_cache=bool(not disable_cache),
+            enable_composite_struct_check=bool(not disable_composite_struct_check),
+        )
+        issues = collect_validate_graphs_engine_issues(targets, session.workspace_root, options=options)
+        payload = {
+            "ok": True,
+            "targets": [str(p) for p in targets],
+            "options": {
+                "strict_entity_wire_only": bool(strict_entity_wire_only),
+                "disable_cache": bool(disable_cache),
+                "disable_composite_struct_check": bool(disable_composite_struct_check),
+            },
+            "summary": {
+                "total": int(len(issues)),
+                "errors": int(sum(1 for i in issues if str(getattr(i, "level", "")) == "error")),
+                "warnings": int(sum(1 for i in issues if str(getattr(i, "level", "")) == "warning")),
+                "infos": int(sum(1 for i in issues if str(getattr(i, "level", "")) == "info")),
+            },
+            "issues": [i.to_dict() if hasattr(i, "to_dict") else dict(i) for i in issues],
+        }
+        with self._lock:
+            self._last_validation_report = dict(payload)
+        return payload
+
+    def get_last_validation_report(self) -> dict[str, Any] | None:
+        with self._lock:
+            return dict(self._last_validation_report) if isinstance(self._last_validation_report, dict) else None
+
     @property
     def current_layout_index(self) -> int:
         return int(self._current_layout_index)
 
     def set_current_layout_index(self, layout_index: int) -> None:
-        self._current_layout_index = int(layout_index)
+        with self._lock:
+            self._current_layout_index = int(layout_index)
+            self._sync_player_layouts_to_current_layout_index()
 
     def get_layout_html_file(self, layout_index: int) -> Path | None:
         return self._layout_html_by_index.get(int(layout_index))
@@ -299,6 +439,22 @@ class LocalGraphSimServer:
             if isinstance(idx, int):
                 self._current_layout_index = int(idx)
 
+    def capture_layout_switch_from_patches(self, patches: list[dict[str, Any]]) -> None:
+        """从 UI patches 中同步 current_layout_index（避免 HTTP 层穿透调用私有方法）。"""
+        self._capture_layout_switch_from_patches(patches)
+
+    def get_host(self) -> str:
+        return str(self._config.host or "127.0.0.1")
+
+    def get_workspace_root(self) -> Path | None:
+        return self._config.workspace_root
+
+    def get_auto_emit_signal_id(self) -> str:
+        return str(self._config.auto_emit_signal_id or "")
+
+    def is_auto_emit_signal_pending(self) -> bool:
+        return bool(self._auto_emit_signal_pending)
+
     def get_url(self) -> str:
         if self.port <= 0:
             raise RuntimeError("server 未启动")
@@ -311,3 +467,59 @@ __all__ = [
     "LocalGraphSimServer",
 ]
 
+
+class _LocalSimClock:
+    """
+    本地测试虚拟时钟（可暂停）：
+    - now() 单调递增（与 time.monotonic 对齐）
+    - 暂停期间虚拟时间不前进；恢复后不会“补账触发”定时器
+    """
+
+    def __init__(self) -> None:
+        self._paused: bool = False
+        self._paused_virtual_now: float = 0.0
+        self._paused_started_real: float = 0.0
+        self._paused_total: float = 0.0
+
+    @property
+    def is_paused(self) -> bool:
+        return bool(self._paused)
+
+    def reset(self) -> None:
+        self._paused = False
+        self._paused_virtual_now = 0.0
+        self._paused_started_real = 0.0
+        self._paused_total = 0.0
+
+    def now(self) -> float:
+        real_now = float(time.monotonic())
+        if self._paused:
+            return float(self._paused_virtual_now)
+        return float(real_now - float(self._paused_total))
+
+    def set_paused(self, paused: bool) -> None:
+        want = bool(paused)
+        if want == self._paused:
+            return
+        real_now = float(time.monotonic())
+        if want:
+            self._paused_virtual_now = float(real_now - float(self._paused_total))
+            self._paused_started_real = float(real_now)
+            self._paused = True
+            return
+        # resume
+        elapsed = float(real_now - float(self._paused_started_real))
+        if elapsed < 0:
+            elapsed = 0.0
+        self._paused_total = float(self._paused_total) + float(elapsed)
+        self._paused = False
+
+    def advance(self, dt: float) -> float:
+        """仅在暂停状态下推进虚拟时间，用于单步调试。返回推进后的虚拟时间。"""
+        if not self._paused:
+            raise RuntimeError("advance 仅允许在 paused 状态下调用")
+        delta = float(dt)
+        if delta < 0:
+            raise ValueError("dt 必须 >= 0")
+        self._paused_virtual_now = float(self._paused_virtual_now) + float(delta)
+        return float(self._paused_virtual_now)

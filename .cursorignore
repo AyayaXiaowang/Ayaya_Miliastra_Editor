@@ -1,107 +1,70 @@
 # Cursor ignore rules (affects AI indexing/reading & file tree).
-# Mirror `.gitignore`, but make everything visible to Cursor/AI:
-# - Lines that already start with `!` are kept as-is
-# - Other non-empty, non-comment lines are prefixed with `!`
+#
+# 目标：
+# - 运行期缓存、构建产物、临时目录等“噪音文件”不参与 Cursor 索引与搜索；
+# - 其余内容默认遵循仓库结构（源码 / 文档 / 资源库可被索引）。
+#
+# 约定：
+# - 尽量与 `.gitignore` 的“噪音文件”口径保持一致；
+# - 允许使用 `!` 保留少量被忽略目录中的文档（例如 `release/claude.md`）。
 
-!__pycache__/
-!*.py[cod]
-!*.pyo
-!*.pyd
-!*.egg-info/
-!.eggs/
-!build/
-!dist/
-!.mypy_cache/
-!.pytest_cache/
-!.ruff_cache/
-!*.log
-!.coverage
-!coverage.xml
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.log
+.coverage
+coverage.xml
 
-!.venv/
-!venv/
-!env/
-!.env
-!.env.*/
+# Virtual env
+.venv/
+venv/
+env/
+.env
+.env.*/
 
-!.idea/
-!.vscode/
-!.cursor/
+# IDE / Editors
+.idea/
+.vscode/
 
-!Thumbs.db
-!.DS_Store
 
-!*.ipynb
+# OS artifacts
+Thumbs.db
+.DS_Store
 
-!.tmp_*.py
+# Jupyter notebooks（只在本地使用，不进仓库）
+*.ipynb
 
-!runtime/cache/
-!app/runtime/cache/
-!app/runtime/todo_states/
-!user_settings.json
 
-!engine/app/runtime/cache/
 
-!runtime/graph_cache/
-!runtime/resource_cache/
-!runtime/node_cache/
-!runtime/name_sync_state.json
+# Project caches and local state
+runtime/cache/
+app/runtime/cache/
+app/runtime/todo_states/
+user_settings.json
+app/runtime/package_state.json
 
-!docs/**
-!projects/
+# 防止误把 workspace_path 指到 engine/ 导致缓存跑到 engine/app/runtime/cache
+engine/app/runtime/cache/
 
-!docs/
-!docs/README.md
-!docs/用户必读.md
-!docs/claude.md
+# 旧版 runtime 缓存路径（兼容历史）
+runtime/graph_cache/
+runtime/resource_cache/
+runtime/node_cache/
+runtime/name_sync_state.json
 
-!assets/资源库/**
-
-!assets/资源库/
-!assets/资源库/**/
-
-!assets/资源库/**/示例_*
-!assets/资源库/**/模板示例_*
-
-!assets/资源库/**/节点图/校验节点图.py
-!assets/资源库/共享/节点图/**/claude.md
-
-!assets/资源库/项目存档/**
-!assets/资源库/项目存档/
-!assets/资源库/项目存档/示例项目模板/
-!assets/资源库/项目存档/示例项目模板/**/
-!assets/资源库/项目存档/示例项目模板/**
-
-!assets/资源库/**/__pycache__/
-!assets/资源库/**/*.py[cod]
-!assets/资源库/**/*.pyo
-!assets/资源库/**/*.pyd
-
-!assets/资源库/共享/管理配置/结构体定义/基础结构体/全类型结构体示例.py
-!assets/资源库/共享/管理配置/信号/signal_all_supported_types_example.py
-
-!assets/资源库/共享/管理配置/信号/signal_example_pedal_switch_state.py
-!assets/资源库/共享/管理配置/信号/signal_example_pedal_switch_activation_ack.py
-
-!release/**
+# Release artifacts (local build outputs)
+release/**
 !release/claude.md
 
-!tmp/**
 
-!tools/**
-
-!private_extensions/**
-
-!plugins/**
-!plugins/
-!plugins/__init__.py
-!plugins/claude.md
-!plugins/nodes/
-!plugins/nodes/**
-
-!plugins/nodes/**/__pycache__/
-!plugins/nodes/**/*.py[cod]
-!plugins/nodes/**/*.pyo
-!plugins/nodes/**/*.pyd
-
-!private_extensions/ugc_file_tools/commands 
+# Private extensions artifacts (generated / debug outputs)
+private_extensions/**/_artifacts/_debug_screenshots/**

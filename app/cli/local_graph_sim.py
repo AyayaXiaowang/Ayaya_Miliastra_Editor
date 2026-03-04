@@ -26,6 +26,7 @@ if not __package__ and not getattr(sys, "frozen", False):
 from engine.utils.logging.console_sanitizer import install_ascii_safe_print
 from engine.utils.logging.logger import log_warn, log_info
 from engine.utils.workspace import resolve_workspace_root
+from engine.resources.atomic_json import atomic_write_json
 
 from app.runtime.services.local_graph_simulator import build_local_graph_sim_session
 from app.runtime.services.local_graph_sim_server import LocalGraphSimServer, LocalGraphSimServerConfig
@@ -91,7 +92,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     serve = subparsers.add_parser("serve", help="启动本地 HTTP server 并打开浏览器预览")
-    serve.add_argument("--graph", required=True, help="节点图源码文件路径（.py）")
+    serve.add_argument("--graph", required=True, help="主图节点图源码文件路径（.py）")
     serve.add_argument("--extra-graph", action="append", default=[], help="额外挂载节点图源码文件路径（.py，可重复）")
     serve.add_argument(
         "--extra-owner",
@@ -99,10 +100,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default=[],
         help="额外挂载图 owner 实体名（与 --extra-graph 一一对应；可少于图数量，缺省使用 --owner）",
     )
-    serve.add_argument("--ui-html", required=True, help="UI HTML 源码文件路径（.html）")
+    serve.add_argument("--ui-html", required=True, help="入口页面 UI HTML 源码文件路径（.html）")
     serve.add_argument("--host", default="127.0.0.1", help="监听 host（默认 127.0.0.1）")
     serve.add_argument("--port", type=int, default=0, help="监听端口（默认自动选择）")
     serve.add_argument("--no-open", action="store_true", help="不自动打开浏览器")
+    serve.add_argument(
+        "--ready-file",
+        default="",
+        help="（供 UI 父进程使用）server 启动后将 {url,port,pid} 写入该 JSON 文件路径；为空则不写。",
+    )
     serve.add_argument("--owner", default="自身实体", help="图 owner 实体名称（默认：自身实体）")
     serve.add_argument("--player", default="玩家1", help="UI 点击事件源实体名称（默认：玩家1）")
     serve.add_argument("--present-players", type=int, default=1, help="在场玩家数量（默认 1）")
@@ -110,7 +116,7 @@ def _build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--auto-param", action="append", default=[], help="auto-signal 参数（key=value，可重复）")
 
     click = subparsers.add_parser("click", help="一次性注入 UI 点击事件并打印 UI patches（不启动 server）")
-    click.add_argument("--graph", required=True, help="节点图源码文件路径（.py）")
+    click.add_argument("--graph", required=True, help="主图节点图源码文件路径（.py）")
     click.add_argument("--extra-graph", action="append", default=[], help="额外挂载节点图源码文件路径（.py，可重复）")
     click.add_argument(
         "--extra-owner",
@@ -127,7 +133,7 @@ def _build_parser() -> argparse.ArgumentParser:
     click.add_argument("--dump-state", action="store_true", help="同时输出实体/变量快照（JSON）")
 
     emit = subparsers.add_parser("emit-signal", help="一次性发送信号并打印 UI patches（不启动 server）")
-    emit.add_argument("--graph", required=True, help="节点图源码文件路径（.py）")
+    emit.add_argument("--graph", required=True, help="主图节点图源码文件路径（.py）")
     emit.add_argument("--extra-graph", action="append", default=[], help="额外挂载节点图源码文件路径（.py，可重复）")
     emit.add_argument(
         "--extra-owner",
@@ -185,8 +191,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         server.start()
         url = server.get_url()
         log_info("[local_sim] server 已启动：{}", url)
+
+        ready_file_text = str(getattr(args, "ready_file", "") or "").strip()
+        if ready_file_text:
+            ready_file = Path(ready_file_text).resolve()
+            atomic_write_json(
+                ready_file,
+                {
+                    "ok": True,
+                    "url": str(url),
+                    "host": str(cfg.host),
+                    "port": int(server.port),
+                    "pid": int(os.getpid()),
+                    "graph": str(graph_file),
+                    "ui_html": str(ui_html),
+                },
+            )
+
         if not bool(args.no_open):
-            _open_url_or_raise(url=url)
+            # 默认打开“扁平化预览”（monitor.html 会读取 `?flatten=1` 并自动勾选开关）
+            open_url = url.rstrip("/") + "/?flatten=1" if "?" not in url else url
+            _open_url_or_raise(url=open_url)
         # 阻塞主线程（后台线程提供 HTTP 服务）
         while True:
             time.sleep(3600.0)

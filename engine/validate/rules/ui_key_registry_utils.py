@@ -24,6 +24,63 @@ _UI_STATE_GROUP_ATTR_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+# state pair within the same tag: data-ui-state-group + data-ui-state (order-insensitive)
+_UI_STATE_PAIR_RE_GROUP_FIRST = re.compile(
+    r"""<[^>]*\bdata-ui-state-group\s*=\s*(?P<q1>["'])(?P<group>[^"']+)(?P=q1)[^>]*\bdata-ui-state\s*=\s*(?P<q2>["'])(?P<state>[^"']+)(?P=q2)""",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_UI_STATE_PAIR_RE_STATE_FIRST = re.compile(
+    r"""<[^>]*\bdata-ui-state\s*=\s*(?P<q1>["'])(?P<state>[^"']+)(?P=q1)[^>]*\bdata-ui-state-group\s*=\s*(?P<q2>["'])(?P<group>[^"']+)(?P=q2)""",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+
+_UI_STATE_GROUP_PREFIX = "UI_STATE_GROUP"
+
+
+def _parse_ui_state_group_key_or_none(raw_ui_key: str) -> Optional[Tuple[str, str]]:
+    key = str(raw_ui_key or "").strip()
+    if not key.startswith("UI_STATE_GROUP__"):
+        return None
+    parts = [p for p in key.split("__") if str(p).strip() != ""]
+    if len(parts) != 4:
+        return None
+    if parts[0] != "UI_STATE_GROUP" or parts[-1] != "group":
+        return None
+    group_name = str(parts[1]).strip()
+    state_name = str(parts[2]).strip()
+    if group_name == "" or state_name == "":
+        return None
+    return group_name, state_name
+
+
+def try_format_invalid_ui_state_group_placeholder_message(text: str) -> Optional[str]:
+    """
+    若 `ui_key:` 占位符使用了 UI_STATE_GROUP 但格式不合法，返回更明确的错误提示文本。
+    """
+    raw = str(text or "").strip()
+    lowered = raw.lower()
+    if lowered.startswith("ui_key:"):
+        key = raw[len("ui_key:") :].strip()
+    elif lowered.startswith("ui:"):
+        key = raw[len("ui:") :].strip()
+    else:
+        return None
+
+    key = str(key or "").strip()
+    if not key.startswith(_UI_STATE_GROUP_PREFIX):
+        return None
+
+    if _parse_ui_state_group_key_or_none(key) is not None:
+        return None
+
+    if key.startswith("UI_STATE_GROUP__"):
+        return (
+            "UI_STATE_GROUP 占位符格式不正确：期望 `ui_key:UI_STATE_GROUP__<group_name>__<state_name>__group`（必须包含 state_name）。"
+        )
+    return (
+        "UI_STATE_GROUP 占位符格式不正确：期望 `ui_key:UI_STATE_GROUP__<group_name>__<state_name>__group`（注意双下划线 `__`）。"
+    )
+
 
 def parse_ui_key_placeholder(text: str) -> Optional[str]:
     """
@@ -39,6 +96,9 @@ def parse_ui_key_placeholder(text: str) -> Optional[str]:
         key = raw[len("ui_key:") :].strip()
         if not key:
             return None
+        # UI_STATE_GROUP：严格保留完整 key，用于校验 state 是否存在。
+        if key.startswith("UI_STATE_GROUP__"):
+            return key if _parse_ui_state_group_key_or_none(key) is not None else key
         # 兼容“Workbench 导出后生成的长 ui_key”（例如 `HTML导入_界面布局__btn_unselect__btn_item`）：
         # 对校验器而言，只要其中的“关键标识”在 UI源码(HTML) 中存在即可：
         # - data-ui-key（如 `btn_unselect`）
@@ -53,6 +113,8 @@ def parse_ui_key_placeholder(text: str) -> Optional[str]:
         key = raw[len("ui:") :].strip()
         if not key:
             return None
+        if key.startswith("UI_STATE_GROUP__"):
+            return key if _parse_ui_state_group_key_or_none(key) is not None else key
         if "__" in key:
             parts = [p for p in key.split("__") if str(p)]
             if len(parts) >= 2:
@@ -126,6 +188,22 @@ def _extract_ui_keys_from_html_text(text: str) -> Set[str]:
         key = str(match.group("key") or "").strip()
         if key:
             out.add(key)
+
+    # state pairs：用于 `UI_STATE_GROUP__<group>__<state>__group` 的存在性校验
+    pairs: Set[Tuple[str, str]] = set()
+    raw_text = str(text or "")
+    for m in _UI_STATE_PAIR_RE_GROUP_FIRST.finditer(raw_text):
+        g = str(m.group("group") or "").strip()
+        s = str(m.group("state") or "").strip()
+        if g and s:
+            pairs.add((g, s))
+    for m2 in _UI_STATE_PAIR_RE_STATE_FIRST.finditer(raw_text):
+        g2 = str(m2.group("group") or "").strip()
+        s2 = str(m2.group("state") or "").strip()
+        if g2 and s2:
+            pairs.add((g2, s2))
+    for g3, s3 in pairs:
+        out.add(f"UI_STATE_GROUP__{g3}__{s3}__group")
     return out
 
 
@@ -209,6 +287,7 @@ __all__ = [
     "UiHtmlUiKeyView",
     "infer_ui_source_dirs_for_ctx",
     "parse_ui_key_placeholder",
+    "try_format_invalid_ui_state_group_placeholder_message",
     "try_load_ui_html_ui_keys_for_ctx",
 ]
 

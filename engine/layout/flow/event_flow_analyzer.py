@@ -8,8 +8,13 @@ from __future__ import annotations
 from typing import List, Tuple, Dict, Set, Optional
 
 from engine.graph.models import GraphModel, NodeModel
-from engine.utils.graph.graph_utils import is_flow_port_name
-from ..utils.graph_query_utils import has_flow_edges, is_flow_output_port, get_node_order_key
+from ..utils.graph_query_utils import (
+    has_flow_edges,
+    is_flow_input_port,
+    is_flow_output_port,
+    is_pure_data_node,
+    get_node_order_key,
+)
 from ..internal.constants import CATEGORY_EVENT, ORDER_MAX_FALLBACK
 from ..internal.layout_context import LayoutContext
 
@@ -56,9 +61,7 @@ def find_event_roots(
 
     # 当没有事件时：根据流程节点与流程连线动态推断起点
     if not real_events:
-        flow_nodes = [
-            node for node in all_nodes if any(is_flow_port_name(port.name) for port in node.inputs + node.outputs)
-        ]
+        flow_nodes = [node for node in all_nodes if not is_pure_data_node(node)]
         # 完全没有带流程端口的节点 → 纯数据图
         if not flow_nodes:
             return []
@@ -69,7 +72,7 @@ def find_event_roots(
             # - 优先选择具有流程入口端口的节点作为事件起点（例如“流程控制/执行节点”）；
             # - 若没有带流程入口的节点，则退化为所有流程节点。
             flow_entry_nodes = [
-                node for node in flow_nodes if any(is_flow_port_name(port.name) for port in node.inputs)
+                node for node in flow_nodes if any(is_flow_input_port(node, port.name) for port in node.inputs)
             ]
             candidates = flow_entry_nodes or flow_nodes
             return sorted(candidates, key=get_node_order_key)
@@ -109,9 +112,7 @@ def find_event_roots(
     result.extend(ordered_real_events)
 
     if include_virtual_pin_roots:
-        flow_nodes_all = [
-            node for node in all_nodes if any(is_flow_port_name(port.name) for port in node.inputs + node.outputs)
-        ]
+        flow_nodes_all = [node for node in all_nodes if not is_pure_data_node(node)]
 
         def has_non_pin_flow_in(node_id: str) -> bool:
             return bool(flow_in_edges_non_pin.get(node_id))
@@ -136,7 +137,7 @@ def find_event_roots(
         for node in flow_nodes_all:
             if node.id in existing_ids:
                 continue
-            has_flow_input = any(is_flow_port_name(port.name) for port in node.inputs)
+            has_flow_input = any(is_flow_input_port(node, port.name) for port in node.inputs)
             if has_flow_input and in_degree_all.get(node.id, 0) == 0:
                 additional_pin_roots.append(node)
 
@@ -184,7 +185,7 @@ def _compute_flow_indegree(
         if not dst_node:
             continue
         dst_port = dst_node.get_input_port(edge.dst_port)
-        if not dst_port or not is_flow_port_name(dst_port.name):
+        if not dst_port or not is_flow_input_port(dst_node, dst_port.name):
             continue
         if ignore_virtual_pin_roots and edge.src_node in virtual_pin_nodes:
             continue

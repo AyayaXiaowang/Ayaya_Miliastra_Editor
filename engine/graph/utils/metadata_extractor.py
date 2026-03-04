@@ -13,7 +13,13 @@ from typing import Any, Dict, List, Optional
 from engine.utils.graph_path_inference import infer_graph_type_and_folder_path
 from engine.utils.source_text import read_text
 
-from .ast_utils import NOT_EXTRACTABLE, extract_constant_value
+from .ast_utils import (
+    NOT_EXTRACTABLE,
+    clear_module_constants_context,
+    collect_module_constants,
+    extract_constant_value,
+    set_module_constants_context,
+)
 
 
 @dataclass
@@ -174,10 +180,10 @@ def _extract_graph_variables_from_list(list_node: ast.List) -> List[Dict[str, An
             key = keyword.arg
             value_node = keyword.value
 
-            if key == "name" and isinstance(value_node, ast.Constant) and isinstance(
-                value_node.value, str
-            ):
-                name_value = value_node.value.strip()
+            if key == "name":
+                extracted_name = extract_constant_value(value_node)
+                if isinstance(extracted_name, str):
+                    name_value = extracted_name.strip()
                 continue
 
             if key == "variable_type" and isinstance(
@@ -258,27 +264,32 @@ def extract_graph_variables_from_ast(tree: ast.Module) -> List[Dict[str, Any]]:
     """
     variables: List[Dict[str, Any]] = []
 
-    for node in tree.body:
-        list_node: Optional[ast.List] = None
+    module_constants = collect_module_constants(tree)
+    set_module_constants_context(module_constants)
+    try:
+        for node in tree.body:
+            list_node: Optional[ast.List] = None
 
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "GRAPH_VARIABLES":
-                    if isinstance(node.value, ast.List):
-                        list_node = node.value
-                    break
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "GRAPH_VARIABLES":
+                        if isinstance(node.value, ast.List):
+                            list_node = node.value
+                        break
 
-        elif isinstance(node, ast.AnnAssign):
-            target_node = node.target
-            if isinstance(target_node, ast.Name) and target_node.id == "GRAPH_VARIABLES":
-                value_node = node.value
-                if isinstance(value_node, ast.List):
-                    list_node = value_node
+            elif isinstance(node, ast.AnnAssign):
+                target_node = node.target
+                if isinstance(target_node, ast.Name) and target_node.id == "GRAPH_VARIABLES":
+                    value_node = node.value
+                    if isinstance(value_node, ast.List):
+                        list_node = value_node
 
-        if list_node is None:
-            continue
+            if list_node is None:
+                continue
 
-        variables.extend(_extract_graph_variables_from_list(list_node))
+            variables.extend(_extract_graph_variables_from_list(list_node))
+    finally:
+        clear_module_constants_context()
 
     return variables
 

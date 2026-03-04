@@ -375,6 +375,11 @@ export function renderHtmlIntoPreview(htmlText, previewVariant) {
         }
 
         var hasResolved = false;
+        // 关键：renderHtmlIntoPreview 可能被重复调用（例如切尺寸/同步 UI 状态）；
+        // 当 srcdoc 未变化时不应破坏用户交互状态（选中元素/蓝色选中框）。
+        // 只有当本次确实更新了 srcdoc（即将进入新 document）时，旧选中引用才会失效，必须清空。
+        var currentSrcDocAtStart = previewIframeElement.srcdoc;
+        var didUpdateSrcDoc = currentSrcDocAtStart !== htmlTextForIframe;
         // 关键：当 iframe srcdoc 发生变化时，部分浏览器可能在 1~数帧内仍返回“旧的 contentDocument”，但 readyState 已是 complete。
         // 若此时直接 finalize，会把点击监听挂在旧 document 上，最终表现为“切换几次页面后点选失效”。
         // 因此：当本次确实更新了 srcdoc 时，必须等待 contentDocument 对象切换（!== previous）后才允许 finalize。
@@ -400,9 +405,11 @@ export function renderHtmlIntoPreview(htmlText, previewVariant) {
             }
 
             state.previewDocument = iframeDocument;
-            state.currentSelectedPreviewElement = null;
-            state.currentSelectedPreviewGroup = null;
-            hidePreviewSelectionOverlay();
+            if (didUpdateSrcDoc) {
+                state.currentSelectedPreviewElement = null;
+                state.currentSelectedPreviewGroup = null;
+                hidePreviewSelectionOverlay();
+            }
 
             function bindPreviewDocumentOrRetry() {
                 // 若 contentDocument 在 finalize 时仍为空（极少数时序/浏览器差异），下一帧再取一次：
@@ -443,8 +450,7 @@ export function renderHtmlIntoPreview(htmlText, previewVariant) {
             tryFinalizeIframeLoadResult(false);
         }
 
-        var currentSrcDoc = previewIframeElement.srcdoc;
-        if (currentSrcDoc !== htmlTextForIframe) {
+        if (didUpdateSrcDoc) {
             // 先绑定 load，再改 srcdoc：避免“空源码/极快加载”时丢失 load 事件
             previewIframeElement.addEventListener("load", onIframeLoad, { once: true });
             shouldWaitForNewDocumentObject = true;

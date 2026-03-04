@@ -15,7 +15,7 @@ from app.ui.panels.panel_dict_utils import (
 )
 from app.ui.panels.panel_scaffold import build_scrollable_column
 from app.ui.panels.template_instance.tab_base import TemplateInstanceTabBase
-from app.ui.panels.ui_control_group_collapsible_section import CollapsibleSection
+from app.ui.panels.ui.ui_control_group_collapsible_section import CollapsibleSection
 
 
 class CombatTab(TemplateInstanceTabBase):

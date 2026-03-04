@@ -42,12 +42,11 @@ def notify(ui_context: QtWidgets.QWidget | HasMainWindow | object, message: str,
     1) ui_context.main_window（若实现 HasMainWindow 且为 QWidget）
     2) 传入的 ui_context 本身（若为 QWidget）
 
-    若无法找到合适的父窗口，仅在控制台打印消息。
+    若无法找到合适的父窗口，则退化为控制台输出（避免消息静默丢失）。
     """
-    print(message, flush=True)
-
     parent_widget = _resolve_parent_widget(ui_context)
     if parent_widget is None:
+        print(message, flush=True)
         return
 
     ToastNotification.show_message(parent_widget, message, toast_type)

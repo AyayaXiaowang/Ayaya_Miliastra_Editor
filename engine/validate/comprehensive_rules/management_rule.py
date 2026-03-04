@@ -12,6 +12,7 @@ from .base import BaseComprehensiveRule
 
 
 _STRUCT_ID_10_DIGITS_PATTERN = re.compile(r"^[0-9]{10}$")
+_CUSTOM_VARIABLE_NAME_MAX_LEN = 20
 
 
 class ManagementConfigRule(BaseComprehensiveRule):
@@ -32,7 +33,6 @@ def validate_management_configs(validator) -> List[ValidationIssue]:
     issues.extend(_validate_level_variables(management))
     issues.extend(_validate_struct_definitions(validator))
     return issues
-
 
 def _validate_layout_widget_templates(management) -> List[ValidationIssue]:
     layouts = getattr(management, "ui_layouts", {}) or {}
@@ -103,6 +103,31 @@ def _validate_level_variables(management) -> List[ValidationIssue]:
     for variable_id, payload in level_variables.items():
         if not isinstance(payload, dict):
             continue
+
+        variable_id_text = str(variable_id or "").strip()
+        variable_name_value = payload.get("variable_name") or payload.get("name") or variable_id_text
+        variable_name_text = str(variable_name_value or "").strip()
+        if variable_name_text and len(variable_name_text) > _CUSTOM_VARIABLE_NAME_MAX_LEN:
+            issues.append(
+                ValidationIssue(
+                    level="error",
+                    category="管理配置",
+                    location=f"关卡变量 '{variable_name_text}' (ID: {variable_id_text or '?'})",
+                    message=(
+                        f"自定义变量名过长：{variable_name_text!r}（len={len(variable_name_text)}，上限={_CUSTOM_VARIABLE_NAME_MAX_LEN}）。"
+                    ),
+                    suggestion="请压缩 variable_name（<=20），并同步更新节点图/前端/UI 对该变量名的引用。",
+                    detail={
+                        "type": "management_level_variable_name_too_long",
+                        "management_section_key": "variable",
+                        "management_item_id": variable_id_text,
+                        "variable_id": variable_id_text,
+                        "variable_name": variable_name_text,
+                        "name_len": len(variable_name_text),
+                        "name_len_limit": _CUSTOM_VARIABLE_NAME_MAX_LEN,
+                    },
+                )
+            )
         variable_type = payload.get("variable_type")
         if variable_type:
             continue

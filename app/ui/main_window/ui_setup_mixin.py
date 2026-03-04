@@ -24,19 +24,19 @@ from app.ui.panels.signal_management_panel import SignalManagementPanel
 from app.ui.panels.struct_definition_management_panel import StructDefinitionManagementPanel
 from app.ui.panels.main_camera_panel import MainCameraManagementPanel
 from app.ui.panels.peripheral_system_panel import PeripheralSystemManagementPanel
-from app.ui.todo.todo_list_widget import TodoListWidget
+from app.ui.todo.list.todo_list_widget import TodoListWidget
 from app.ui.panels.validation_panel import ValidationPanel
 from app.ui.panels.validation_detail_panel import ValidationDetailPanel
 from app.ui.composite.composite_node_property_panel import CompositeNodePropertyPanel
 from app.ui.composite.composite_node_pin_panel import CompositeNodePinPanel
 from app.ui.graph.library_pages.graph_library_widget import GraphLibraryWidget
-from app.ui.panels.graph_property_panel import GraphPropertyPanel
-from app.ui.panels.ui_control_settings_panel import UIControlSettingsPanel
+from app.ui.panels.graph.graph_property_panel import GraphPropertyPanel
+from app.ui.panels.ui.ui_control_settings_panel import UIControlSettingsPanel
 from app.ui.graph.library_pages.package_library_widget import PackageLibraryWidget
-from app.ui.panels.combat_player_panel import CombatPlayerEditorPanel
-from app.ui.panels.combat_class_panel import CombatPlayerClassPanel
-from app.ui.panels.combat_skill_panel import CombatSkillPanel
-from app.ui.panels.combat_item_panel import CombatItemPanel
+from app.ui.panels.combat.combat_player_panel import CombatPlayerEditorPanel
+from app.ui.panels.combat.combat_class_panel import CombatPlayerClassPanel
+from app.ui.panels.combat.combat_skill_panel import CombatSkillPanel
+from app.ui.panels.combat.combat_item_panel import CombatItemPanel
 from app.ui.management.section_registry import MANAGEMENT_SECTIONS, ManagementSectionSpec
 from app.ui.main_window.right_panel_registry import RightPanelRegistry
 from app.ui.foundation.performance_monitor import get_shared_performance_monitor
@@ -260,6 +260,15 @@ class UISetupMixin:
                 on_click=open_local_sim,
                 tooltip="节点图 + UI（HTML）本地测试：浏览器预览 + 点击注入 + 状态回显",
             )
+        open_effect_preview = getattr(self, "_open_effect_preview", None)
+        if callable(open_effect_preview):
+            self.nav_bar.ensure_extension_button(
+                key="effect_preview",
+                icon_text="⚡",
+                label="特效预览",
+                on_click=open_effect_preview,
+                tooltip="打开“千星沙箱全特效预览”（Web）",
+            )
         main_layout.addWidget(self.nav_bar)
 
     def _create_central_stack(self) -> None:
@@ -442,7 +451,7 @@ class UISetupMixin:
             EquipmentTagManagementPanel,
             EquipmentTypeManagementPanel,
         )
-        from app.ui.panels.graph_used_definitions_panel import GraphUsedDefinitionsPanel
+        from app.ui.panels.graph.graph_used_definitions_panel import GraphUsedDefinitionsPanel
         resource_manager = self.app_state.resource_manager
         package_index_manager = self.app_state.package_index_manager
 
@@ -657,10 +666,10 @@ class UISetupMixin:
         check_environment_action.triggered.connect(self._on_check_environment)
         toolbar.addAction(check_environment_action)
 
-        import_gil_action = QtGui.QAction("导入", self)
-        import_gil_action.setToolTip("读取 .gil 并导入为项目存档")
-        import_gil_action.triggered.connect(self._on_import_gil_requested_from_toolbar)
-        toolbar.addAction(import_gil_action)
+        import_action = QtGui.QAction("导入", self)
+        import_action.setToolTip("读取 .gil 或导入 .gia 并写入项目存档")
+        import_action.triggered.connect(self._on_import_requested_from_toolbar)
+        toolbar.addAction(import_action)
 
         export_action = QtGui.QAction("导出", self)
         export_action.setToolTip("打开导出中心（.gil/.gia）")
@@ -717,27 +726,78 @@ class UISetupMixin:
         # Toolbar 创建完成后，统一应用 KeymapStore 中的快捷键配置（补齐后退/前进等）。
         self._apply_keymap_shortcuts()
 
-    def _on_import_gil_requested_from_toolbar(self) -> None:
-        """工具栏“导入”：读取 .gil 并导入为项目存档。
+    def _on_import_requested_from_toolbar(self) -> None:
+        """工具栏“导入”：读取 `.gil` 或导入 `.gia` 并写入项目存档。
 
-        约定：行为必须与“项目存档 → 导入/导出中心 → 读取 .gil”一致，避免出现两套导入链路。
+        约定：行为必须与“项目存档 → 导入/导出中心 → 导入”一致，避免出现两套导入链路。
         """
         from importlib.util import find_spec
 
         from app.ui.foundation import dialog_utils
 
-        if find_spec("ugc_file_tools.ui_integration.read_gil") is None:
+        has_read_gil_full = find_spec("ugc_file_tools.ui_integration.read_gil") is not None
+        has_read_gil_selected = find_spec("ugc_file_tools.ui_integration.read_gil_selected") is not None
+        has_read_gia = find_spec("ugc_file_tools.ui_integration.read_gia") is not None
+
+        if (not has_read_gil_full and not has_read_gil_selected) and (not has_read_gia):
             dialog_utils.show_warning_dialog(
                 self,
                 "未启用导入工具",
-                "未检测到 ugc_file_tools 私有插件，无法读取 .gil。\n"
-                "请确保工作区存在 private_extensions/ugc_file_tools，并在启动日志中看到私有扩展已加载。",
+                "未检测到 ugc_file_tools 扩展，无法导入 `.gil/.gia`。\n"
+                "请确保工作区存在 private_extensions/ugc_file_tools，并在启动日志中看到扩展已加载。",
             )
             return
 
-        from ugc_file_tools.ui_integration.read_gil import on_read_clicked
+        if has_read_gia and (not has_read_gil_full and not has_read_gil_selected):
+            from ugc_file_tools.ui_integration.read_gia import on_read_clicked
 
-        on_read_clicked(self)
+            on_read_clicked(self)
+            return
+
+        if (has_read_gil_full or has_read_gil_selected) and (not has_read_gia):
+            if has_read_gil_selected:
+                from ugc_file_tools.ui_integration.read_gil_selected import on_read_clicked
+
+                on_read_clicked(self)
+                return
+            from ugc_file_tools.ui_integration.read_gil import on_read_clicked
+
+            on_read_clicked(self)
+            return
+
+        choices: list[tuple[str, str, str]] = []
+        if has_read_gil_selected:
+            choices.append(("gil_selected", "读取 .gil（选择）…", "action"))
+        if has_read_gil_full:
+            choices.append(("gil_full", "读取 .gil（整包）…", "action"))
+        if has_read_gia:
+            choices.append(("gia", "导入 .gia…", "action"))
+        choices.append(("cancel", "取消", "reject"))
+
+        choice = dialog_utils.ask_choice_dialog(
+            self,
+            "选择导入方式",
+            "请选择要导入的内容：",
+            icon="question",
+            choices=choices,
+            default_choice_key=("gil_selected" if has_read_gil_selected else ("gil_full" if has_read_gil_full else "gia")),
+            escape_choice_key="cancel",
+        )
+        if choice == "gil_selected":
+            from ugc_file_tools.ui_integration.read_gil_selected import on_read_clicked
+
+            on_read_clicked(self)
+            return
+        if choice == "gil_full":
+            from ugc_file_tools.ui_integration.read_gil import on_read_clicked
+
+            on_read_clicked(self)
+            return
+        if choice == "gia":
+            from ugc_file_tools.ui_integration.read_gia import on_read_clicked
+
+            on_read_clicked(self)
+            return
 
     def _on_export_requested_from_toolbar(self) -> None:
         """工具栏“导出”：打开导出中心（仅导出）。
@@ -752,8 +812,8 @@ class UISetupMixin:
             dialog_utils.show_warning_dialog(
                 self,
                 "未启用导出工具",
-                "未检测到 ugc_file_tools 私有插件，无法打开导出中心。\n"
-                "请确保工作区存在 private_extensions/ugc_file_tools，并在启动日志中看到私有扩展已加载。",
+                "未检测到 ugc_file_tools 扩展，无法打开导出中心。\n"
+                "请确保工作区存在 private_extensions/ugc_file_tools，并在启动日志中看到扩展已加载。",
             )
             return
 

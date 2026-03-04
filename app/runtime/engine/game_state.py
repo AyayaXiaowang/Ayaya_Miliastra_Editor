@@ -318,8 +318,68 @@ class GameRuntime:
         )
         
         # 调用注册的处理器
-        if event_name in self.event_handlers:
-            for handler, _ in self.event_handlers[event_name]:
+        handlers = self.event_handlers.get(event_name)
+        if handlers:
+            for handler, owner_id in handlers:
+                owner_id_text = str(owner_id) if owner_id is not None else ""
+                owner_name = ""
+                if owner_id_text:
+                    ent = self.entities.get(owner_id_text, None)
+                    if ent is not None:
+                        owner_name = str(getattr(ent, "name", "") or "")
+                owner_label = owner_id_text if owner_id_text else "<global>"
+                if owner_name:
+                    owner_label = f"{owner_id_text}({owner_name})"
+
+                graph_obj = getattr(handler, "__self__", None)
+                graph_class = ""
+                graph_name = ""
+                if graph_obj is not None:
+                    graph_class = str(getattr(getattr(graph_obj, "__class__", None), "__name__", "") or "")
+                    doc = getattr(getattr(graph_obj, "__class__", None), "__doc__", None)
+                    if isinstance(doc, str):
+                        text = doc.strip()
+                        prefix = "节点图类："
+                        if text.startswith(prefix):
+                            graph_name = text[len(prefix) :].strip()
+
+                handler_name = str(getattr(handler, "__name__", "") or getattr(handler, "__qualname__", "") or "handler")
+                graph_label = graph_name or graph_class
+                graph_handler = f"{graph_label}.{handler_name}" if graph_label else handler_name
+
+                src_ent = kwargs.get("事件源实体", None)
+                src_id = str(self._get_entity_id(src_ent)) if src_ent is not None else ""
+                src_name = str(getattr(src_ent, "name", "") or "") if isinstance(src_ent, MockEntity) else ""
+                src_label = src_id
+                if src_id and src_name:
+                    src_label = f"{src_id}({src_name})"
+
+                src_guid = kwargs.get("事件源GUID", None)
+                timer_name = kwargs.get("定时器名称", None)
+
+                extra = ""
+                if timer_name is not None:
+                    extra = f" timer={str(timer_name)}"
+                if src_guid is not None:
+                    extra = f"{extra} guid={str(src_guid)}"
+                if src_label:
+                    extra = f"{extra} src={src_label}"
+
+                print(f"[事件分发] {event_name} -> {owner_label} :: {graph_handler}{extra}")
+                self.record_trace_event(
+                    kind="event_dispatch",
+                    message=event_name,
+                    owner_entity_id=owner_id_text,
+                    owner_entity_name=owner_name,
+                    graph_name=graph_name,
+                    graph_class=graph_class,
+                    handler=handler_name,
+                    source_entity_id=src_id,
+                    source_entity_name=src_name,
+                    source_guid=src_guid,
+                    timer_name=str(timer_name) if timer_name is not None else "",
+                )
+
                 handler(**kwargs)
     
     def register_event_handler(self, event_name: str, handler: Callable, owner=None):
@@ -508,15 +568,102 @@ class GameRuntime:
             del self.timers[timer_key]
             print(f"[定时器] 停止定时器'{timer_name}'")
 
-    def tick(self, now: Optional[float] = None) -> int:
-        """推进本地 MockRuntime 的时间（用于本地测试的定时器驱动）。"""
-        t = float(time.monotonic() if now is None else now)
-        return int(self._tick_timers(now=t))
+    def start_motor(
+        self,
+        entity,
+        *,
+        motor_name: str,
+        duration: float,
+        target_position: List[float],
+        target_rotation: List[float],
+        lock_rotation: bool,
+    ) -> None:
+        """启动离线基础运动器模拟：到期后更新位姿并触发 `基础运动器停止时`。
 
-    def _tick_timers(self, *, now: float) -> int:
+        说明：
+        - 基于定时器系统实现，确保与普通定时器按时间先后统一排序触发，避免“时间大步推进时先把所有定时器跑完再处理运动器”的乱序问题。
+        - 内部会创建一个特殊 timer（不触发 `定时器触发时`，而是触发 `基础运动器停止时`）。
+        """
+        mname = str(motor_name or "").strip()
+        if not mname:
+            raise ValueError("motor_name 不能为空")
+        dur = float(duration)
+        if dur < 0:
+            raise ValueError(f"duration 必须 >= 0: {duration!r}")
+
+        ent_id = self._get_entity_id(entity)
+        timer_name = f"__motor__{mname}"
+
+        if dur <= 0:
+            src_entity = self.get_entity(str(ent_id))
+            if src_entity is None:
+                return
+            pos = list(target_position) if isinstance(target_position, list) else list(target_position)
+            if isinstance(pos, list) and len(pos) == 3:
+                src_entity.position = [float(pos[0]), float(pos[1]), float(pos[2])]
+            rot = list(target_rotation) if isinstance(target_rotation, list) else list(target_rotation)
+            if bool(lock_rotation) and isinstance(rot, list) and len(rot) == 3:
+                src_entity.rotation = [float(rot[0]), float(rot[1]), float(rot[2])]
+            self.trigger_event(
+                "基础运动器停止时",
+                事件源实体=src_entity,
+                事件源GUID=0,
+                运动器名称=mname,
+            )
+            return
+
+        # 复用 timer 驱动，但在 tick 中会按 kind=__motor__ 分支改为触发“基础运动器停止时”
+        self.start_timer_sequence(entity, timer_name, [float(dur)], is_loop=False)
+        timer_key = f"{ent_id}_{timer_name}"
+        info = self.timers.get(timer_key, None)
+        if isinstance(info, dict):
+            info["kind"] = "__motor__"
+            info["motor_name"] = str(mname)
+            info["target_position"] = list(target_position) if isinstance(target_position, list) else list(target_position)
+            info["target_rotation"] = list(target_rotation) if isinstance(target_rotation, list) else list(target_rotation)
+            info["lock_rotation"] = bool(lock_rotation)
+
+    def stop_motor(self, entity, *, motor_name: str, fire_stop_event: bool = True) -> None:
+        """停止并删除离线基础运动器模拟，可选触发 `基础运动器停止时`。"""
+        mname = str(motor_name or "").strip()
+        if not mname:
+            raise ValueError("motor_name 不能为空")
+        ent_id = self._get_entity_id(entity)
+        timer_name = f"__motor__{mname}"
+        timer_key = f"{ent_id}_{timer_name}"
+        existed = timer_key in self.timers
+        if existed:
+            del self.timers[timer_key]
+
+        if fire_stop_event:
+            src_entity = self.get_entity(str(ent_id))
+            if src_entity is not None:
+                self.trigger_event(
+                    "基础运动器停止时",
+                    事件源实体=src_entity,
+                    事件源GUID=0,
+                    运动器名称=str(mname),
+                )
+
+    def tick(self, now: Optional[float] = None, *, max_fires: Optional[int] = None) -> int:
+        """推进本地 MockRuntime 的时间（用于本地测试的定时器驱动）。
+
+        Args:
+            now: 指定当前时间（用于本地测试的虚拟时钟）；None 表示使用 time.monotonic()
+            max_fires: 本次 tick 最多触发多少次“定时器触发时”事件；None 表示不限制（默认行为）
+        """
+        t = float(time.monotonic() if now is None else now)
+        limit = None if max_fires is None else int(max_fires)
+        if limit is not None and limit <= 0:
+            return 0
+        return int(self._tick_timers(now=t, max_fires=limit))
+
+    def _tick_timers(self, *, now: float, max_fires: Optional[int]) -> int:
         fired = 0
         # 每次只触发“最早到期”的一个定时器节点，避免乱序；循环直到没有到期项。
         while True:
+            if max_fires is not None and int(fired) >= int(max_fires):
+                return int(fired)
             due_key: Optional[str] = None
             due_time: Optional[float] = None
             for key, info in list(self.timers.items()):
@@ -557,15 +704,32 @@ class GameRuntime:
                 del self.timers[due_key]
                 continue
 
-            # 触发事件：与节点图事件 `定时器触发时` 对齐
-            self.trigger_event(
-                "定时器触发时",
-                事件源实体=src_entity,
-                事件源GUID=0,
-                定时器名称=timer_name,
-                定时器序列序号=int(next_index + 1),
-                循环次数=int(loop_count),
-            )
+            kind = str(info.get("kind") or "")
+            if kind == "__motor__":
+                pos = info.get("target_position", None)
+                if isinstance(pos, list) and len(pos) == 3:
+                    src_entity.position = [float(pos[0]), float(pos[1]), float(pos[2])]
+                rot = info.get("target_rotation", None)
+                lock_rot = bool(info.get("lock_rotation", False))
+                if lock_rot and isinstance(rot, list) and len(rot) == 3:
+                    src_entity.rotation = [float(rot[0]), float(rot[1]), float(rot[2])]
+                motor_name = str(info.get("motor_name") or "")
+                self.trigger_event(
+                    "基础运动器停止时",
+                    事件源实体=src_entity,
+                    事件源GUID=0,
+                    运动器名称=motor_name,
+                )
+            else:
+                # 触发事件：与节点图事件 `定时器触发时` 对齐
+                self.trigger_event(
+                    "定时器触发时",
+                    事件源实体=src_entity,
+                    事件源GUID=0,
+                    定时器名称=timer_name,
+                    定时器序列序号=int(next_index + 1),
+                    循环次数=int(loop_count),
+                )
             fired += 1
 
             # 事件流中可能终止/重启了定时器；重新取一次确保状态一致

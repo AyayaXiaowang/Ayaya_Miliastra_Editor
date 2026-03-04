@@ -16,7 +16,7 @@ from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 from app.ui.foundation.id_generator import generate_prefixed_id
 from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.graph.library_pages.graph_card_widget import GraphCardWidget
-from app.ui.graph.graph_library.graph_resource_load_thread import GraphResourceLoadThread
+from app.ui.graph.graph_library.graph_resource_async_loader import GraphResourceAsyncLoader
 from app.ui.graph.graph_library.graph_metadata_load_thread import GraphMetadataLoadThread
 
 
@@ -539,6 +539,33 @@ class GraphListMixin:
             self.graph_cards[graph_id].set_selected(True)
         self.graph_selected.emit(graph_id)
 
+    def _ensure_graph_resource_async_loader(self) -> GraphResourceAsyncLoader:
+        loader = getattr(self, "_graph_resource_async_loader", None)
+        if isinstance(loader, GraphResourceAsyncLoader):
+            return loader
+        loader = GraphResourceAsyncLoader(parent=self)
+        setattr(self, "_graph_resource_async_loader", loader)
+        loader.graph_loaded.connect(self._on_graph_resource_loaded)
+        loader.graph_load_failed.connect(self._on_graph_resource_load_failed)
+        return loader
+
+    def _on_graph_resource_loaded(self, graph_id: str, graph_data: dict) -> None:
+        self.graph_double_clicked.emit(str(graph_id or ""), graph_data)
+
+    def _on_graph_resource_load_failed(self, graph_id: str) -> None:
+        graph_id_text = str(graph_id or "").strip()
+        if not graph_id_text:
+            return
+        self.show_warning(
+            "加载失败",
+            f"无法加载节点图 '{graph_id_text}'。\n\n可能的原因：\n"
+            "• 文件不存在、已被移动/删除或已损坏\n"
+            "• 节点图无法通过校验（请检查节点图逻辑并修正后再加载）\n\n"
+            "建议：\n"
+            "• 查看控制台输出中的详细错误信息\n"
+            "• 运行节点图校验：python -X utf8 -m app.cli.graph_tools validate-graphs --all（或 validate-file <图文件路径>）",
+        )
+
     def _on_graph_card_double_clicked(self, graph_id: str) -> None:
         """卡片双击 - 打开编辑"""
         # selection_mode（例如 GraphSelectionDialog）：双击仅代表“选择该 graph_id”，不应触发重度解析加载。
@@ -568,36 +595,8 @@ class GraphListMixin:
             return
 
         # 后台加载：避免 load_resource(ResourceType.GRAPH, ...) 在 UI 线程阻塞（解析/布局/缓存命中等可能很重）
-        generation = int(getattr(self, "_async_graph_open_generation", 0) or 0) + 1
-        setattr(self, "_async_graph_open_generation", generation)
-
-        prev_thread = getattr(self, "_async_graph_open_thread", None)
-        if prev_thread is not None and hasattr(prev_thread, "isRunning") and prev_thread.isRunning():
-            prev_thread.requestInterruption()
-        setattr(self, "_async_graph_open_thread", None)
-
-        thread = GraphResourceLoadThread(resource_manager=self.resource_manager, graph_id=graph_id_text, parent=self)
-        setattr(self, "_async_graph_open_thread", thread)
-
-        def _on_finished() -> None:
-            if int(getattr(self, "_async_graph_open_generation", 0) or 0) != int(generation):
-                return
-            result = getattr(thread, "result", None)
-            if result is None or not isinstance(result.graph_data, dict):
-                self.show_warning(
-                    "加载失败",
-                    f"无法加载节点图 '{graph_id_text}'。\n\n可能的原因：\n"
-                    "• 文件不存在、已被移动/删除或已损坏\n"
-                    "• 节点图无法通过校验（请检查节点图逻辑并修正后再加载）\n\n"
-                    "建议：\n"
-                    "• 查看控制台输出中的详细错误信息\n"
-                    "• 运行节点图校验：python -X utf8 -m app.cli.graph_tools validate-graphs --all（或 validate-file <图文件路径>）",
-                )
-                return
-            self.graph_double_clicked.emit(str(result.graph_id or graph_id_text), result.graph_data)
-
-        thread.finished.connect(_on_finished)
-        thread.start()
+        loader = self._ensure_graph_resource_async_loader()
+        loader.request_load(resource_manager=self.resource_manager, graph_id=graph_id_text)
 
     def _on_reference_clicked(self, graph_id: str) -> None:
         """点击引用按钮 - 显示引用详情"""

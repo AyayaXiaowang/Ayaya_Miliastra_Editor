@@ -145,7 +145,7 @@ export function createAppApiController(opts) {
         if (!resp || !resp.ok) {
             // 独立打开 Workbench（无主程序 /api）时，浏览器会返回 404 HTML；
             // 这里必须视为“未连接主程序”，而不是让 resp.json() 抛异常中断初始化。
-            setAppContextText("未连接主程序（请从主程序打开 UI转换器）。");
+            setAppContextText("未连接主程序（请从主程序打开 UI预览）。");
             setImportButtonEnabled(false);
             setExportGilButtonEnabled(false);
             setExportGiaButtonEnabled(false);
@@ -153,7 +153,7 @@ export function createAppApiController(opts) {
         }
         var contentType = String(resp.headers && resp.headers.get ? (resp.headers.get("content-type") || "") : "");
         if (contentType.toLowerCase().indexOf("application/json") < 0) {
-            setAppContextText("未连接主程序（请从主程序打开 UI转换器）。");
+            setAppContextText("未连接主程序（请从主程序打开 UI预览）。");
             setImportButtonEnabled(false);
             setExportGilButtonEnabled(false);
             setExportGiaButtonEnabled(false);
@@ -164,7 +164,7 @@ export function createAppApiController(opts) {
             return;
         }
         if (!data || !data.ok || !data.connected) {
-            setAppContextText("未连接主程序（请从主程序打开 UI转换器）。");
+            setAppContextText("未连接主程序（请从主程序打开 UI预览）。");
             setImportButtonEnabled(false);
             setExportGilButtonEnabled(false);
             setExportGiaButtonEnabled(false);

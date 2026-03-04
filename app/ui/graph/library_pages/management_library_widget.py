@@ -46,7 +46,7 @@ from app.ui.management.section_registry import (
     MANAGEMENT_SECTIONS,
     ManagementSectionSpec,
 )
-from app.ui.panels.ui_control_group_manager import UIControlGroupManager
+from app.ui.panels.ui.ui_control_group_manager import UIControlGroupManager
 from app.ui.panels.panel_scaffold import SectionCard
 from engine.utils.logging.logger import log_debug, log_warn
 
@@ -604,12 +604,12 @@ class ManagementLibraryWidget(
 
     @staticmethod
     def _is_path_under(root_dir: Path, file_path: Path) -> bool:
-        resolved_root = root_dir.resolve()
-        resolved_file = file_path.resolve()
-        if hasattr(resolved_file, "is_relative_to"):
-            return resolved_file.is_relative_to(resolved_root)  # type: ignore[attr-defined]
-        root_parts = resolved_root.parts
-        file_parts = resolved_file.parts
+        root_abs = root_dir if root_dir.is_absolute() else root_dir.absolute()
+        file_abs = file_path if file_path.is_absolute() else file_path.absolute()
+        if hasattr(file_abs, "is_relative_to"):
+            return file_abs.is_relative_to(root_abs)  # type: ignore[attr-defined]
+        root_parts = tuple(part.casefold() for part in root_abs.parts)
+        file_parts = tuple(part.casefold() for part in file_abs.parts)
         return len(file_parts) >= len(root_parts) and file_parts[: len(root_parts)] == root_parts
 
     def _resolve_management_item_file_path(

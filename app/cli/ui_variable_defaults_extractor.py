@@ -67,7 +67,8 @@ def extract_ui_variable_defaults_from_html(html_path: Path) -> UiVariableDefault
     if parser.defaults_text is None:
         raise ValueError(
             "未找到 data-ui-variable-defaults 属性。"
-            "请在页面根节点（例如 .screen-container）声明 data-ui-variable-defaults='{\"lv.xxx\": {...}}'。"
+            "请在页面根节点（例如 .screen-container）声明 data-ui-variable-defaults，例如："
+            "data-ui-variable-defaults='{\"lv.hp\":100,\"lv.SomeDict\":{\"k\":0}}'。"
         )
 
     raw = json.loads(parser.defaults_text)
@@ -83,11 +84,11 @@ def extract_ui_variable_defaults_from_html(html_path: Path) -> UiVariableDefault
         key_text = str(full_key or "").strip()
         if not key_text:
             continue
+        # Workbench 允许 value 为标量（int/str/...）或 object（字典）：
+        # - 标量：表示该变量的“标量默认值”（由其它链路导入/写回）
+        # - 字典：表示字典变量的“键默认值映射”（本模块只拆分这类用于同步/生成）
         if not isinstance(payload, dict):
-            raise ValueError(
-                "data-ui-variable-defaults 顶层每个 value 必须是 JSON object（字典）。"
-                f"当前 key={key_text!r} 的类型为 {type(payload).__name__}"
-            )
+            continue
 
         # 约定：lv.xxx -> 写回为自定义变量 `xxx`
         scope, sep, rest = key_text.partition(".")

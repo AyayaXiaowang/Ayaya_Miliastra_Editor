@@ -258,7 +258,11 @@ class NodeTypeHelper:
         if kind == "composite":
             return self._composite_id_to_node_def.get(key)
         if kind == "event":
-            return None
+            # event 的 key 通常为事件实例标识；需要按 (category/title) 映射回 builtin key。
+            category = str(getattr(node_obj, "category", "") or "").strip()
+            title = str(getattr(node_obj, "title", "") or "").strip()
+            builtin_key = f"{category}/{title}" if (category and title) else ""
+            return self._node_library.get(builtin_key) if builtin_key else None
         raise ValueError(f"NodeTypeHelper: 非法 node_def_ref.kind：{kind!r}")
 
     def describe_dynamic_port_behavior(self, node_obj) -> Optional[DynamicPortBehavior]:

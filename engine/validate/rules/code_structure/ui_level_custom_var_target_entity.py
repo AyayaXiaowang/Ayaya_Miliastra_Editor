@@ -51,6 +51,31 @@ def _looks_like_self_game_expr(expr: ast.AST | None) -> bool:
     return isinstance(value, ast.Name) and str(value.id or "") == "self" and str(expr.attr or "") == "game"
 
 
+def _infer_entity_kind_from_target_expr(expr: ast.AST | None) -> str | None:
+    """从 Graph Code 的 `目标实体=` 表达式中尽力推断实体归属（关卡/玩家）。
+
+    说明：
+    - 该推断仅用于“明显写错目标实体”的静态拦截；
+    - 无法可靠推断时返回 None，避免误报。
+    """
+    if expr is None:
+        return None
+    if isinstance(expr, ast.Name):
+        name = str(expr.id or "").strip()
+        if not name:
+            return None
+        # 关卡实体（约定命名）
+        if "关卡" in name:
+            return "level"
+        # 玩家实体（约定命名/常用循环变量）
+        if name in {"玩家实体", "目标玩家", "事件源实体", "信号来源实体", "玩家"}:
+            return "player"
+        if name == "p" or (name.startswith("p") and name[1:].isdigit()):
+            return "player"
+        return None
+    return None
+
+
 def _extract_target_and_var_expr(call_node: ast.Call) -> tuple[ast.AST | None, ast.AST | None]:
     """兼容关键字参数与语法糖改写后的“位置参数”形式。"""
     target_expr: ast.AST | None = None
@@ -101,14 +126,14 @@ def _infer_declared_owner_entity_kind(tree: ast.AST) -> str | None:
 
 
 class UiLevelCustomVarTargetEntityRule(ValidationRule):
-    """工程化：UI 源码占位符引用到的 ui_* 自定义变量必须写入正确的“目标实体”。
+    """工程化：UI 源码占位符引用到的自定义变量必须写入正确的“目标实体”。
 
     规则逻辑：
     - 扫描当前作用域 UI源码(HTML) 中的占位符：
       - `{1:lv.xxx}` → 关卡作用域变量（归属：关卡实体）
       - `{{ps.xxx}}` / `{{p1.xxx}}..{{p8.xxx}}` → 玩家作用域变量（归属：玩家实体）
     - 对 Graph Code 中【获取/设置自定义变量】节点调用：
-      - 若变量名为常量，且命中“关卡/玩家作用域变量集合”，且变量名以 `ui_` 开头；
+      - 若变量名为常量，且命中“关卡/玩家作用域变量集合”；
       - 若目标实体写成 `self.owner_entity`：
         - 要求文件头 docstring 显式声明 `mount_entity_type/owner_entity_type: 关卡/玩家`，使 self.owner_entity 的归属明确；
         - 若声明与变量归属不一致，则报错提示作者“该变量归属哪个实体”，并要求改为：
@@ -171,8 +196,6 @@ class UiLevelCustomVarTargetEntityRule(ValidationRule):
                 var_name = _resolve_string_constant(var_expr, module_constants) if var_expr is not None else None
                 if not var_name:
                     continue
-                if not str(var_name).lower().startswith("ui_"):
-                    continue
                 is_level_scoped = var_name in level_var_names
                 is_player_scoped = var_name in player_var_names
                 if not is_level_scoped and not is_player_scoped:
@@ -183,10 +206,12 @@ class UiLevelCustomVarTargetEntityRule(ValidationRule):
                 if target_expr is None:
                     continue
 
+                expected_kind = "level" if is_level_scoped else "player"
+                expected_entity_name = "关卡实体" if expected_kind == "level" else "玩家实体"
+                expected_scope_hint = "lv" if expected_kind == "level" else "ps/p1..p8"
+
+                # 1) self.owner_entity：要求作者显式声明其归属，且归属必须与 UI 变量作用域一致。
                 if _is_self_owner_entity_expr(target_expr):
-                    expected_kind = "level" if is_level_scoped else "player"
-                    expected_entity_name = "关卡实体" if expected_kind == "level" else "玩家实体"
-                    expected_scope_hint = "lv" if expected_kind == "level" else "ps/p1..p8"
                     if declared_owner_kind == expected_kind:
                         continue
                     issues.append(
@@ -202,6 +227,24 @@ class UiLevelCustomVarTargetEntityRule(ValidationRule):
                                 f"- 若该节点图确实挂载在【{expected_entity_name}】上：请在文件头 docstring 显式声明 "
                                 f"`mount_entity_type: {'关卡' if expected_kind == 'level' else '玩家'}`（或 `owner_entity_type: ...`），使 self.owner_entity 归属明确。\n"
                                 f"- 若该节点图不挂载在【{expected_entity_name}】上：请显式获取正确实体后再读写该变量（关卡实体通常用 GUID 查询；玩家实体通常使用事件源实体）。"
+                            ),
+                        )
+                    )
+                    continue
+
+                # 2) 显式目标实体：若能静态推断其归属且与 UI 变量作用域冲突，则直接报错（避免“写错实体但不自知”）。
+                inferred_kind = _infer_entity_kind_from_target_expr(target_expr)
+                if inferred_kind is not None and inferred_kind != expected_kind:
+                    issues.append(
+                        create_rule_issue(
+                            self,
+                            file_path,
+                            target_expr or node,
+                            "CODE_UI_LEVEL_CUSTOM_VAR_TARGET_ENTITY_REQUIRED",
+                            (
+                                f"{line_span_text(node)}: UI源码占位符使用了 {expected_scope_hint} 作用域变量 {var_name!r}（归属【{expected_entity_name}】），"
+                                "但当前【获取/设置自定义变量】的目标实体看起来属于另一类实体，可能导致 UI 永远读不到该变量。\n"
+                                "修复建议：将目标实体改为正确归属实体（关卡实体/玩家实体），或调整 UI 占位符作用域与变量归属保持一致。"
                             ),
                         )
                     )

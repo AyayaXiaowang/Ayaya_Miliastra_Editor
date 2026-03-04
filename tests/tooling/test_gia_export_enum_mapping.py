@@ -22,21 +22,21 @@ def test_gia_export_enum_item_id_mapping_smoke() -> None:
     """
     _ensure_private_extensions_importable()
 
-    from ugc_file_tools.node_graph_writeback.enum_codec import (
-        _build_entry_by_id_map,
-        _load_node_data_index_doc,
-        _resolve_enum_item_id_for_input_constant,
+    from ugc_file_tools.node_graph_semantics.enum_codec import (
+        build_entry_by_id_map,
+        load_node_data_index_doc,
+        resolve_enum_item_id_for_input_constant,
     )
 
     class _DummyNodeDef:
         name = "设置扫描标签的规则"
         input_enum_options = {"规则类型": ["视野优先", "距离优先"]}
 
-    node_data_doc = _load_node_data_index_doc()
-    node_entry_by_id = _build_entry_by_id_map(node_data_doc.get("NodesList"))
-    enum_entry_by_id = _build_entry_by_id_map(node_data_doc.get("EnumList"))
+    node_data_doc = load_node_data_index_doc()
+    node_entry_by_id = build_entry_by_id_map(node_data_doc.get("NodesList"))
+    enum_entry_by_id = build_entry_by_id_map(node_data_doc.get("EnumList"))
 
-    item_id = _resolve_enum_item_id_for_input_constant(
+    item_id = resolve_enum_item_id_for_input_constant(
         node_type_id_int=123456,
         slot_index=0,
         port_name="规则类型",
@@ -52,5 +52,5 @@ def test_gia_asset_bundle_builder_importable() -> None:
     """回归：`.gia` 导出模块可被导入（避免 NameError / 循环依赖）。"""
     _ensure_private_extensions_importable()
 
-    from ugc_file_tools.node_graph_writeback import gia_asset_bundle_builder as _unused  # noqa: F401
+    from ugc_file_tools.gia_export.node_graph import asset_bundle_builder as _unused  # noqa: F401
 

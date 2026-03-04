@@ -1,22 +1,6 @@
-import { dom, setExportStatusText, state } from "./context.js";
-import { renderExportWidgetPreviewHtml } from "./export_widgets_model.js";
-
-function _cssEscapeText(text) {
-  var raw = String(text || "");
-  if (window.CSS && typeof window.CSS.escape === "function") {
-    return window.CSS.escape(raw);
-  }
-  return raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
-function _scrollExportWidgetIntoView(widgetId) {
-  var wid = String(widgetId || "").trim();
-  if (!wid) return;
-  if (!dom.exportWidgetListContainer) return;
-  var node = dom.exportWidgetListContainer.querySelector('[data-export-widget="1"][data-widget-id="' + _cssEscapeText(wid) + '"]');
-  if (!node || !node.scrollIntoView) return;
-  node.scrollIntoView({ block: "center" });
-}
+import { setExportStatusText, state } from "./context.js";
+import { areaOfRect, getFlatRectFromElementStyle, parseZIndexFromFlatElementStyle, rectIntersectionArea } from "../geometry/rect_match.js";
+import { clearExportWidgetListSelectionDom, scrollExportWidgetRowIntoView, updateExportWidgetListSelectionDom } from "./export_widget_list_dom.js";
 
 function _normalizeDebugLabelBase(raw) {
   var s = String(raw || "").trim();
@@ -27,53 +11,6 @@ function _normalizeDebugLabelBase(raw) {
     s = s.slice(0, i);
   }
   return s;
-}
-
-function _getFlatRectFromElementStyle(el) {
-  if (!el || !el.style) return null;
-  function _parsePx(text) {
-    var raw = String(text || "").trim().toLowerCase();
-    if (!raw) return null;
-    if (raw.endsWith("px")) raw = raw.slice(0, -2);
-    var n = Number(raw);
-    return isFinite(n) ? n : null;
-  }
-  var left = _parsePx(el.style.left);
-  var top = _parsePx(el.style.top);
-  var width = _parsePx(el.style.width);
-  var height = _parsePx(el.style.height);
-  if (left === null || top === null || width === null || height === null) return null;
-  if (width <= 0 || height <= 0) return null;
-  return { left: Number(left), top: Number(top), width: Number(width), height: Number(height) };
-}
-
-function _parseZIndexFromFlatElementStyle(el) {
-  if (!el || !el.style) return 0;
-  var raw = String(el.style.zIndex || "").trim().toLowerCase();
-  if (!raw || raw === "auto") return 0;
-  var n = Number(raw);
-  if (!isFinite(n)) return 0;
-  return Math.trunc(n);
-}
-
-function _rectIntersectionArea(a, b) {
-  if (!a || !b) return 0;
-  var left = Math.max(Number(a.left || 0), Number(b.left || 0));
-  var top = Math.max(Number(a.top || 0), Number(b.top || 0));
-  var right = Math.min(Number(a.left || 0) + Number(a.width || 0), Number(b.left || 0) + Number(b.width || 0));
-  var bottom = Math.min(Number(a.top || 0) + Number(a.height || 0), Number(b.top || 0) + Number(b.height || 0));
-  var w = right - left;
-  var h = bottom - top;
-  if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return 0;
-  return w * h;
-}
-
-function _areaOfRect(r) {
-  if (!r) return 0;
-  var w = Number(r.width || 0);
-  var h = Number(r.height || 0);
-  if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return 0;
-  return w * h;
 }
 
 function _findWidgetById(model, widgetId) {
@@ -106,7 +43,7 @@ function _findBestWidgetIdByDebugLabelAndRect(model, debugLabelBase, selectedRec
   var bestZDist = Number.POSITIVE_INFINITY;
   var bestAreaDist = Number.POSITIVE_INFINITY;
 
-  var aSel = _areaOfRect(selectedRect);
+  var aSel = areaOfRect(selectedRect);
   var z0 = Number(selectedZ || 0);
   if (!isFinite(z0)) z0 = 0;
 
@@ -127,9 +64,9 @@ function _findBestWidgetIdByDebugLabelAndRect(model, debugLabelBase, selectedRec
       }
       var wr = w.rect || null;
       if (!wr) continue;
-      var inter = _rectIntersectionArea(selectedRect, wr);
+      var inter = rectIntersectionArea(selectedRect, wr);
       if (!(inter > 0)) continue;
-      var aWid = _areaOfRect(wr);
+      var aWid = areaOfRect(wr);
       if (!(aSel > 0) || !(aWid > 0)) continue;
       var ratio = inter / Math.min(aSel, aWid);
       var z1 = Number(w.layer_index !== undefined ? w.layer_index : 0);
@@ -169,7 +106,7 @@ function _findBestWidgetIdByRectOnly(model, selectedRect, selectedZ) {
   if (!m || !m.groups || !selectedRect) return "";
   var groups = m.groups || [];
 
-  var aSel = _areaOfRect(selectedRect);
+  var aSel = areaOfRect(selectedRect);
   if (!(aSel > 0)) return "";
   var z0 = Number(selectedZ || 0);
   if (!isFinite(z0)) z0 = 0;
@@ -188,9 +125,9 @@ function _findBestWidgetIdByRectOnly(model, selectedRect, selectedZ) {
       if (!wid) continue;
       var wr = w.rect || null;
       if (!wr) continue;
-      var inter = _rectIntersectionArea(selectedRect, wr);
+      var inter = rectIntersectionArea(selectedRect, wr);
       if (!(inter > 0)) continue;
-      var aWid = _areaOfRect(wr);
+      var aWid = areaOfRect(wr);
       if (!(aWid > 0)) continue;
       var ratio = inter / Math.min(aSel, aWid);
       // 极保守：至少 90% 覆盖才认为是“同一控件”
@@ -258,8 +195,8 @@ function _applyExportWidgetSelectionFromPreviewElement(flatEl) {
       (flatEl && flatEl.getAttribute ? (flatEl.getAttribute("data-debug-label") || "") : "")
     )
   );
-  var selectedRect = _getFlatRectFromElementStyle(flatEl);
-  var selectedZ = _parseZIndexFromFlatElementStyle(flatEl);
+  var selectedRect = getFlatRectFromElementStyle(flatEl);
+  var selectedZ = parseZIndexFromFlatElementStyle(flatEl);
 
   var wid = "";
   if (state.exportWidgetIdByLayerKey) {
@@ -301,9 +238,7 @@ function _applyExportWidgetSelectionFromPreviewElement(flatEl) {
     if (state.exportSelectedWidgetId) {
       state.exportSelectedWidgetId = "";
       state.pendingScrollExportWidgetId = "";
-      if (dom.exportWidgetListContainer && state.exportWidgetPreviewModel) {
-        dom.exportWidgetListContainer.innerHTML = renderExportWidgetPreviewHtml(state.exportWidgetPreviewModel);
-      }
+      clearExportWidgetListSelectionDom();
     }
     setExportStatusText([
       "[选中映射] 该扁平层无对应导出控件（不回退）。",
@@ -321,16 +256,19 @@ function _applyExportWidgetSelectionFromPreviewElement(flatEl) {
 
   state.exportSelectedWidgetId = String(wid || "");
   state.pendingScrollExportWidgetId = String(wid || "");
-  if (dom.exportWidgetListContainer && state.exportWidgetPreviewModel) {
-    dom.exportWidgetListContainer.innerHTML = renderExportWidgetPreviewHtml(state.exportWidgetPreviewModel);
-  }
+  var selectedRow = updateExportWidgetListSelectionDom(wid);
   if (state.leftBottomTabMode === "export_widgets") {
-    if (!state.suppressNextExportWidgetAutoScroll) {
-      _scrollExportWidgetIntoView(wid);
+    // 若列表 DOM 尚未渲染到该行（例如正在重绘/刚切文件），先保留 pendingScroll，
+    // 让“Tab 切换 / 下一次重绘”有机会再滚动定位，避免“明明选中了但列表没跳转”。
+    if (selectedRow) {
+      if (!state.suppressNextExportWidgetAutoScroll) {
+        scrollExportWidgetRowIntoView(wid);
+      }
+      // 在 export_widgets 标签下：若已命中行，则无论是否 suppressed，都清掉 pending scroll（避免切换 tab 后重复滚动）
+      state.pendingScrollExportWidgetId = "";
     }
-    state.pendingScrollExportWidgetId = "";
   }
-  // 只抑制一次（用于“列表点击 -> 画布高亮 -> selection_changed 回流”）
+  // 无论列表 DOM 当前是否可用，都必须清掉 suppress，避免后续预览点选一直不滚动。
   state.suppressNextExportWidgetAutoScroll = false;
 }
 

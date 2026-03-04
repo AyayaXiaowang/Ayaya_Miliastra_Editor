@@ -13,6 +13,7 @@ from __future__ import annotations
 """
 
 import time
+import stat as stat_module
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
@@ -20,6 +21,7 @@ from typing import Callable, Optional
 from PyQt6 import QtCore
 
 from engine.utils.logging.logger import log_debug, log_warn
+from engine.utils.path_utils import normalize_slash
 from engine.utils.resource_library_layout import get_packages_root_dir
 
 from app.common.private_extension_registry import get_ui_html_bundle_converter
@@ -54,11 +56,19 @@ class UiHtmlAutoConvertCoordinator(QtCore.QObject):
 
         # HTML mtime 缓存：避免在目录事件风暴下重复转换同一文件
         self._html_state: dict[str, _HtmlFileState] = {}
+        # UI源码 目录缓存：notify_directory_changed 是高频入口，避免频繁 resolve 与目录拼装。
+        self._ui_source_dir_cache_package_id: str | None = None
+        self._ui_source_dir_cache_dir: Path | None = None
+        self._ui_source_dir_cache_text: str | None = None
 
     def set_active_package_id(self, package_id: str | None) -> None:
         normalized = str(package_id or "").strip() or None
         if normalized in {"global_view", "unclassified_view"}:
             normalized = None
+        if normalized != self._active_package_id:
+            self._ui_source_dir_cache_package_id = None
+            self._ui_source_dir_cache_dir = None
+            self._ui_source_dir_cache_text = None
         self._active_package_id = normalized
 
     def notify_directory_changed(self, changed_dir: Path) -> None:
@@ -67,21 +77,23 @@ class UiHtmlAutoConvertCoordinator(QtCore.QObject):
         if not active_package_id:
             return
 
-        ui_source_dir = self._get_ui_source_dir(active_package_id)
+        ui_source_dir = self._get_ui_source_dir_cached(active_package_id)
         if ui_source_dir is None:
             return
 
-        resolved_changed = Path(changed_dir).resolve()
-        ui_source_resolved = ui_source_dir.resolve()
-        # 仅关心 UI源码 子树
-        if not self._is_under_directory(resolved_changed, ui_source_resolved):
+        # 仅关心 UI源码 子树（性能：避免 Path.resolve() 触发文件系统 IO）
+        ui_source_text = str(self._ui_source_dir_cache_text or "")
+        if ui_source_text == "":
+            return
+        changed_text = self._normalize_path_text(changed_dir)
+        if changed_text != ui_source_text and (not changed_text.startswith(ui_source_text + "/")):
             return
 
         converter = get_ui_html_bundle_converter()
         if converter is None:
             return
 
-        self._pending_trigger_dir = resolved_changed
+        self._pending_trigger_dir = Path(changed_dir)
         self._trigger_seq += 1
         self._schedule_debounced_convert()
 
@@ -122,7 +134,7 @@ class UiHtmlAutoConvertCoordinator(QtCore.QObject):
         workspace_root = Path(getattr(self._resource_manager, "workspace_path")).resolve()
 
         html_files = sorted(
-            [p for p in ui_source_dir.rglob("*.html") if p.is_file()],
+            [p for p in ui_source_dir.rglob("*.html")],
             key=lambda p: p.as_posix().casefold(),
         )
         if not html_files:
@@ -130,7 +142,10 @@ class UiHtmlAutoConvertCoordinator(QtCore.QObject):
 
         converted_any = False
         for html_file in html_files:
-            mtime = float(html_file.stat().st_mtime)
+            st = html_file.stat()
+            if not stat_module.S_ISREG(int(st.st_mode)):
+                continue
+            mtime = float(st.st_mtime)
             state = self._html_state.get(str(html_file))
             if state is None:
                 state = _HtmlFileState()
@@ -188,11 +203,26 @@ class UiHtmlAutoConvertCoordinator(QtCore.QObject):
         # 约定：UI 源码放在 管理配置/UI源码
         return (package_root_dir / "管理配置" / "UI源码").resolve()
 
+    def _get_ui_source_dir_cached(self, package_id: str) -> Path | None:
+        normalized = str(package_id or "").strip() or None
+        if not normalized:
+            return None
+        if normalized == self._ui_source_dir_cache_package_id and self._ui_source_dir_cache_dir is not None:
+            return self._ui_source_dir_cache_dir
+
+        ui_source_dir = self._get_ui_source_dir(normalized)
+        if ui_source_dir is None:
+            self._ui_source_dir_cache_package_id = normalized
+            self._ui_source_dir_cache_dir = None
+            self._ui_source_dir_cache_text = None
+            return None
+
+        self._ui_source_dir_cache_package_id = normalized
+        self._ui_source_dir_cache_dir = ui_source_dir
+        self._ui_source_dir_cache_text = self._normalize_path_text(ui_source_dir)
+        return ui_source_dir
+
     @staticmethod
-    def _is_under_directory(child: Path, parent: Path) -> bool:
-        child_parts = child.parts
-        parent_parts = parent.parts
-        if len(child_parts) < len(parent_parts):
-            return False
-        return child_parts[: len(parent_parts)] == parent_parts
+    def _normalize_path_text(path: Path) -> str:
+        return normalize_slash(str(path)).rstrip("/").casefold()
 

@@ -721,6 +721,8 @@ export function validatePreviewComputedRules(previewDocument) {
     // - 初始态语义以 data-ui-state-default 为准；不要依赖 visibility/opacity 的“是否隐藏”推断语义。
     // - 同一 group 内最多允许一个 default=1；0 个 default 视为“初始全部隐藏”（允许但会给 warning）。
     // - 禁止在状态节点上使用 display:none（会导致无盒子，扁平化/导出无法定位）。
+    // - 禁止“hidden=1px 占位符”这类状态节点：建议改为“单 show 态 + 运行时开关可见性（或无默认态）”，
+    //   避免 tiny placeholder 参与几何/容器尺寸推导引发导出与本地预览差异。
     // -----------------------------------------------------------------------------
     function _parseUiStateBool(text) {
         var lowered = String(text || "").trim().toLowerCase();
@@ -728,66 +730,141 @@ export function validatePreviewComputedRules(previewDocument) {
         return lowered === "1" || lowered === "true" || lowered === "yes" || lowered === "on";
     }
 
-    var uiStateNodes = doc.querySelectorAll ? doc.querySelectorAll("[data-ui-state-group]") : [];
+    function _hasAncestorWithSameUiStateGroup(element, groupName) {
+        var g = _safeTrim(groupName);
+        if (!g) {
+            return false;
+        }
+        if (!element || !element.parentElement) {
+            return false;
+        }
+        var cur = element.parentElement;
+        while (cur) {
+            if (cur.getAttribute) {
+                var g2 = _safeTrim(cur.getAttribute("data-ui-state-group"));
+                if (g2 === g) {
+                    return true;
+                }
+            }
+            cur = cur.parentElement || null;
+        }
+        return false;
+    }
+
+    function _collectTopLevelStateNodesUnderGroupContainer(groupContainer) {
+        // 兼容两种作者写法：
+        // A) group+state 在同一节点（老写法/按钮子层常用）：
+        //    <div data-ui-state-group="g" data-ui-state="a" data-ui-state-default="1">...</div>
+        // B) group 在容器，state 在子节点（overlay/多页常用）：
+        //    <section data-ui-state-group="g"><div data-ui-state="a" ...>...</div></section>
+        //
+        // 这里收集“同组范围内的顶层 state 节点”（避免把 state 节点内部的嵌套 state 重复计入统计）。
+        var out = [];
+        if (!groupContainer || !groupContainer.querySelectorAll) {
+            return out;
+        }
+        var candidates = [];
+        if (groupContainer.getAttribute && _safeTrim(groupContainer.getAttribute("data-ui-state"))) {
+            candidates.push(groupContainer);
+        }
+        var list = groupContainer.querySelectorAll("[data-ui-state]");
+        for (var i = 0; i < (list ? list.length : 0); i++) {
+            candidates.push(list[i]);
+        }
+
+        for (var j = 0; j < candidates.length; j++) {
+            var el = candidates[j];
+            if (!el || !el.getAttribute) continue;
+            if (!(groupContainer.contains && groupContainer.contains(el))) continue;
+            var parentState = el.parentElement && el.parentElement.closest ? el.parentElement.closest("[data-ui-state]") : null;
+            if (parentState && groupContainer.contains && groupContainer.contains(parentState)) {
+                continue;
+            }
+            out.push(el);
+        }
+        return out;
+    }
+
+    // 注意：某些页面会在 state 节点内部重复写 data-ui-state-group（用于锚定/定位或历史遗留）。
+    // 这种“同名 group 的嵌套节点”不应参与 group 的默认态/约束统计，否则会出现：
+    // - group 容器本身被误当成 state（缺 stateName）
+    // - 子 marker 被误当成 state（导致 defaultCount=0）
     var uiStateGroupMap = {}; // group -> { defaultCount, statesSet, samples: [] }
-    for (var ui = 0; ui < (uiStateNodes ? uiStateNodes.length : 0); ui++) {
-        var elUi = uiStateNodes[ui];
-        if (!elUi || !elUi.getAttribute) continue;
-        var groupName = _safeTrim(elUi.getAttribute("data-ui-state-group"));
+    var uiGroupContainersForValidation = doc.querySelectorAll ? doc.querySelectorAll("[data-ui-state-group]") : [];
+    for (var ui = 0; ui < (uiGroupContainersForValidation ? uiGroupContainersForValidation.length : 0); ui++) {
+        var groupContainer = uiGroupContainersForValidation[ui];
+        if (!groupContainer || !groupContainer.getAttribute) continue;
+        var groupName = _safeTrim(groupContainer.getAttribute("data-ui-state-group"));
         if (!groupName) continue;
-        var stateName = _safeTrim(elUi.getAttribute("data-ui-state"));
-        var isDefaultUi = _parseUiStateBool(elUi.getAttribute("data-ui-state-default"));
-
-        if (!uiStateGroupMap[groupName]) {
-            uiStateGroupMap[groupName] = { defaultCount: 0, statesSet: {}, samples: [] };
-        }
-        uiStateGroupMap[groupName].statesSet[stateName] = 1;
-        if (isDefaultUi) {
-            uiStateGroupMap[groupName].defaultCount += 1;
-        }
-        if (uiStateGroupMap[groupName].samples.length < 6) {
-            uiStateGroupMap[groupName].samples.push({
-                state: stateName,
-                isDefault: !!isDefaultUi,
-                element: _describeElementForEvidence(elUi),
-            });
+        if (_hasAncestorWithSameUiStateGroup(groupContainer, groupName)) {
+            continue;
         }
 
-        if (!stateName) {
-            issues.push(createIssue({
-                code: "UI_STATE.MISSING_STATE_NAME",
-                severity: "error",
-                message: "多状态节点缺少 data-ui-state（状态名不能为空）。",
-                evidence: { group: groupName, element: _describeElementForEvidence(elUi) },
-                fix: { kind: "manual", suggestion: "为该节点补齐 data-ui-state=\"<状态名>\"（建议用稳定枚举名，如 normal/selected/disabled 或 level_01 等）。" },
-            }));
+        var stateNodes = _collectTopLevelStateNodesUnderGroupContainer(groupContainer);
+        if (!stateNodes || stateNodes.length <= 0) {
+            continue;
         }
 
-        var stUi = win.getComputedStyle(elUi);
-        if (stUi) {
-            var disp = _safeTrim(stUi.display).toLowerCase();
-            if (disp === "none") {
+        for (var si = 0; si < stateNodes.length; si++) {
+            var elUi = stateNodes[si];
+            if (!elUi || !elUi.getAttribute) continue;
+            var stateName = _safeTrim(elUi.getAttribute("data-ui-state"));
+            var isDefaultUi = _parseUiStateBool(elUi.getAttribute("data-ui-state-default"));
+
+            if (!uiStateGroupMap[groupName]) {
+                uiStateGroupMap[groupName] = { defaultCount: 0, statesSet: {}, samples: [] };
+            }
+            if (stateName) {
+                uiStateGroupMap[groupName].statesSet[stateName] = 1;
+            }
+            if (isDefaultUi) {
+                uiStateGroupMap[groupName].defaultCount += 1;
+            }
+            if (uiStateGroupMap[groupName].samples.length < 6) {
+                uiStateGroupMap[groupName].samples.push({
+                    state: stateName,
+                    isDefault: !!isDefaultUi,
+                    element: _describeElementForEvidence(elUi),
+                });
+            }
+
+            if (!stateName) {
                 issues.push(createIssue({
-                    code: "UI_STATE.DISPLAY_NONE_FORBIDDEN",
+                    code: "UI_STATE.MISSING_STATE_NAME",
                     severity: "error",
-                    message: "多状态节点禁止使用 display:none（会导致元素没有盒子，无法扁平化/导出/定位）。",
-                    evidence: { group: groupName, state: stateName, element: _describeElementForEvidence(elUi), display: disp },
-                    fix: { kind: "manual", suggestion: "改用 visibility:hidden 或 opacity:0 + pointer-events:none；初始态语义请用 data-ui-state-default 表达。" },
+                    message: "多状态节点缺少 data-ui-state（状态名不能为空）。",
+                    evidence: { group: groupName, element: _describeElementForEvidence(elUi) },
+                    fix: { kind: "manual", suggestion: "为该节点补齐 data-ui-state=\"<状态名>\"（建议用稳定枚举名，如 normal/selected/disabled 或 level_01 等）。" },
                 }));
-            } else {
-                // 仅提示：非默认态若仍可见，源码预览会“全摊开”；建议隐藏以贴近初始态，但不是强制。
-                if (!isDefaultUi && _isElementVisibleForValidation(win, elUi)) {
+            }
+
+            var stUi = win.getComputedStyle(elUi);
+            if (stUi) {
+                var disp = _safeTrim(stUi.display).toLowerCase();
+                if (disp === "none") {
                     issues.push(createIssue({
-                        code: "UI_STATE.NON_DEFAULT_VISIBLE_SUGGEST_HIDE",
-                        severity: "info",
-                        message: "非默认态在源码预览中仍为可见：建议隐藏以贴近“初始态”，但不影响导出语义。",
-                        evidence: { group: groupName, state: stateName, element: _describeElementForEvidence(elUi) },
-                        fix: { kind: "manual", suggestion: "建议给非默认态加 visibility:hidden（或 opacity:0 + pointer-events:none）。初始态仍以 data-ui-state-default 为准。" },
+                        code: "UI_STATE.DISPLAY_NONE_FORBIDDEN",
+                        severity: "error",
+                        message: "多状态节点禁止使用 display:none（会导致元素没有盒子，无法扁平化/导出/定位）。",
+                        evidence: { group: groupName, state: stateName, element: _describeElementForEvidence(elUi), display: disp },
+                        fix: { kind: "manual", suggestion: "改用 visibility:hidden 或 opacity:0 + pointer-events:none；初始态语义请用 data-ui-state-default 表达。" },
                     }));
+                } else {
+                    // 仅提示：非默认态若仍可见，源码预览会“全摊开”；建议隐藏以贴近初始态，但不是强制。
+                    if (!isDefaultUi && _isElementVisibleForValidation(win, elUi)) {
+                        issues.push(createIssue({
+                            code: "UI_STATE.NON_DEFAULT_VISIBLE_SUGGEST_HIDE",
+                            severity: "info",
+                            message: "非默认态在源码预览中仍为可见：建议隐藏以贴近“初始态”，但不影响导出语义。",
+                            evidence: { group: groupName, state: stateName, element: _describeElementForEvidence(elUi) },
+                            fix: { kind: "manual", suggestion: "建议给非默认态加 visibility:hidden（或 opacity:0 + pointer-events:none）。初始态仍以 data-ui-state-default 为准。" },
+                        }));
+                    }
                 }
             }
         }
     }
+
     var groupKeys = Object.keys(uiStateGroupMap).sort(function (a, b) { return a.localeCompare(b); });
     for (var gi = 0; gi < groupKeys.length; gi++) {
         var gk = groupKeys[gi];
@@ -810,6 +887,97 @@ export function validatePreviewComputedRules(previewDocument) {
                 evidence: { group: gk, samples: entry ? entry.samples : null },
                 fix: { kind: "manual", suggestion: "若需要初始显示某个状态，为其中一个状态节点加 data-ui-state-default=\"1\"；若确实希望初始全隐藏，可忽略该提示。" },
             }));
+        }
+    }
+
+    // -----------------------------------------------------------------------------
+    // UI 多状态（补充规则）：禁止 tiny hidden placeholder
+    //
+    // 典型“坏味道”：
+    //   <div data-ui-state-group="g" data-ui-state="hidden" data-ui-state-default="1" style="width:1px;height:1px"></div>
+    //
+    // 这类写法的动机通常是“默认隐藏但要保留节点”，但它会引入：
+    // - 容器尺寸被 1px 默认态影响（尤其当作者使用 inset:0 / fill-parent 类布局时）；
+    // - 扁平化/导出在抽取“非默认态几何”时更容易出现被压扁/裁剪的差异。
+    //
+    // 更推荐的表达：
+    // - 仅保留 show 态节点；
+    // - 初始不写 data-ui-state-default（=初始全隐藏），需要显示时由运行时/节点图把 show 设为 default。
+    // -----------------------------------------------------------------------------
+    function _collectStateNodesUnderGroupContainer(groupContainer) {
+        var out = [];
+        if (!groupContainer || !groupContainer.getAttribute) {
+            return out;
+        }
+        // Pattern A: group+state 在同一节点
+        if (_safeTrim(groupContainer.getAttribute("data-ui-state"))) {
+            out.push(groupContainer);
+        }
+        // Pattern B: group 在容器，state 在直接子节点
+        var children = groupContainer.children || [];
+        for (var i = 0; i < children.length; i++) {
+            var c = children[i];
+            if (!c || !c.getAttribute) continue;
+            if (_safeTrim(c.getAttribute("data-ui-state"))) {
+                out.push(c);
+            }
+        }
+        return out;
+    }
+
+    var uiGroupContainers = doc.querySelectorAll ? doc.querySelectorAll("[data-ui-state-group]") : [];
+    for (var ui2 = 0; ui2 < (uiGroupContainers ? uiGroupContainers.length : 0); ui2++) {
+        var gEl = uiGroupContainers[ui2];
+        if (!gEl || !gEl.getAttribute) continue;
+        var gName2 = _safeTrim(gEl.getAttribute("data-ui-state-group"));
+        if (!gName2) continue;
+
+        var stateNodes = _collectStateNodesUnderGroupContainer(gEl);
+        if (!stateNodes || stateNodes.length <= 0) continue;
+
+        // 需要至少“两个不同 state”，才有“hidden vs show”的语义对照；否则不报，避免误伤。
+        var stateKeySet = {};
+        for (var si = 0; si < stateNodes.length; si++) {
+            var n0 = stateNodes[si];
+            var sn = _safeTrim(n0.getAttribute ? n0.getAttribute("data-ui-state") : "");
+            if (sn) stateKeySet[sn] = 1;
+        }
+        var distinctStates = Object.keys(stateKeySet);
+        if (!distinctStates || distinctStates.length < 2) continue;
+
+        for (var sj = 0; sj < stateNodes.length; sj++) {
+            var stEl = stateNodes[sj];
+            if (!stEl || !stEl.getAttribute || !stEl.getBoundingClientRect) continue;
+            var stName = _safeTrim(stEl.getAttribute("data-ui-state"));
+            if (stName !== "hidden") continue;
+
+            // 仅针对“空占位符”类型（无子节点、无文本），避免误伤真正的“隐藏页/遮罩”。
+            var hasChild = !!(stEl.children && stEl.children.length > 0);
+            var hasText = !!_safeTrim(stEl.textContent || "");
+            if (hasChild || hasText) continue;
+
+            var r0 = stEl.getBoundingClientRect();
+            var w0 = Number(r0 && r0.width !== undefined ? r0.width : 0);
+            var h0 = Number(r0 && r0.height !== undefined ? r0.height : 0);
+            if (!isFinite(w0)) w0 = 0;
+            if (!isFinite(h0)) h0 = 0;
+
+            // tiny 阈值：<=2px 认为是“占位符”而非真实页面/弹窗态
+            if (w0 <= 2 && h0 <= 2) {
+                issues.push(createIssue({
+                    code: "UI_STATE.HIDDEN_TINY_PLACEHOLDER_FORBIDDEN",
+                    severity: "error",
+                    message: "禁止使用 tiny 的 hidden 占位状态（例如 1px placeholder）。请改用“单 show 态 + 运行时开关可见性（或无默认态=初始全隐藏）”。",
+                    evidence: { group: gName2, state: stName, element: _describeElementForEvidence(stEl), rect: { w: w0, h: h0 } },
+                    fix: {
+                        kind: "manual",
+                        suggestion:
+                            "建议：删除该 hidden 占位节点；仅保留 show 节点。\n" +
+                            "- 初始隐藏：不要写 data-ui-state-default=\"1\"（让组初始全隐藏）\n" +
+                            "- 需要显示：运行时把 show 节点设为 default（或通过状态组切换使 show 成为默认态）",
+                    },
+                }));
+            }
         }
     }
 
@@ -865,12 +1033,45 @@ export function validatePreviewComputedRules(previewDocument) {
     // 用“周围变暗”实现“展示区域高亮”。
     var highlightAreas = doc.querySelectorAll ? doc.querySelectorAll("." + String(HIGHLIGHT_DISPLAY_AREA_CLASS || "highlight-display-area")) : [];
     if (highlightAreas && highlightAreas.length > 1) {
-        issues.push(createIssue({
-            code: "HIGHLIGHT_AREA.MULTIPLE_FORBIDDEN",
-            severity: "error",
-            message: "同一页面最多只能有一个 .highlight-display-area（高亮展示区域）。",
-            fix: { kind: "manual", suggestion: "只保留一个高亮展示区域；若需要多步高亮，请用 data-ui-state-* 做状态切换（每个状态一个高亮区域）。" }
-        }));
+        // 允许“多步高亮”（每个 state 一个 marker），但要求 marker 显式绑定同一 state-group 且 state 不重复：
+        // - 例如 tutorial overlay：guide_1~guide_N
+        // - dom_extract 会按 group/state 查找 tutorial-marker 用于卡片锚定
+        var allowMultiByState = true;
+        var gName = "";
+        var stateKeySet = {};
+        for (var hh = 0; hh < highlightAreas.length; hh++) {
+            var hEl = highlightAreas[hh];
+            if (!hEl || !hEl.getAttribute) {
+                allowMultiByState = false;
+                break;
+            }
+            var gg = _safeTrim(hEl.getAttribute("data-ui-state-group"));
+            var ss = _safeTrim(hEl.getAttribute("data-ui-state"));
+            if (!gg || !ss) {
+                allowMultiByState = false;
+                break;
+            }
+            if (!gName) {
+                gName = gg;
+            }
+            if (gg !== gName) {
+                allowMultiByState = false;
+                break;
+            }
+            if (stateKeySet[ss]) {
+                allowMultiByState = false;
+                break;
+            }
+            stateKeySet[ss] = 1;
+        }
+        if (!allowMultiByState) {
+            issues.push(createIssue({
+                code: "HIGHLIGHT_AREA.MULTIPLE_FORBIDDEN",
+                severity: "error",
+                message: "同一页面最多只能有一个 .highlight-display-area（高亮展示区域）。",
+                fix: { kind: "manual", suggestion: "只保留一个高亮展示区域；若需要多步高亮，请将 marker 放到同一 data-ui-state-group 下，并确保每个 state 至多一个 marker（常见：guide_1/guide_2/...）。" }
+            }));
+        }
     }
     for (var hi = 0; hi < (highlightAreas ? highlightAreas.length : 0); hi++) {
         var elh = highlightAreas[hi];
@@ -974,6 +1175,15 @@ export function validatePreviewComputedRules(previewDocument) {
         if (!isFinite(distToRight)) continue;
         if (distToRight < 0) continue;
         if (distToRight > RIGHT_EDGE_NEAR_PX) continue;
+        // Reduce false positives: "full-width" text blocks naturally have a right edge close to container.
+        // We only want small labels near the corner.
+        var containerW = Number(containerRect.width || 0);
+        var elW = Number(elRect.width || 0);
+        if (isFinite(containerW) && containerW > 1 && isFinite(elW) && elW > 0) {
+            if (elW / containerW > 0.75) {
+                continue;
+            }
+        }
         var elCenterX = Number((elRect.left + elRect.right) * 0.5);
         var containerMidX = Number((containerRect.left + containerRect.right) * 0.5);
         if (!isFinite(elCenterX) || !isFinite(containerMidX)) continue;
@@ -991,7 +1201,7 @@ export function validatePreviewComputedRules(previewDocument) {
         issues.push(createIssue({
             code: "TEXT.ALIGNMENT_SUGGEST_RIGHT",
             severity: "warning",
-            message: "文本靠近右边框但仍为左对齐：建议改为右对齐以贴合边界（减少人工遗漏）。",
+            message: "文本靠近右边框但仍为左对齐（text=" + rawText + "）：建议改为右对齐以贴合边界（减少人工遗漏）。",
             target: { kind: "element", tag: String(el2.tagName || "").toLowerCase(), text: rawText },
             evidence: {
                 text_align: textAlign,

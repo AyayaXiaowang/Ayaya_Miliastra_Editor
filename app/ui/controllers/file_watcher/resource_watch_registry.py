@@ -39,6 +39,9 @@ class ResourceWatchRegistry(QtCore.QObject):
         self._pending_watch_dirs: Deque[Path] = deque()
         self._watch_owned_dir_texts: set[str] = set()
         self._watch_owned_dirs: list[Path] = []
+        # 性能：`QFileSystemWatcher.directories()` 在大量 watcher 下开销较大；
+        # 初始 setup / 分批 addPath 阶段缓存一次并增量更新。
+        self._existing_dir_texts_cache: set[str] | None = None
 
         self._watch_setup_started_at: float = 0.0
         self._watch_added_count: int = 0
@@ -69,6 +72,7 @@ class ResourceWatchRegistry(QtCore.QObject):
             self._pending_incremental_scan_roots.clear()
             self._incremental_scan_scheduled = False
             self._watch_setup_scheduled = False
+            self._existing_dir_texts_cache = None
             self._remove_owned_watch_dirs()
             return
 
@@ -98,6 +102,7 @@ class ResourceWatchRegistry(QtCore.QObject):
         self._pending_incremental_scan_roots.clear()
         self._incremental_scan_scheduled = False
         self._watch_setup_scheduled = False
+        self._existing_dir_texts_cache = None
         self._remove_owned_watch_dirs()
         self.schedule_initial_setup(resource_root)
 
@@ -174,7 +179,7 @@ class ResourceWatchRegistry(QtCore.QObject):
             self._pending_watch_dirs.clear()
             return
 
-        existing_dirs = set(self._file_watcher.directories())
+        existing_dirs = self._get_existing_dir_texts_cached()
         added_in_batch = 0
 
         while self._pending_watch_dirs and added_in_batch < self._batch_add_limit:
@@ -248,7 +253,7 @@ class ResourceWatchRegistry(QtCore.QObject):
             "__MACOSX",
         }
 
-        existing_dir_texts = set(self._file_watcher.directories())
+        existing_dir_texts = set(self._get_existing_dir_texts_cached())
         existing_dir_texts.update(self._watch_owned_dir_texts)
         for queued_dir in self._pending_watch_dirs:
             existing_dir_texts.add(str(queued_dir))
@@ -285,6 +290,14 @@ class ResourceWatchRegistry(QtCore.QObject):
             return
 
         self._incremental_scan_scheduled = False
+
+    def _get_existing_dir_texts_cached(self) -> set[str]:
+        cache = self._existing_dir_texts_cache
+        if isinstance(cache, set):
+            return cache
+        cache = set(self._file_watcher.directories())
+        self._existing_dir_texts_cache = cache
+        return cache
 
     # ===== 过滤策略：仅监控“资源目录子树” =====
 
@@ -323,6 +336,7 @@ class ResourceWatchRegistry(QtCore.QObject):
         self._pending_watch_dirs.clear()
         self._pending_incremental_scan_roots.clear()
         self._incremental_scan_scheduled = False
+        self._existing_dir_texts_cache = None
         self._remove_owned_watch_dirs()
 
     def _stop_background_scan_if_any(self) -> None:
@@ -339,6 +353,9 @@ class ResourceWatchRegistry(QtCore.QObject):
             path_text = str(directory)
             if path_text in watched_directories:
                 self._file_watcher.removePath(path_text)
+            cached = self._existing_dir_texts_cache
+            if isinstance(cached, set):
+                cached.discard(path_text)
         self._watch_owned_dirs.clear()
         self._watch_owned_dir_texts.clear()
 

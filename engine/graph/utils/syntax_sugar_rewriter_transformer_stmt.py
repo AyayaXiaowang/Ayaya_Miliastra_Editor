@@ -66,6 +66,60 @@ class _GraphCodeSyntaxSugarTransformerStmtMixin:
                 value_expr = visited_value_expr
                 node.value = value_expr  # type: ignore[assignment]
 
+        # client 的 max(a, b)/min(a, b) 会被改写为：获取列表最大值/最小值(列表=拼装列表(a, b))
+        # 但拼装列表的输出为“泛型列表”，若没有中间带注解的列表变量承接，会触发结构校验的
+        # “端口类型未实例化（仍为泛型）”。因此在 AnnAssign 场景下插入一个临时列表变量来实例化类型。
+        if self.scope == "client" and isinstance(value_expr, ast.Call):
+            call_func = getattr(value_expr, "func", None)
+            if isinstance(call_func, ast.Name) and call_func.id in {LIST_MAX_VALUE_NODE_CALL_NAME, LIST_MIN_VALUE_NODE_CALL_NAME}:
+                list_kw: Optional[ast.keyword] = next(
+                    (kw for kw in list(getattr(value_expr, "keywords", []) or []) if getattr(kw, "arg", None) == "列表"),
+                    None,
+                )
+                list_expr = getattr(list_kw, "value", None) if list_kw is not None else None
+                if isinstance(list_expr, ast.Call):
+                    list_func = getattr(list_expr, "func", None)
+                    if isinstance(list_func, ast.Name) and list_func.id == "拼装列表":
+                        element_type_text = ""
+                        if isinstance(annotation, ast.Constant) and isinstance(getattr(annotation, "value", None), str):
+                            element_type_text = str(annotation.value).strip()
+
+                        if element_type_text not in {"整数", "浮点数"}:
+                            # 兜底：尝试从入参变量注解推断（仅当两侧一致且为数值类型）
+                            arg_exprs = list(getattr(list_expr, "args", []) or [])
+                            if arg_exprs and isinstance(arg_exprs[0], ast.Attribute):
+                                if (
+                                    isinstance(getattr(arg_exprs[0], "value", None), ast.Name)
+                                    and arg_exprs[0].value.id == "self"
+                                    and str(getattr(arg_exprs[0], "attr", "") or "") == "game"
+                                ):
+                                    arg_exprs = arg_exprs[1:]
+                            if len(arg_exprs) >= 2 and all(isinstance(x, ast.Name) for x in arg_exprs[:2]):
+                                left_t = self._get_var_type_text(arg_exprs[0].id)
+                                right_t = self._get_var_type_text(arg_exprs[1].id)
+                                if left_t and left_t == right_t and left_t in {"整数", "浮点数"}:
+                                    element_type_text = left_t
+
+                        if element_type_text in {"整数", "浮点数"} and isinstance(target, ast.Name):
+                            list_type_text = f"{element_type_text}列表"
+                            temp_list_name = self._next_temp_min_max_list_var_name(getattr(node, "lineno", None))
+
+                            list_assign = ast.AnnAssign(
+                                target=ast.Name(id=temp_list_name, ctx=ast.Store()),
+                                annotation=ast.Constant(value=list_type_text),
+                                value=list_expr,
+                                simple=1,
+                            )
+                            ast.copy_location(list_assign, node)
+                            list_assign.end_lineno = getattr(node, "end_lineno", getattr(list_assign, "lineno", None))
+
+                            list_kw.value = ast.Name(id=temp_list_name, ctx=ast.Load())
+                            ast.copy_location(list_kw.value, list_expr)
+                            list_kw.value.end_lineno = getattr(list_expr, "end_lineno", getattr(list_kw.value, "lineno", None))  # type: ignore[attr-defined]
+
+                            node.value = value_expr  # type: ignore[assignment]
+                            return [list_assign, node]
+
         if not isinstance(target, ast.Name):
             return self.generic_visit(node)
         if not (isinstance(annotation, ast.Constant) and isinstance(getattr(annotation, "value", None), str)):

@@ -1,62 +1,5 @@
 import { escapeHtmlText } from "../utils.js";
 import { flattenGroupTreeController, state } from "./context.js";
-import { buildLayerKeyFromRect, parseLayerKey } from "../layer_key.js";
-
-function _rectIntersectionArea(a, b) {
-  if (!a || !b) return 0;
-  var left = Math.max(Number(a.left || 0), Number(b.left || 0));
-  var top = Math.max(Number(a.top || 0), Number(b.top || 0));
-  var right = Math.min(Number(a.left || 0) + Number(a.width || 0), Number(b.left || 0) + Number(b.width || 0));
-  var bottom = Math.min(Number(a.top || 0) + Number(a.height || 0), Number(b.top || 0) + Number(b.height || 0));
-  var w = right - left;
-  var h = bottom - top;
-  if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return 0;
-  return w * h;
-}
-
-function _rectArea(r) {
-  if (!r) return 0;
-  var w = Number(r.width || 0);
-  var h = Number(r.height || 0);
-  if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return 0;
-  return w * h;
-}
-
-function _pickBestLayerKeyForWidgetFromCandidates(layerKeys, targetRect, preferredZ) {
-  var keys = Array.isArray(layerKeys) ? layerKeys : [];
-  var r = targetRect || null;
-  if (!r || keys.length <= 0) return "";
-  var aTarget = _rectArea(r);
-  var best = "";
-  var bestOverlap = -1;
-  var bestZDist = Number.POSITIVE_INFINITY;
-  var bestAreaDiff = Number.POSITIVE_INFINITY;
-  var zPref = Number(preferredZ || 0);
-  if (!isFinite(zPref)) zPref = 0;
-  for (var i = 0; i < keys.length; i++) {
-    var k = String(keys[i] || "");
-    if (!k) continue;
-    var parsed = parseLayerKey(k);
-    if (!parsed || !parsed.rect) continue;
-    var inter = _rectIntersectionArea(parsed.rect, r);
-    if (inter <= 0) continue;
-    var overlapRatio = aTarget > 0 ? (inter / aTarget) : inter;
-    var zDist = Math.abs(Number(parsed.z || 0) - zPref);
-    var aLayer = _rectArea(parsed.rect);
-    var areaDiff = Math.abs(aLayer - aTarget);
-    if (
-      overlapRatio > bestOverlap ||
-      (overlapRatio === bestOverlap && zDist < bestZDist) ||
-      (overlapRatio === bestOverlap && zDist === bestZDist && areaDiff < bestAreaDiff)
-    ) {
-      best = k;
-      bestOverlap = overlapRatio;
-      bestZDist = zDist;
-      bestAreaDiff = areaDiff;
-    }
-  }
-  return best;
-}
 
 function _widgetToRect(widget) {
   var pos = widget && widget.position ? widget.position : null;
@@ -68,39 +11,6 @@ function _widgetToRect(widget) {
   var height = Number(size[1] || 0);
   if (!isFinite(left) || !isFinite(top) || !isFinite(width) || !isFinite(height)) return null;
   return { left: left, top: top, width: width, height: height };
-}
-
-function _inferFlatLayerKindFromWidget(widgetType, widgetName) {
-  var wt = String(widgetType || "");
-  var wn = String(widgetName || "");
-  // 约定：template_from_layers.js 产物会使用稳定前缀命名（阴影_/边框_/色块_/文本_/按钮_底色_/高亮底板_）
-  if (wt === "文本框") {
-    if (wn.indexOf("阴影_") === 0) return "shadow";
-    if (wn.indexOf("文本_") === 0) return "text";
-    // 特例：某些 alpha 阴影会导出为“空文本框 + 半透明黑底”（仍应视为 shadow）
-    if (wn.indexOf("色块_") === 0) return "element";
-    if (wn.indexOf("高亮底板_") === 0) return "element";
-    return "";
-  }
-  if (wt === "进度条") {
-    if (wn.indexOf("阴影_") === 0) return "shadow";
-    if (wn.indexOf("边框_") === 0) return "border";
-    if (wn.indexOf("按钮_底色_") === 0) return "element";
-    if (wn.indexOf("色块_") === 0) return "element";
-    if (wn.indexOf("高亮底板_") === 0) return "element";
-    return "";
-  }
-  // 道具展示：在扁平层维度通常是“虚拟控件”（按钮锚点/ICON），不尝试推断。
-  return "";
-}
-
-function _inferFlatLayerKeyFromWidgetPayload(widget, rect) {
-  if (!widget || !rect) return "";
-  var kind = _inferFlatLayerKindFromWidget(widget.widget_type, widget.widget_name);
-  if (!kind) return "";
-  var z = Number(widget.layer_index !== undefined ? widget.layer_index : 0);
-  if (!isFinite(z)) z = 0;
-  return buildLayerKeyFromRect(kind, rect, z);
 }
 
 export function applyExportExcludesToBundlePayload(bundlePayload) {
@@ -206,10 +116,9 @@ export function buildExportWidgetPreviewModelFromBundle(bundlePayload) {
         set0.add(uiState);
       }
       var rect0 = _widgetToRect(w);
-      var flatKey0 = String(w.__flat_layer_key || "").trim();
-      if (!flatKey0) {
-        flatKey0 = _inferFlatLayerKeyFromWidgetPayload(w, rect0);
-      }
+      // 严格口径：只认导出端写入的 flat_layer_key / __flat_layer_key（与扁平层一一对应），
+      // 不再做“按 widget_type/widget_name/rect/z 推断”的兼容猜测，避免误映射。
+      var flatKey0 = String(w.__flat_layer_key || w.flat_layer_key || "").trim();
       entry.widgets.push({
         widget_id: String(w.widget_id || ""),
         widget_type: widgetType,
@@ -580,6 +489,7 @@ export function renderExportWidgetPreviewHtml(model) {
           '<div class="wb-tree-item' + (isSelected0 ? " selected" : "") + (isInitialHidden0 ? " wb-tree-initial-hidden" : "") + '" role="button" tabindex="0"' +
           ' data-export-widget="1"' +
           ' data-widget-id="' + escapeHtmlText(wid0) + '"' +
+          (uiKey0 ? (' data-ui-key="' + escapeHtmlText(uiKey0) + '"') : "") +
           ' data-flat-layer-key="' + escapeHtmlText(String(bestKey0 || "")) + '"' +
           ' data-group-key="' + escapeHtmlText(groupKey) + '"' +
           ' title="' + escapeHtmlText(display0) + '">' +
@@ -643,6 +553,7 @@ export function renderExportWidgetPreviewHtml(model) {
         '<div class="wb-tree-item' + (isSelected ? " selected" : "") + (isInitialHidden ? " wb-tree-initial-hidden" : "") + '" role="button" tabindex="0"' +
         ' data-export-widget="1"' +
         ' data-widget-id="' + escapeHtmlText(wid) + '"' +
+        (uiKey ? (' data-ui-key="' + escapeHtmlText(uiKey) + '"') : "") +
         ' data-flat-layer-key="' + escapeHtmlText(String(bestKeyForWidget || "")) + '"' +
         ' data-group-key="' + escapeHtmlText(groupKey) + '"' +
         ' title="' + escapeHtmlText(displayName) + '">' +

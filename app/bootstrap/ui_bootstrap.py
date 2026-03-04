@@ -124,6 +124,16 @@ def _preload_ocr_if_needed(*, enable_ocr_preload: bool) -> None:
         log_warn("[BOOT] 已跳过 OCR 预热（你将自行承担 PyQt6 与 OCR DLL 冲突风险）")
         return
 
+    from importlib.util import find_spec
+
+    # OCR 依赖缺失时：允许程序继续启动，但自动化执行能力不可用。
+    # 注意：这里不使用 try/except；若依赖存在但导入/初始化失败，应直接抛出以暴露真实环境问题。
+    if find_spec("rapidocr_onnxruntime") is None:
+        log_warn(
+            "[BOOT] 未检测到 rapidocr_onnxruntime：将跳过 OCR 预热，程序仍可启动，但『执行/自动化』功能不可用。"
+        )
+        return
+
     # 关键：必须在 PyQt6 之前导入 RapidOCR，避免 DLL 冲突（不使用异常捕获，失败应直接抛出）
     log_debug("[BOOT] 预热 OCR 引擎（必须先于 PyQt6 导入）")
     from rapidocr_onnxruntime import RapidOCR  # noqa: E402
@@ -278,6 +288,83 @@ def _show_safety_notice_dialog_if_needed(*, main_window, safety_notice_text: str
         log_debug("[BOOT] 用户选择不再提醒安全声明，已更新设置并保存")
 
 
+def _bring_main_window_to_front_once(*, main_window) -> None:
+    """启动时将主窗口激活到前台一次（尽量避免触发 Qt 侧 window flag 重建导致的闪烁）。"""
+    from PyQt6 import QtCore  # noqa: E402
+
+    # 先执行常规前置：大多数情况下足够且不会引入闪烁。
+    main_window.raise_()
+    main_window.activateWindow()
+
+    # Windows：优先使用原生 SetForegroundWindow；失败时再做一次性“置顶→取消置顶”兜底。
+    if sys.platform != "win32":
+        return
+
+    hwnd = int(getattr(main_window, "winId")())
+    if hwnd == 0:
+        return
+
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+    user32.SetForegroundWindow.restype = wintypes.BOOL
+
+    # 1) 先尝试前台激活：成功时不再使用置顶 hack。
+    if bool(user32.SetForegroundWindow(wintypes.HWND(int(hwnd)))):
+        return
+
+    # 2) 兜底：一次性置顶确保在桌面最前显示，然后快速恢复普通窗口层级。
+    #    注意：这里不再通过 Qt 的 setWindowFlag + show() 触发窗口重建，从而显著降低闪烁风险。
+    user32.SetWindowPos.argtypes = [
+        wintypes.HWND,
+        wintypes.HWND,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_uint,
+    ]
+    user32.SetWindowPos.restype = wintypes.BOOL
+
+    hwnd_insert_topmost = wintypes.HWND(-1)  # HWND_TOPMOST
+    hwnd_insert_notopmost = wintypes.HWND(-2)  # HWND_NOTOPMOST
+
+    swp_nosize = 0x0001
+    swp_nomove = 0x0002
+    swp_showwindow = 0x0040
+    flags = int(swp_nosize | swp_nomove | swp_showwindow)
+
+    user32.SetWindowPos(
+        wintypes.HWND(int(hwnd)),
+        hwnd_insert_topmost,
+        0,
+        0,
+        0,
+        0,
+        ctypes.c_uint(int(flags)),
+    )
+    user32.SetForegroundWindow(wintypes.HWND(int(hwnd)))
+
+    def _restore_normal_z_order() -> None:
+        user32.SetWindowPos(
+            wintypes.HWND(int(hwnd)),
+            hwnd_insert_notopmost,
+            0,
+            0,
+            0,
+            0,
+            ctypes.c_uint(int(flags)),
+        )
+        user32.SetForegroundWindow(wintypes.HWND(int(hwnd)))
+        main_window.raise_()
+        main_window.activateWindow()
+        log_debug("[BOOT] 启动期一次性置顶已恢复为普通窗口层级（native SetWindowPos）")
+
+    QtCore.QTimer.singleShot(120, _restore_normal_z_order)
+
+
 def run_ui_app(config: UiRunConfig) -> int:
     """启动 UI 并进入 Qt 事件循环，返回退出码。"""
     log_tee_handle = _install_log_tee_if_needed(
@@ -326,6 +413,7 @@ def run_ui_app(config: UiRunConfig) -> int:
     # 私有扩展可在 show() 前对主窗口进行增强（添加菜单/面板/调试入口等）
     run_main_window_hooks(main_window=main_window)
     main_window.show()
+    _bring_main_window_to_front_once(main_window=main_window)
     log_debug("[BOOT] 主窗口 show() 已调用")
 
     if bool(config.show_safety_notice_dialog):

@@ -6,7 +6,8 @@
 ## 当前状态
 - `ci.yml`：Windows（PowerShell）流水线，按顺序执行：
   - 自动化静态扫描护栏：`app.automation._static_checks.*`
-  - 节点图/复合节点全量校验：`app.cli.graph_tools validate-graphs --all`
+  - UI 静态护栏：`app.ui._static_checks.check_large_files --fail --max-lines 1500`
+  - 节点图/复合节点全量校验（CI gate：仅 error 阻断，warning 仅记录到 JSON 报告）：`app.cli.graph_tools validate-graphs --all --json` + `tools/validate_graphs_ci_gate.py`
   - 单测：`pytest`
 
 ## 注意事项

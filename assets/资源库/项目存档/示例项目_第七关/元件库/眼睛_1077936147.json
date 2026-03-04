@@ -1,0 +1,2284 @@
+{
+  "template_id": "1077936147",
+  "name": "眼睛",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936147,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073745167",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.4200000762939453,
+                "y": 13.203963279724121,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745167,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745168",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.320000171661377,
+                "y": 13.203963279724121,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745168,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745169",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.400000095367432,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745169,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745170",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.880000114440918,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745170,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745171",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 1.5
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745171,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                1.5
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745172",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.940000057220459,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745172,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745173",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.400000095367432,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745173,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745174",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.860000133514404,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745174,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745175",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.700000047683716,
+                "y": 11.76396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 3.5999999046325684,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745175,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                3.5999999046325684,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745176",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.9600000381469727,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 1.7999999523162842
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745176,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                1.7999999523162842
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745177",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745177,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745178",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.8999999761581421
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745178,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.8999999761581421
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745179",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.679999828338623,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745179,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745180",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.240000009536743,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745180,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745181",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745181,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745182",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.860000133514404,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745182,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745183",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.659999847412109,
+                "y": 11.76396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745183,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745184",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": 11.76396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745184,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745185",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.760000228881836,
+                "y": 11.76396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745185,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745186",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.039999961853027,
+                "y": 11.583963394165039,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745186,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745187",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.5,
+                "y": 11.583963394165039,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745187,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745188",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.059999942779541,
+                "y": 11.583963394165039,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745188,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745189",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.9600000381469727,
+                "y": 11.76396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745189,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745190",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.039999961853027,
+                "y": 11.76396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745190,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745191",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.119999885559082,
+                "y": 11.223962783813477,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745191,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745192",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 11.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 3.5999999046325684
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745192,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                3.5999999046325684
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745193",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": 11.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745193,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745194",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.21999979019165,
+                "y": 10.68396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.8999999761581421,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745194,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.8999999761581421,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745195",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.860000133514404,
+                "y": 10.68396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745195,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745196",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.240000009536743,
+                "y": 10.86396312713623,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745196,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745197",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 10.68396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745197,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745198",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.860000133514404,
+                "y": 10.68396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.8999999761581421,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745198,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.8999999761581421,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745199",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": 10.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745199,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.880000114440918,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745200",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": 10.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 3.5999999046325684
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745200,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                3.5999999046325684
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745201",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.059999942779541,
+                "y": 10.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745201,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745202",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.4200000762939453,
+                "y": 10.323963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745202,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745203",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": 9.603962898254395,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745203,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745204",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.659999847412109,
+                "y": 9.963963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745204,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745205",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.119999885559082,
+                "y": 9.963963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745205,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745206",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": 9.963963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745206,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745207",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.21999979019165,
+                "y": 9.783963203430176,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745207,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745208",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999046325684,
+                "y": 9.963963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745208,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745209",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 9.963963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745209,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745210",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.679999828338623,
+                "y": 9.963963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745210,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745211",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.119999885559082,
+                "y": 9.603962898254395,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 1.2000000476837158
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745211,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                1.2000000476837158
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745212",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.4200000762939453,
+                "y": 9.603962898254395,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745212,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745213",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 9.603962898254395,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.8999999761581421
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745213,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.8999999761581421
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745214",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.860000133514404,
+                "y": 9.603962898254395,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745214,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745215",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.8999999761581421
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745215,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.8999999761581421
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745216",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745216,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745217",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.7799999713897705,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745217,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745218",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745218,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745219",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.5,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745219,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745220",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": 8.883963584899902,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745220,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073745221",
+            "displayName": "眼睛",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 8.883963584899902,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073745221,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936147,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

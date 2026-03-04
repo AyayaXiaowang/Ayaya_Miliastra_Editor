@@ -255,8 +255,6 @@ class SignalParamNamesRule(ValidationRule):
                         continue
 
                 allowed_params = allowed_params_by_id.get(signal_id, set())
-                if not allowed_params:
-                    continue
 
                 # 收集调用中实际使用的“数据参数名”：排除静态输入端口（流程入/目标实体/信号名）。
                 used_params: Set[str] = set()

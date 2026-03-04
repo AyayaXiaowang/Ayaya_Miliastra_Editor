@@ -141,7 +141,9 @@ class PackageIndexCacheMixin:
             return None
 
         # ===== 基础元信息 =====
-        package_name = self._infer_package_display_name(package_root, str(package_id))
+        # 项目显示名唯一真源：项目存档目录名（package_id）。
+        # 注意：不再从包内“关卡实体文件名”等推断显示名，避免出现多个同名项或跨包误判。
+        package_name = str(package_id)
         latest_mtime = self._get_latest_mtime_under_dir(package_root)
         updated_at = (
             datetime.fromtimestamp(latest_mtime).isoformat()
@@ -276,7 +278,7 @@ class PackageIndexCacheMixin:
         self.resource_manager.rebuild_index()
 
     def rename_package(self, package_id: str, new_name: str) -> None:
-        """重命名存档（通过重命名关卡实体文件改变 UI 展示名）。"""
+        """重命名存档（目录模式下仅调整“关卡实体文件名”的约定命名，不作为项目显示名真源）。"""
         package_root = self._packages_root_dir / str(package_id)
         if not package_root.exists() or not package_root.is_dir():
             return
@@ -289,7 +291,7 @@ class PackageIndexCacheMixin:
         if not sanitized_name:
             return
 
-        # 以“关卡实体文件名”作为包名的显示入口：重命名该文件即可改变 UI 展示名称。
+        # 约定：关卡实体文件名尽量与项目目录名一致，便于人工识别与审计。
         level_entity_id = f"level_{package_id}"
         current_level_entity_file = self.resource_manager.list_resource_file_paths(ResourceType.INSTANCE).get(
             level_entity_id

@@ -72,8 +72,8 @@ class NodeModel:
     # 端口类型快照：用于 graph_cache 持久化与工具链/编辑器快速展示（不参与连线判定的单一真源）。
     # 约定：key 为端口名，value 为中文类型名（如：整数/浮点数/字符串/布尔值/实体/流程/泛型...）。
     # 推导失败属于配置/节点库缺陷，应在构建 graph_cache 时直接抛错，而不是静默回退。
-    input_types: Dict[str, str] = field(default_factory=dict)
-    output_types: Dict[str, str] = field(default_factory=dict)
+    effective_input_types: Dict[str, str] = field(default_factory=dict)
+    effective_output_types: Dict[str, str] = field(default_factory=dict)
     pos: Tuple[float, float] = (0.0, 0.0)
     # 输入常量（用于在UI上显示齿轮并可编辑）
     input_constants: Dict[str, Any] = field(default_factory=dict)
@@ -512,8 +512,8 @@ class GraphModel:
                 node_def_ref=n.node_def_ref,
                 inputs=[PortModel(name=p.name, is_input=True) for p in (n.inputs or [])],
                 outputs=[PortModel(name=p.name, is_input=False) for p in (n.outputs or [])],
-                input_types=dict(n.input_types) if getattr(n, "input_types", None) else {},
-                output_types=dict(n.output_types) if getattr(n, "output_types", None) else {},
+                effective_input_types=dict(n.effective_input_types) if getattr(n, "effective_input_types", None) else {},
+                effective_output_types=dict(n.effective_output_types) if getattr(n, "effective_output_types", None) else {},
                 pos=n.pos,
                 input_constants=dict(n.input_constants) if n.input_constants else {},
                 composite_id=n.composite_id,

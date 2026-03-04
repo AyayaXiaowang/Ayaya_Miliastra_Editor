@@ -696,7 +696,7 @@ class PackageIndexCloneMixin:
                 "该项目由“示例项目模板”复制创建；资源 ID 已做处理以避免与模板或其他项目冲突。",
                 "",
                 "## 注意事项",
-                "- 建议关卡实体文件命名为 `<项目名>_关卡实体.json`，用于派生项目显示名。",
+                "- 建议关卡实体文件命名为 `<项目名>_关卡实体.json`，便于资源结构约定一致（不作为项目显示名真源）。",
                 "- 共享文档：`文档/共享文档` 为 Junction，指向 `assets/资源库/共享/文档`（零复制共享）。",
                 "- 共享根 `assets/资源库/共享/` 用于放置公共资源（所有存档可见）；修改共享资源会影响所有项目，请谨慎管理。",
                 "",
@@ -728,7 +728,7 @@ class PackageIndexCloneMixin:
                 f"该项目由项目存档“{source_package_id}”复制创建；资源 ID 保持不变（允许跨项目重复 ID，资源索引按作用域隔离）。",
                 "",
                 "## 注意事项",
-                "- 建议关卡实体文件命名为 `<项目名>_关卡实体.json`，用于派生项目显示名。",
+                "- 建议关卡实体文件命名为 `<项目名>_关卡实体.json`，便于资源结构约定一致（不作为项目显示名真源）。",
                 "- 共享文档：`文档/共享文档` 为 Junction，指向 `assets/资源库/共享/文档`（零复制共享）。",
                 "- 复制项目后，GUID 等全局标识可能与源项目重复；如需在同一工作流中并行使用多个项目，建议通过校验工具检查并按需调整。",
                 "- 共享根 `assets/资源库/共享/` 用于放置公共资源（所有存档可见）；修改共享资源会影响所有项目，请谨慎管理。",
@@ -807,7 +807,7 @@ class PackageIndexCloneMixin:
         id_map = {old_id: f"{old_id}__{package_dirname}" for old_id in filtered_ids}
         self._rewrite_ids_in_cloned_package(package_root_dir, id_map=id_map)
 
-        # 更新项目文档与关卡实体文件名（用于派生显示名）
+        # 更新项目文档与关卡实体文件名（保持目录/约定命名一致）
         self._rewrite_package_root_docs(package_root_dir, package_display_name=package_dirname)
         self._rename_level_entity_file(package_root_dir, package_display_name=package_dirname)
         self._ensure_shared_docs_link_for_package(package_root_dir)
@@ -822,7 +822,7 @@ class PackageIndexCloneMixin:
         设计约定：
         - 复制采用目录级 copytree，保留资源 ID 与引用关系；
         - 允许跨项目重复 ID，资源索引按“共享根 + 当前项目存档根”作用域隔离；
-        - 复制完成后会更新根目录 claude.md 与关卡实体文件名（用于派生显示名）。
+        - 复制完成后会更新根目录 claude.md 与关卡实体文件名（保持目录/约定命名一致）。
         """
         source_id_text = str(source_package_id or "").strip()
         if not source_id_text:
@@ -854,7 +854,7 @@ class PackageIndexCloneMixin:
         # 目录结构兜底：确保复制出的项目也符合目录规范
         self._ensure_node_graph_category_dirs_for_package(target_root_dir)
 
-        # 更新项目文档与关卡实体文件名（用于派生显示名）
+        # 更新项目文档与关卡实体文件名（保持目录/约定命名一致）
         self._rewrite_cloned_package_root_docs(
             target_root_dir,
             package_display_name=target_dirname,

@@ -1,0 +1,242 @@
+[
+  {
+    "instance_id": "level_pkg_20251203_122812_479435",
+    "name": "关卡实体",
+    "template_id": "level_pkg_20251203_122812_479435",
+    "entity_type": "关卡",
+    "is_level_entity": true,
+    "output": "实体摆放\\关卡实体.json"
+  },
+  {
+    "instance_id": "level_pkg_test",
+    "name": "关卡实体",
+    "template_id": "level_pkg_test",
+    "entity_type": "关卡",
+    "is_level_entity": true,
+    "output": "实体摆放\\测试项目_关卡实体.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__10",
+    "name": "东北大棉袄",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_010.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__31",
+    "name": "像素画 小马",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_031.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__30",
+    "name": "像素画 瘦马",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_030.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__27",
+    "name": "像素画 矮胖成年男",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_027.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__29",
+    "name": "像素画 老马",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_029.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__28",
+    "name": "像素画 高瘦成年男",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_028.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__6",
+    "name": "卫衣",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_006.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__21",
+    "name": "墨镜",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_021.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__9",
+    "name": "夏装",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_009.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__20",
+    "name": "大背头",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_020.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__18",
+    "name": "好看的头发",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_018.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__26",
+    "name": "小胡茬",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_026.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__15",
+    "name": "帽子",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_015.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__17",
+    "name": "普通头发",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_017.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__24",
+    "name": "普通眼镜",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_024.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__8",
+    "name": "棉袄",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_008.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__22",
+    "name": "眯眯眼",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_022.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__23",
+    "name": "眼睛",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_023.json"
+  },
+  {
+    "instance_id": "instance_boleshiqin_level07_relatives_data_store__测试项目",
+    "name": "第七关_亲戚数据存放实体",
+    "template_id": "template_boleshiqin_level07_relatives_data_store__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\第七关_亲戚数据存放实体.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__12",
+    "name": "红围巾",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_012.json"
+  },
+  {
+    "instance_id": "instance_auto_custom_var_store_b9ec9d81__测试项目",
+    "name": "自动变量存放实体__测试项目__demo",
+    "template_id": "template_auto_custom_var_store_b9ec9d81__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\自动变量存放实体__测试项目__demo.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__11",
+    "name": "花纹围巾",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_011.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__7",
+    "name": "西装",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_007.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__14",
+    "name": "铃铛",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_014.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__25",
+    "name": "长胡子",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_025.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__13",
+    "name": "领带",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_013.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__16",
+    "name": "飞机头",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_016.json"
+  },
+  {
+    "instance_id": "shape_editor_entity__测试项目__19",
+    "name": "马尾",
+    "template_id": "shape_editor_empty__测试项目",
+    "entity_type": "物件",
+    "is_level_entity": false,
+    "output": "实体摆放\\shape_editor_entity_019.json"
+  }
+]

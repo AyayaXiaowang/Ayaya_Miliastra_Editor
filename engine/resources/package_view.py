@@ -79,13 +79,20 @@ class PackageView:
 
     @staticmethod
     def _is_path_under(root_dir: Path, file_path: Path) -> bool:
-        """判断 file_path 是否位于 root_dir 子树下（兼容 Python < 3.9）。"""
-        resolved_root = root_dir.resolve()
-        resolved_file = file_path.resolve()
-        if hasattr(resolved_file, "is_relative_to"):
-            return resolved_file.is_relative_to(resolved_root)  # type: ignore[attr-defined]
-        root_parts = resolved_root.parts
-        file_parts = resolved_file.parts
+        """判断 file_path 是否位于 root_dir 子树下（不触发 resolve/realpath）。
+
+        说明：
+        - “资源归属判断”（共享根 / 项目存档根）只需要路径语义即可，不需要跟随符号链接/重解析点；
+        - Windows 下 `Path.resolve()` 会触发 `ntpath.realpath` 与 reparse point 解析，
+          在异常路径/离线盘/损坏的重解析点场景下可能造成卡顿，极端情况下会出现 native 崩溃；
+        - 这里使用 `absolute + is_relative_to/parts` 的纯路径判断，避免触发 IO。
+        """
+        root_abs = root_dir if root_dir.is_absolute() else root_dir.absolute()
+        file_abs = file_path if file_path.is_absolute() else file_path.absolute()
+        if hasattr(file_abs, "is_relative_to"):
+            return file_abs.is_relative_to(root_abs)  # type: ignore[attr-defined]
+        root_parts = tuple(part.casefold() for part in root_abs.parts)
+        file_parts = tuple(part.casefold() for part in file_abs.parts)
         return len(file_parts) >= len(root_parts) and file_parts[: len(root_parts)] == root_parts
 
     def _get_shared_and_package_root_dirs(self) -> tuple[Path | None, Path | None]:

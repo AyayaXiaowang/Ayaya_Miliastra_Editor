@@ -1,16 +1,87 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
+import tokenize
 from typing import Dict, Tuple
 
-from importlib.machinery import SourceFileLoader
-
+from engine.graph.utils.ast_utils import (
+    NOT_EXTRACTABLE,
+    clear_module_constants_context,
+    collect_module_constants,
+    extract_constant_value,
+    set_module_constants_context,
+)
 from engine.utils.resource_library_layout import get_packages_root_dir, get_shared_root_dir
 from engine.utils.workspace import (
     get_injected_workspace_root_or_none,
     looks_like_workspace_root,
     resolve_workspace_root,
 )
+
+
+def _find_module_assignment_value(tree: ast.Module, name: str) -> ast.expr | None:
+    """在模块顶层寻找对 name 的赋值表达式节点（支持 Assign/AnnAssign）。"""
+    want = str(name or "").strip()
+    if not want:
+        return None
+
+    for stmt in list(getattr(tree, "body", []) or []):
+        if isinstance(stmt, ast.Assign):
+            targets = list(getattr(stmt, "targets", []) or [])
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == want:
+                    return stmt.value
+        elif isinstance(stmt, ast.AnnAssign):
+            target = getattr(stmt, "target", None)
+            if isinstance(target, ast.Name) and target.id == want:
+                return getattr(stmt, "value", None)
+
+    return None
+
+
+def _try_extract_id_and_payload_from_code(
+    py_path: Path,
+    *,
+    id_name: str,
+    payload_name: str,
+) -> tuple[str | None, dict | None]:
+    """从代码级资源文件中静态提取 (ID, PAYLOAD)。
+
+    约定：该方法**不执行**模块顶层代码；仅支持静态可提取的常量赋值：
+    - `<ID_NAME> = "..."`
+    - `<PAYLOAD_NAME> = { ... }`
+    - payload 内允许引用同模块内已声明的常量（例如 `SIGNAL_ID`）。
+    """
+    if not py_path.is_file():
+        return None, None
+
+    with tokenize.open(str(py_path)) as f:
+        source_text = f.read()
+
+    tree = ast.parse(source_text, filename=str(py_path))
+    constants = collect_module_constants(tree)
+    set_module_constants_context(constants)
+
+    id_expr = _find_module_assignment_value(tree, str(id_name))
+    if id_expr is None:
+        clear_module_constants_context()
+        return None, None
+    id_value = extract_constant_value(id_expr)
+    if id_value is NOT_EXTRACTABLE or not isinstance(id_value, str) or not id_value:
+        clear_module_constants_context()
+        return None, None
+
+    payload_expr = _find_module_assignment_value(tree, str(payload_name))
+    if payload_expr is None:
+        clear_module_constants_context()
+        return None, None
+    payload_value = extract_constant_value(payload_expr)
+    clear_module_constants_context()
+
+    if payload_value is NOT_EXTRACTABLE or not isinstance(payload_value, dict):
+        return None, None
+    return str(id_value), dict(payload_value)
 
 
 class CodeSchemaResourceService:
@@ -90,21 +161,18 @@ class CodeSchemaResourceService:
                 # 允许在目录中放置校验或工具脚本（如 `校验结构体定义.py`），这些脚本不参与 Schema 聚合。
                 if "校验" in py_path.stem:
                     continue
-                module_name = f"code_struct_resource_{abs(hash(py_path.as_posix()))}"
-                loader = SourceFileLoader(module_name, str(py_path))
-                module = loader.load_module()
-
-                struct_id_value = getattr(module, "STRUCT_ID", None)
-                payload_value = getattr(module, "STRUCT_PAYLOAD", None)
+                struct_id_value, payload_value = _try_extract_id_and_payload_from_code(
+                    py_path,
+                    id_name="STRUCT_ID",
+                    payload_name="STRUCT_PAYLOAD",
+                )
 
                 # 代码级资源文件若不符合约定（缺少 STRUCT_ID/STRUCT_PAYLOAD），
                 # 不应阻断编辑器启动；跳过该文件并让校验阶段提示修复。
-                if not isinstance(struct_id_value, str) or not struct_id_value:
-                    continue
-                if not isinstance(payload_value, dict):
+                if struct_id_value is None or payload_value is None:
                     continue
 
-                struct_id = struct_id_value
+                struct_id = str(struct_id_value)
                 if struct_id in seen_in_root:
                     previous = seen_in_root.get(struct_id)
                     # 同一资源根目录内重复 ID：视为错误，但不在此处抛错阻断启动。
@@ -151,21 +219,18 @@ class CodeSchemaResourceService:
                 # 允许在目录中放置校验或工具脚本（如 `校验信号.py`），这些脚本不参与 Schema 聚合。
                 if "校验" in py_path.stem:
                     continue
-                module_name = f"code_signal_resource_{abs(hash(py_path.as_posix()))}"
-                loader = SourceFileLoader(module_name, str(py_path))
-                module = loader.load_module()
-
-                signal_id_value = getattr(module, "SIGNAL_ID", None)
-                payload_value = getattr(module, "SIGNAL_PAYLOAD", None)
+                signal_id_value, payload_value = _try_extract_id_and_payload_from_code(
+                    py_path,
+                    id_name="SIGNAL_ID",
+                    payload_name="SIGNAL_PAYLOAD",
+                )
 
                 # 代码级资源文件若不符合约定（缺少 SIGNAL_ID/SIGNAL_PAYLOAD），
                 # 不应阻断编辑器启动；跳过该文件并让校验阶段提示修复。
-                if not isinstance(signal_id_value, str) or not signal_id_value:
-                    continue
-                if not isinstance(payload_value, dict):
+                if signal_id_value is None or payload_value is None:
                     continue
 
-                signal_id = signal_id_value
+                signal_id = str(signal_id_value)
                 if signal_id in seen_in_root:
                     previous = seen_in_root.get(signal_id)
                     # 同一资源根目录内重复 ID：视为错误，但不在此处抛错阻断启动。

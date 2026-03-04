@@ -6,6 +6,7 @@
 """
 
 from datetime import datetime
+from importlib.util import find_spec
 from pathlib import Path
 
 from PyQt6 import QtCore, QtWidgets, QtGui
@@ -13,6 +14,11 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PIL import Image
 
 from app.ui.execution.execution_session import ExecutionSession
+from app.runtime.services.execution_monitor_panel_policy import (
+    compute_compact_mode_desired_window_width,
+    compute_desired_steps_width,
+    parse_program_coord,
+)
 
 from app.automation.input.common import set_visual_sink as _set_visual_sink
 from app.automation.input.common import clear_visual_sink as _clear_visual_sink
@@ -85,6 +91,9 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         # 连接 UI 控件信号
         self._connect_ui_signals()
 
+        # OCR 依赖缺失时：允许面板作为“只读日志/截图容器”存在，但禁用执行/识别/拖拽测试等入口。
+        self._apply_ocr_availability_gate()
+
         # 精简模式（默认关闭）：面板内容与主窗口布局同步收敛，便于低分辨率下只留“控制+日志”
         self._compact_mode_enabled: bool = False
         self._compact_saved_main_window_state: dict | None = None
@@ -97,6 +106,78 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         # 仅在本面板（及其子控件）聚焦时生效，避免默认 WindowShortcut 造成全局抢占 Ctrl+P。
         self._ctrlp_shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self._ctrlp_shortcut.activated.connect(self.request_pause)
+
+    def _is_ocr_backend_available(self) -> bool:
+        return find_spec("rapidocr_onnxruntime") is not None
+
+    def _apply_ocr_availability_gate(self) -> None:
+        if self._is_ocr_backend_available():
+            return
+
+        tooltip = (
+            "未检测到 rapidocr_onnxruntime（OCR 依赖）。\n"
+            "本环境将禁用『执行/识别/拖拽测试』相关入口；你仍可浏览任务清单与节点图。"
+        )
+
+        # 状态提示：避免用户以为是“按钮没反应”
+        self.status_label.setText("执行不可用（未安装 OCR）")
+        self.progress_label.setText("")
+        self.log("⚠ OCR 未安装：执行监控面板已禁用执行/识别/拖拽测试入口。")
+
+        # 禁用按钮：检查/定位/拖拽/执行入口（执行入口按钮仅在精简模式显示，但仍统一禁用）
+        disable_buttons = [
+            getattr(self, "inspect_button", None),
+            getattr(self, "match_focus_button", None),
+            getattr(self, "execute_button", None),
+            getattr(self, "execute_remaining_button", None),
+            getattr(self, "drag_to_target_button", None),
+            getattr(self, "drag_left_button", None),
+            getattr(self, "drag_right_button", None),
+            getattr(self, "pause_button", None),
+            getattr(self, "resume_button", None),
+            getattr(self, "next_step_button", None),
+        ]
+        for button in disable_buttons:
+            if isinstance(button, QtWidgets.QAbstractButton):
+                button.setEnabled(False)
+                button.setToolTip(tooltip)
+
+        # 禁用测试区的所有按钮与 QAction（避免按钮 click -> action.trigger() 直接触发 OCR 调用）
+        keys_to_disable = {
+            "inspect_button",
+            "match_focus_button",
+            "execute_button",
+            "execute_remaining_button",
+            "drag_to_target_button",
+            "drag_left_button",
+            "drag_right_button",
+            "pause_button",
+            "resume_button",
+            "next_step_button",
+        }
+        for key, value in (self._ui_refs or {}).items():
+            should_disable = str(key).startswith("test_") or str(key) in keys_to_disable
+            if not should_disable:
+                continue
+            if isinstance(value, QtGui.QAction):
+                value.setEnabled(False)
+                continue
+            if isinstance(value, QtWidgets.QWidget):
+                value.setEnabled(False)
+                if isinstance(value, QtWidgets.QAbstractButton):
+                    value.setToolTip(tooltip)
+
+        # 禁用“测试”页签，默认切到“日志文本”
+        info_tabs = getattr(self, "info_tabs", None)
+        if isinstance(info_tabs, QtWidgets.QTabWidget):
+            tests_tab = getattr(self, "tests_tab", None)
+            log_tab = getattr(self, "log_tab", None)
+            if isinstance(log_tab, QtWidgets.QWidget):
+                info_tabs.setCurrentWidget(log_tab)
+            if isinstance(tests_tab, QtWidgets.QWidget):
+                idx = info_tabs.indexOf(tests_tab)
+                if idx >= 0:
+                    info_tabs.setTabEnabled(idx, False)
 
     def _extract_ui_refs(self) -> None:
         """从 UI 引用字典中提取控件为实例变量（便于访问）"""
@@ -431,14 +512,22 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         scrollbar_extent = int(
             todo_tree.style().pixelMetric(QtWidgets.QStyle.PixelMetric.PM_ScrollBarExtent)
         )
-        desired_steps_width = max(240, column_width + scrollbar_extent + 24)
+        desired_steps_width = compute_desired_steps_width(
+            column_width=column_width,
+            scrollbar_extent=scrollbar_extent,
+            min_width=240,
+            extra_padding=24,
+        )
 
         current_window_width = int(main_window.width())
         current_window_height = int(main_window.height())
         # 以“当前 todo_widget 占用宽度”为参照估算窗口额外开销（框架/布局微小差异）
         todo_widget_width = int(getattr(todo_widget, "width", lambda: 0)())
-        width_overhead = max(0, current_window_width - todo_widget_width)
-        desired_window_width = int(desired_steps_width + width_overhead)
+        desired_window_width = compute_compact_mode_desired_window_width(
+            current_window_width=current_window_width,
+            todo_widget_width=todo_widget_width,
+            desired_steps_width=desired_steps_width,
+        )
 
         if current_window_width > desired_window_width and desired_window_width > 0:
             main_window.resize(desired_window_width, current_window_height)
@@ -681,6 +770,10 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
     # === 外部调用 API ===
     def start_monitoring(self) -> None:
         """开始监控"""
+        if not self._is_ocr_backend_available():
+            self.status_label.setText("执行不可用（未安装 OCR）")
+            self.log("⚠ OCR 未安装：已阻止启动执行监控。")
+            return
         self._control.start_execution()
         self.status_label.setText("执行中（展示上一步视觉产物）")
         self.log("开始监控：仅显示每一步产生的截图与叠加，不进行实时桌面轮询")
@@ -780,36 +873,13 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
         if not str(self.drag_target_y_input.text() or "").strip():
             self.drag_target_y_input.setText(f"{center_y:.1f}")
 
-    def _parse_program_coord(self, text: str):
-        """解析程序坐标文本为 float；不使用 try/except，非法输入返回 None。"""
-        raw = str(text or "").strip()
-        if not raw:
-            return None
-        has_digit = False
-        dot_count = 0
-        for index, ch in enumerate(raw):
-            if ch in "+-":
-                if index != 0:
-                    return None
-            elif ch == ".":
-                dot_count += 1
-                if dot_count > 1:
-                    return None
-            elif ch.isdigit():
-                has_digit = True
-            else:
-                return None
-        if not has_digit:
-            return None
-        return float(raw)
-
     def _on_drag_to_target_clicked(self) -> None:
         """拖拽到用户指定的程序坐标（X/Y 输入框）。"""
         center = None
         if hasattr(self, "_focus") and self._focus is not None:
             center = self._focus.get_last_program_viewport_center()
-        target_x = self._parse_program_coord(self.drag_target_x_input.text())
-        target_y = self._parse_program_coord(self.drag_target_y_input.text())
+        target_x = parse_program_coord(self.drag_target_x_input.text())
+        target_y = parse_program_coord(self.drag_target_y_input.text())
         if target_x is None or target_y is None:
             if center is None:
                 self.log("✗ 拖拽测试：请先点击一次“定位镜头”，并在 X/Y 输入框中填写合法的数值")
@@ -834,7 +904,7 @@ class ExecutionMonitorPanel(QtWidgets.QWidget):
             return
         base_x, base_y = center
         # 若用户在 X 输入框中填写了数值，则作为偏移量使用；否则采用默认步长
-        offset_value = self._parse_program_coord(self.drag_target_x_input.text())
+        offset_value = parse_program_coord(self.drag_target_x_input.text())
         if offset_value is None:
             offset_value = 400.0
         step = float(offset_value)

@@ -17,6 +17,7 @@
   - 取消/并发控制统一由 `run_queue.js` 提供的 **token** 驱动（latest-wins + coalesce + session key）；`flatteningController` 本身不再维护第二套内部 token，只在关键 await 点检查外部 token 是否仍 active。
   - 导出 bundle 时会把 `dom_extract` 提取到的 `data-ui-variable-defaults` 合并写入 bundle 顶层 `variable_defaults`（用于写回端创建实体自定义变量的默认值）。
     - 约定：key 推荐使用 `lv.<变量名>`（关卡）/`ps.<变量名>`（玩家）；`ls` 前缀为旧写法，已禁用。
+  - UI 多状态导出策略固定为“整态打组”（`ui_state_consolidation_mode="full_state_groups"`），与 `ui_app_ui_preview` / 导出中心口径一致，避免两边导出结果不一致。
   - 支持 silent 生成：可在“批量预扁平化”场景下只生成缓存，不写入可视 UI 面板。
   - 扁平化 HTML 输出默认会**替换 `<body>...</body>` 的内容**为扁平层（不再残留原始 DOM），避免原稿结构干扰点选/遮挡诊断；兼容兜底可回退为“注入”方式（仅用于极端环境）。
 - `compute_fallback.js`：统一 compute iframe 提取为空时的回退策略（仅 **源码预览 + 当前尺寸** 允许回退到可视预览文档），供扁平化生成/导出 bundle/字号采样/分组树刷新复用；在需要时允许触发一次“确保源码预览就绪”以消除首轮时序问题。
@@ -48,6 +49,7 @@
   - 交互约定：**选中不改变显隐状态**。眼睛图标是显隐的唯一入口；即便条目已隐藏，仍允许“选中并定位”，预览侧会用扁平层的 style 矩形回退绘制选中框。
 - `run_queue.js`：Workbench 全局重操作队列（单通道 + coalesce + token + **session key**），用于串行化校验/扁平/导出/导入/导出GIL/GIA；并在“源码/文件选择变化”时跨操作取消旧任务，避免多条链路写同一批共享资源导致互相覆盖。
 - `app_api.js`：主程序 API（`/api/ui_converter/*`）桥接；当独立打开或批处理 CLI 场景下 `/api` 返回 404 时，必须视为“未连接主程序”，不可因解析 JSON 失败中断 Workbench 初始化；支持一键生成 `.gil` 与“布局资产 `.gia`”。
+  - 未连接主程序时的提示文案统一引导用户从主程序打开“UI预览”入口（命名一致，避免误导为“转换器”仍存在）。
   - bundle 真源：导入/写回链路只读取 `index.js` 维护的结构化 `bundleState`（对象，包含 `sourceHash`），textarea 仅展示/复制，避免“旧/空 bundle”反向读取导致误导入。
   - 导入/导出 GIL/GIA 会优先 `ensureBundleState(sourceHash)`，并在 token 失效时避免继续更新 UI 状态文本，减少“切换文件后旧导出结果刷新到面板”的错觉。
   - 导入保护：若当前导出的 bundle 中 `templates` 为空，则前端会直接提示“导入跳过”，避免请求打到后端后被 `bundle.templates 为空` 规则拒绝并刷堆栈。

@@ -14,7 +14,7 @@ from .var_env import VarEnv
 from .validators import Validators
 from .node_factory import FactoryContext, extract_constant_value
 from .edge_router import is_flow_node, is_event_node
-from .branch_builder import find_first_flow_node, find_last_flow_node, block_has_return
+from .branch_builder import find_first_flow_node, block_has_return
 
 
 def _resolve_builtin_node_def_ref_by_title(title: str, *, ctx: FactoryContext) -> NodeDefRef:
@@ -181,13 +181,13 @@ def create_finite_loop_node(
     # 解析循环体（为 break 建立上下文：入栈当前循环；并以“循环体”作为前驱）
     snapshot = env.snapshot()
     env.push_loop(loop_node)
-    body_nodes, body_edges = parse_method_body_func(stmt.body, (loop_node, "循环体"), graph_model, False, env, ctx, validators)
+    body_nodes, body_edges, _body_final_prev = parse_method_body_func(stmt.body, (loop_node, "循环体"), graph_model, False, env, ctx, validators)
     loop_nodes.extend(body_nodes)
     loop_edges.extend(body_edges)
 
     # 循环体入口连线已由 parse_method_body_func 基于前驱 (loop_node, "循环体") 自动完成。
-    # 注意：不再为“自然结束”的循环体最后一个流程节点自动回连到循环节点的“流程入”，
-    # 以避免在图中制造额外的回边；循环的重复执行由“有限循环”节点本身的语义表示。
+    # 注意：不再为"自然结束"的循环体最后一个流程节点自动回连到循环节点的"流程入"，
+    # 以避免在图中制造额外的回边；循环的重复执行由"有限循环"节点本身的语义表示。
     
     env.pop_loop()
     env.restore(snapshot)
@@ -268,12 +268,12 @@ def create_list_iteration_loop_node(
     # 解析循环体（为 break 建立上下文：入栈当前循环；并以“循环体”作为前驱）
     snapshot = env.snapshot()
     env.push_loop(loop_node)
-    body_nodes, body_edges = parse_method_body_func(stmt.body, (loop_node, "循环体"), graph_model, False, env, ctx, validators)
+    body_nodes, body_edges, _body_final_prev = parse_method_body_func(stmt.body, (loop_node, "循环体"), graph_model, False, env, ctx, validators)
     loop_nodes.extend(body_nodes)
     loop_edges.extend(body_edges)
 
     # 循环体入口连线已由 parse_method_body_func 基于前驱 (loop_node, "循环体") 自动完成。
-    # 同样不再为自然结束的循环体构造回到循环节点“流程入”的自动回边，避免在图中产生多余的回路。
+    # 同样不再为自然结束的循环体构造回到循环节点"流程入"的自动回边，避免在图中产生多余的回路。
     
     env.pop_loop()
     env.restore(snapshot)

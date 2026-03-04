@@ -34,6 +34,7 @@ from .rules.code_structure_rules import (
     VariadicMinArgsRule,
     DictAnnotationRequiresKeyValueRule,
     GraphVarsDeclarationRule,
+    GraphVarNameLengthRule,
     GraphVarsDefaultIdDigitsRule,
     GraphVarsDefaultIntegerPlaceholderRule,
     GraphVarsStructNameRequiredRule,
@@ -66,6 +67,7 @@ from .rules.code_quality import (
     EventMultipleFlowOutputsRule,
     EntityDestroyEventMountRule,
     PullEvalReevaluationHazardRule,
+    PullEvalSameSourceArithmeticHazardRule,
     DictComputeMultiUseHazardRule,
     DictMutationRequiresGraphVarRule,
     UnusedQueryOutputRule,
@@ -76,6 +78,11 @@ from .rules.composite_types_nesting import CompositeTypesAndNestingRule
 from .rules.composite_pin_direction import CompositePinDirectionRule
 from .rules.composite_node_name_length import CompositeNodeNameLengthRule
 from .rules.composite_flow_nodes_required import CompositeFlowNodesRequiredRule
+from .rules.composite_graph_structural_errors import CompositeGraphStructuralErrorsRule
+from .rules.composite_virtual_pins_must_be_mapped import (
+    CompositeFlowPinReachabilityRule,
+    CompositeVirtualPinsMustBeMappedRule,
+)
 from .rules.node_index import clear_node_index_caches
 from engine.nodes.composite_file_policy import is_composite_definition_file
 
@@ -125,11 +132,15 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
                 CompositeTypesAndNestingRule(),
                 CompositePinDirectionRule(),
                 CompositeFlowNodesRequiredRule(),
+                CompositeVirtualPinsMustBeMappedRule(),
+                CompositeFlowPinReachabilityRule(),
+                CompositeGraphStructuralErrorsRule(),
                 # 复合节点同样可能调用信号/结构体语义节点；这些端口包含静态配置端口（如“信号名/结构体名”），
                 # 必须在复合节点校验中同步约束，避免出现 UI/运行期不支持的“连线驱动静态端口”用法。
                 SignalParamNamesRule(),
                 StructNameRequiredRule(),
                 CustomVarNameRequiredRule(),
+                GraphVarNameLengthRule(),
                 IdLiteralTenDigitsRule(),
                 IdPortLiteralTenDigitsRule(),
                 LocalVarInitialValueRule(),
@@ -144,6 +155,10 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
                 NoMethodNestedCallsRule(),
                 NoInlineIfInCallRule(),
                 NoInlineArithmeticInRangeRule(),
+                # 复合节点源码同样是 Graph Code：端口类型与同型输入约束必须在复合节点校验中覆盖，
+                # 否则会出现“节点图能报错，但复合节点内部同样写法不报错”的口径漂移。
+                PortTypesMatchRule(),
+                SameTypeInputsRule(),
             ]
             _RULE_CACHE[cache_key] = rules
             return rules
@@ -172,6 +187,7 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
                 VariadicMinArgsRule(),
                 RequiredInputsRule(),
                 GraphVarsDeclarationRule(),
+                GraphVarNameLengthRule(),
                 GraphVarsDefaultIdDigitsRule(),
                 GraphVarsDefaultIntegerPlaceholderRule(),
                 GraphVarsStructNameRequiredRule(),
@@ -196,6 +212,7 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
                 IrModelingErrorsRule(),
                 GraphStructuralErrorsRule(),
                 PullEvalReevaluationHazardRule(),
+                PullEvalSameSourceArithmeticHazardRule(),
                 DictComputeMultiUseHazardRule(),
                 DictMutationRequiresGraphVarRule(),
                 SignalParamNamesRule(),

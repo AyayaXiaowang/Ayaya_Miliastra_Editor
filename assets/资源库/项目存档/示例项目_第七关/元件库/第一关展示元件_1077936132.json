@@ -1,0 +1,193 @@
+{
+  "template_id": "1077936132",
+  "name": "第一关展示元件",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936132,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073741878",
+            "displayName": "第一关展示元件",
+            "isVisible": true,
+            "assetId": 20002025,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.2932510375976562,
+                "y": 1.0846023559570312,
+                "z": -0.27591705322265625
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.5749999284744263,
+                "y": 1.4999998807907104,
+                "z": 1.4999998807907104
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073741878,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936132,
+              "asset_id_int": 20002025,
+              "ugc_scale": [
+                1.5749999284744263,
+                1.4999998807907104,
+                1.4999998807907104
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073741879",
+            "displayName": "第一关展示元件",
+            "isVisible": true,
+            "assetId": 20001478,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.3232841491699219,
+                "y": 1.05743408203125,
+                "z": 0.34482574462890625
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.2599999904632568,
+                "y": 1.1999999284744263,
+                "z": 1.1999999284744263
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073741879,
+              "unit_name": "装饰物_2",
+              "template_root_id_int": 1077936132,
+              "asset_id_int": 20001478,
+              "ugc_scale": [
+                1.2599999904632568,
+                1.1999999284744263,
+                1.1999999284744263
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073741880",
+            "displayName": "第一关展示元件",
+            "isVisible": true,
+            "assetId": 20001875,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.4741325378417969,
+                "y": 1.0846023559570312,
+                "z": -0.27591705322265625
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3149999976158142,
+                "y": 0.29999998211860657,
+                "z": 0.29999998211860657
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073741880,
+              "unit_name": "装饰物_3",
+              "template_root_id_int": 1077936132,
+              "asset_id_int": 20001875,
+              "ugc_scale": [
+                0.3149999976158142,
+                0.29999998211860657,
+                0.29999998211860657
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073741881",
+            "displayName": "第一关展示元件",
+            "isVisible": true,
+            "assetId": 20002026,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": -0.9424819946289062,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.421265959739685,
+                "y": 1.9499999284744263,
+                "z": 1.9499999284744263
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073741881,
+              "unit_name": "装饰物_4",
+              "template_root_id_int": 1077936132,
+              "asset_id_int": 20002026,
+              "ugc_scale": [
+                1.421265959739685,
+                1.9499999284744263,
+                1.9499999284744263
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

@@ -17,6 +17,7 @@ from .code_structure.event_handler_name import EventHandlerNameRule
 from .code_structure.event_handler_signature import EventHandlerSignatureRule
 from .code_structure.event_name import EventNameRule
 from .code_structure.graph_vars_declaration import GraphVarsDeclarationRule
+from .code_structure.graph_var_name_length import GraphVarNameLengthRule
 from .code_structure.graph_vars_default_id_digits import GraphVarsDefaultIdDigitsRule
 from .code_structure.graph_vars_default_integer_placeholder import GraphVarsDefaultIntegerPlaceholderRule
 from .code_structure.graph_vars_struct_name_required import GraphVarsStructNameRequiredRule
@@ -52,6 +53,7 @@ __all__ = [
     "DictAnnotationRequiresKeyValueRule",
     "VariadicMinArgsRule",
     "GraphVarsDeclarationRule",
+    "GraphVarNameLengthRule",
     "GraphVarsDefaultIdDigitsRule",
     "GraphVarsDefaultIntegerPlaceholderRule",
     "GraphVarsStructNameRequiredRule",

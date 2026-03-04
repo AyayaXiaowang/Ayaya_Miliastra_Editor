@@ -1,0 +1,24 @@
+{
+  "template_id": "1077936129",
+  "name": "布质门帘",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [
+    "server_test_project_level7_door_controller"
+  ],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936129,
+      "source_template_type_code_int": 20002558
+    }
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

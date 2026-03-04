@@ -3,9 +3,20 @@ from __future__ import annotations
 import ast
 import copy
 from dataclasses import dataclass
-from typing import List, Set, Tuple, Optional
+from typing import Dict, List, Set, Tuple, Optional
 
 from .graph_code_rewrite_config import DEFAULT_MAX_LIST_LITERAL_ELEMENTS
+from engine.type_registry import (
+    BASE_TYPES,
+    LIST_TYPES,
+    TYPE_DICT,
+    TYPE_FLOW,
+    TYPE_GENERIC,
+    TYPE_GENERIC_DICT,
+    TYPE_GENERIC_LIST,
+    TYPE_LIST_PLACEHOLDER,
+    parse_typed_dict_alias,
+)
 
 
 BUILD_LIST_NODE_CALL_NAME = "拼装列表"
@@ -69,10 +80,13 @@ def rewrite_graph_code_list_literals(
 
     cloned_tree: ast.Module = copy.deepcopy(tree)
     issues: List[ListLiteralRewriteIssue] = []
+    module_list_constant_literals = _collect_module_typed_list_constant_literals(cloned_tree)
 
     # 1) 模块顶层：禁止出现列表字面量（GRAPH_VARIABLES 顶层声明除外）
     for top_level_stmt in list(getattr(cloned_tree, "body", []) or []):
         if _is_graph_variables_declaration(top_level_stmt):
+            continue
+        if _is_allowed_module_level_typed_container_constant(top_level_stmt):
             continue
         if isinstance(top_level_stmt, ast.ClassDef):
             # 类体顶层（非方法体）同样不允许列表字面量：无法转换为节点且会绕过静态校验语义
@@ -106,6 +120,7 @@ def rewrite_graph_code_list_literals(
             transformer = _GraphCodeListLiteralTransformer(
                 max_elements=max_elements_int,
                 used_names=used_names,
+                module_list_constant_literals=module_list_constant_literals,
             )
             transformer.visit(method_def)
             issues.extend(transformer.issues)
@@ -123,6 +138,53 @@ def _is_graph_variables_declaration(stmt: ast.stmt) -> bool:
     return target.id == "GRAPH_VARIABLES"
 
 
+def _extract_string_annotation_text(annotation: ast.AST | None) -> str:
+    if isinstance(annotation, ast.Constant) and isinstance(getattr(annotation, "value", None), str):
+        return str(annotation.value).strip()
+    return ""
+
+
+def _is_concrete_port_type_text(type_text: object) -> bool:
+    text = str(type_text or "").strip()
+    if text == "":
+        return False
+    if text in {TYPE_GENERIC, TYPE_GENERIC_LIST, TYPE_GENERIC_DICT, TYPE_LIST_PLACEHOLDER, TYPE_DICT, TYPE_FLOW}:
+        return False
+    if text in BASE_TYPES:
+        return True
+    if text in LIST_TYPES:
+        return True
+    is_alias, key_type, value_type = parse_typed_dict_alias(text)
+    if not is_alias:
+        return False
+    return _is_concrete_port_type_text(key_type) and _is_concrete_port_type_text(value_type)
+
+
+def _is_allowed_module_level_typed_container_constant(stmt: ast.stmt) -> bool:
+    """允许模块顶层“显式具体类型 + 容器字面量”的命名常量声明。
+
+    仅放行：
+    - `常量: "具体列表类型" = [...]`
+    - `常量: "键类型-值类型字典" = {...}`（或 `_` 分隔）
+    """
+    if not isinstance(stmt, ast.AnnAssign):
+        return False
+    if not isinstance(getattr(stmt, "target", None), ast.Name):
+        return False
+
+    value_node = getattr(stmt, "value", None)
+    if not isinstance(value_node, (ast.List, ast.Dict)):
+        return False
+
+    annotation_text = _extract_string_annotation_text(getattr(stmt, "annotation", None))
+    if annotation_text == "":
+        return False
+
+    if isinstance(value_node, ast.List):
+        return annotation_text in LIST_TYPES and _is_concrete_port_type_text(annotation_text)
+    return _is_concrete_port_type_text(annotation_text) and parse_typed_dict_alias(annotation_text)[0]
+
+
 def _iter_class_defs(tree: ast.Module) -> List[ast.ClassDef]:
     class_defs: List[ast.ClassDef] = []
     for node in list(getattr(tree, "body", []) or []):
@@ -137,6 +199,33 @@ def _iter_method_defs(class_def: ast.ClassDef) -> List[ast.FunctionDef]:
         if isinstance(item, ast.FunctionDef):
             methods.append(item)
     return methods
+
+
+def _collect_module_typed_list_constant_literals(tree: ast.Module) -> Dict[str, ast.List]:
+    """收集模块顶层“显式列表类型 + 列表字面量”的命名常量。
+
+    用途：
+    - 当方法体中的节点调用参数直接引用这些常量（如 `列表=常量列表`）时，
+      先内联回列表字面量，再交给统一的列表字面量改写流程，
+      从而稳定生成【拼装列表】节点，而不是把整表写成目标节点的 input_constants。
+    """
+    mapping: Dict[str, ast.List] = {}
+    for stmt in list(getattr(tree, "body", []) or []):
+        if not isinstance(stmt, ast.AnnAssign):
+            continue
+        target = getattr(stmt, "target", None)
+        value = getattr(stmt, "value", None)
+        if not isinstance(target, ast.Name) or not isinstance(value, ast.List):
+            continue
+        annotation_text = _extract_string_annotation_text(getattr(stmt, "annotation", None))
+        if annotation_text == "":
+            continue
+        if annotation_text not in LIST_TYPES:
+            continue
+        if not _is_concrete_port_type_text(annotation_text):
+            continue
+        mapping[target.id] = value
+    return mapping
 
 
 def _collect_all_name_ids(node: ast.AST) -> Set[str]:
@@ -156,11 +245,49 @@ def _build_self_game_expr() -> ast.expr:
 
 
 class _GraphCodeListLiteralTransformer(ast.NodeTransformer):
-    def __init__(self, *, max_elements: int, used_names: Set[str]):
+    def __init__(
+        self,
+        *,
+        max_elements: int,
+        used_names: Set[str],
+        module_list_constant_literals: Optional[Dict[str, ast.List]] = None,
+    ):
         self.max_elements = int(max_elements)
         self.used_names: Set[str] = set(used_names or set())
         self.issues: List[ListLiteralRewriteIssue] = []
         self._temp_counter = 1
+        self._module_list_constant_literals: Dict[str, ast.List] = dict(module_list_constant_literals or {})
+
+    def visit_Call(self, node: ast.Call):  # noqa: N802
+        # 模块级“带列表类型注解”的命名常量在调用参数位统一内联为列表字面量：
+        # - 之后会被 visit_List 改写为【拼装列表】节点调用；
+        # - 仅在“调用参数位置”处理，避免影响 for-iter 等其它语义位置。
+        args = list(getattr(node, "args", []) or [])
+        new_args: List[ast.expr] = []
+        for arg in args:
+            if isinstance(arg, ast.Name) and isinstance(getattr(arg, "ctx", None), ast.Load):
+                list_literal = self._module_list_constant_literals.get(arg.id)
+                if isinstance(list_literal, ast.List):
+                    inlined = copy.deepcopy(list_literal)
+                    ast.copy_location(inlined, arg)
+                    inlined.end_lineno = getattr(arg, "end_lineno", getattr(inlined, "lineno", None))
+                    new_args.append(inlined)
+                    continue
+            new_args.append(arg)
+        node.args = new_args
+
+        keywords = list(getattr(node, "keywords", []) or [])
+        for kw in keywords:
+            value = getattr(kw, "value", None)
+            if isinstance(value, ast.Name) and isinstance(getattr(value, "ctx", None), ast.Load):
+                list_literal = self._module_list_constant_literals.get(value.id)
+                if isinstance(list_literal, ast.List):
+                    inlined = copy.deepcopy(list_literal)
+                    ast.copy_location(inlined, value)
+                    inlined.end_lineno = getattr(value, "end_lineno", getattr(inlined, "lineno", None))
+                    kw.value = inlined
+
+        return self.generic_visit(node)
 
     def visit_For(self, node: ast.For):  # noqa: N802
         # 先处理 for 的 iter，再递归处理循环体。

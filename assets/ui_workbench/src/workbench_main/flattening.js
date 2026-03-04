@@ -519,6 +519,8 @@ export function createFlatteningController(opts) {
             group_height: elementsData.bodySize ? elementsData.bodySize.height : selectedCanvasSizeOption.height,
             canvas_size_key: selectedCanvasSizeKey,
             canvas_size_label: String(selectedCanvasSizeOption.label || selectedCanvasSizeKey),
+            // UI 多状态策略：强制整态打组（与导出中心/预览工具保持一致）
+            ui_state_consolidation_mode: "full_state_groups",
             description: "由 ui_html_workbench 导出。",
             uniform_text_font_size_by_element_index: uniformTextFontSizeByElementIndex
         });

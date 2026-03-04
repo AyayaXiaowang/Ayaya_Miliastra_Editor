@@ -120,8 +120,8 @@ def test_gia_export_multibranch_cases_and_outflows_are_aligned(tmp_path: Path) -
 
     out_ports = multibranch_node.get("outputs")
     assert isinstance(out_ports, list) and out_ports, "multibranch.outputs missing"
-    out_types = multibranch_node.get("output_types")
-    assert isinstance(out_types, dict), "multibranch.output_types missing"
+    out_types = multibranch_node.get("effective_output_types")
+    assert isinstance(out_types, dict), "multibranch.effective_output_types missing"
 
     flow_out_ports = [str(p) for p in out_ports if str(out_types.get(str(p)) or "").strip() == "流程"]
     assert "默认" in flow_out_ports, "multibranch flow outputs should include '默认'"
@@ -129,8 +129,8 @@ def test_gia_export_multibranch_cases_and_outflows_are_aligned(tmp_path: Path) -
     expected_outflow_count = 1 + len(case_labels)
     assert expected_outflow_count >= 2, "template should have at least one non-default branch"
 
-    in_types = multibranch_node.get("input_types")
-    assert isinstance(in_types, dict), "multibranch.input_types missing"
+    in_types = multibranch_node.get("effective_input_types")
+    assert isinstance(in_types, dict), "multibranch.effective_input_types missing"
     control_vt = _map_control_type_text_to_var_type_id(str(in_types.get("控制表达式") or ""))
     cases_vt = _map_list_var_type_id_for_control_vt(control_vt)
 

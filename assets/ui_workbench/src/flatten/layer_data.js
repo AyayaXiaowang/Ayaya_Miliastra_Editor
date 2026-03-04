@@ -554,7 +554,18 @@ export function buildFlattenedLayerData(elementsData, opts) {
 
         var originalClassName = elementInfo.className ? String(elementInfo.className) : "";
         var dataLabel = "";
-        if (elementInfo.id) {
+        // 优先使用显式声明（更稳定、可读性更好）：
+        // - data-ui-key：导出/写回/分组的主要稳定键
+        // - data-debug-label：调试/定位辅助键
+        // 再回退到 id / class（历史逻辑）。
+        var attrs = elementInfo.attributes || null;
+        var explicitUiKey = attrs ? String(attrs.dataUiKey || "").trim() : "";
+        var explicitDbg = attrs ? String(attrs.dataDebugLabel || "").trim() : "";
+        if (explicitUiKey) {
+            dataLabel = explicitUiKey;
+        } else if (explicitDbg) {
+            dataLabel = explicitDbg;
+        } else if (elementInfo.id) {
             dataLabel = elementInfo.id;
         } else if (originalClassName) {
             var classParts = originalClassName.split(/\s+/).filter(function (part) { return part.trim().length > 0; });
@@ -566,6 +577,19 @@ export function buildFlattenedLayerData(elementsData, opts) {
                 }
             }
         }
+        // 文本层 debug-label 的“基底”（用于拼 text- / text-shadow- 前缀）：
+        // - 若作者已经写成 text-xxx，则这里去掉 text-，避免生成 text-text-xxx
+        // - 若作者写成 text-shadow-xxx，则去掉 text-shadow-，避免生成 text-shadow-text-shadow-xxx
+        var textLabelBase = (function () {
+            var s = String(dataLabel || "").trim();
+            if (s.indexOf("text-shadow-") === 0) {
+                s = s.slice(String("text-shadow-").length);
+            }
+            if (s.indexOf("text-") === 0) {
+                s = s.slice(String("text-").length);
+            }
+            return s;
+        })();
 
         var commonSource = {
             tagName: tagName,
@@ -947,7 +971,7 @@ export function buildFlattenedLayerData(elementsData, opts) {
                         wordWrap: styles.wordWrap || "normal",
                         letterSpacing: styles.letterSpacing || "normal",
                         textShadow: (String(ts.offsetX || 0) + "px " + String(ts.offsetY || 0) + "px " + String(ts.blur || 0) + "px " + String(ts.color || "")),
-                        debugLabel: "text-shadow-" + (dataLabel || "") + "-" + String(tsi),
+                        debugLabel: "text-shadow-" + (textLabelBase || "") + "-" + String(tsi),
                         source: commonSource
                     });
                 }
@@ -993,7 +1017,7 @@ export function buildFlattenedLayerData(elementsData, opts) {
                 letterSpacing: styles.letterSpacing || "normal",
                 // 主文本层不再自带 text-shadow（已拆到独立阴影层）；无法解析则保留原值
                 textShadow: (textShadowList && textShadowList.length > 0) ? "none" : (styles.textShadow || "none"),
-                debugLabel: "text-" + (dataLabel || ""),
+                debugLabel: "text-" + (textLabelBase || ""),
                 source: commonSource
             });
         }

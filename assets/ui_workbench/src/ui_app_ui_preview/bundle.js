@@ -10,6 +10,42 @@ import { removeHtmlExt } from "./helpers.js";
 import { collectUniformTextFontSizeByElementIndexFromComputePreview } from "./flattening.js";
 import { extractVariableDefaultsFromHtmlText } from "./variable_defaults.js";
 
+async function _ensureStableComputeDocForCanvasOrNull(sourceHtmlText, canvasSizeOption) {
+  var html = String(sourceHtmlText || "").trim();
+  if (!html) return null;
+  var isComputeReady = await preview.ensureComputePreviewIsReadyForHtml(html);
+  if (!isComputeReady) return null;
+  var computeDoc = preview.getComputePreviewDocument();
+  if (!computeDoc || !computeDoc.body) return null;
+
+  if (preview.setComputePreviewCanvasSize) {
+    preview.setComputePreviewCanvasSize(canvasSizeOption);
+  }
+  preview.applyCanvasSizeToPreviewDocument(computeDoc, canvasSizeOption);
+  await waitForNextFrame();
+  await waitForNextFrame();
+
+  // compute iframe 可能在等待帧期间被其它链路重渲染（document 对象切换），此时旧引用会变“脱离窗口”，rect=0。
+  var currentDoc = preview.getComputePreviewDocument();
+  if (currentDoc && currentDoc !== computeDoc) {
+    computeDoc = currentDoc;
+    if (!computeDoc || !computeDoc.body) return null;
+    if (preview.setComputePreviewCanvasSize) {
+      preview.setComputePreviewCanvasSize(canvasSizeOption);
+    }
+    preview.applyCanvasSizeToPreviewDocument(computeDoc, canvasSizeOption);
+    await waitForNextFrame();
+    await waitForNextFrame();
+  }
+
+  // 强制 reflow：确保 bodyRect/元素 rect 可用（避免 headless/早期时序下 rect=0）。
+  if (computeDoc && computeDoc.body) {
+    computeDoc.body.getBoundingClientRect();
+    void computeDoc.body.offsetHeight;
+  }
+  return computeDoc;
+}
+
 function _deriveLayoutNameFromSelectedFile() {
   if (!state.selected) return "HTML导出_界面布局";
   var base = String(state.selected.base_file_name || state.selected.file_name || "").trim();
@@ -26,23 +62,69 @@ export async function buildBundlePayloadForCurrentSelection() {
     return { ok: false, error: "当前源码为空：无法导出。" };
   }
 
-  var isComputeReady = await preview.ensureComputePreviewIsReadyForHtml(sourceHtmlText);
-  if (!isComputeReady) {
-    return { ok: false, error: "compute iframe 未就绪：无法导出" };
-  }
-  var computeDoc = preview.getComputePreviewDocument();
-  if (!computeDoc) {
-    return { ok: false, error: "compute 文档为空：无法导出" };
-  }
-
   var selectedCanvasSizeKey = preview.getCurrentSelectedCanvasSizeKey();
   var selectedCanvasSizeOption = getCanvasSizeByKey(selectedCanvasSizeKey);
-  preview.setComputePreviewCanvasSize(selectedCanvasSizeOption);
-  preview.applyCanvasSizeToPreviewDocument(computeDoc, selectedCanvasSizeOption);
-  await waitForNextFrame();
-  await waitForNextFrame();
-
+  var didHardResetCompute = false;
+  var computeDoc = await _ensureStableComputeDocForCanvasOrNull(sourceHtmlText, selectedCanvasSizeOption);
+  if (!computeDoc) {
+    return { ok: false, error: "compute iframe 未就绪/文档为空：无法导出" };
+  }
   var elementsData = extractDisplayElementsData(computeDoc);
+  // 经验修复：首轮提取可能为空（布局/字体/样式未稳定），额外等待 + 重试一次。
+  if (!elementsData || !elementsData.elements || elementsData.elements.length <= 0) {
+    await waitForNextFrame();
+    await waitForNextFrame();
+    await waitForNextFrame();
+    await waitForNextFrame();
+    computeDoc = await _ensureStableComputeDocForCanvasOrNull(sourceHtmlText, selectedCanvasSizeOption);
+    if (computeDoc) {
+      elementsData = extractDisplayElementsData(computeDoc);
+    }
+  }
+  // Hard reset：若 compute 处于“defaultView=null / rect=0”的卡死状态，重建 iframe 后重试一次。
+  if (
+    (!elementsData || !elementsData.elements || elementsData.elements.length <= 0) &&
+    !didHardResetCompute &&
+    preview.resetComputePreviewHard
+  ) {
+    var diag0 = elementsData && elementsData.diagnostics ? elementsData.diagnostics : null;
+    var bodyW0 = diag0 && diag0.bodyRect ? Number(diag0.bodyRect.width || 0) : 0;
+    var bodyH0 = diag0 && diag0.bodyRect ? Number(diag0.bodyRect.height || 0) : 0;
+    var hasView0 = !!(computeDoc && computeDoc.defaultView && computeDoc.defaultView.getComputedStyle);
+    if ((!hasView0) || bodyW0 <= 1 || bodyH0 <= 1) {
+      didHardResetCompute = true;
+      preview.resetComputePreviewHard();
+      computeDoc = await _ensureStableComputeDocForCanvasOrNull(sourceHtmlText, selectedCanvasSizeOption);
+      if (computeDoc) {
+        elementsData = extractDisplayElementsData(computeDoc);
+      }
+    }
+  }
+
+  // 尺寸一致性：bundle 导出/控件列表的 flat_layer_key 必须与“当前画布尺寸”的扁平预览一致。
+  // 若 compute iframe 的 bodyRect 未切到目标尺寸（偶发时序/优化），即便 elementsData 非空也会导致 layerKey 全面错位。
+  function _isBodyRectSizeOk(data, canvasOpt) {
+    var d = data && data.diagnostics ? data.diagnostics : null;
+    var br = d && d.bodyRect ? d.bodyRect : null;
+    if (!br) return false;
+    var bw = Number(br.width || 0);
+    var bh = Number(br.height || 0);
+    var ew = Number(canvasOpt && canvasOpt.width || 0);
+    var eh = Number(canvasOpt && canvasOpt.height || 0);
+    if (!(bw > 1) || !(bh > 1) || !(ew > 1) || !(eh > 1)) return false;
+    // 允许 1px 级误差（不同平台/缩放下可能有极小浮动）
+    return (Math.abs(bw - ew) <= 1.5) && (Math.abs(bh - eh) <= 1.5);
+  }
+
+  if (!_isBodyRectSizeOk(elementsData, selectedCanvasSizeOption) && preview.resetComputePreviewHard && !didHardResetCompute) {
+    didHardResetCompute = true;
+    preview.resetComputePreviewHard();
+    computeDoc = await _ensureStableComputeDocForCanvasOrNull(sourceHtmlText, selectedCanvasSizeOption);
+    if (computeDoc) {
+      elementsData = extractDisplayElementsData(computeDoc);
+    }
+  }
+
   // 导出路径：开启“强制校验”收集。若出现 error（例如不透明纯黑 #000），直接阻断导出并给出明确提示。
   var exportDiagnostics = createDiagnosticsCollector();
   var layerList = buildFlattenedLayerData(elementsData, { diagnostics: exportDiagnostics });
@@ -84,10 +166,8 @@ export async function buildBundlePayloadForCurrentSelection() {
     group_height: elementsData.bodySize ? elementsData.bodySize.height : selectedCanvasSizeOption.height,
     canvas_size_key: selectedCanvasSizeKey,
     canvas_size_label: String(selectedCanvasSizeOption.label || selectedCanvasSizeKey),
-    // UI 多状态策略：
-    // - full_state_groups：整态打组（每个 state 独立组件组；用于规避游戏侧层级/底色异常）
-    // - minimal_redundancy：组件内合并（最小冗余；会提升跨状态共享控件）
-    ui_state_consolidation_mode: state.exportUiStateFullGroups ? "full_state_groups" : "minimal_redundancy",
+    // UI 多状态策略：强制整态打组（与导出中心/CLI 口径一致）
+    ui_state_consolidation_mode: "full_state_groups",
     description: "由 ui_app_ui_preview 导出。",
     uniform_text_font_size_by_element_index: uniformTextFontSizeByElementIndex
   });

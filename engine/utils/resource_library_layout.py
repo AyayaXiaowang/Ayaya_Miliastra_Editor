@@ -120,20 +120,25 @@ def find_containing_resource_root(resource_library_root: Path, file_path: Path) 
     - 返回“最深”的匹配根目录，避免在未来出现更深层嵌套时误判为 legacy 根。
     - 找不到匹配时返回 None。
     """
-    resolved_file_path = file_path.resolve()
-    resolved_parts = resolved_file_path.parts
+    resolved_file_path = file_path if file_path.is_absolute() else file_path.absolute()
+    resolved_parts_casefold = tuple(part.casefold() for part in resolved_file_path.parts)
     candidate_roots = discover_resource_root_directories(resource_library_root)
     candidate_roots_sorted = sorted(
         candidate_roots,
-        key=lambda path: len(path.resolve().parts),
+        key=lambda path: len((path if path.is_absolute() else path.absolute()).parts),
         reverse=True,
     )
     for resource_root in candidate_roots_sorted:
-        root_parts = resource_root.resolve().parts
-        if len(resolved_parts) < len(root_parts):
-            continue
-        if resolved_parts[: len(root_parts)] == root_parts:
-            return resource_root
+        root_abs = resource_root if resource_root.is_absolute() else resource_root.absolute()
+        if hasattr(resolved_file_path, "is_relative_to"):
+            if resolved_file_path.is_relative_to(root_abs):  # type: ignore[attr-defined]
+                return resource_root
+        else:
+            root_parts_casefold = tuple(part.casefold() for part in root_abs.parts)
+            if len(resolved_parts_casefold) < len(root_parts_casefold):
+                continue
+            if resolved_parts_casefold[: len(root_parts_casefold)] == root_parts_casefold:
+                return resource_root
     return None
 
 

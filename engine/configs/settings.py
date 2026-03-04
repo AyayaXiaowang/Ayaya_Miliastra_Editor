@@ -160,7 +160,7 @@ class Settings:
     # - 配置值会写入用户设置文件 `app/runtime/cache/user_settings.json`（默认在 .gitignore 内），不会进入仓库。
     #
     # 启用方式：
-    # - PRIVATE_EXTENSION_ENABLED 当前会被强制为 True（不再在设置页中展示开关）；
+    # - PRIVATE_EXTENSION_ENABLED：是否启用私有扩展加载（默认 True；可在用户设置文件中手动关闭）；
     # - 若想“放进工作区即可自动加载”：把插件放在 `<workspace_root>/private_extensions/<插件名>/plugin.py`（推荐）；
     #   - 兼容：也支持 `<workspace_root>/plugins/private_extensions/<插件名>/plugin.py`；
     # - 若想加载工作区外的私有包：配置 PRIVATE_EXTENSION_SYS_PATHS / PRIVATE_EXTENSION_MODULES；
@@ -580,10 +580,8 @@ class Settings:
                 setattr(self, key, value)
                 applied_count += 1
 
-        # 强制启用：不再由设置页控制
-        # - 本地增强功能（私有扩展）：只在工作区存在插件/配置时才会产生实际效果。
-        # - 资源库自动刷新：始终启用目录 watcher + 指纹确认链路，避免“外部修改后不刷新”的困惑。
-        self.PRIVATE_EXTENSION_ENABLED = True
+        # 强制启用：资源库自动刷新不再由设置页控制
+        # - 避免“外部工具修改资源库后 UI 不刷新”的困惑。
         self.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED = True
         
         log_info("[BOOT][Settings] load: 配置加载完成，共应用 {} 个键", applied_count)

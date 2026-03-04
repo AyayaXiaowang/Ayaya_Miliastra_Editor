@@ -5,7 +5,6 @@ import { isDerivedHtmlFileName } from "./helpers.js";
 // 目标：避免用户打开页面看到空白，以为“控件没导出/底部看不到”。
 export var STORAGE_KEY_LAST_SELECTED = "ui_preview:last_selected";
 export var STORAGE_KEY_CHECKED_FILES = "ui_preview:checked_files_v1";
-export var STORAGE_KEY_EXPORT_UI_STATE_FULL_GROUPS = "ui_preview:export_ui_state_full_groups_v1";
 
 export function encodeSelectionKey(scope, fileName) {
   return String(scope || "project") + ":" + String(fileName || "");
@@ -45,25 +44,6 @@ export function saveCheckedFilesToStorage() {
   }
   keys.sort();
   window.localStorage.setItem(STORAGE_KEY_CHECKED_FILES, keys.join("\n"));
-}
-
-export function loadExportUiStateFullGroupsFromStorage() {
-  if (!window || !window.localStorage) return;
-  var raw = String(window.localStorage.getItem(STORAGE_KEY_EXPORT_UI_STATE_FULL_GROUPS) || "");
-  if (!raw) return;
-  var t = String(raw || "").trim().toLowerCase();
-  if (t === "0" || t === "false" || t === "off" || t === "no") {
-    state.exportUiStateFullGroups = false;
-    return;
-  }
-  if (t === "1" || t === "true" || t === "on" || t === "yes") {
-    state.exportUiStateFullGroups = true;
-  }
-}
-
-export function saveExportUiStateFullGroupsToStorage() {
-  if (!window || !window.localStorage) return;
-  window.localStorage.setItem(STORAGE_KEY_EXPORT_UI_STATE_FULL_GROUPS, state.exportUiStateFullGroups ? "1" : "0");
 }
 
 export function isFileChecked(scope, fileName) {

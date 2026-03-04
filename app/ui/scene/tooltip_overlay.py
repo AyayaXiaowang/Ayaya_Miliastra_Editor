@@ -335,37 +335,38 @@ class YDebugTooltipOverlay:
         if not isinstance(info, dict):
             return str(info)
 
-        def fmt_y(value):
-            return f"{float(value):.1f}" if value is not None else "-"
-
         parts: list[str] = []
+        parts.extend(self._render_node_overview_section(info))
+        parts.extend(self._render_chain_section(info))
+        parts.extend(self._render_geometry_section(info))
+        parts.extend(self._render_candidate_section(info))
+        if info.get("forced_by_multi_targets"):
+            parts.append("<div>— 本节点受到“多输出中点优先”规则影响。</div>")
+        return "".join(parts)
 
-        # 节点基础信息：名称与唯一 ID
+    @staticmethod
+    def _fmt_y(value: object) -> str:
+        return f"{float(value):.1f}" if value is not None else "-"
+
+    def _render_node_overview_section(self, info: dict) -> list[str]:
+        parts: list[str] = []
         node_id = self.state.active_node_id
-        node_title_text = ""
         model = self._model_provider()
         nodes_dict = getattr(model, "nodes", {}) if model is not None else {}
-        if node_id and isinstance(nodes_dict, dict):
-            node_obj = nodes_dict.get(node_id)
-            if node_obj is not None:
-                raw_title = getattr(node_obj, "title", "")
-                if raw_title is not None:
-                    node_title_text = str(raw_title).strip()
-        if node_title_text or node_id:
-            if node_title_text:
-                parts.append(
-                    f"<div><span style='font-weight:bold;'>节点：</span>{escape(node_title_text)}</div>"
-                )
-            if node_id:
-                parts.append(f"<div>— 节点ID：{escape(str(node_id))}</div>")
-                export_index = self._get_gia_export_index_for_node_id(node_id)
-                if export_index is not None:
-                    parts.append(f"<div>— GIA序号：{int(export_index)}</div>")
+        node_obj = nodes_dict.get(node_id) if node_id and isinstance(nodes_dict, dict) else None
+
+        node_title_text = str(getattr(node_obj, "title", "") or "").strip() if node_obj is not None else ""
+        if node_title_text:
+            parts.append(f"<div><span style='font-weight:bold;'>节点：</span>{escape(node_title_text)}</div>")
+        if node_id:
+            parts.append(f"<div>— 节点ID：{escape(str(node_id))}</div>")
+            export_index = self._get_gia_export_index_for_node_id(node_id)
+            if export_index is not None:
+                parts.append(f"<div>— GIA序号：{int(export_index)}</div>")
+            parts.append(self._format_source_location_line(model, node_obj))
 
         block_index = info.get("block_index")
         block_id = info.get("block_id")
-        event_title = info.get("event_flow_title")
-        event_id = info.get("event_flow_id")
         if block_index is not None or block_id:
             if block_index and block_id:
                 parts.append(f"<div>— 所属块：第 {int(block_index)} 块（{block_id}）</div>")
@@ -373,32 +374,62 @@ class YDebugTooltipOverlay:
                 parts.append(f"<div>— 所属块：第 {int(block_index)} 块</div>")
             elif block_id:
                 parts.append(f"<div>— 所属块：{block_id}</div>")
+
+        event_title = info.get("event_flow_title")
+        event_id = info.get("event_flow_id")
         if isinstance(event_title, str) and event_title.strip():
             parts.append(f"<div>— 所属事件流：{event_title.strip()}</div>")
         elif isinstance(event_id, str) and event_id.strip():
             parts.append(f"<div>— 所属事件流：{event_id.strip()}</div>")
         else:
             parts.append("<div>— 所属事件流：-</div>")
+
+        return parts
+
+    def _format_source_location_line(self, model: object, node_obj: object) -> str:
+        source_file = str(getattr(model, "metadata", {}).get("source_file", "") or "").strip()
+        file_part = escape(source_file) if source_file else "-"
+
+        start = int(getattr(node_obj, "source_lineno", 0) or 0) if node_obj is not None else 0
+        end = int(getattr(node_obj, "source_end_lineno", 0) or 0) if node_obj is not None else 0
+        if start > 0 and end > 0 and end != start:
+            line_part = f"L{start}-L{end}"
+        elif start > 0:
+            line_part = f"L{start}"
+        else:
+            line_part = "-"
+
+        return f"<div>— 源码位置：{file_part}:{escape(line_part)}</div>"
+
+    def _render_chain_section(self, info: dict) -> list[str]:
+        parts: list[str] = []
         controls_html = (
             f"<span style='margin-left:10px;'>"
             f"<a href='highlight_all' style='color:{Colors.PRIMARY_LIGHT};'>高亮全部</a> · "
             f"<a href='clear_all' style='color:{Colors.PRIMARY_LIGHT};'>清除</a></span>"
         )
+        parts.append(f"<div>— 关联链路：{controls_html}</div>")
+
         node_type = info.get("type")
         if node_type != "flow":
-            chains = info.get("chains")
-            parts.append(f"<div>— 关联链路：{controls_html}</div>")
-            parts.extend(self._render_chain_list(chains))
+            parts.extend(self._render_chain_list(info.get("chains")))
         else:
-            parts.append(f"<div>— 关联链路：{controls_html}</div>")
             parts.extend(self._render_flow_chains(info))
+        return parts
+
+    def _render_geometry_section(self, info: dict) -> list[str]:
+        parts: list[str] = []
         final_y = info.get("final_y")
         if final_y is not None:
-            parts.append(f"<div style='margin-top:6px;'>— 最终位置：Y = {fmt_y(final_y)} 像素</div>")
+            parts.append(f"<div style='margin-top:6px;'>— 最终位置：Y = {self._fmt_y(final_y)} 像素</div>")
         node_width = info.get("node_width")
         node_height = info.get("node_height")
         if node_width is not None and node_height is not None:
             parts.append(f"<div>— 节点尺寸：{int(node_width)} × {int(node_height)} 像素</div>")
+        return parts
+
+    def _render_candidate_section(self, info: dict) -> list[str]:
+        parts: list[str] = []
         cand = info.get("candidates") or {}
         column_bottom = cand.get("column_bottom", info.get("strict_column_bottom"))
         chain_port = cand.get("chain_port", info.get("start_y_from_chain_ports"))
@@ -409,39 +440,64 @@ class YDebugTooltipOverlay:
         any_candidate = any(
             v is not None for v in [column_bottom, chain_port, chain_port_min, single_target, multi_mid, base_y]
         )
-        if any_candidate:
-            parts.append("<div style='margin-top:6px;'>— 位置依据（候选值，仅供理解）：</div>")
-            column_bottom_label = "同列之下的安全起点（列底）"
-            is_pre_layout_column_bottom = False
-            if isinstance(final_y, (int, float)) and isinstance(column_bottom, (int, float)):
-                # 当最终Y显著高于（更靠上）列底候选时，通常说明节点经历了块内数据Y松弛，
-                # 当前位置不再受“初排时的列底”约束。此处改为明确标注“初排”避免误解。
-                if float(final_y) + 0.1 < float(column_bottom):
-                    column_bottom_label = "同列之下的安全起点（列底，初排）"
-                    is_pre_layout_column_bottom = True
-            if column_bottom is not None:
-                parts.append(
-                    f"<div style='margin-left:1.5em;'>· {column_bottom_label}：{fmt_y(column_bottom)}</div>"
-                )
-            if chain_port is not None:
-                parts.append(f"<div style='margin-left:1.5em;'>· 对齐右侧关联端口（端口位置+间距）：{fmt_y(chain_port)}</div>")
-            if chain_port_min is not None:
-                parts.append(f"<div style='margin-left:1.5em;'>· 多条链端口中的较小值：{fmt_y(chain_port_min)}</div>")
-            if single_target is not None:
-                parts.append(f"<div style='margin-left:1.5em;'>· 唯一目标节点对齐：{fmt_y(single_target)}</div>")
-            if multi_mid is not None:
-                parts.append(f"<div style='margin-left:1.5em;'>· 多输出时优先使用中点：{fmt_y(multi_mid)}</div>")
-            if base_y is not None:
-                parts.append(f"<div style='margin-left:1.5em;'>· 候选合并后的基础结果：{fmt_y(base_y)}</div>")
-            if is_pre_layout_column_bottom:
-                parts.append(
-                    "<div style='margin-top:4px; color:"
-                    f"{Colors.TEXT_SECONDARY};'>"
-                    "提示：该节点最终位置可能经过块内数据Y松弛调整；“列底，初排”仅用于理解初始候选。</div>"
-                )
-        if info.get("forced_by_multi_targets"):
-            parts.append("<div>— 本节点受到“多输出中点优先”规则影响。</div>")
-        return "".join(parts)
+        if not any_candidate:
+            return parts
+
+        parts.append("<div style='margin-top:6px;'>— 位置依据（候选值，仅供理解）：</div>")
+        parts.extend(
+            self._render_candidate_details(
+                final_y=info.get("final_y"),
+                column_bottom=column_bottom,
+                chain_port=chain_port,
+                chain_port_min=chain_port_min,
+                single_target=single_target,
+                multi_mid=multi_mid,
+                base_y=base_y,
+            )
+        )
+        return parts
+
+    def _render_candidate_details(
+        self,
+        *,
+        final_y: object,
+        column_bottom: object,
+        chain_port: object,
+        chain_port_min: object,
+        single_target: object,
+        multi_mid: object,
+        base_y: object,
+    ) -> list[str]:
+        parts: list[str] = []
+        column_bottom_label = "同列之下的安全起点（列底）"
+        is_pre_layout_column_bottom = False
+        if isinstance(final_y, (int, float)) and isinstance(column_bottom, (int, float)):
+            if float(final_y) + 0.1 < float(column_bottom):
+                column_bottom_label = "同列之下的安全起点（列底，初排）"
+                is_pre_layout_column_bottom = True
+        if column_bottom is not None:
+            parts.append(
+                f"<div style='margin-left:1.5em;'>· {column_bottom_label}：{self._fmt_y(column_bottom)}</div>"
+            )
+        if chain_port is not None:
+            parts.append(
+                f"<div style='margin-left:1.5em;'>· 对齐右侧关联端口（端口位置+间距）：{self._fmt_y(chain_port)}</div>"
+            )
+        if chain_port_min is not None:
+            parts.append(f"<div style='margin-left:1.5em;'>· 多条链端口中的较小值：{self._fmt_y(chain_port_min)}</div>")
+        if single_target is not None:
+            parts.append(f"<div style='margin-left:1.5em;'>· 唯一目标节点对齐：{self._fmt_y(single_target)}</div>")
+        if multi_mid is not None:
+            parts.append(f"<div style='margin-left:1.5em;'>· 多输出时优先使用中点：{self._fmt_y(multi_mid)}</div>")
+        if base_y is not None:
+            parts.append(f"<div style='margin-left:1.5em;'>· 候选合并后的基础结果：{self._fmt_y(base_y)}</div>")
+        if is_pre_layout_column_bottom:
+            parts.append(
+                "<div style='margin-top:4px; color:"
+                f"{Colors.TEXT_SECONDARY};'>"
+                "提示：该节点最终位置可能经过块内数据Y松弛调整；“列底，初排”仅用于理解初始候选。</div>"
+            )
+        return parts
 
     def _get_gia_export_index_for_node_id(self, node_id: str) -> int | None:
         """

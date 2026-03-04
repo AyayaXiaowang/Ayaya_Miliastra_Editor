@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional
 
 from PyQt6 import QtCore
@@ -9,12 +10,36 @@ from PyQt6 import QtCore
 from app.models.view_modes import ViewMode
 from app.runtime.ui_session_state import load_last_session_state, save_last_session_state
 from app.ui.graph.library_pages.library_scaffold import LibrarySelection
-from app.ui.todo.current_todo_resolver import build_context_from_host
+from app.ui.todo.runtime.current_todo_resolver import build_context_from_host
 from engine.configs.resource_types import ResourceType
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class UiSessionStateMixin:
     """负责主窗口 UI 会话状态的采集、去抖保存与启动恢复。"""
+
+    def _peek_last_session_view_mode(self) -> str | None:
+        """启动期轻量读取“上一次会话的 view_mode”。
+
+        用途：
+        - 允许主窗口在首次 show() 前把中央页面切到目标模式，减少启动期的可见闪烁；
+        - 不做任何导航副作用（不切包、不打开图），仅返回字符串标识供调用方决定如何应用。
+        """
+        workspace_path = self.app_state.workspace_path
+        loaded_state = load_last_session_state(workspace_path)
+        if not isinstance(loaded_state, dict):
+            return None
+
+        schema_version_value = loaded_state.get("schema_version")
+        if schema_version_value != 1:
+            return None
+
+        view_mode_identifier = loaded_state.get("view_mode")
+        if not isinstance(view_mode_identifier, str):
+            return None
+        view_mode_text = str(view_mode_identifier).strip()
+        return view_mode_text or None
 
     def _serialize_library_selection(self, selection: Optional[LibrarySelection]) -> Optional[Dict[str, Any]]:
         """将 LibrarySelection 转换为可 JSON 序列化的简单字典。"""
@@ -188,6 +213,11 @@ class UiSessionStateMixin:
         if target_view_mode is None:
             return
 
+        current_view_mode: Optional[ViewMode] = None
+        if hasattr(self, "central_stack"):
+            current_view_mode = ViewMode.from_index(self.central_stack.currentIndex())
+        already_in_target_mode = current_view_mode == target_view_mode
+
         selection_map: Dict[str, Any]
         raw_selections = full_state.get("selections")
         if isinstance(raw_selections, dict):
@@ -196,7 +226,8 @@ class UiSessionStateMixin:
             selection_map = {}
 
         if target_view_mode == ViewMode.TEMPLATE:
-            self._navigate_to_mode("template")
+            if not already_in_target_mode:
+                self._navigate_to_mode("template")
             template_payload = selection_map.get("template")
             if isinstance(template_payload, dict):
                 selection = self._deserialize_library_selection(template_payload)
@@ -206,7 +237,8 @@ class UiSessionStateMixin:
             return
 
         if target_view_mode == ViewMode.PLACEMENT:
-            self._navigate_to_mode("placement")
+            if not already_in_target_mode:
+                self._navigate_to_mode("placement")
             placement_payload = selection_map.get("placement")
             if isinstance(placement_payload, dict):
                 selection = self._deserialize_library_selection(placement_payload)
@@ -216,7 +248,8 @@ class UiSessionStateMixin:
             return
 
         if target_view_mode == ViewMode.COMBAT:
-            self._navigate_to_mode("combat")
+            if not already_in_target_mode:
+                self._navigate_to_mode("combat")
             combat_payload = selection_map.get("combat")
             if isinstance(combat_payload, dict):
                 selection = self._deserialize_library_selection(combat_payload)
@@ -226,7 +259,8 @@ class UiSessionStateMixin:
             return
 
         if target_view_mode == ViewMode.MANAGEMENT:
-            self._navigate_to_mode("management")
+            if not already_in_target_mode:
+                self._navigate_to_mode("management")
             management_payload = selection_map.get("management")
             if isinstance(management_payload, dict):
                 selection = self._deserialize_library_selection(management_payload)
@@ -246,14 +280,16 @@ class UiSessionStateMixin:
             return
 
         if target_view_mode == ViewMode.TODO:
-            self._navigate_to_mode("todo")
+            if not already_in_target_mode:
+                self._navigate_to_mode("todo")
             todo_state = full_state.get("todo")
             if isinstance(todo_state, dict):
                 self._restore_todo_page_from_state(todo_state)
             return
 
         if target_view_mode == ViewMode.GRAPH_LIBRARY:
-            self._navigate_to_mode("graph_library")
+            if not already_in_target_mode:
+                self._navigate_to_mode("graph_library")
             graph_library_payload = selection_map.get("graph_library")
             if isinstance(graph_library_payload, dict):
                 selection = self._deserialize_library_selection(graph_library_payload)
@@ -263,7 +299,8 @@ class UiSessionStateMixin:
             return
 
         if target_view_mode == ViewMode.PACKAGES:
-            self._navigate_to_mode("packages")
+            if not already_in_target_mode:
+                self._navigate_to_mode("packages")
             packages_payload = selection_map.get("packages")
             if isinstance(packages_payload, dict):
                 selection = self._deserialize_library_selection(packages_payload)
@@ -273,11 +310,13 @@ class UiSessionStateMixin:
             return
 
         if target_view_mode == ViewMode.VALIDATION:
-            self._navigate_to_mode("validation")
+            if not already_in_target_mode:
+                self._navigate_to_mode("validation")
             return
 
         if target_view_mode == ViewMode.COMPOSITE:
-            self._navigate_to_mode("composite")
+            if not already_in_target_mode:
+                self._navigate_to_mode("composite")
             return
 
         if target_view_mode == ViewMode.GRAPH_EDITOR:
@@ -285,7 +324,8 @@ class UiSessionStateMixin:
             if isinstance(graph_editor_state, dict):
                 self._restore_graph_editor_from_state(graph_editor_state)
             else:
-                self._navigate_to_mode("graph_editor")
+                if not already_in_target_mode:
+                    self._navigate_to_mode("graph_editor")
             return
 
     def _restore_todo_page_from_state(self, todo_state: Dict[str, Any]) -> None:
@@ -324,7 +364,17 @@ class UiSessionStateMixin:
         resource_manager = self.app_state.resource_manager
         graph_controller = self.graph_controller
 
-        graph_resource = resource_manager.load_resource(ResourceType.GRAPH, graph_identifier_value)
+        try:
+            graph_resource = resource_manager.load_resource(ResourceType.GRAPH, graph_identifier_value)
+        except Exception as exception:
+            # 恢复会话是“尽力而为”：单图解析失败不应阻断主窗口进入。
+            _LOGGER.warning(
+                "[UI-SESSION] restore graph editor failed: graph_id=%s, error=%s",
+                graph_identifier_value,
+                exception,
+                exc_info=True,
+            )
+            return
         if not isinstance(graph_resource, dict):
             return
 

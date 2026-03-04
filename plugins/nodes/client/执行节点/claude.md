@@ -5,7 +5,7 @@
 - 每个文件实现一个 `@node_spec` 节点函数。
 
 ## 当前状态
-- 通过静态注册表导出，运行时由 `plugins.nodes.client` 统一导入。
+- 节点库构建由 V2 AST 管线扫描 `@node_spec`（只解析不导入）；运行期需要执行节点函数时，由 `app.runtime.engine.node_impl_loader` 按需加载并注入。
 - 共享逻辑位于 `plugins.nodes.shared.client_执行节点_impl_helpers`（如有）。
 
 ## 注意事项

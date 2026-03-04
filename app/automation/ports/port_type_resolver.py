@@ -9,7 +9,7 @@ from __future__ import annotations
 
 类型来源（优先级大体）：
 - GraphModel.metadata["port_type_overrides"]（例如变量中文类型注解写入的输出端口覆盖）
-- NodeModel.input_types/output_types 快照（非泛型时直接采用）
+- NodeModel.effective_input_types/effective_output_types 快照（非泛型时直接采用）
 - 节点特例：拼装字典的 键*/值* 端口按输出字典别名类型收敛
 - 输入常量（NodeModel.input_constants）/ 本节点输入派生
 - 连线结构推断（入边/出边）
@@ -126,9 +126,9 @@ def resolve_effective_port_type_for_model(
         return resolved_text
 
     # 最终回退：仅当引擎侧有效类型推断未能给出结果时，才回退到模型快照。
-    # 注意：NodeModel 当前约定只包含 input_types/output_types，且该快照可能因常量回填等原因
+    # 注意：NodeModel 当前约定只包含 effective_input_types/effective_output_types，且该快照可能因常量回填等原因
     # 在展示层表现为“字符串”；因此这里必须放在最后，避免覆盖正确的推断结果。
-    snapshot_map = getattr(node_model, "input_types" if is_input else "output_types", {}) or {}
+    snapshot_map = getattr(node_model, "effective_input_types" if is_input else "effective_output_types", {}) or {}
     if isinstance(snapshot_map, dict):
         snapshot_type = str(snapshot_map.get(port_text, "") or "").strip()
         if snapshot_type:

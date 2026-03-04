@@ -583,24 +583,27 @@ class CombatPresetsWidget(
             return
 
         package_id_repr = getattr(self.current_package, "package_id", "<no-package-id>")
-        print(
-            "[COMBAT-PRESETS] 点击“+ 新建”按钮：",
-            f"package_id={package_id_repr!r}, current_category={self.current_category!r}",
+        log_debug(
+            "[COMBAT-PRESETS] 点击“+ 新建”按钮：package_id={!r}, current_category={!r}",
+            package_id_repr,
+            self.current_category,
         )
 
         target_section = self._resolve_target_section()
         if not target_section:
-            print(
-                "[COMBAT-PRESETS] 解析目标 Section 失败：",
-                f"package_id={package_id_repr!r}, current_category={self.current_category!r}",
+            log_debug(
+                "[COMBAT-PRESETS] 解析目标 Section 失败：package_id={!r}, current_category={!r}",
+                package_id_repr,
+                self.current_category,
             )
             return
 
         section_key_repr = getattr(target_section, "category_key", "<unknown-section-key>")
         section_type_name = getattr(target_section, "type_name", "<unknown-type-name>")
-        print(
-            "[COMBAT-PRESETS] 目标 Section 解析结果：",
-            f"section_key={section_key_repr!r}, type_name={section_type_name!r}",
+        log_debug(
+            "[COMBAT-PRESETS] 目标 Section 解析结果：section_key={!r}, type_name={!r}",
+            section_key_repr,
+            section_type_name,
         )
 
         # 记录新建前该 Section 下已有的业务键集合，用于在创建后识别新增记录。
@@ -609,10 +612,11 @@ class CombatPresetsWidget(
             previous_keys.add(row_data.user_data)
 
         created = target_section.create_item(self, self.current_package)
-        print(
-            "[COMBAT-PRESETS] 调用 Section.create_item 结束：",
-            f"section_key={section_key_repr!r}, result={created!r}, "
-            f"previous_count={len(previous_keys)}",
+        log_debug(
+            "[COMBAT-PRESETS] 调用 Section.create_item 结束：section_key={!r}, result={!r}, previous_count={}",
+            section_key_repr,
+            created,
+            len(previous_keys),
         )
         if not created:
             return
@@ -623,10 +627,12 @@ class CombatPresetsWidget(
         for row_data in target_section.iter_rows(self.current_package):
             current_keys.add(row_data.user_data)
         added_keys = current_keys - previous_keys
-        print(
-            "[COMBAT-PRESETS] 新建后 Section 键变化：",
-            f"section_key={section_key_repr!r}, before_count={len(previous_keys)}, "
-            f"after_count={len(current_keys)}, added_keys_count={len(added_keys)}",
+        log_debug(
+            "[COMBAT-PRESETS] 新建后 Section 键变化：section_key={!r}, before_count={}, after_count={}, added_keys_count={}",
+            section_key_repr,
+            len(previous_keys),
+            len(current_keys),
+            len(added_keys),
         )
         if len(added_keys) == 1:
             new_key = next(iter(added_keys))

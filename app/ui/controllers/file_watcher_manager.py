@@ -23,6 +23,7 @@ from PyQt6 import QtCore, QtWidgets
 from engine.configs.settings import settings
 from engine.resources.resource_manager import ResourceManager
 from engine.utils.logging.logger import log_debug, log_info
+from engine.utils.path_utils import normalize_slash
 
 from app.ui.controllers.file_watcher.graph_file_watch_coordinator import GraphFileWatchCoordinator
 from app.ui.controllers.file_watcher.resource_watch_registry import ResourceWatchRegistry
@@ -272,10 +273,10 @@ class FileWatcherManager(QtCore.QObject):
             return
 
         # 目录事件进入聚合队列：避免风暴下频繁调用桥接层导致 stop/start(0) 与日志刷屏。
-        # key 使用 resolve 后的路径文本做去重（Windows 大小写不敏感，用 casefold）。
-        resolved = changed_dir.resolve()
-        key = str(resolved).casefold()
-        self._resource_dir_event_queue[key] = resolved
+        # 性能：避免 Path.resolve() 触发文件系统 IO；这里仅做纯字符串归一化去重。
+        # Windows 大小写不敏感：使用 casefold()。
+        key = normalize_slash(str(changed_dir)).rstrip("/").casefold()
+        self._resource_dir_event_queue[key] = changed_dir
         self._schedule_resource_dir_event_flush()
 
     def _should_process_resource_directory_event(self, changed_dir: Path) -> bool:

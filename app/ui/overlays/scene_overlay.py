@@ -169,12 +169,12 @@ class SceneOverlayMixin:
         #
         # LOD：低倍率缩放时仅保留节点标题栏，不绘制调试图标与徽标，避免在超大图鸟瞰时造成噪音与额外开销。
         if (not low_detail) and getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False) and self.model:
-            self._ensure_layout_y_debug_info()
             debug_map = getattr(self.model, "_layout_y_debug_info", {}) or {}
+            if not hasattr(self, "_ydebug_icon_rects"):
+                self._ydebug_icon_rects = {}
+            # 每帧重算：避免 debug_map/可见范围变化后命中矩形残留导致误判
+            self._ydebug_icon_rects.clear()
             if debug_map and self.node_items:
-                if not hasattr(self, "_ydebug_icon_rects"):
-                    self._ydebug_icon_rects = {}
-                self._ydebug_icon_rects.clear()
                 t0 = time.perf_counter() if monitor is not None else 0.0
                 painter.save()
                 visible_rect = rect.adjusted(-60.0, -60.0, 60.0, 60.0)
@@ -223,8 +223,8 @@ class SceneOverlayMixin:
                         "scene.drawForeground.ydebug_icons",
                         (time.perf_counter() - float(t0)) * 1000.0,
                     )
-        elif low_detail:
-            # 低倍率下确保命中映射清空，避免点击误判
+        else:
+            # 未绘制 YDebug 图标时确保命中映射清空，避免点击误判
             if hasattr(self, "_ydebug_icon_rects"):
                 self._ydebug_icon_rects.clear()
         # 链路序号徽标(当前高亮链路时显示在节点上方,醒目且有描边)
@@ -333,81 +333,6 @@ class SceneOverlayMixin:
             float(icon_size)
         )
 
-    def _ensure_layout_y_debug_info(self) -> None:
-        """当叠加开启但当前模型没有调试信息时，临时运行布局以生成调试数据。"""
-        if not getattr(self, "model", None):
-            return
-        debug_map = getattr(self.model, "_layout_y_debug_info", None)
-        if isinstance(debug_map, dict) and debug_map:
-            return
-        if getattr(self, "_layout_y_debug_lazy_synced", False):
-            return
-        try:
-            from engine.layout import LayoutService
-            from engine.layout.internal.layout_context import LayoutContext
-            from engine.layout.flow.event_flow_analyzer import find_event_roots
-            from engine.layout.utils.graph_query_utils import has_flow_edges
-            result = LayoutService.compute_layout(self.model, include_augmented_model=True)
-            augmented = getattr(result, "augmented_model", None)
-            debug_map_aug = getattr(augmented, "_layout_y_debug_info", None) if augmented is not None else None
-
-            final_debug_map = None
-            if isinstance(debug_map_aug, dict) and debug_map_aug:
-                final_debug_map = dict(debug_map_aug)
-            elif getattr(result, "y_debug_info", None):
-                final_debug_map = dict(result.y_debug_info)
-
-            if final_debug_map:
-                setattr(self.model, "_layout_y_debug_info", final_debug_map)
-            else:
-                target_model = augmented if augmented is not None else self.model
-                graph_name = getattr(target_model, "graph_name", "") or "<unnamed>"
-                node_count = len(getattr(target_model, "nodes", {}) or {})
-                edge_count = len(getattr(target_model, "edges", {}) or {})
-
-                cached_ctx = getattr(target_model, "_layout_context_cache", None)
-                layout_ctx = cached_ctx if isinstance(cached_ctx, LayoutContext) else LayoutContext(target_model)
-
-                has_flow = has_flow_edges(target_model)
-                flow_node_count = len(getattr(layout_ctx, "flowCapableNodeIds", []) or [])
-                event_roots = find_event_roots(
-                    target_model,
-                    include_virtual_pin_roots=True,
-                    layout_context=layout_ctx,
-                )
-
-                if edge_count == 0 and flow_node_count > 0:
-                    category_desc = (
-                        "仅包含流程控制/执行节点但没有任何流程连线"
-                        "（例如只有一个带“流程入/流程出”的节点尚未接线）"
-                    )
-                elif not has_flow:
-                    category_desc = "纯数据图（图结构中不存在任何流程边）"
-                elif has_flow and not event_roots:
-                    category_desc = "仅包含流程连线但未识别到事件起点（例如只有流程入口/流程控制节点）"
-                else:
-                    category_desc = "存在事件起点但布局调试信息为空（需要检查块识别与调试写入逻辑）"
-
-                print(
-                    "[YDebug] 布局完成但未生成Y轴调试信息："
-                    f"图='{graph_name}'，节点数={node_count}，边数={edge_count}，"
-                    f"flow_nodes={flow_node_count}，has_flow_edges={has_flow}，事件起点数量={len(event_roots)}，"
-                    f"分类={category_desc}；不再重复尝试。"
-                )
-                # 为了进一步排查，将前若干个事件起点打印出来（若存在）
-                max_roots_preview = 5
-                for root in event_roots[:max_roots_preview]:
-                    title = getattr(root, "title", "") or "<no-title>"
-                    category = getattr(root, "category", "") or "<no-category>"
-                    print(
-                        f"[YDebug]  事件起点: id={root.id}, 标题='{title}', category='{category}'"
-                    )
-            self._layout_y_debug_lazy_synced = True
-        except Exception as exc:
-            print(f"[YDebug] 无法自动生成布局Y调试信息: {exc}")
-            # 若布局始终失败，记住状态以避免不断重试导致控制台刷屏
-            self._layout_y_debug_lazy_synced = True
-    
     def _draw_block_label(self, painter: QtGui.QPainter, block_rect: QtCore.QRectF, 
                           block_number: int, block_color: QtGui.QColor) -> None:
         """在基本块矩形上绘制编号标签

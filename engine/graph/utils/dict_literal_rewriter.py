@@ -3,10 +3,20 @@ from __future__ import annotations
 import ast
 import copy
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from .graph_code_rewrite_config import DEFAULT_MAX_DICT_LITERAL_PAIRS
-from engine.type_registry import parse_typed_dict_alias
+from engine.type_registry import (
+    BASE_TYPES,
+    LIST_TYPES,
+    TYPE_DICT,
+    TYPE_FLOW,
+    TYPE_GENERIC,
+    TYPE_GENERIC_DICT,
+    TYPE_GENERIC_LIST,
+    TYPE_LIST_PLACEHOLDER,
+    parse_typed_dict_alias,
+)
 
 
 BUILD_DICT_NODE_CALL_NAME = "拼装字典"
@@ -59,10 +69,13 @@ def rewrite_graph_code_dict_literals(
 
     cloned_tree: ast.Module = copy.deepcopy(tree)
     issues: List[DictLiteralRewriteIssue] = []
+    module_dict_constant_literals = _collect_module_typed_dict_constant_literals(cloned_tree)
 
     # 1) 模块顶层：禁止出现字典字面量（GRAPH_VARIABLES 顶层声明除外）
     for top_level_stmt in list(getattr(cloned_tree, "body", []) or []):
         if _is_graph_variables_declaration(top_level_stmt):
+            continue
+        if _is_allowed_module_level_typed_container_constant(top_level_stmt):
             continue
         if isinstance(top_level_stmt, ast.ClassDef):
             # 类体顶层（非方法体）同样不允许字典字面量：无法转换为节点且会绕过静态校验语义
@@ -97,6 +110,7 @@ def rewrite_graph_code_dict_literals(
             transformer = _GraphCodeDictLiteralTransformer(
                 max_pairs=max_pairs_int,
                 used_names=used_names,
+                module_dict_constant_literals=module_dict_constant_literals,
             )
             transformer.visit(method_def)
             issues.extend(transformer.issues)
@@ -114,6 +128,49 @@ def _is_graph_variables_declaration(stmt: ast.stmt) -> bool:
     return target.id == "GRAPH_VARIABLES"
 
 
+def _extract_string_annotation_text(annotation: ast.AST | None) -> str:
+    if isinstance(annotation, ast.Constant) and isinstance(getattr(annotation, "value", None), str):
+        return str(annotation.value).strip()
+    return ""
+
+
+def _is_concrete_port_type_text(type_text: object) -> bool:
+    text = str(type_text or "").strip()
+    if text == "":
+        return False
+    if text in {TYPE_GENERIC, TYPE_GENERIC_LIST, TYPE_GENERIC_DICT, TYPE_LIST_PLACEHOLDER, TYPE_DICT, TYPE_FLOW}:
+        return False
+    if text in BASE_TYPES:
+        return True
+    if text in LIST_TYPES:
+        return True
+    is_alias, key_type, value_type = parse_typed_dict_alias(text)
+    if not is_alias:
+        return False
+    return _is_concrete_port_type_text(key_type) and _is_concrete_port_type_text(value_type)
+
+
+def _is_allowed_module_level_typed_container_constant(stmt: ast.stmt) -> bool:
+    """允许模块顶层“显式具体类型 + 容器字面量”的命名常量声明。"""
+    if not isinstance(stmt, ast.AnnAssign):
+        return False
+    if not isinstance(getattr(stmt, "target", None), ast.Name):
+        return False
+
+    value_node = getattr(stmt, "value", None)
+    if not isinstance(value_node, (ast.List, ast.Dict)):
+        return False
+
+    annotation_text = _extract_string_annotation_text(getattr(stmt, "annotation", None))
+    if annotation_text == "":
+        return False
+
+    if isinstance(value_node, ast.List):
+        return annotation_text in LIST_TYPES and _is_concrete_port_type_text(annotation_text)
+    is_alias, _, _ = parse_typed_dict_alias(annotation_text)
+    return is_alias and _is_concrete_port_type_text(annotation_text)
+
+
 def _iter_class_defs(tree: ast.Module) -> List[ast.ClassDef]:
     class_defs: List[ast.ClassDef] = []
     for node in list(getattr(tree, "body", []) or []):
@@ -128,6 +185,28 @@ def _iter_method_defs(class_def: ast.ClassDef) -> List[ast.FunctionDef]:
         if isinstance(item, ast.FunctionDef):
             methods.append(item)
     return methods
+
+
+def _collect_module_typed_dict_constant_literals(tree: ast.Module) -> Dict[str, ast.Dict]:
+    """收集模块顶层“显式字典别名类型 + 字典字面量”的命名常量。"""
+    mapping: Dict[str, ast.Dict] = {}
+    for stmt in list(getattr(tree, "body", []) or []):
+        if not isinstance(stmt, ast.AnnAssign):
+            continue
+        target = getattr(stmt, "target", None)
+        value = getattr(stmt, "value", None)
+        if not isinstance(target, ast.Name) or not isinstance(value, ast.Dict):
+            continue
+        annotation_text = _extract_string_annotation_text(getattr(stmt, "annotation", None))
+        if annotation_text == "":
+            continue
+        is_typed_dict_alias, _, _ = parse_typed_dict_alias(annotation_text)
+        if not is_typed_dict_alias:
+            continue
+        if not _is_concrete_port_type_text(annotation_text):
+            continue
+        mapping[target.id] = value
+    return mapping
 
 
 def _collect_all_name_ids(node: ast.AST) -> Set[str]:
@@ -147,13 +226,37 @@ def _build_self_game_expr() -> ast.expr:
 
 
 class _GraphCodeDictLiteralTransformer(ast.NodeTransformer):
-    def __init__(self, *, max_pairs: int, used_names: Set[str]):
+    def __init__(
+        self,
+        *,
+        max_pairs: int,
+        used_names: Set[str],
+        module_dict_constant_literals: Optional[Dict[str, ast.Dict]] = None,
+    ):
         self.max_pairs = int(max_pairs)
         self.used_names: Set[str] = set(used_names or set())
         self.issues: List[DictLiteralRewriteIssue] = []
+        self._module_dict_constant_literals: Dict[str, ast.Dict] = dict(module_dict_constant_literals or {})
         # 仅允许“直接作为 AnnAssign.value 的字典字面量”，且该 AnnAssign 的注解必须为别名字典类型。
         # 通过记录“允许的 dict 节点 id”精确放行，避免误放行嵌套 dict（例如 {"a": {"b": 1}}）。
         self._allowed_typed_dict_literal_ids: Set[int] = set()
+
+    def visit_Call(self, node: ast.Call):  # noqa: N802
+        # 模块级“带字典别名类型注解”的命名常量在调用参数位改写为【拼装字典】调用：
+        # - 与列表常量策略对齐，避免整表落入目标节点 input_constants；
+        # - 仅在调用参数位处理，不改变变量声明语义。
+        args = list(getattr(node, "args", []) or [])
+        new_args: List[ast.expr] = []
+        for arg in args:
+            replaced = self._maybe_replace_module_dict_constant_ref(arg)
+            new_args.append(replaced)
+        node.args = new_args
+
+        keywords = list(getattr(node, "keywords", []) or [])
+        for keyword in keywords:
+            keyword.value = self._maybe_replace_module_dict_constant_ref(keyword.value)
+
+        return self.generic_visit(node)
 
     def visit_For(self, node: ast.For):  # noqa: N802
         # 约定：for 的迭代器位置禁止直接使用字典字面量 `{...}`：
@@ -334,5 +437,20 @@ class _GraphCodeDictLiteralTransformer(ast.NodeTransformer):
         ast.copy_location(call_node, node)
         call_node.end_lineno = getattr(node, "end_lineno", getattr(call_node, "lineno", None))
         return call_node
+
+    def _maybe_replace_module_dict_constant_ref(self, expr: ast.expr) -> ast.expr:
+        if not (isinstance(expr, ast.Name) and isinstance(getattr(expr, "ctx", None), ast.Load)):
+            return expr
+        dict_literal = self._module_dict_constant_literals.get(expr.id)
+        if not isinstance(dict_literal, ast.Dict):
+            return expr
+
+        inlined_dict = copy.deepcopy(dict_literal)
+        ast.copy_location(inlined_dict, expr)
+        inlined_dict.end_lineno = getattr(expr, "end_lineno", getattr(inlined_dict, "lineno", None))
+        if not self._is_dict_literal_valid(inlined_dict):
+            self._report_dict_literal_issue(inlined_dict)
+            return expr
+        return self._rewrite_dict_literal_to_build_dict_call(inlined_dict)
 
 

@@ -214,6 +214,16 @@ class GraphEditorLoadService:
                 get_current_package=get_current_package,
             )
 
+        # 复合节点子图预览：端口图元在尚未 attach 到 scene() 时就会初始化 tooltip，导致
+        # “虚拟引脚暴露状态/角标编号”的缓存永远为 False。这里在装配完成后主动刷新一次端口状态，
+        # 让复合节点库预览画布能正确显示“已暴露端口”的编号角标。
+        #
+        # 注意：fast_preview_mode 下不会创建端口图元，刷新端口没有意义且可能触发属性缺失。
+        if bool(getattr(scene, "is_composite_editor", False)) and (not bool(getattr(scene, "fast_preview_mode", False))):
+            refresh_ports = getattr(scene, "_refresh_all_ports", None)
+            if callable(refresh_ports):
+                refresh_ports(None)
+
         scene.setItemIndexMethod(QtWidgets.QGraphicsScene.ItemIndexMethod.BspTreeIndex)
         scene.undo_manager.on_change_callback = old_on_change_cb
         scene.on_data_changed = old_on_data_changed

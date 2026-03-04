@@ -17,6 +17,52 @@ from .syntax_sugar_rewriter_issue import SyntaxSugarRewriteIssue
 from .syntax_sugar_rewriter_transformer import _GraphCodeSyntaxSugarTransformer
 
 
+def _collect_module_container_var_names(tree: ast.Module) -> Tuple[set[str], set[str]]:
+    """收集模块顶层显式声明的列表/字典变量名集合。
+
+    目的：
+    - 支持在类方法体内对“模块常量字典/列表”使用下标语法糖（例如 `常量字典[key]`），
+      使其能被稳定识别为字典/列表并改写为对应节点调用；
+    - 仍保持“只改写类方法体”的边界：这里只提供容器名集合，不对模块顶层语句做重写。
+    """
+    list_var_names: set[str] = set()
+    dict_var_names: set[str] = set()
+    for node in list(getattr(tree, "body", []) or []):
+        if isinstance(node, ast.AnnAssign):
+            target = getattr(node, "target", None)
+            annotation = getattr(node, "annotation", None)
+            if not isinstance(target, ast.Name):
+                continue
+            if not (isinstance(annotation, ast.Constant) and isinstance(getattr(annotation, "value", None), str)):
+                continue
+            type_text = str(annotation.value).strip()
+            if type_text.endswith("列表"):
+                list_var_names.add(target.id)
+            elif type_text.endswith("字典"):
+                dict_var_names.add(target.id)
+            continue
+
+        if isinstance(node, ast.Assign):
+            targets = list(getattr(node, "targets", []) or [])
+            if len(targets) != 1 or not isinstance(targets[0], ast.Name):
+                continue
+            target_name = targets[0].id
+            value_expr = getattr(node, "value", None)
+            if isinstance(value_expr, ast.List):
+                list_var_names.add(target_name)
+                continue
+            if isinstance(value_expr, ast.Dict):
+                dict_var_names.add(target_name)
+                continue
+            if isinstance(value_expr, ast.Call):
+                call_func = getattr(value_expr, "func", None)
+                if isinstance(call_func, ast.Name) and call_func.id == "拼装列表":
+                    list_var_names.add(target_name)
+                elif isinstance(call_func, ast.Name) and call_func.id == "拼装字典":
+                    dict_var_names.add(target_name)
+    return list_var_names, dict_var_names
+
+
 def rewrite_graph_code_syntax_sugars(
     tree: ast.Module,
     *,
@@ -94,6 +140,7 @@ def rewrite_graph_code_syntax_sugars(
     normalized_scope = _normalize_scope(scope)
     cloned_tree: ast.Module = copy.deepcopy(tree)
     issues: List[SyntaxSugarRewriteIssue] = []
+    module_list_var_names, module_dict_var_names = _collect_module_container_var_names(cloned_tree)
 
     for class_def in _iter_class_defs(cloned_tree):
         # 在“普通节点图（非复合节点定义）”中，允许把部分 Python 语法改写为“共享复合节点调用”：
@@ -102,6 +149,8 @@ def rewrite_graph_code_syntax_sugars(
         required_shared_composites: dict[str, str] = {}
         for method_def in _iter_method_defs(class_def):
             list_var_names, dict_var_names = _collect_container_var_names(method_def)
+            list_var_names = set(list_var_names) | set(module_list_var_names)
+            dict_var_names = set(dict_var_names) | set(module_dict_var_names)
             used_names = _collect_all_name_ids(method_def)
             list_var_type_by_name = _collect_list_var_type_by_name(method_def)
             var_type_by_name = _collect_var_type_by_name(method_def)

@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "perfect-pixel"  
+version = "0.1.4"
+description = "A library for auto grid detection and pixel art refinement."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "theAmusing", email = "amusingyyy@gmail.com" }
+]
+keywords = ["pixel", "pixel-art", "pixel-style", "computer-vision", "opencv", "numpy", "image-processing"]
+
+dependencies = [
+    "numpy>=1.20.0",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+
+[project.optional-dependencies]
+# pip install "perfect-pixel[opencv]"
+opencv = ["opencv-python"]
+
+[project.urls]
+"Homepage" = "https://github.com/theamusing/perfectPixel"
+"Web Demo" = "https://github.com/theamusing/perfectPixel_webdemo"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["perfect_pixel*"]
+
+[tool.setuptools.package-data]
+# None

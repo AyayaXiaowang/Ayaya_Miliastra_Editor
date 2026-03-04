@@ -12,6 +12,7 @@ from engine.nodes.node_registry import get_node_registry
 from engine.graph.models import GraphModel, NodeModel, PortModel
 from engine.graph.common import (
     is_flow_port,
+    FLOW_PORT_PLACEHOLDER,
     SIGNAL_LISTEN_NODE_TITLE,
     SIGNAL_NAME_PORT_NAME,
     get_builtin_anchor_titles_for_client_graph,
@@ -136,7 +137,21 @@ def validate_graph_model(
                     return node_def
             raise KeyError(f"node_library 中未找到 composite NodeDef（composite_id={key}）")
         if kind == "event":
-            # 自定义事件入口：不在节点库中；端口类型由 GraphModel/overrides 承载
+            # 事件入口：默认不在节点库中；端口类型由 GraphModel/overrides 承载。
+            #
+            # 但存在一类“事件节点以 event kind 承载稳定事件名”的模型：
+            # - node.title/category 仍对应一个内置事件节点（例如【监听信号】），用于 UI 展示与端口集合；
+            # - node_def_ref.key 则保留“真实事件名/信号名”，用于 round-trip 与导出链路的稳定定位。
+            #
+            # 在这类模型中，允许通过 `category/title -> builtin_key` 的确定性映射解析 NodeDef，
+            # 以便复用节点库中的端口类型定义（尤其是静态输出端口类型），避免误报“端口类型仍为泛型”。
+            category_text = str(getattr(node, "category", "") or "").strip()
+            title_text = str(getattr(node, "title", "") or "").strip()
+            if category_text and title_text:
+                builtin_key = f"{category_text}/{title_text}"
+                found = node_library.get(builtin_key)
+                if found is not None:
+                    return found
             return None
 
         raise ValueError(f"非法 node_def_ref.kind：{kind!r}")
@@ -153,6 +168,49 @@ def validate_graph_model(
             span_hi = max(hi_candidates)
             return f" (第{span_lo}~{span_hi}行)"
         return " (第?~?行)"
+
+    # ------------------------------------------------------------------------
+    # 结构一致性：边引用的端口必须存在于节点端口集合中
+    #
+    # 背景：
+    # - Graph Code 允许作者写关键字参数；但对“非动态端口节点”，若传入了不存在的关键字参数，
+    #   IR 建模可能仍会生成 data-edge（dst_port=该关键字），而 NodeModel.inputs 并不会包含该端口；
+    # - 写回/导出阶段会在更深处以 ValueError 暴露（例如 dst_port 不在 dst_node.inputs），定位成本很高；
+    # - 因此在 validate_graph_model 阶段应 fail-fast，把错误提升为“节点图结构错误”，并带上行范围。
+    # ------------------------------------------------------------------------
+
+    def _extract_port_names(ports: Sequence[PortModel]) -> set[str]:
+        names: set[str] = set()
+        for p in list(ports or []):
+            name = str(getattr(p, "name", "") or "").strip()
+            if name:
+                names.add(name)
+        return names
+
+    for edge in model.edges.values():
+        src_node = model.nodes.get(edge.src_node)
+        dst_node = model.nodes.get(edge.dst_node)
+        if not src_node or not dst_node:
+            continue
+
+        src_output_names = _extract_port_names(list(getattr(src_node, "outputs", []) or []))
+        dst_input_names = _extract_port_names(list(getattr(dst_node, "inputs", []) or []))
+
+        # flow placeholder 在 UI/序列化层可作为“自动选择流程端口”的占位符；不作为“端口不存在”处理
+        # 逐边输出更精确的行范围：同一条边可能同时缺 src/dst 端口
+        span_text = _edge_span_text(src_node, dst_node)
+        if edge.src_port != FLOW_PORT_PLACEHOLDER and edge.src_port not in src_output_names:
+            errors.append(
+                "边引用的源端口不存在："
+                f"节点 {src_node.category}/{src_node.title} 的输出端口 '{edge.src_port}' 不在节点 outputs 中；"
+                f"可用 outputs={sorted(src_output_names)}{span_text}"
+            )
+        if edge.dst_port != FLOW_PORT_PLACEHOLDER and edge.dst_port not in dst_input_names:
+            errors.append(
+                "边引用的目标端口不存在："
+                f"节点 {dst_node.category}/{dst_node.title} 的输入端口 '{edge.dst_port}' 不在节点 inputs 中；"
+                f"可用 inputs={sorted(dst_input_names)}{span_text}"
+            )
 
     def _node_span_text(node: NodeModel) -> str:
         lo = getattr(node, "source_lineno", 0) or 0

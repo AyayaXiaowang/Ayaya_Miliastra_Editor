@@ -205,7 +205,7 @@ class CloseEventMixin:
 
         # 退出阶段必须先停掉可能跨线程 emit Qt 信号的异步加载与线程池，
         # 避免窗口销毁过程中出现 native access violation。
-        from app.ui.panels.graph_async_loader import shutdown_graph_async_loader_system
+        from app.ui.panels.graph.graph_async_loader import shutdown_graph_async_loader_system
         from app.runtime.services.graph_data_service import shutdown_graph_resource_load_executor
 
         shutdown_graph_async_loader_system()

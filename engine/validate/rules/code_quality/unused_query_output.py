@@ -181,7 +181,115 @@ class UnusedQueryOutputRule(ValidationRule):
             collector.visit(expr)
             return collector.names
 
-        for _, method in iter_class_methods(tree):
+        def _collect_imported_symbol_to_module(module_ast: ast.AST) -> Dict[str, str]:
+            mapping: Dict[str, str] = {}
+            for node in ast.walk(module_ast):
+                if not isinstance(node, ast.ImportFrom):
+                    continue
+                module_name = str(getattr(node, "module", "") or "").strip()
+                if not module_name:
+                    continue
+                for alias in list(getattr(node, "names", []) or []):
+                    name = str(getattr(alias, "name", "") or "").strip()
+                    asname = str(getattr(alias, "asname", "") or "").strip()
+                    symbol = asname or name
+                    if symbol and module_name:
+                        mapping[symbol] = module_name
+            return mapping
+
+        def _resolve_assets_module_to_file(*, module_name: str) -> Path | None:
+            text = str(module_name or "").strip()
+            if not text:
+                return None
+            parts = [p for p in text.split(".") if p]
+            if not parts:
+                return None
+            candidate = ctx.workspace_path / "assets"
+            for p in parts:
+                candidate = candidate / p
+            candidate = candidate.with_suffix(".py")
+            return candidate if candidate.exists() else None
+
+        def _collect_flow_methods_from_composite_file(*, composite_file: Path, class_name: str) -> Set[str]:
+            try:
+                source = composite_file.read_text(encoding="utf-8-sig")
+            except Exception:
+                return set()
+            try:
+                module_ast = ast.parse(source, filename=str(composite_file))
+            except SyntaxError:
+                return set()
+
+            def _is_flow_decorator(dec: ast.AST) -> bool:
+                if isinstance(dec, ast.Call):
+                    func = getattr(dec, "func", None)
+                    if isinstance(func, ast.Name):
+                        return str(func.id or "").strip() in {"flow_entry", "event_handler"}
+                if isinstance(dec, ast.Name):
+                    return str(dec.id or "").strip() in {"flow_entry", "event_handler"}
+                return False
+
+            for node in ast.walk(module_ast):
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                if str(getattr(node, "name", "") or "") != str(class_name or ""):
+                    continue
+                method_names: Set[str] = set()
+                for body_item in list(getattr(node, "body", []) or []):
+                    if not isinstance(body_item, ast.FunctionDef):
+                        continue
+                    decorators = list(getattr(body_item, "decorator_list", []) or [])
+                    if any(_is_flow_decorator(d) for d in decorators):
+                        name_text = str(getattr(body_item, "name", "") or "").strip()
+                        if name_text:
+                            method_names.add(name_text)
+                return method_names
+            return set()
+
+        imported_symbol_to_module = _collect_imported_symbol_to_module(tree)
+        composite_flow_methods_cache: Dict[Tuple[str, str], Set[str]] = {}
+
+        def _get_flow_methods_for_composite_class(class_name: str) -> Set[str]:
+            module_name = imported_symbol_to_module.get(class_name, "")
+            composite_file = _resolve_assets_module_to_file(module_name=str(module_name))
+            if composite_file is None:
+                return set()
+            cache_key = (str(composite_file), str(class_name))
+            cached = composite_flow_methods_cache.get(cache_key)
+            if cached is not None:
+                return cached
+            methods = _collect_flow_methods_from_composite_file(composite_file=composite_file, class_name=class_name)
+            composite_flow_methods_cache[cache_key] = methods
+            return methods
+
+        class_methods = list(iter_class_methods(tree))
+        composite_flow_methods_by_self_attr: Dict[str, Set[str]] = {}
+        init_method = next(
+            (m for _, m in class_methods if isinstance(m, ast.FunctionDef) and str(getattr(m, "name", "")) == "__init__"),
+            None,
+        )
+        if init_method is not None:
+            for node in ast.walk(init_method):
+                if not isinstance(node, ast.Assign):
+                    continue
+                targets = list(getattr(node, "targets", []) or [])
+                if len(targets) != 1:
+                    continue
+                target = targets[0]
+                if not (isinstance(target, ast.Attribute) and isinstance(getattr(target, "value", None), ast.Name)):
+                    continue
+                if str(getattr(target.value, "id", "") or "").strip() != "self":
+                    continue
+                self_attr = str(getattr(target, "attr", "") or "").strip()
+                value = getattr(node, "value", None)
+                if not (isinstance(value, ast.Call) and isinstance(getattr(value, "func", None), ast.Name)):
+                    continue
+                class_name = str(getattr(value.func, "id", "") or "").strip()
+                if not self_attr or not class_name:
+                    continue
+                composite_flow_methods_by_self_attr[self_attr] = _get_flow_methods_for_composite_class(class_name)
+
+        for _, method in class_methods:
             assigned_query_calls: List[Tuple[str, List[str], int]] = []
             alias_edges: List[Tuple[str, str, int]] = []
             call_assignment_edges: List[Tuple[str, str, int]] = []
@@ -294,25 +402,51 @@ class UnusedQueryOutputRule(ValidationRule):
             # - 控制语句：if/match/for/while 本身会生成流程结构，因此其表达式视为流程消费点
             flow_consumed_lines_by_name: Dict[str, Set[int]] = {}
 
+            def _is_self_attr_chain(expr: ast.AST) -> bool:
+                """判断表达式是否为 `self.x.y...` 的属性链。"""
+                current: ast.AST | None = expr
+                while current is not None:
+                    if isinstance(current, ast.Name):
+                        return str(current.id or "").strip() == "self"
+                    if isinstance(current, ast.Attribute):
+                        current = current.value
+                        continue
+                    return False
+                return False
+
             for ast_node in ast.walk(method):
                 # A) 流程节点调用：collect args/kw.value 的 load names
                 if isinstance(ast_node, ast.Call):
                     func = getattr(ast_node, "func", None)
+                    call_name: str | None = None
+                    is_flow_call = False
                     if isinstance(func, ast.Name):
                         call_name = str(func.id or "").strip()
-                        if call_name and (call_name in flow_funcs):
-                            use_line = getattr(ast_node, "lineno", 0) or 0
-                            if isinstance(use_line, int) and use_line > 0:
-                                flow_input_names: Set[str] = set()
-                                for arg in list(getattr(ast_node, "args", []) or []):
-                                    if isinstance(arg, ast.AST):
-                                        flow_input_names.update(_collect_load_names(arg))
-                                for kw in list(getattr(ast_node, "keywords", []) or []):
-                                    value = getattr(kw, "value", None)
-                                    if isinstance(value, ast.AST):
-                                        flow_input_names.update(_collect_load_names(value))
-                                for name_text in flow_input_names:
-                                    flow_consumed_lines_by_name.setdefault(name_text, set()).add(use_line)
+                        is_flow_call = bool(call_name) and (call_name in flow_funcs)
+                    elif isinstance(func, ast.Attribute) and _is_self_attr_chain(func.value):
+                        call_name = str(func.attr or "").strip()
+                        base = getattr(func, "value", None)
+                        self_attr_name: str | None = None
+                        if isinstance(base, ast.Attribute) and isinstance(getattr(base, "value", None), ast.Name):
+                            if str(getattr(base.value, "id", "") or "").strip() == "self":
+                                self_attr_name = str(getattr(base, "attr", "") or "").strip() or None
+                        if self_attr_name and call_name:
+                            flow_methods = composite_flow_methods_by_self_attr.get(self_attr_name, set())
+                            is_flow_call = call_name in flow_methods
+
+                    if is_flow_call:
+                        use_line = getattr(ast_node, "lineno", 0) or 0
+                        if isinstance(use_line, int) and use_line > 0:
+                            flow_input_names: Set[str] = set()
+                            for arg in list(getattr(ast_node, "args", []) or []):
+                                if isinstance(arg, ast.AST):
+                                    flow_input_names.update(_collect_load_names(arg))
+                            for kw in list(getattr(ast_node, "keywords", []) or []):
+                                value = getattr(kw, "value", None)
+                                if isinstance(value, ast.AST):
+                                    flow_input_names.update(_collect_load_names(value))
+                            for name_text in flow_input_names:
+                                flow_consumed_lines_by_name.setdefault(name_text, set()).add(use_line)
 
                 # B) 控制语句：if/while/match/for
                 if isinstance(ast_node, ast.If):

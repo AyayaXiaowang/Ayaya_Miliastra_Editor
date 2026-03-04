@@ -1,0 +1,25 @@
+{
+  "instance_id": "instance_boleshiqin_level07_relatives_data_store__测试项目",
+  "name": "第七关_亲戚数据存放实体",
+  "template_id": "template_boleshiqin_level07_relatives_data_store__测试项目",
+  "position": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "rotation": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "override_variables": [],
+  "additional_graphs": [],
+  "additional_components": [],
+  "metadata": {
+    "entity_type": "物件",
+    "guid": 1094713355,
+    "custom_variable_file": []
+  },
+  "graph_variable_overrides": {},
+  "updated_at": "2026-02-12T06:06:01.106334+00:00"
+}

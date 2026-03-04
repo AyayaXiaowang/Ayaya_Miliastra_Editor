@@ -1,6 +1,6 @@
 import { PREVIEW_VARIANT_FLATTENED } from "../config.js";
 import { autoFixHtmlSource } from "../validation.js";
-import { dom, flattenGroupTreeController, setFlattenGroupTreeStatusText, setSelectedFileText, setStatusText, state } from "./context.js";
+import { dom, flattenGroupTreeController, setExportWidgetListEmptyTip, setExportWidgetListStatusText, setFlattenGroupTreeStatusText, setSelectedFileText, setStatusText, state } from "./context.js";
 import { isDerivedHtmlFileName, pickFlattenedCandidate, removeHtmlExt } from "./helpers.js";
 import { encodeSelectionKey, STORAGE_KEY_LAST_SELECTED } from "./storage.js";
 import { readUiSourceContent } from "./api.js";
@@ -14,6 +14,13 @@ export async function selectFile(scope, fileName) {
   var items = state.items || [];
   var baseFileName = String(fileName || "");
   var flattenedFileName = null;
+
+  // 关键：切换文件时先清掉左下“导出控件”的旧状态，避免出现“已生成但实际上还是上一页”的错觉，
+  // 同时为自动化提供稳定同步点（后续 refresh 完成会切回“已生成”）。
+  setExportWidgetListStatusText("生成中…");
+  setExportWidgetListEmptyTip("生成中…");
+  state.exportWidgetPreviewModel = null;
+  state.exportWidgetIdByLayerKey = {};
 
   if (!isDerivedHtmlFileName(baseFileName)) {
     flattenedFileName = pickFlattenedCandidate(baseFileName, items);

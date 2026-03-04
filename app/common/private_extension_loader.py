@@ -4,20 +4,21 @@ from __future__ import annotations
 
 目标：
 - 公开仓库只保留“扩展点 + 加载机制”，真正的私有功能代码放在本地/私有仓库/私有包中；
-- 当前私有扩展默认视为启用（由 settings 强制），但仅在存在插件/配置时才会产生实际效果。
+- 私有扩展默认视为启用（由 settings 默认值决定），但仅在存在插件/配置时才会产生实际效果。
 
 启用方式（推荐顺序）：
 1) 用户设置（持久化、默认忽略不入库）：
-   - `engine.configs.settings.settings.PRIVATE_EXTENSION_ENABLED` 当前会被强制为 True（不再通过设置页控制）
+   - `engine.configs.settings.settings.PRIVATE_EXTENSION_ENABLED` 控制是否启用私有扩展加载（可手动设为 False 关闭）
    - 若你希望“放进工作区即可自动加载”（不需要配置路径/模块名）：
      - 推荐：将私有插件放在 `<workspace_root>/private_extensions/<插件名>/plugin.py`
      - 兼容：也支持 `<workspace_root>/plugins/private_extensions/<插件名>/plugin.py`
      - 入口文件可实现 `install(workspace_root: Path) -> None`（可选）
    - 若你希望从工作区外的私有包加载（更通用）：
-     - `settings.PRIVATE_EXTENSION_SYS_PATHS = ["D:/private/graph_generater_ext"]`
+     - `settings.PRIVATE_EXTENSION_SYS_PATHS = [r"<your_private_extension_sys_path_root>"]`
      - `settings.PRIVATE_EXTENSION_MODULES = ["my_private_pkg.graph_generater_ext"]`
    说明：这些值会落盘到 `app/runtime/cache/user_settings.json`（默认在 `.gitignore` 覆盖范围内）。
 2) 环境变量（临时覆盖，不落盘）：
+   - GRAPH_GENERATER_PRIVATE_EXTENSION_DISABLED: 设为 1/true/yes/on 可一键禁用所有私有扩展（救援启动用，优先级最高）
    - GRAPH_GENERATER_PRIVATE_PLUGIN_PATHS: 额外 sys.path 根目录列表（用 os.pathsep 分隔，Windows 为 ';'）
    - GRAPH_GENERATER_PRIVATE_PLUGIN_MODULES: 需要 import 的模块列表（用 ',' 或 ';' 分隔）
 
@@ -36,6 +37,7 @@ from typing import Iterable, List, Sequence
 from engine.configs.settings import settings
 from engine.utils.logging.logger import log_info, log_warn
 
+_ENV_PRIVATE_DISABLE = "GRAPH_GENERATER_PRIVATE_EXTENSION_DISABLED"
 _ENV_PRIVATE_PATHS = "GRAPH_GENERATER_PRIVATE_PLUGIN_PATHS"
 _ENV_PRIVATE_MODULES = "GRAPH_GENERATER_PRIVATE_PLUGIN_MODULES"
 
@@ -164,6 +166,11 @@ def _parse_settings_modules(value: object) -> list[str]:
 
 
 def _build_load_plan(*, workspace_root: Path) -> PrivateExtensionLoadResult:
+    disable_text = str(os.environ.get(_ENV_PRIVATE_DISABLE, "") or "").strip().lower()
+    if disable_text in {"1", "true", "yes", "on"}:
+        log_warn("[EXT] 私有扩展已被环境变量禁用：{}", _ENV_PRIVATE_DISABLE)
+        return PrivateExtensionLoadResult(sys_paths=[], modules=[], source="none")
+
     env_paths_text = str(os.environ.get(_ENV_PRIVATE_PATHS, "") or "").strip()
     env_modules_text = str(os.environ.get(_ENV_PRIVATE_MODULES, "") or "").strip()
 

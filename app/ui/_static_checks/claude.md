@@ -4,6 +4,7 @@
 ## 当前状态
 - `check_inline_styles.py`：扫描 `app/ui/**/*.py` 中的 `setStyleSheet(...)` 调用，列出“直接内联字符串/拼接 QSS”的位置，便于逐步迁移到 `ThemeManager` + `theme/styles/` 的集中样式工厂。
 - 扫描范围默认忽略 `app/ui/foundation/`（基础设施层）与本目录（避免自扫）；脚本同时忽略 `setStyleSheet("")` 这类“清空样式”的调用。
+- `check_large_files.py`：扫描 `app/ui/**/*.py` 的行数，发现 1500+ 行单体文件并输出清单；可用 `--fail --max-lines <N>` 作为 CI 护栏，避免 UI 逻辑回流到超大文件。
 
 ## 注意事项
 - 脚本**不修改运行时逻辑**，只输出诊断结果；推荐模块方式运行：`python -m app.ui._static_checks.check_inline_styles`。

@@ -8,8 +8,10 @@
 - `test_composite_pin_direction_policy.py`：回归复合节点引脚方向策略：payload 虚拟引脚方向与 mapped_ports 必须一致；类格式入口方法同名引脚禁止同时作为数据入与数据出（数据入不能设置为出引脚）；并回归禁止“数据出变量=数据入/入口形参”的纯透传写法。
 - `test_composite_pin_type_policy.py`：回归复合节点引脚类型策略：泛型/列表/字典泛型/Any/旧别名与 Python 内置类型名等占位类型在成品校验期必须报错。
 - `test_composite_folder_manager_path_safety.py`：回归复合节点库文件夹“新建/删除”的路径安全约束，禁止路径穿越与绝对路径/UNC/盘符注入。
+  - 用例避免在源码中写死盘符绝对路径；盘符注入样本由运行时环境推导生成。
 - `test_composite_manager_reload_library_from_disk.py`：回归 `CompositeNodeManager.reload_library_from_disk()`：当外部修改 `复合节点库/**/*.py` 后，管理器可重新扫描并更新内存索引（不依赖重启进程）。
 - `test_composite_flow_exit_mapping_ignores_loop_body_terminals.py`：回归类格式复合节点的流程出虚拟引脚映射：循环体内部“无出边流程端口”应视为 continue（本次迭代结束），不能被误当作方法级流程出口绑定到虚拟流程出上。
+- `test_composite_port_same_type_rule.py`：回归复合节点源码内的同型输入约束：`拼装列表` 混用类型（整数≠浮点数）时必须报错（`PORT_SAME_TYPE_REQUIRED`）。
 
 ## 注意事项
 - 复合节点相关测试通常会构造最小源码片段或引用公开模板文件，保持输入稳定可复现。

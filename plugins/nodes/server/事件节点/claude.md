@@ -5,8 +5,8 @@
 - 事件函数只负责调度同一事件流中的后继节点，不直接执行复杂业务。
 
 ## 当前状态
-- 由静态注册器纳入 `plugins.nodes.server`，供 `from plugins.nodes.server import *` 统一导入。
-- 节点函数均使用 `@node_spec` 描述端口，依赖共用 helper 位于 `plugins/nodes/shared`.
+- 节点库构建由 V2 AST 管线扫描 `@node_spec`（只解析不导入）；运行期需要执行节点函数时，由 `app.runtime.engine.node_impl_loader` 按需加载并注入。
+- 节点函数均使用 `@node_spec` 描述端口，依赖共用 helper 位于 `plugins.nodes.shared`。
 - 部分关键语义事件节点会在 `@node_spec` 中声明 `semantic_id`（稳定语义标识符），供校验/工具链定位语义节点，避免依赖显示名字符串（例如信号监听、自定义变量变化事件等）。
 - 信号相关事件节点 `监听信号` 通过一个字符串输入端口“信号名”选择要监听的信号，并在引擎信号系统提供的参数定义基础上，在 UI 中为每个信号参数自动追加对应的数据输出端口。
 

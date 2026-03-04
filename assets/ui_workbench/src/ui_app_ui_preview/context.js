@@ -6,7 +6,6 @@ export const dom = {
   exportGiaButton: document.getElementById("exportGiaButton"),
   exportGilButton: document.getElementById("exportGilButton"),
   importVariableDefaultsButton: document.getElementById("importVariableDefaultsButton"),
-  exportUiStateFullGroupsCheckbox: document.getElementById("exportUiStateFullGroupsCheckbox"),
 
   baseGilFileInput: document.getElementById("baseGilFileInput"),
   selectBaseGilButton: document.getElementById("selectBaseGilButton"),
@@ -25,6 +24,7 @@ export const dom = {
   uiStateValueSelect: document.getElementById("uiStateValueSelect"),
   uiStateResetButton: document.getElementById("uiStateResetButton"),
   dynamicTextPreviewCheckbox: document.getElementById("dynamicTextPreviewCheckbox"),
+  flattenedTimelapseRevealButton: document.getElementById("flattenedTimelapseRevealButton"),
 
   statusText: document.getElementById("statusText"),
   selectedFileText: document.getElementById("selectedFileText"),
@@ -59,11 +59,12 @@ export const state = {
   baseGilFile: null,
   baseGilPath: "",
   suggestedBaseGilPath: "",
-  // 多状态导出策略：true=整态打组（不做组件内合并）；false=组件内合并（最小冗余）
-  exportUiStateFullGroups: true,
   uiStatePreview: { group: "", state: "" },
   leftBottomTabMode: "export_widgets",
-  exportWidgetPreviewCache: {}, // cacheKey -> { model, html }
+  // cacheKey -> { model } 或 { ui_key_to_flat_layer_key }
+  // - model: 用于“首次生成/切文件”的列表渲染
+  // - ui_key_to_flat_layer_key: 用于“切画布尺寸”的原地同步（避免 widget_id 不稳定导致列表行映射断裂）
+  exportWidgetPreviewCache: {},
   exportWidgetPreviewModel: null, // last model for click -> selection
   exportWidgetIdByLayerKey: {}, // flat layerKey -> widget_id (用于“画布点选 -> 导出控件”确定性映射)
   exportSelectedWidgetId: "", // export widgets list selection highlight

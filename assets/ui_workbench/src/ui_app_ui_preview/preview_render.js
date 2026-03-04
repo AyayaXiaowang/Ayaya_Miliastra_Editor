@@ -7,7 +7,123 @@ import * as preview from "../preview/index.js";
 import { hashTextFNV1a32Hex } from "../utils.js";
 import { generateFlattenedHtmlFromSourceHtml } from "./flattening.js";
 
+function _captureCurrentSelectionSnapshot() {
+  // 约定：只做确定性恢复（不猜测）。
+  // 扁平化预览下，layerKey 是最稳定的定位身份（由 dom_index 基于 inline style 构建）。
+  // 但切换画布尺寸后，同一语义控件的 rect 会变化，layerKey 可能变化；
+  // 因此额外记录 debug-label（去掉 __r... 矩形后缀）作为跨尺寸的稳定身份，用于恢复选中框（蓝框）。
+  var el = preview.getCurrentSelectedPreviewElement ? preview.getCurrentSelectedPreviewElement() : null;
+  if (!el || !el.getAttribute) {
+    return null;
+  }
+  var dbg = "";
+  if (el.dataset && String(el.dataset.debugLabel || "").trim()) {
+    dbg = String(el.dataset.debugLabel || "").trim();
+  } else {
+    dbg = String(el.getAttribute("data-debug-label") || "").trim();
+  }
+  function _normalizeDebugLabelBase(raw) {
+    var s = String(raw || "").trim();
+    if (!s) return "";
+    var i = s.indexOf("__r");
+    if (i > 0) s = s.slice(0, i);
+    return s;
+  }
+  var debugLabelBase = _normalizeDebugLabelBase(dbg);
+  var preferredKind = "";
+  if (el.classList) {
+    if (el.classList.contains("flat-text")) preferredKind = "flat-text";
+    else if (el.classList.contains("flat-element")) preferredKind = "flat-element";
+    else if (el.classList.contains("flat-border")) preferredKind = "flat-border";
+    else if (el.classList.contains("flat-shadow")) preferredKind = "flat-shadow";
+    else if (el.classList.contains("flat-button-anchor")) preferredKind = "flat-button-anchor";
+  }
+  var lk = "";
+  if (el.dataset && String(el.dataset.layerKey || "").trim()) {
+    lk = String(el.dataset.layerKey || "").trim();
+  } else {
+    lk = String(el.getAttribute("data-layer-key") || "").trim();
+  }
+  if (!lk && !debugLabelBase) {
+    return null;
+  }
+  return { kind: "element", layerKey: lk, debugLabelBase: debugLabelBase, preferredKind: preferredKind };
+}
+
+function _restoreSelectionFromSnapshot(snapshot) {
+  var snap = snapshot || null;
+  if (!snap || snap.kind !== "element") {
+    return;
+  }
+  if (state.currentVariant !== PREVIEW_VARIANT_FLATTENED) {
+    return;
+  }
+  if (!flattenGroupTreeController || !flattenGroupTreeController.indexFlattenedPreviewElements || !flattenGroupTreeController.findPreviewElementByLayerKey) {
+    return;
+  }
+  // 确保 index 最新（renderPreview 内部也会做一次，但这里保持幂等）
+  flattenGroupTreeController.indexFlattenedPreviewElements();
+  var lk = String(snap.layerKey || "").trim();
+  if (lk) {
+    var target = flattenGroupTreeController.findPreviewElementByLayerKey(lk);
+    if (target) {
+      preview.selectPreviewElement(target);
+      return;
+    }
+  }
+
+  // 兜底：跨分辨率 rect 变化时 layerKey 可能变化；用 debug-label(base) 恢复同一语义控件。
+  var dbgBase = String(snap.debugLabelBase || "").trim();
+  if (dbgBase) {
+    var doc = preview.getPreviewDocument ? preview.getPreviewDocument() : null;
+    var sizeKey = String(state.canvasSizeKey || "").trim();
+    if (doc && doc.querySelectorAll && doc.defaultView && doc.defaultView.getComputedStyle) {
+      var area = null;
+      if (sizeKey && doc.querySelector) {
+        area = doc.querySelector('.flat-display-area[data-size-key="' + sizeKey + '"]');
+      }
+      if (!area && doc.querySelector) {
+        area = doc.querySelector(".flat-display-area");
+      }
+      var root = area || doc;
+      var nodes = root.querySelectorAll("[data-debug-label]");
+      var preferred = String(snap.preferredKind || "").trim();
+      var firstVisible = null;
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (!el || !el.getAttribute || !el.getBoundingClientRect) continue;
+        var dbg2 = String(el.getAttribute("data-debug-label") || "").trim();
+        var j = dbg2.indexOf("__r");
+        if (j > 0) dbg2 = dbg2.slice(0, j);
+        if (dbg2 !== dbgBase) continue;
+        var cs = doc.defaultView.getComputedStyle(el);
+        if (!cs) continue;
+        if (String(cs.display || "") === "none") continue;
+        if (String(cs.visibility || "") === "hidden") continue;
+        var op = Number(cs.opacity);
+        if (isFinite(op) && op <= 0.0001) continue;
+        var r = el.getBoundingClientRect();
+        if (!r || r.width <= 0 || r.height <= 0) continue;
+        if (!firstVisible) firstVisible = el;
+        if (preferred && el.classList && el.classList.contains(preferred)) {
+          preview.selectPreviewElement(el);
+          return;
+        }
+      }
+      if (firstVisible) {
+        preview.selectPreviewElement(firstVisible);
+        return;
+      }
+    }
+  }
+  // 若无法恢复，则必须清空，避免检查器残留旧信息造成“切分辨率不变”的错觉。
+  if (preview.clearCurrentSelection) {
+    preview.clearCurrentSelection();
+  }
+}
+
 export async function renderPreview() {
+  var selectionSnapshot = _captureCurrentSelectionSnapshot();
   // 始终先确保 preview 的画布尺寸为当前选择（避免后续生成/索引使用旧 sizeKey）。
   preview.setSelectedCanvasSize(state.canvasSizeKey);
 
@@ -54,6 +170,7 @@ export async function renderPreview() {
   _autotestAssertFlattenedDomShapeIfNeeded();
   if (flattenGroupTreeController) flattenGroupTreeController.indexFlattenedPreviewElements();
   syncUiStatePreviewUiAndApply();
+  _restoreSelectionFromSnapshot(selectionSnapshot);
 }
 
 function _autotestAssertFlattenedDomShapeIfNeeded() {

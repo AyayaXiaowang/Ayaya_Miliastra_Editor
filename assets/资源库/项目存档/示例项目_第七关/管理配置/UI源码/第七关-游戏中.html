@@ -1,0 +1,2115 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ui-builtin-visibility='{"小地图":false,"技能区":false,"队伍信息":false,"角色生命值条":false,"摇杆":false}'>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>伯乐识亲：春节保卫战</title>
+    <style>
+        /* =========================================
+           全局重置与基础设置 (复用 ceshi_rect.html 风格)
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: min(100%, var(--canvas-width, 100vw));
+            height: min(100%, var(--canvas-height, 100vh));
+            overflow: hidden !important;
+            overscroll-behavior: none;
+            font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+        }
+
+        :root {
+            /* 基础比例 - 增加最小缩放限制，防止在小分辨率下容器过小导致固定字号溢出 */
+            --ui-scale: max(0.75, min(
+                calc(var(--canvas-width, 1920px) / 1920px),
+                calc(var(--canvas-height, 1080px) / 1080px)
+            ));
+
+            --border-width: 4px;
+            /* 阴影规范 */
+            --shadow-color: rgba(14, 14, 14, 0.45);
+            --shadow-mask-25: rgba(14, 14, 14, 0.25);
+            --shadow-depth: 4px 4px 0px var(--shadow-color);
+            --shadow-depth-lg: 8px 8px 0px var(--shadow-color);
+            --shadow-depth-hover: 6px 6px 0px var(--shadow-color);
+            --text-shadow: 2px 2px 0px rgba(255,255,255,0.4);
+
+            /* 间距与圆角 */
+            --radius-lg: clamp(12px, calc(16px * var(--ui-scale)), 16px);
+            --radius-md: clamp(8px, calc(12px * var(--ui-scale)), 12px);
+            --radius-sm: clamp(6px, calc(8px * var(--ui-scale)), 8px);
+            
+            --gap: clamp(10px, calc(16px * var(--ui-scale)), 16px);
+            --gap-lg: clamp(16px, calc(24px * var(--ui-scale)), 24px);
+            --pad: clamp(16px, calc(20px * var(--ui-scale)), 20px);
+            --pad-lg: clamp(20px, calc(32px * var(--ui-scale)), 32px);
+            --safe-margin: clamp(16px, calc(32px * var(--ui-scale)), 32px);
+
+            /* 顶部悬浮按钮区：与 `ceshi_rect.html` 使用同一套定位变量，确保相对位置关系一致 */
+            --corner-slot-size: clamp(48px, 3.33vw, 60px);
+            /* 左上角按钮整体上移一点点（更贴顶），保持各页面一致 */
+            --corner-slot-top: calc(clamp(16px, 1.5vh, 24px) - 6px);
+            --corner-slot-left: clamp(16px, 1.25vw, 24px);
+            --corner-slot-right: clamp(16px, 1.25vw, 24px);
+            --corner-slot-gap: clamp(10px, 0.9vw, 14px);
+            /* 左上角按钮文字微调：让“退出/关卡选择”等文本更靠上些 */
+            --corner-slot-text-nudge-y: -2px;
+
+            /* 色板 (增强饱和度) */
+            --c-green: #92CD21; --c-green-d: #577718; --c-green-d1: #719D1C; --c-green-d2: #577718;
+            --c-white: #FFFAF0; --c-white-d: #C2Beb6; --c-white-d1: #E6E1D6; --c-white-d2: #C2Beb6;
+            --c-yellow: #FFD700; --c-yellow-d: #B8860B; --c-yellow-d1: #ECC94B; --c-yellow-d2: #B8860B;
+            --c-blue: #36F3F3; --c-blue-d: #248C8C; --c-blue-d1: #2CBABA; --c-blue-d2: #248C8C;
+            --c-red: #FF6B6B; --c-red-d: #C92A2A; --c-red-d1: #FA5252; --c-red-d2: #C92A2A;
+
+            /* “黑色描边/黑块”替代色：避免 #000 在部分链路触发盖色层异常 */
+            --c-ink: #0e0e0e73;      /* 45% shade overlay hex（允许） */
+            --c-ink-soft: #0e0e0e40; /* 25% shade overlay hex（允许） */
+
+            /* 状态语义色：置灰/禁用（全页面统一口径） */
+            --c-disabled: #e0e0e0;
+            --c-disabled-d1: #d0d0d0;
+            --c-disabled-d2: #c0c0c0;
+            --c-disabled-text: #777;
+            --c-disabled-border: var(--c-ink-soft);
+
+            --c-bg: var(--c-white-d);
+            --c-panel: #FFF8E7; /* 暖白底色 */
+            --c-panel-border: var(--c-yellow-d1);
+            --c-header: var(--c-red);
+
+            /* 文本字号（硬约束：固定 px，不允许随画布尺寸变化）
+               允许容器尺寸随画布自适应，但 font-size 必须恒定，否则 Workbench 会报错并阻断导出。 */
+            --fs-top-btn: 16px;
+            /* 房名：为顶部留白，保持紧凑但避免小字号导致扁平化 TextBox 额外“扩高” */
+            --fs-room-title: 18px;
+            --fs-status-item: 20px;
+            --fs-status-label: 14px;
+            --fs-panel-title: 24px;
+            --fs-clue-list: 16px;
+            --fs-clue-tag: 14px;
+            --fs-clue-note: 15px;
+            --fs-cutout: 24px;
+            --fs-timer-badge: 20px;
+            --fs-judge-row: 18px;
+            --fs-judge-name: 20px;
+            --fs-judge-score: 14px;
+            --fs-status-tag: 14px;
+            --fs-action-btn: 28px;
+            --fs-footer: 18px;
+            --fs-settle-title: 32px;
+            --fs-settle-sub: 16px;
+            --fs-settle-badge: 16px;
+            --fs-settle-result-title: 30px;
+            --fs-settle-desc: 16px;
+            --fs-settle-verdict-main: 48px;
+            --fs-settle-verdict-truth: 22px;
+            --fs-settle-verdict-desc: 16px;
+            --fs-delta-label: 16px;
+            --fs-delta-value: 18px;
+            --fs-btn-mini: 20px;
+            --fs-dialogue: 22px;
+
+            /* 固定宽度：结算变化数值标签（保证多行对齐、宽度一致） */
+            --delta-value-min-width: 96px;
+
+            /* 新手指引（硬约束：固定 px 字号） */
+            --fs-tutorial-title: 20px;
+            --fs-tutorial-body: 16px;
+            --fs-tutorial-step: 14px;
+
+            /* 指引定位用的底部按钮布局参数（允许用 calc/clamp，但不能用于 font-size） */
+            --action-btn-cell-w: clamp(180px, calc(220px * var(--ui-scale)), 220px);
+            --action-btn-cell-h: clamp(64px, calc(88px * var(--ui-scale)), 88px);
+            --action-bar-gap: clamp(16px, calc(24px * var(--ui-scale)), 24px);
+
+            /* 指引高亮框扩张（比目标区域稍大一点） */
+            --tutorial-hl-pad: 8px;
+        }
+
+        button {
+            border: none;
+            background: none;
+            padding: 0;
+            font: inherit;
+            color: inherit;
+        }
+
+        .text-truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+
+        /* 导出约束 */
+        .btn-text {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: 100%;
+            display: block;
+            text-align: center;
+        }
+
+        /* =========================================
+           Tone-3 风格 (复用)
+           ========================================= */
+        .tone-3 {
+            position: relative;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background-color: var(--tone-top, var(--tone-mid));
+            /* 全局取消 tone-3 左上角高光（避免扁平化/导出多余视觉层次） */
+            box-shadow: none;
+        }
+        .tone-3-stripe { position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none; }
+        .tone-3-stripe--top {
+            /* 顶部高光：理论上可用 1px 表达，但视觉收益低且会额外拆出控件。
+               这里保留盒子，统一用 visibility 关闭（不要用 display:none）。 */
+            top: 0;
+            height: 1px;
+            background-color: var(--tone-top);
+        }
+        .tone-3-stripe--top { background-color: transparent !important; visibility: hidden !important; }
+        .tone-3-stripe--bottom {
+            /* 简单按钮皮肤：只保留“底部短唇边”，彻底移除 2/3 分段压暗 */
+            top: auto;
+            bottom: 0;
+            height: 6px;
+            background-color: var(--shadow-mask-25);
+        }
+        .tone-3-stripe--deep {
+            /* 彻底移除“底部二次加深”段：保留节点盒子，但不产生任何可见效果 */
+            bottom: 0;
+            height: 0;
+            background-color: transparent !important;
+            visibility: hidden !important;
+        }
+        .tone-3 > :not(.tone-3-stripe) { position: relative; z-index: 1; }
+
+        /* =========================================
+           布局容器
+           ========================================= */
+        .screen-container {
+            width: var(--canvas-width, 100vw);
+            height: var(--canvas-height, 100vh);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background-color: transparent;
+            overflow: hidden;
+        }
+
+        /* 顶部悬浮按钮区（左上角：退出 + 关卡选择） */
+        .top-actions {
+            /* 扁平化/导出时要求“永远贴顶”：不能受容器布局影响 */
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + var(--corner-slot-top));
+            left: calc(env(safe-area-inset-left, 0px) + var(--corner-slot-left));
+            display: flex;
+            align-items: center;
+            gap: var(--corner-slot-gap);
+            /* 提高层级，确保不被结算遮罩(z-index:80)或面板挡住 */
+            z-index: 1000;
+        }
+
+        .btn-exit-top {
+            width: var(--corner-slot-size);
+            height: var(--corner-slot-size);
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            font-size: var(--fs-top-btn);
+            font-weight: 900;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.25);
+            --tone-top: var(--c-red);
+            --tone-mid: var(--c-red-d1);
+            --tone-bottom: var(--c-red-d2);
+        }
+
+        .btn-top {
+            height: var(--corner-slot-size);
+            padding: 0 clamp(16px, 1.5vw, 24px);
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--fs-top-btn);
+            font-weight: 900;
+            cursor: pointer;
+            color: #000;
+        }
+
+        .btn-level-select-top {
+            --tone-top: var(--c-yellow);
+            --tone-mid: var(--c-yellow-d1);
+            --tone-bottom: var(--c-yellow-d2);
+        }
+
+        .top-actions button:hover {
+            color: #fff;
+            text-shadow: 2px 2px 0px var(--shadow-color);
+        }
+
+        /* 左上角按钮：文本垂直位置微调（避免视觉上偏下） */
+        .top-actions .btn-exit-top .btn-text,
+        .top-actions .btn-top .btn-text {
+            position: relative;
+            top: var(--corner-slot-text-nudge-y);
+        }
+
+        /* 帮助按钮（右上角）：默认隐藏，正式游戏开始后由节点图切换显示 */
+        .help-actions {
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + var(--corner-slot-top));
+            right: calc(env(safe-area-inset-right, 0px) + var(--corner-slot-right));
+            z-index: 1000;
+            height: var(--corner-slot-size);
+            width: clamp(96px, 9vw, 140px);
+        }
+        .help-actions > [data-ui-state-group] {
+            position: absolute;
+            inset: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .help-actions > [data-ui-state-group][data-ui-state-default="1"] {
+            position: relative;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        .btn-help-top {
+            --tone-top: var(--c-blue);
+            --tone-mid: var(--c-blue-d1);
+            --tone-bottom: var(--c-blue-d2);
+        }
+        /* 说明：不再使用 1px hidden 占位符（会干扰几何/导出并导致本地扁平化预览差异）。
+           hidden 语义由“无默认态”表达：即不写 data-ui-state-default="1"（初始全隐藏），需要显示时由节点图切到 show。 */
+
+        .main-panel {
+            /* 让宽度自适应屏幕宽度，不再受限于高度缩放比 */
+            width: calc(var(--canvas-width, 100vw) - 2 * var(--safe-margin));
+            /* 设置最大宽度限制 */
+            max-width: 1760px;
+            
+            /* 高度自适应，但设置最大高度防止超出屏幕 */
+            max-height: calc(var(--canvas-height, 100vh) - 2 * var(--safe-margin));
+            /* 最小高度保证内容不拥挤 */
+            min-height: clamp(600px, calc(800px * var(--ui-scale)), 800px);
+
+            background-color: var(--c-panel);
+            border: var(--border-width) solid var(--c-ink);
+            outline: 4px solid var(--c-panel-border);
+            outline-offset: -8px;
+            box-shadow: var(--shadow-depth-lg);
+            border-radius: var(--radius-lg);
+            padding: clamp(14px, calc(28px * var(--ui-scale)), 28px);
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap-lg);
+            position: relative;
+            z-index: 1;
+            /* 防止溢出 */
+            overflow: hidden;
+        }
+
+        /* =========================================
+           状态栏
+           ========================================= */
+        .header-bar {
+            padding: 0;
+            background: none;
+            border: none;
+            box-shadow: none;
+            border-radius: 0;
+        }
+
+        .header-room-title {
+            /* 顶部空间紧张：压缩标题块高度，给上方留出更多空间 */
+            margin-bottom: 6px;
+            font-size: var(--fs-room-title);
+            font-weight: 900;
+            color: #000;
+            text-shadow: var(--text-shadow);
+            letter-spacing: 1px;
+            line-height: 1;
+            /* 避免作为 block 占满整行导致扁平化文本框变得过宽过高 */
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            max-width: 100%;
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: var(--gap-lg);
+            width: 100%;
+            position: relative; /* 供指引高亮 marker 绝对定位 */
+        }
+
+        .status-item {
+            /* 复用 Tone-3 */
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            padding: clamp(8px, calc(12px * var(--ui-scale)), 12px) 4px;
+            text-align: center;
+            font-weight: 900;
+            color: #000;
+            font-size: var(--fs-status-item);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+            line-height: 1.2;
+            justify-content: center;
+            
+            --tone-top: var(--c-white);
+            --tone-mid: var(--c-white-d1);
+            --tone-bottom: var(--c-white-d2);
+        }
+
+        .status-label {
+            font-size: var(--fs-status-label);
+            color: rgba(0,0,0,0.65);
+            line-height: 1.1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            z-index: 2;
+        }
+        
+        .status-value {
+             z-index: 2;
+             text-shadow: 1px 1px 0px rgba(255,255,255,0.4);
+        }
+
+        .status-item:nth-child(1) { --tone-top: var(--c-green); --tone-mid: var(--c-green-d1); --tone-bottom: var(--c-green-d2); }
+        .status-item:nth-child(2) { --tone-top: var(--c-yellow); --tone-mid: var(--c-yellow-d1); --tone-bottom: var(--c-yellow-d2); }
+        .status-item:nth-child(3) { --tone-top: var(--c-blue); --tone-mid: var(--c-blue-d1); --tone-bottom: var(--c-blue-d2); }
+        .status-item:nth-child(4) { --tone-top: var(--c-red); --tone-mid: var(--c-red-d1); --tone-bottom: var(--c-red-d2); }
+        .status-item:nth-child(5) { --tone-top: var(--c-white); --tone-mid: var(--c-white-d1); --tone-bottom: var(--c-white-d2); }
+
+        /* =========================================
+           内容区
+           ========================================= */
+        .content-area {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1fr; /* 中间预览区加大 */
+            gap: var(--gap-lg);
+            min-height: 0;
+        }
+
+        .panel {
+            background-color: var(--c-white);
+            border: 3px solid var(--c-ink);
+            box-shadow: var(--shadow-depth);
+            border-radius: var(--radius-md);
+            padding: var(--pad);
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap);
+            min-height: 0;
+            min-width: 0;
+            position: relative;
+        }
+        
+        /* 中间预览面板 */
+        .stage-panel {
+            background-color: transparent; /* 透明，让 cutout 露出来 */
+            box-shadow: none;
+            border: none;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .panel-title {
+            font-size: var(--fs-panel-title);
+            font-weight: 900;
+            color: #000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            line-height: 1.1;
+            margin-bottom: 8px;
+            text-shadow: var(--text-shadow);
+        }
+
+        .panel-title-deco {
+            width: clamp(8px, calc(10px * var(--ui-scale)), 10px);
+            height: clamp(20px, calc(28px * var(--ui-scale)), 28px);
+            background-color: var(--c-blue-d1);
+            border: 2px solid var(--c-ink);
+            border-radius: 4px;
+            flex: 0 0 auto;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+        }
+
+        .content-area > aside.panel:first-child .panel-title-deco {
+            background-color: var(--c-yellow-d1);
+        }
+
+        .content-area > aside.panel:last-child .panel-title-deco {
+            background-color: var(--c-red-d1);
+        }
+
+        /* =========================================
+           列表与卡片
+           ========================================= */
+        .clue-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            color: #000;
+            font-size: var(--fs-clue-list);
+            display: flex;
+            flex-direction: column;
+            gap: 8px; /* 间距缩小 */
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto; /* 允许滚动 */
+            /* 增加内边距，防止标签的负margin或旋转导致被切掉 */
+            padding: 8px; 
+            padding-right: 4px; /* 滚动条空间 */
+        }
+
+        .clue-list li {
+            width: 100%;
+            /* 缩窄高度 */
+            height: clamp(40px, calc(48px * var(--ui-scale)), 48px);
+            
+            /* 纸条本体 */
+            background-color: #FFFDE7;
+            border: 2px solid var(--c-ink);
+            border-radius: 4px;
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.2);
+            
+            display: flex;
+            align-items: center;
+            padding: 0;
+            padding-right: 12px;
+            flex-shrink: 0;
+            position: relative;
+            overflow: visible; /* 允许标签贴在外面一点 */
+        }
+
+        /* 模拟贴在上面的标签 */
+        .clue-tag {
+            background-color: var(--c-red);
+            color: #fff;
+            border: 2px solid var(--c-ink);
+            border-radius: 4px;
+            padding: 0 8px;
+            height: calc(100% + 4px); /* 比纸条略高 */
+            margin-left: 8px;
+            margin-top: -4px; /* 向上错位，像贴上去的 */
+            margin-bottom: 4px;
+            
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: var(--fs-clue-tag);
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+            z-index: 2;
+            transform: rotate(-1deg); /* 微微倾斜，增加手工感 */
+            
+            /* 固定宽度 */
+            width: clamp(64px, calc(80px * var(--ui-scale)), 80px);
+            /* 文本防溢出 */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* 不同类型的标签颜色 */
+        .clue-tag.tag-blue { background-color: var(--c-blue); color: #000; }
+        .clue-tag.tag-yellow { background-color: var(--c-yellow); color: #000; }
+
+        .clue-text {
+            flex: 1;
+            min-width: 0;
+            margin-left: 12px;
+            
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #333;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .clue-note {
+            font-size: var(--fs-clue-note);
+            color: #000;
+            text-align: center;
+            background-color: var(--c-blue-d1);
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            box-shadow: var(--shadow-depth);
+            font-weight: 700;
+            margin-top: auto;
+        }
+
+        /* =========================================
+           预览区
+           ========================================= */
+        .game-cutout {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 4px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            background-color: var(--c-ink-soft); /* 预览占位（避免 #000） */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #666;
+            font-size: var(--fs-cutout);
+            overflow: hidden;
+            z-index: 1;
+            box-shadow: var(--shadow-depth);
+        }
+
+        .timer-badge {
+            padding: 8px 16px;
+            border-radius: 999px;
+            background-color: var(--c-white);
+            border: 3px solid var(--c-ink);
+            font-weight: 900;
+            color: #000;
+            font-size: var(--fs-timer-badge);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            /* 关键：保证 badge 永远单行（也让“非默认态(visibility:hidden)但仍需导出几何”的场景拿到正确宽度） */
+            white-space: nowrap;
+            line-height: 1;
+            box-shadow: var(--shadow-depth);
+            letter-spacing: 1px;
+        }
+
+        /* 游戏区倒计时 badge：多状态（stage_countdown_state hidden/show）
+           - 进场阶段不显示（hidden）
+           - 投票阶段显示（show） */
+        .stage-countdown-actions {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* 多状态隐藏规则（预览用；运行期由节点图切状态组） */
+        .stage-countdown-actions > [data-ui-state-group] {
+            position: absolute;
+            /* 关键：不能用 inset:0。
+               因为 hidden 默认态是 1px 占位符，inset:0 会把非默认态(=show)的 content box 强行压成 ~0，
+               导致 Workbench/本地扁平化导出拿到的“show”态宽度只剩 padding（出现你看到的“再显示宽度不对”）。 */
+            top: 0;
+            right: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .stage-countdown-actions > [data-ui-state-group][data-ui-state-default="1"] {
+            position: relative;
+            inset: auto;
+            visibility: visible;
+        }
+
+        /* 说明：不再使用 1px hidden 占位符，hidden 语义由“无默认态”表达（初始全隐藏）。 */
+
+        /* 游戏区对白字幕：多状态（stage_dialogue_state show）
+           - 初始默认不显示：不设置 data-ui-state-default（即无默认态）
+           - 首次点击“对话”后切到 show：展示对话框并更新文本 */
+        .stage-dialogue-actions {
+            position: absolute;
+            left: 50%;
+            bottom: 16px;
+            transform: translateX(-50%);
+            width: min(92%, 960px);
+            height: 64px;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .stage-dialogue-actions > [data-ui-state-group] {
+            position: absolute;
+            inset: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .stage-dialogue-actions > [data-ui-state-group][data-ui-state-default="1"] {
+            position: relative;
+            inset: auto;
+            visibility: visible;
+        }
+
+        .stage-dialogue {
+            width: 100%;
+            height: 100%;
+            padding: 10px 16px;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* 字幕框：不要给文字阴影，而是给文本框背景 */
+            border-radius: var(--radius-md);
+            background-color: var(--c-ink);
+            border: 3px solid var(--c-ink-soft);
+        }
+
+        .stage-dialogue-text {
+            width: 100%;
+            font-size: var(--fs-dialogue);
+            font-weight: 900;
+            color: #fff;
+            line-height: 1.25;
+            text-align: center;
+            overflow: hidden;
+            /* 固定高度：最多展示两行字幕，不足则居中 */
+            max-height: 100%;
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .btn-dialogue {
+            /* 底部对话按钮（放到 action-bar 里，复用 .btn 的尺寸/多状态规则） */
+            --tone-top: var(--c-blue);
+            --tone-mid: var(--c-blue-d1);
+            --tone-bottom: var(--c-blue-d2);
+        }
+
+        /* =========================================
+           右侧审判列表
+           ========================================= */
+        .judge-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap);
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto; /* 允许滚动 */
+            /* 增加内边距，防止阴影被切 */
+            padding: 4px;
+            padding-right: 8px; /* 滚动条空间 */
+        }
+
+        .judge-row {
+            display: grid;
+            /* 1fr: 名字, 80px: 分数(固定宽), auto: 状态标签 */
+            grid-template-columns: 1fr 80px auto; 
+            align-items: center;
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-sm);
+            padding: clamp(10px, calc(14px * var(--ui-scale)), 14px);
+            box-shadow: var(--shadow-depth);
+            font-size: var(--fs-judge-row);
+            font-weight: 900;
+            color: #000;
+            gap: 12px;
+            min-width: 0;
+            flex-shrink: 0;
+        }
+
+        .judge-name {
+            font-size: var(--fs-judge-name);
+            color: #000;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .judge-score {
+            font-size: var(--fs-judge-score);
+            color: rgba(0,0,0,0.6);
+            white-space: nowrap;
+            text-align: right; /* 分数右对齐 */
+        }
+
+        .status-tag {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: var(--fs-status-tag);
+            font-weight: 900;
+            border: 3px solid var(--c-ink);
+            background-color: var(--c-white);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            min-width: 72px;
+            z-index: 2;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        }
+
+        /* 状态颜色 */
+        .judge-row.status-wait { --tone-top: var(--c-yellow); --tone-mid: var(--c-yellow-d1); --tone-bottom: var(--c-yellow-d2); }
+        .judge-row.status-allow { --tone-top: var(--c-green); --tone-mid: var(--c-green-d1); --tone-bottom: var(--c-green-d2); }
+        .judge-row.status-reject { --tone-top: var(--c-red); --tone-mid: var(--c-red-d1); --tone-bottom: var(--c-red-d2); }
+
+        .status-wait .status-tag { background-color: var(--c-white); color: #000; }
+        .status-allow .status-tag { background-color: var(--c-white); color: var(--c-green-d); }
+        .status-reject .status-tag { background-color: var(--c-white); color: var(--c-red-d); }
+
+        /* =========================================
+           底部操作
+           ========================================= */
+        .action-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center; /* 垂直对齐 */
+            gap: clamp(16px, calc(24px * var(--ui-scale)), 24px); /* 间距调整 */
+            padding-top: 8px;
+            position: relative; /* 供指引高亮 marker 绝对定位 */
+        }
+
+        .btn {
+            /* 按钮宽度稍微调小一点，腾出中间空间 */
+            min-width: clamp(180px, calc(220px * var(--ui-scale)), 220px);
+            height: clamp(64px, calc(88px * var(--ui-scale)), 88px);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            font-size: var(--fs-action-btn);
+            font-weight: 900;
+            text-align: center;
+            border: 4px solid var(--c-ink);
+            color: #000;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 0px rgba(255,255,255,0.4);
+        }
+
+        /* 底部提示条样式 */
+        .clue-note-footer {
+            flex: 1; /* 占据中间剩余空间 */
+            max-width: clamp(300px, 40%, 500px); /* 限制最大宽 */
+            height: clamp(50px, calc(72px * var(--ui-scale)), 72px); /* 比按钮矮一点 */
+            
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            background-color: var(--c-blue-d1);
+            color: #000;
+            
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            
+            --tone-top: var(--c-blue);
+            --tone-mid: var(--c-blue-d1);
+            --tone-bottom: var(--c-blue-d2);
+        }
+
+        .clue-text-footer {
+            font-size: var(--fs-footer);
+            font-weight: 900;
+            text-align: center;
+            z-index: 2;
+            line-height: 1.2;
+        }
+
+        .btn-allow {
+            --tone-top: var(--c-green);
+            --tone-mid: var(--c-green-d1);
+            --tone-bottom: var(--c-green-d);
+        }
+
+        .btn-reject {
+            --tone-top: var(--c-red);
+            --tone-mid: var(--c-red-d1);
+            --tone-bottom: var(--c-red-d);
+        }
+        
+        .btn:hover {
+            color: #fff;
+            text-shadow: 2px 2px 0px var(--shadow-color);
+        }
+
+        @media (max-width: 1400px) {
+            .content-area {
+                grid-template-columns: 1fr 1.2fr 1fr;
+                gap: 12px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .content-area {
+                /* 窄屏下切换布局：预览区独占一行，下方左右分栏 */
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: minmax(300px, 40vh) 1fr;
+                grid-template-areas: 
+                    "stage stage"
+                    "left right";
+            }
+            .stage-panel {
+                grid-area: stage;
+                min-height: 0; /* 让 grid row 控制高度 */
+            }
+            .content-area > aside:first-child {
+                grid-area: left;
+            }
+            .content-area > aside:last-child {
+                grid-area: right;
+            }
+            
+            /* 状态栏切 3 列 */
+            .status-bar {
+                grid-template-columns: repeat(3, 1fr); 
+            }
+            .status-item:nth-child(4), .status-item:nth-child(5) {
+                grid-column: span 1;
+            }
+        }
+
+        @media (max-width: 800px) {
+            .content-area {
+                /* 极窄屏单列 */
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+                grid-template-areas: 
+                    "stage"
+                    "left"
+                    "right";
+                overflow-y: auto; /* 允许内容区滚动 */
+            }
+            .stage-panel {
+                height: 300px; /* 固定高度 */
+            }
+            .clue-list, .judge-list {
+                max-height: 300px; /* 限制列表高度 */
+            }
+        }
+
+        /* 针对高度不足的屏幕 (如 1366x768, 1280x720) 进行紧凑化处理 */
+        @media (max-height: 800px) {
+            :root {
+                --gap-lg: 12px;
+                --pad-lg: 16px;
+                --gap: 8px;
+                --pad: 12px;
+            }
+            .btn {
+                height: 60px; /* 压缩按钮高度 */
+            }
+            .clue-note-footer {
+                height: 56px;
+            }
+            .panel-title-deco {
+                height: 20px;
+            }
+            .clue-list li {
+                height: 40px;
+            }
+            .judge-row {
+                padding: 8px;
+            }
+        }
+
+        /* =========================================
+           结算揭晓覆盖层（多状态，默认不显示）
+           - 使用 data-ui-state-group 实现 hidden/result 两态
+           - result：仅在“本轮所有玩家完成选择”后展示最终结果
+           ========================================= */
+        .battle-settlement-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 80;
+        }
+
+        /* 多状态隐藏规则：
+           - 禁止 display:none（会丢盒子导致导出缺失）
+           - 用 visibility 保留几何，默认只显示 data-ui-state-default="1" 的那一态 */
+        .battle-settlement-overlay > [data-ui-state] {
+            position: absolute;
+            inset: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .battle-settlement-overlay > [data-ui-state][data-ui-state-default="1"] {
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .battle-settlement-overlay .settlement-state {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--safe-margin);
+        }
+
+        .battle-settlement-overlay .settlement-backdrop {
+            position: absolute;
+            inset: 0;
+            background: var(--shadow-mask-25);
+        }
+
+        .settlement-card {
+            position: relative;
+            width: min(980px, calc(var(--canvas-width, 100vw) - 2 * var(--safe-margin)));
+            max-height: calc(var(--canvas-height, 100vh) - 2 * var(--safe-margin));
+            overflow: hidden;
+            border: var(--border-width) solid var(--c-ink);
+            outline: 4px solid var(--c-panel-border);
+            outline-offset: -8px;
+            box-shadow: var(--shadow-depth-lg);
+            border-radius: var(--radius-lg);
+            background: var(--c-panel);
+            padding: clamp(16px, calc(24px * var(--ui-scale)), 24px);
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap);
+        }
+
+        .settlement-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: var(--gap);
+        }
+
+        .settlement-title {
+            font-size: var(--fs-settle-title);
+            font-weight: 900;
+            color: #000;
+            text-shadow: var(--text-shadow);
+            letter-spacing: 1px;
+            line-height: 1.1;
+        }
+
+        .settlement-subtitle {
+            margin-top: 6px;
+            font-size: var(--fs-settle-sub);
+            font-weight: 800;
+            color: rgba(0,0,0,0.7);
+        }
+
+        .settlement-badge {
+            flex: 0 0 auto;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 3px solid var(--c-ink);
+            background: var(--c-white);
+            box-shadow: var(--shadow-depth);
+            font-weight: 900;
+            font-size: var(--fs-settle-badge);
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .settlement-badge.badge-result { color: #000; background: var(--c-blue); }
+
+        .settlement-body {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: var(--gap-lg);
+            min-height: 0;
+        }
+
+        .settlement-result {
+            background: var(--c-white);
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            padding: var(--pad);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+            align-items: center;
+            text-align: center;
+        }
+
+        .settlement-result-title {
+            font-size: var(--fs-settle-result-title);
+            font-weight: 900;
+            letter-spacing: 1px;
+            line-height: 1.1;
+            color: #000;
+            text-shadow: var(--text-shadow);
+        }
+
+        .settlement-result-desc {
+            font-size: var(--fs-settle-desc);
+            font-weight: 800;
+            color: rgba(0,0,0,0.75);
+            line-height: 1.35;
+        }
+
+        .settlement-verdict-main {
+            font-size: var(--fs-settle-verdict-main);
+            font-weight: 900;
+            letter-spacing: 2px;
+            line-height: 1.05;
+            color: #000;
+            text-shadow: var(--text-shadow);
+        }
+
+        .settlement-verdict-truth {
+            margin-top: 2px;
+            font-size: var(--fs-settle-verdict-truth);
+            font-weight: 900;
+            color: rgba(0,0,0,0.85);
+        }
+
+        .settlement-verdict-desc {
+            margin-top: 8px;
+            font-size: var(--fs-settle-verdict-desc);
+            font-weight: 800;
+            color: rgba(0,0,0,0.75);
+            line-height: 1.35;
+        }
+
+        .settlement-deltas {
+            background: var(--c-white);
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            padding: var(--pad);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            align-content: start;
+            min-height: 0;
+        }
+
+        .delta-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 12px;
+            border: 2px solid rgba(0,0,0,0.25);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            background: #FFFDE7;
+        }
+
+        .delta-label {
+            font-weight: 900;
+            color: #000;
+            font-size: var(--fs-delta-label);
+            min-width: 0;
+        }
+
+        .delta-value {
+            font-weight: 900;
+            font-size: var(--fs-delta-value);
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 3px solid var(--c-ink);
+            background: var(--c-white);
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.12);
+            white-space: nowrap;
+            line-height: 1;
+            min-width: var(--delta-value-min-width);
+            text-align: center;
+        }
+
+        .delta-plus { color: var(--c-green-d); }
+        .delta-minus { color: var(--c-red-d); }
+        .delta-flat { color: rgba(0,0,0,0.65); }
+
+        .settlement-actions {
+            margin-top: auto;
+            display: flex;
+            justify-content: center;
+            gap: var(--gap);
+        }
+
+        .btn-mini {
+            min-width: 180px;
+            height: clamp(52px, calc(64px * var(--ui-scale)), 64px);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            border: 4px solid var(--c-ink);
+            font-weight: 900;
+            font-size: var(--fs-btn-mini);
+            letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            overflow: hidden;
+        }
+
+        .btn-mini-primary { --tone-top: var(--c-green); --tone-mid: var(--c-green-d1); --tone-bottom: var(--c-green-d); }
+        .btn-mini-secondary { --tone-top: var(--c-yellow); --tone-mid: var(--c-yellow-d1); --tone-bottom: var(--c-yellow-d2); }
+
+        /* 底部操作按钮：多状态（enabled/disabled）叠放规则
+           注意：不能用 display:none（会丢盒子），因此使用槽位 + absolute 叠放 + visibility 隐藏。 */
+        .action-bar .action-btn-cell {
+            position: relative;
+            /* 维持原按钮尺寸口径 */
+            min-width: clamp(180px, calc(220px * var(--ui-scale)), 220px);
+            height: clamp(64px, calc(88px * var(--ui-scale)), 88px);
+            flex: 0 0 auto;
+        }
+
+        .action-bar .action-btn-cell .btn[data-ui-state-group] {
+            position: absolute;
+            inset: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .action-bar .action-btn-cell .btn[data-ui-state-group][data-ui-state-default="1"] {
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .btn.disabled {
+            cursor: default;
+            color: var(--c-disabled-text);
+            text-shadow: none;
+            --tone-top: var(--c-disabled);
+            --tone-mid: var(--c-disabled-d1);
+            --tone-bottom: var(--c-disabled-d2);
+            box-shadow: none !important;
+            transform: none !important;
+        }
+        .btn.disabled:hover {
+            color: var(--c-disabled-text);
+            text-shadow: none;
+            transform: none;
+        }
+        .btn.disabled .tone-3-stripe { background-color: transparent !important; visibility: hidden !important; }
+
+        @media (max-width: 1000px) {
+            .settlement-body {
+                grid-template-columns: 1fr;
+            }
+            .settlement-card {
+                width: min(920px, calc(var(--canvas-width, 100vw) - 2 * var(--safe-margin)));
+            }
+        }
+
+        /* =========================================
+           新手指引遮罩层（多状态）
+           - 目的：压暗其它区域，仅突出当前关注点（无 JS）
+           - 状态组：
+             - tutorial_overlay: hidden/guide_0/guide_1/guide_2/guide_3/guide_4/guide_5/guide_6/done/wait_others
+           - 约束：避免 display:none，使用 visibility 保留盒子供导出
+           ========================================= */
+        .tutorial-overlay {
+            /* 必须覆盖整屏（含 main-panel 外侧与 fixed 顶部按钮） */
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: var(--canvas-width, 100vw);
+            height: var(--canvas-height, 100vh);
+            z-index: 5000;
+            pointer-events: none; /* 只有卡片按钮可点击 */
+            /* 教程遮罩层的底部阴影/压暗口径：使用更深色的“进度条阴影” */
+            --shadow-mask-25: var(--shadow-color);
+        }
+
+        .tutorial-overlay > [data-ui-state] {
+            position: absolute;
+            inset: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .tutorial-overlay > [data-ui-state][data-ui-state-default="1"] {
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .tutorial-overlay-shown {
+            position: absolute;
+            inset: 0;
+        }
+
+        /* Workbench 内置“高亮展示区域” marker：
+           - class 必须为 `highlight-display-area`
+           - 通过 element 的 rect 决定“挖空区域”；周围压暗由扁平化生成 4 块 shadow layers 实现
+           - alpha 可用 data-highlight-overlay-alpha="0.45|0.25" 控制（默认 0.45）
+           - marker 本体不会导出为控件（不会生成 element/border/text） */
+        .highlight-display-area {
+            position: absolute;
+            pointer-events: none;
+            /* 视觉不依赖本体（挖空/压暗由扁平化/运行期实现），这里保持透明 */
+            background: transparent;
+        }
+
+        /* 指引专用 marker：默认隐藏（避免常驻压暗） */
+        .tutorial-marker[data-ui-state-group="tutorial_overlay"][data-ui-state]:not([data-ui-state-default="1"]) {
+            visibility: hidden;
+        }
+
+        /* 指引完成态：整屏压暗遮罩（不挖空） */
+        .tutorial-dim-screen {
+            position: absolute;
+            inset: 0;
+            background: var(--shadow-mask-25);
+            pointer-events: none;
+        }
+
+        .tutorial-card {
+            position: absolute;
+            /* 指引卡片尽量瘦一点，减少遮挡高亮内容概率 */
+            width: min(520px, calc(100% - 2 * var(--safe-margin)));
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            --tone-top: var(--c-white);
+            --tone-mid: var(--c-white-d1);
+            --tone-bottom: var(--c-white-d2);
+            pointer-events: auto;
+            z-index: 2;
+        }
+
+        /* 背景故事页（guide_0）：更居中、更宽一点 */
+        .tutorial-card-story {
+            width: min(620px, calc(100% - 2 * var(--safe-margin)));
+        }
+        .tutorial-card-story .tutorial-title {
+            color: var(--c-red-d2);
+        }
+
+        .tutorial-card-inner {
+            padding: 24px 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            /* 仅用排版营造层次：避免渐变，保证扁平化/导出稳定 */
+        }
+
+        .tutorial-step-text {
+            align-self: flex-start;
+            font-size: var(--fs-tutorial-step);
+            font-weight: 900;
+            color: #000;
+            background-color: var(--c-yellow);
+            border: 2px solid var(--c-ink);
+            padding: 4px 12px;
+            /* 50%：扁平化/导出链路可保留的圆角口径（胶囊标签） */
+            border-radius: 50%;
+            box-shadow: 2px 2px 0px rgba(14,14,14,0.15);
+            line-height: 1.2;
+        }
+
+        .tutorial-title {
+            font-size: 26px; /* 稍微加大 */
+            font-weight: 900;
+            color: var(--c-blue-d2);
+            text-shadow: none;
+            line-height: 1.2;
+            padding-bottom: 10px;
+            border-bottom: 2px dashed var(--c-ink-soft);
+            margin-top: -4px;
+        }
+
+        .tutorial-body {
+            font-size: var(--fs-tutorial-body);
+            font-weight: 700;
+            color: #222;
+            line-height: 1.65;
+            /* 增加内容块背景 */
+            background-color: rgba(255,255,255,0.6);
+            border: 2px solid rgba(14,14,14,0.1);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+        }
+
+        .tutorial-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .tutorial-btn {
+            min-width: 160px;
+            height: 52px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            border: 4px solid var(--c-ink);
+            font-weight: 900;
+            font-size: 18px; /* 固定 px */
+            letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .tutorial-btn-next { --tone-top: var(--c-green); --tone-mid: var(--c-green-d1); --tone-bottom: var(--c-green-d); }
+
+        .tutorial-btn:hover {
+            color: #fff;
+            text-shadow: 2px 2px 0px var(--shadow-color);
+        }
+
+        /* 独立的新手教学倒计时（全局右上角，独立状态组 tutorial_countdown_state）
+           注意：扁平化层级不读取 CSS 的 z-index，扁平化层级需配合元素上的 data-flat-z-bias。 */
+        .tutorial-countdown-actions {
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + var(--corner-slot-top));
+            right: calc(env(safe-area-inset-right, 0px) + var(--corner-slot-right));
+            z-index: 5001; /* 原稿预览层级（扁平化不读取） */
+            pointer-events: none;
+        }
+
+        /* 多状态（hidden/show）：源码预览使用 data-ui-state-default 控制 */
+        .tutorial-countdown-actions > [data-ui-state-group] {
+            position: absolute;
+            inset: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .tutorial-countdown-actions > [data-ui-state-group][data-ui-state-default="1"] {
+            position: relative;
+            inset: auto;
+            visibility: visible;
+        }
+
+        /* 说明：不再使用 1px hidden 占位符；隐藏仅通过切换 show 态可见性实现。 */
+
+        .tutorial-countdown-float {
+            font-size: 32px;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 1px;
+            white-space: nowrap;
+            text-shadow: 2px 2px 0px var(--shadow-color);
+
+            /* 背景胶囊：更像 HUD 元素 */
+            background-color: var(--c-red);
+            padding: 10px 24px;
+            /* 50%：扁平化/导出链路可保留的圆角口径（比 999px 更稳定） */
+            border-radius: 50%;
+            border: 4px solid var(--c-white);
+            box-shadow: var(--shadow-depth-lg);
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div
+        class="screen-container"
+        data-ui-preview-initial-states="tutorial_overlay=guide_0; tutorial_countdown_state=show; help_btn_state=hidden"
+        data-ui-preview-state-preview-base-states="tutorial_overlay=hidden; tutorial_countdown_state=hidden"
+    >
+        <div class="main-panel">
+            <header class="header-bar">
+                <div
+                    class="header-room-title text-truncate"
+                    data-ui-key="room_title"
+                    data-ui-role="label"
+                    data-ui-text="{1:lv.UI房间_文本.房名}"
+                ></div>
+                <div class="status-bar">
+                    <!-- 指引 marker：仅高亮前三项（压岁钱/年夜饭完整度/手办存活），默认隐藏（guide_0） -->
+                    <div
+                        class="highlight-display-area tutorial-marker"
+                        data-ui-state-group="tutorial_overlay"
+                        data-ui-state="guide_1"
+                        data-ui-state-default="0"
+                        data-flat-z-bias="1000000"
+                        data-highlight-overlay-alpha="0.45"
+                        style="
+                          left: calc(0px - var(--tutorial-hl-pad));
+                          top: calc(0px - var(--tutorial-hl-pad));
+                          width: calc(60% + 2 * var(--tutorial-hl-pad));
+                          height: calc(100% + 2 * var(--tutorial-hl-pad));
+                        "
+                    ></div>
+
+                    <div class="status-item tone-3">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="status-label">压岁钱</span>
+                        <span class="status-value" data-ui-key="status_money" data-ui-role="label" data-ui-text="¥ {1:ps.ui_battle_money}">¥ 600</span>
+                    </div>
+                    <div class="status-item tone-3">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="status-label">年夜饭完整度</span>
+                        <span class="status-value" data-ui-key="status_integrity" data-ui-role="label" data-ui-text="{1:ps.ui_battle_integrity}%">80%</span>
+                    </div>
+                    <div class="status-item tone-3">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="status-label">手办存活</span>
+                        <span class="status-value" data-ui-key="status_survival" data-ui-role="label" data-ui-text="{1:ps.ui_battle_survival} / 10">3 / 10</span>
+                    </div>
+                    <div class="status-item tone-3">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="status-label">当前排名</span>
+                        <span class="status-value" data-ui-key="status_rank" data-ui-role="label" data-ui-text="No. {1:ps.ui_battle_rank}">No. 2</span>
+                    </div>
+                    <div class="status-item tone-3">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="status-label">剩余亲戚</span>
+                        <span
+                            class="status-value"
+                            data-ui-key="room_timer_short"
+                            data-ui-role="label"
+                            data-ui-text="{1:lv.UI房间_文本.剩余亲戚_当前} / {1:lv.UI房间_文本.剩余亲戚_总}"
+                        >10 / 10</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <aside class="panel">
+                    <!-- 指引 marker：纸条面板（默认隐藏） -->
+                    <div
+                        class="highlight-display-area tutorial-marker"
+                        data-ui-state-group="tutorial_overlay"
+                        data-ui-state="guide_2"
+                        data-ui-state-default="0"
+                        data-flat-z-bias="1000000"
+                        data-highlight-overlay-alpha="0.45"
+                        style="
+                          left: calc(0px - var(--tutorial-hl-pad));
+                          top: calc(0px - var(--tutorial-hl-pad));
+                          width: calc(100% + 2 * var(--tutorial-hl-pad));
+                          height: calc(100% + 2 * var(--tutorial-hl-pad));
+                        "
+                    ></div>
+                    <div class="panel-title">
+                        <span class="panel-title-deco" aria-hidden="true"></span>
+                        <span class="panel-title-text" data-ui-key="clue_panel_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索标题}">妈妈的纸条</span>
+                    </div>
+                    <ol class="clue-list">
+                        <li>
+                            <div class="clue-tag" data-ui-key="clue_01_tag" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索1标}">二舅</div>
+                            <span class="clue-text" data-ui-key="clue_01_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索1文}">发际线高戴眼镜</span>
+                        </li>
+                        <li>
+                            <div class="clue-tag tag-blue" data-ui-key="clue_02_tag" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索2标}">大表姐</div>
+                            <span class="clue-text" data-ui-key="clue_02_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索2文}">大波浪红嘴唇</span>
+                        </li>
+                        <li>
+                            <div class="clue-tag tag-yellow" data-ui-key="clue_03_tag" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索3标}">警惕</div>
+                            <span class="clue-text" data-ui-key="clue_03_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索3文}">借平板玩游戏</span>
+                        </li>
+                        <li>
+                            <div class="clue-tag" data-ui-key="clue_04_tag" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索4标}">三姑</div>
+                            <span class="clue-text" data-ui-key="clue_04_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索4文}">嗑瓜子笑声大</span>
+                        </li>
+                        <li>
+                            <div class="clue-tag tag-blue" data-ui-key="clue_05_tag" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索5标}">小侄子</div>
+                            <span class="clue-text" data-ui-key="clue_05_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索5文}">奥特曼衣服爱跑</span>
+                        </li>
+                        <li>
+                            <div class="clue-tag tag-yellow" data-ui-key="clue_06_tag" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索6标}">警告</div>
+                            <span class="clue-text" data-ui-key="clue_06_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.线索6文}">厨房重地免进</span>
+                        </li>
+                    </ol>
+                </aside>
+
+                <main class="panel stage-panel">
+                    <!-- 指引 marker：中间展示区（默认隐藏） -->
+                    <div
+                        class="highlight-display-area tutorial-marker"
+                        data-ui-state-group="tutorial_overlay"
+                        data-ui-state="guide_3"
+                        data-ui-state-default="0"
+                        data-flat-z-bias="1000000"
+                        data-highlight-overlay-alpha="0.45"
+                        style="
+                          left: calc(0px - var(--tutorial-hl-pad));
+                          top: calc(0px - var(--tutorial-hl-pad));
+                          width: calc(100% + 2 * var(--tutorial-hl-pad));
+                          height: calc(100% + 2 * var(--tutorial-hl-pad));
+                        "
+                    ></div>
+                    <div class="game-cutout" data-game-area="游戏预览" data-game-cutout-allow-non-square="1">游戏画面实时预览区域</div>
+                    <!-- 注意：HUD 元素必须放在 game-cutout 之后，避免被扁平化 cutout 逻辑当作“下方层”裁掉 -->
+                    <div class="stage-countdown-actions" aria-label="回合倒计时">
+                        <div
+                            class="timer-badge"
+                            data-ui-key="stage_countdown"
+                            data-ui-role="label"
+                            data-ui-text="倒计时 {1:lv.UI战斗_文本.回合倒计时}"
+                            data-ui-state-group="stage_countdown_state"
+                            data-ui-state="show"
+                        >倒计时 08</div>
+                    </div>
+                    <div class="stage-dialogue-actions" aria-label="对白字幕">
+                        <!-- show：初始无默认态（不显示）；首次点击“对话”后由节点图切到 show -->
+                        <div
+                            class="stage-dialogue"
+                            data-ui-key="stage_dialogue_state"
+                            data-ui-role="panel"
+                            data-ui-state-group="stage_dialogue_state"
+                            data-ui-state="show"
+                        >
+                            <!-- 指引 marker：对白字幕区域（默认隐藏） -->
+                            <div
+                                class="highlight-display-area tutorial-marker"
+                                data-ui-state-group="tutorial_overlay"
+                                data-ui-state="guide_5"
+                                data-ui-state-default="0"
+                                data-flat-z-bias="1000000"
+                                data-highlight-overlay-alpha="0.45"
+                                style="
+                                  left: calc(0px - var(--tutorial-hl-pad));
+                                  top: calc(0px - var(--tutorial-hl-pad));
+                                  width: calc(100% + 2 * var(--tutorial-hl-pad));
+                                  height: calc(100% + 2 * var(--tutorial-hl-pad));
+                                "
+                            ></div>
+                            <div class="stage-dialogue-text" data-ui-key="stage_dialogue" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.对话}">年兽别想进我家！</div>
+                        </div>
+                    </div>
+                </main>
+
+                <aside class="panel">
+                    <div class="panel-title">
+                        <span class="panel-title-deco" aria-hidden="true"></span>
+                        <span class="panel-title-text" data-ui-key="judge_panel_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判标题}">亲戚审判庭</span>
+                    </div>
+                    <div class="judge-list">
+                        <div class="judge-row status-wait tone-3">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="judge-name" data-ui-key="judge_01_name" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判1名}">我</span>
+                            <span class="judge-score" data-ui-key="judge_01_score" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判1分}">600分</span>
+                            <span class="status-tag" data-ui-key="judge_01_status" data-ui-role="label" data-ui-text="<color={1:lv.UI战斗_颜色.审判1态}>{1:lv.UI战斗_文本.审判1态}</color>">思考中</span>
+                        </div>
+                        <div class="judge-row status-allow tone-3">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="judge-name" data-ui-key="judge_02_name" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判2名}">表弟</span>
+                            <span class="judge-score" data-ui-key="judge_02_score" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判2分}">820分</span>
+                            <span class="status-tag" data-ui-key="judge_02_status" data-ui-role="label" data-ui-text="<color={1:lv.UI战斗_颜色.审判2态}>{1:lv.UI战斗_文本.审判2态}</color>">允许</span>
+                        </div>
+                        <div class="judge-row status-reject tone-3">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="judge-name" data-ui-key="judge_03_name" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判3名}">堂姐</span>
+                            <span class="judge-score" data-ui-key="judge_03_score" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判3分}">1010分</span>
+                            <span class="status-tag" data-ui-key="judge_03_status" data-ui-role="label" data-ui-text="<color={1:lv.UI战斗_颜色.审判3态}>{1:lv.UI战斗_文本.审判3态}</color>">拒绝</span>
+                        </div>
+                        <div class="judge-row status-wait tone-3">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="judge-name" data-ui-key="judge_04_name" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判4名}">路人</span>
+                            <span class="judge-score" data-ui-key="judge_04_score" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.审判4分}">200分</span>
+                            <span class="status-tag" data-ui-key="judge_04_status" data-ui-role="label" data-ui-text="<color={1:lv.UI战斗_颜色.审判4态}>{1:lv.UI战斗_文本.审判4态}</color>">思考中</span>
+                        </div>
+                    </div>
+                    <div class="clue-note tone-3">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        记住：存在异常的亲戚一律是年兽伪装。
+                    </div>
+                </aside>
+            </div>
+
+            <footer class="action-bar">
+                <!-- 拒绝 + 允许：作为一组（便于高亮与未来布局调整） -->
+                <div class="action-judge-buttons" style="display:flex; gap: var(--action-bar-gap); position:relative;">
+                    <!-- 指引 marker：允许/拒绝（默认隐藏） -->
+                    <div
+                        class="highlight-display-area tutorial-marker"
+                        data-ui-state-group="tutorial_overlay"
+                        data-ui-state="guide_6"
+                        data-ui-state-default="0"
+                        data-flat-z-bias="1000000"
+                        data-highlight-overlay-alpha="0.45"
+                        style="
+                          left: calc(0px - var(--tutorial-hl-pad));
+                          top: calc(0px - var(--tutorial-hl-pad));
+                          width: calc(100% + 2 * var(--tutorial-hl-pad));
+                          height: calc(100% + 2 * var(--tutorial-hl-pad));
+                        "
+                    ></div>
+                    <!-- 拒绝进入：多状态（enabled/disabled） -->
+                    <div class="action-btn-cell">
+                        <button class="btn btn-reject tone-3" type="button"
+                                data-ui-key="btn_reject" data-ui-role="button" data-ui-interact-key="2"
+                                data-ui-state-group="btn_reject_state" data-ui-state="enabled" data-ui-state-default="1">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="btn-text text-truncate" data-ui-text-align="center" data-ui-text-valign="middle">拒绝进入</span>
+                        </button>
+                        <button class="btn btn-reject tone-3 disabled" type="button"
+                                data-ui-key="btn_reject" data-ui-role="button" data-ui-interact-key="2"
+                                data-ui-state-group="btn_reject_state" data-ui-state="disabled"
+                                aria-disabled="true">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="btn-text text-truncate" data-ui-text-align="center" data-ui-text-valign="middle">拒绝进入</span>
+                        </button>
+                    </div>
+
+                    <!-- 允许进入：多状态（enabled/disabled） -->
+                    <div class="action-btn-cell">
+                        <button class="btn btn-allow tone-3" type="button"
+                                data-ui-key="btn_allow" data-ui-role="button" data-ui-interact-key="1"
+                                data-ui-state-group="btn_allow_state" data-ui-state="enabled" data-ui-state-default="1">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="btn-text text-truncate" data-ui-text-align="center" data-ui-text-valign="middle">允许进入</span>
+                        </button>
+                        <button class="btn btn-allow tone-3 disabled" type="button"
+                                data-ui-key="btn_allow" data-ui-role="button" data-ui-interact-key="1"
+                                data-ui-state-group="btn_allow_state" data-ui-state="disabled"
+                                aria-disabled="true">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="btn-text text-truncate" data-ui-text-align="center" data-ui-text-valign="middle">允许进入</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 对话：多状态（enabled/disabled），放在“允许进入”的右侧（右下角区域） -->
+                <div class="action-btn-cell">
+                    <!-- 指引 marker：只高亮“对话”按钮（默认隐藏） -->
+                    <div
+                        class="highlight-display-area tutorial-marker"
+                        data-ui-state-group="tutorial_overlay"
+                        data-ui-state="guide_4"
+                        data-ui-state-default="0"
+                        data-flat-z-bias="1000000"
+                        data-highlight-overlay-alpha="0.45"
+                        style="
+                          left: calc(0px - var(--tutorial-hl-pad));
+                          top: calc(0px - var(--tutorial-hl-pad));
+                          width: calc(100% + 2 * var(--tutorial-hl-pad));
+                          height: calc(100% + 2 * var(--tutorial-hl-pad));
+                        "
+                    ></div>
+                    <button class="btn btn-dialogue tone-3" type="button"
+                            data-ui-key="btn_dialogue" data-ui-role="button" data-ui-interact-key="30"
+                            data-ui-state-group="btn_dialogue_state" data-ui-state="enabled" data-ui-state-default="1">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="btn-text text-truncate" data-ui-key="btn_dialogue_text" data-ui-role="label" data-ui-text="对话"
+                              data-ui-text-align="center" data-ui-text-valign="middle">对话</span>
+                    </button>
+                    <button class="btn btn-dialogue tone-3 disabled" type="button"
+                            data-ui-key="btn_dialogue" data-ui-role="button" data-ui-interact-key="30"
+                            data-ui-state-group="btn_dialogue_state" data-ui-state="disabled"
+                            aria-disabled="true">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="btn-text text-truncate" data-ui-key="btn_dialogue_disabled_text" data-ui-role="label" data-ui-text="对话"
+                              data-ui-text-align="center" data-ui-text-valign="middle">对话</span>
+                    </button>
+                </div>
+            </footer>
+
+            <!-- 新手指引遮罩层：默认 guide_0（背景故事；帮助开始前） -->
+            <section class="tutorial-overlay"
+                     data-ui-key="tutorial_overlay"
+                     data-ui-export-as="decor"
+                     data-ui-state-group="tutorial_overlay"
+                     aria-label="新手指引遮罩层">
+                <!-- 隐藏态：教程完成后由节点图切回 -->
+                <div data-ui-state="hidden"></div>
+
+                <!-- 背景故事：帮助开始前的序章（不挖空，整屏压暗） -->
+                <div class="tutorial-overlay-shown" data-ui-state="guide_0" data-ui-state-default="1">
+                    <div class="tutorial-dim-screen" data-flat-z-bias="1000000"></div>
+                    <div class="tutorial-card tutorial-card-story tone-3"
+                         data-flat-z-bias="1000100"
+                         style="left:50%; top:50%; transform:translate(-50%, -50%);"
+                         data-ui-key="tutorial_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <div class="tutorial-step-text" data-ui-key="guide_0_step" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引0_步骤}">背景故事</div>
+                            <div class="tutorial-title" data-ui-key="guide_0_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引0_标题}">年关将至</div>
+                            <div class="tutorial-body" data-ui-key="guide_0_body" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引0_正文}">新年快到了。妈妈临时有事出门，拜托你在家招待来访的亲戚。可你总觉得哪里不对……他们真的是你的亲戚吗？</div>
+                            <div class="tutorial-actions">
+                                <button class="tutorial-btn tutorial-btn-next tone-3" type="button"
+                                        data-ui-key="btn_tutorial_next" data-ui-role="button" data-ui-interact-key="31"
+                                        data-ui-action="tutorial_next">
+                                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                    <span class="btn-text" data-ui-key="guide_0_next_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引_按钮_下一步}"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">下一步</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 指引 1：只高亮“压岁钱/年夜饭/手办存活”三项 -->
+                <div class="tutorial-overlay-shown" data-ui-state="guide_1">
+                    <div class="tutorial-card tone-3"
+                         data-tutorial-anchor="highlight"
+                         data-tutorial-anchor-placement="bottom"
+                         data-flat-z-bias="1000100"
+                         style="left:50%; top:220px; transform:translateX(-50%);"
+                         data-ui-key="tutorial_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <div class="tutorial-step-text" data-ui-key="guide_1_step" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引1_步骤}">指引 1/6</div>
+                            <!-- 倒计时已移出 -->
+                            <div class="tutorial-title" data-ui-key="guide_1_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引1_标题}">先看资源条</div>
+                            <div class="tutorial-body" data-ui-key="guide_1_body" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引1_正文}">我们的目标：尽可能多拿压岁钱，同时保住年夜饭完整度和手办存活。</div>
+                            <div class="tutorial-actions">
+                                <button class="tutorial-btn tutorial-btn-next tone-3" type="button"
+                                        data-ui-key="btn_tutorial_next" data-ui-role="button" data-ui-interact-key="31"
+                                        data-ui-action="tutorial_next">
+                                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                    <span class="btn-text" data-ui-key="guide_1_next_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引_按钮_下一步}"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">下一步</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 指引 2：左侧线索（纸条），卡片靠近纸条 -->
+                <div class="tutorial-overlay-shown" data-ui-state="guide_2">
+                    <div class="tutorial-card tone-3"
+                         data-tutorial-anchor="highlight"
+                         data-tutorial-anchor-placement="right"
+                         data-flat-z-bias="1000100"
+                         style="left:calc(30% + 40px); top:118px;"
+                         data-ui-key="tutorial_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <div class="tutorial-step-text" data-ui-key="guide_2_step" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引2_步骤}">指引 2/6</div>
+                            <div class="tutorial-title" data-ui-key="guide_2_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引2_标题}">先看纸条线索</div>
+                            <div class="tutorial-body" data-ui-key="guide_2_body" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引2_正文}">左侧纸条是你最可靠的线索来源：外观特征、背景信息、警惕规则。</div>
+                            <div class="tutorial-actions">
+                                <button class="tutorial-btn tutorial-btn-next tone-3" type="button"
+                                        data-ui-key="btn_tutorial_next" data-ui-role="button" data-ui-interact-key="31"
+                                        data-ui-action="tutorial_next">
+                                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                    <span class="btn-text" data-ui-key="guide_2_next_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引_按钮_下一步}"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">下一步</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 指引 3：中间展示区，卡片放右侧避免遮挡 -->
+                <div class="tutorial-overlay-shown" data-ui-state="guide_3">
+                    <div class="tutorial-card tone-3"
+                         data-tutorial-anchor="highlight"
+                         data-tutorial-anchor-placement="top"
+                         data-flat-z-bias="1000100"
+                         style="left:50%; top:12px; transform:translateX(-50%);"
+                         data-ui-key="tutorial_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <div class="tutorial-step-text" data-ui-key="guide_3_step" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引3_步骤}">指引 3/6</div>
+                            <div class="tutorial-title" data-ui-key="guide_3_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引3_标题}">观察中间展示区</div>
+                            <div class="tutorial-body" data-ui-key="guide_3_body" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引3_正文}">中间是现场展示区：你需要观察外观/道具/行为等细节，并和纸条对照。</div>
+                            <div class="tutorial-actions">
+                                <button class="tutorial-btn tutorial-btn-next tone-3" type="button"
+                                        data-ui-key="btn_tutorial_next" data-ui-role="button" data-ui-interact-key="31"
+                                        data-ui-action="tutorial_next">
+                                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                    <span class="btn-text" data-ui-key="guide_3_next_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引_按钮_下一步}"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">下一步</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 指引 4：只高亮“对话”按钮 -->
+                <div class="tutorial-overlay-shown" data-ui-state="guide_4">
+                    <div class="tutorial-card tone-3"
+                         data-tutorial-anchor="highlight"
+                         data-tutorial-anchor-placement="top"
+                         data-flat-z-bias="1000100"
+                         style="left:50%; bottom:calc(var(--action-btn-cell-h) + 160px); transform:translateX(-50%);"
+                         data-ui-key="tutorial_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <div class="tutorial-step-text" data-ui-key="guide_4_step" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引4_步骤}">指引 4/6</div>
+                            <div class="tutorial-title" data-ui-key="guide_4_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引4_标题}">先点击对话</div>
+                            <div class="tutorial-body" data-ui-key="guide_4_body" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引4_正文}">不确定就先问一句：点“对话”获取更多信息（亲属关系/说辞/细节）。</div>
+                            <div class="tutorial-actions">
+                                <button class="tutorial-btn tutorial-btn-next tone-3" type="button"
+                                        data-ui-key="btn_tutorial_next" data-ui-role="button" data-ui-interact-key="31"
+                                        data-ui-action="tutorial_next">
+                                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                    <span class="btn-text" data-ui-key="guide_4_next_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引_按钮_下一步}"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">下一步</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 指引 5：展示亲戚对白文本（字幕区） -->
+                <div class="tutorial-overlay-shown" data-ui-state="guide_5">
+                    <div class="tutorial-card tone-3"
+                         data-tutorial-anchor="highlight"
+                         data-tutorial-anchor-placement="top"
+                         data-flat-z-bias="1000100"
+                         style="left:50%; bottom:calc(var(--action-btn-cell-h) + 160px); transform:translateX(-50%);"
+                         data-ui-key="tutorial_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <div class="tutorial-step-text" data-ui-key="guide_5_step" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引5_步骤}">指引 5/6</div>
+                            <div class="tutorial-title" data-ui-key="guide_5_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引5_标题}">阅读亲戚对白</div>
+                            <div class="tutorial-body" data-ui-key="guide_5_body" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引5_正文}">对白会提供关键线索：把他说的话和纸条对照，找矛盾点。</div>
+                            <div class="tutorial-actions">
+                                <button class="tutorial-btn tutorial-btn-next tone-3" type="button"
+                                        data-ui-key="btn_tutorial_next" data-ui-role="button" data-ui-interact-key="31"
+                                        data-ui-action="tutorial_next">
+                                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                    <span class="btn-text" data-ui-key="guide_5_next_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引_按钮_下一步}"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">下一步</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 指引 6：允许/拒绝（不含对话） -->
+                <div class="tutorial-overlay-shown" data-ui-state="guide_6">
+                    <div class="tutorial-card tone-3"
+                         data-tutorial-anchor="highlight"
+                         data-tutorial-anchor-placement="top"
+                         data-flat-z-bias="1000100"
+                         style="left:calc(50% - 180px); bottom:calc(var(--action-btn-cell-h) + 220px); transform:translateX(-50%);"
+                         data-ui-key="tutorial_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <div class="tutorial-step-text" data-ui-key="guide_6_step" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引6_步骤}">指引 6/6</div>
+                            <div class="tutorial-title" data-ui-key="guide_6_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引6_标题}">最后再做决定</div>
+                            <div class="tutorial-body" data-ui-key="guide_6_body" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引6_正文}">允许=放进来：放对拿压岁钱；放错扣年夜饭完整度；放小孩扣手办和压岁钱。</div>
+                            <div class="tutorial-actions">
+                                <button class="tutorial-btn tutorial-btn-next tone-3" type="button"
+                                        data-ui-key="btn_tutorial_next" data-ui-role="button" data-ui-interact-key="31"
+                                        data-ui-action="tutorial_next">
+                                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                    <span class="btn-text" data-ui-key="guide_6_next_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引_按钮_下一步}"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">下一步</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 等待其他玩家完成新手教学（玩家已完成时展示） -->
+                <div class="tutorial-overlay-shown" data-ui-state="wait_others">
+                    <div class="tutorial-dim-screen" data-flat-z-bias="1000000"></div>
+
+                    <div class="tutorial-card tone-3"
+                         data-flat-z-bias="1000100"
+                         style="left:50%; top:50%; transform:translate(-50%, -50%);"
+                         data-ui-key="tutorial_wait_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <!-- 倒计时已移出 -->
+                            <div class="tutorial-title" data-ui-key="tutorial_wait_title" data-ui-role="label"
+                                 data-ui-text="{1:lv.UI战斗_文本.新手教程_等待_标题}">已完成新手教学，等待其他玩家…</div>
+                            <div class="tutorial-body" data-ui-key="tutorial_wait_body" data-ui-role="label"
+                                 data-ui-text="{1:lv.UI战斗_文本.新手教程_等待_副标题_前}{1:lv.UI战斗_整数.新手教程_已完成人数}/{1:lv.UI战斗_整数.新手教程_总人数}{1:lv.UI战斗_文本.新手教程_等待_副标题_后}">当前已完成 1/4 人</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 指引完成 -->
+                <div class="tutorial-overlay-shown" data-ui-state="done">
+                    <!-- done：全压暗，不挖空 -->
+                    <div class="tutorial-dim-screen" data-flat-z-bias="1000000"></div>
+                    <div class="tutorial-card tone-3"
+                         data-flat-z-bias="1000100"
+                         style="left:50%; top:50%; transform:translate(-50%, -50%);"
+                         data-ui-key="tutorial_card" data-ui-role="panel">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <div class="tutorial-card-inner">
+                            <div class="tutorial-step-text" data-ui-key="guide_done_step" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引完成_步骤}">指引完成</div>
+                            <div class="tutorial-title" data-ui-key="guide_done_title" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引完成_标题}">可以开始了</div>
+                            <div class="tutorial-body" data-ui-key="guide_done_body" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引完成_正文}">祝你多拿压岁钱，守住年夜饭！</div>
+                            <div class="tutorial-actions">
+                                <button class="tutorial-btn tutorial-btn-next tone-3" type="button"
+                                        data-ui-key="btn_tutorial_next" data-ui-role="button" data-ui-interact-key="31"
+                                        data-ui-action="tutorial_next">
+                                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                    <span class="btn-text" data-ui-key="guide_done_next_text" data-ui-role="label" data-ui-text="{1:lv.UI战斗_文本.指引_按钮_完成}"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">完成</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 全局倒计时（不绑定 guide_1）：新手教学期间常驻；正式开始后由节点图切到 hidden
+                     注意：放在 tutorial_overlay 末尾，确保 wait_others / done 的压暗层之上（扁平化/导出不读 CSS z-index）。 -->
+                <div class="tutorial-countdown-actions" aria-label="新手教学倒计时（全局）">
+                    <div class="tutorial-countdown-float"
+                         data-ui-key="tutorial_countdown" data-ui-role="label"
+                         data-ui-state-group="tutorial_countdown_state" data-ui-state="show" data-ui-state-default="1"
+                         data-flat-z-bias="1000200"
+                         data-ui-text="{1:lv.UI战斗_文本.新手教程_倒计时_标题}：{1:lv.UI战斗_整数.新手教程_剩余秒}{1:lv.UI战斗_文本.新手教程_倒计时_单位}">新手教学倒计时：30秒</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 结算 / 揭晓覆盖层：默认态 hidden（不显示）。 -->
+        <section class="battle-settlement-overlay" data-ui-state-group="battle_settlement_overlay" aria-label="结算揭晓面板">
+            <!-- 默认隐藏态：导出侧用于“默认不显示” -->
+            <div data-ui-state="hidden" data-ui-state-default="1"></div>
+
+            <!-- 结果（仅在本轮全部玩家完成选择后展示） -->
+            <div class="settlement-state" data-ui-state="result">
+                <div class="settlement-backdrop" aria-hidden="true"></div>
+                <div class="settlement-card">
+                    <div class="settlement-header">
+                        <div>
+                            <div class="settlement-title" data-ui-key="reveal_title_result" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.揭晓标题}">审判结果揭晓</div>
+                            <div class="settlement-subtitle" data-ui-key="reveal_subtitle_result" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.揭晓副标题}">本轮目标：二舅</div>
+                        </div>
+                        <div class="settlement-badge badge-result" data-ui-key="reveal_badge_result" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.徽章_结果}">结果</div>
+                    </div>
+                    <div class="settlement-body">
+                        <div class="settlement-result">
+                            <div class="settlement-verdict-main" data-ui-key="reveal_verdict_main" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.结果_判定}">判断正确</div>
+                            <div class="settlement-verdict-truth" data-ui-key="reveal_verdict_truth" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.结果_真相}">真亲戚</div>
+                            <div class="settlement-verdict-desc" data-ui-key="reveal_verdict_desc" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.结果_描述}">这位亲戚是真的。</div>
+                        </div>
+                        <div class="settlement-deltas" aria-label="本轮影响">
+                            <div class="delta-row">
+                                <div class="delta-label" data-ui-key="reveal_delta_money_label_result" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.变化_压岁钱_标题}">压岁钱</div>
+                                <div class="delta-value delta-flat" data-ui-key="reveal_delta_money_value_result" data-ui-role="label" data-ui-text="{1:ps.ui_battle_moneyd}">+0</div>
+                            </div>
+                            <div class="delta-row">
+                                <div class="delta-label" data-ui-key="reveal_delta_score_label_result" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.变化_得分_标题}">得分</div>
+                                <div class="delta-value delta-flat" data-ui-key="reveal_delta_score_value_result" data-ui-role="label" data-ui-text="{1:ps.ui_battle_scored}">+0</div>
+                            </div>
+                            <div class="delta-row">
+                                <div class="delta-label" data-ui-key="reveal_delta_integrity_label_result" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.变化_完整度_标题}">年夜饭完整度</div>
+                                    <div class="delta-value delta-flat" data-ui-key="reveal_delta_integrity_value_result" data-ui-role="label" data-ui-text="{1:ps.ui_battle_integrityd}%">-5%</div>
+                            </div>
+                            <div class="delta-row">
+                                <div class="delta-label" data-ui-key="reveal_delta_survival_label_result" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.变化_存活_标题}">手办存活</div>
+                                    <div class="delta-value delta-flat" data-ui-key="reveal_delta_survival_value_result" data-ui-role="label" data-ui-text="{1:ps.ui_battle_survivald}">-1</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settlement-actions">
+                        <button class="btn-mini btn-mini-secondary tone-3" type="button" data-ui-key="btn_reveal_close_result" data-ui-role="button" data-ui-interact-key="21">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            <span class="btn-text" data-ui-key="reveal_btn_close_text_result" data-ui-role="label" data-ui-text="{1:lv.UI战斗_揭晓.按钮_关闭}"
+                                  data-ui-text-align="center" data-ui-text-valign="middle">继续</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 顶部悬浮按钮必须放在 DOM 末尾：扁平化后层级更稳定（避免被主面板/遮罩压住） -->
+        <div class="top-actions">
+            <button class="btn-exit-top tone-3" type="button"
+                    data-ui-key="btn_exit" data-ui-role="button" data-ui-interact-key="10"
+                    data-ui-export-as="decor"
+                    data-ui-action="exit">
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                <span class="btn-text" data-ui-text-align="center" data-ui-text-valign="middle">退出</span>
+            </button>
+
+            <button class="btn-top btn-level-select-top tone-3" type="button"
+                    data-ui-key="btn_level_select" data-ui-role="button" data-ui-interact-key="11"
+                    data-ui-action="open_level_select">
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                <span class="btn-text" data-ui-text-align="center" data-ui-text-valign="middle">关卡选择</span>
+            </button>
+        </div>
+
+        <!-- 帮助按钮（右上角）：正式开始后可随时回顾新手教学 -->
+        <div class="help-actions" aria-label="帮助按钮">
+            <button class="btn-top btn-help-top tone-3" type="button"
+                    data-ui-key="btn_help" data-ui-role="button" data-ui-interact-key="32"
+                    data-ui-state-group="help_btn_state" data-ui-state="show"
+                    data-ui-action="help_tutorial">
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                <span class="btn-text" data-ui-text-align="center" data-ui-text-valign="middle">帮助</span>
+            </button>
+        </div>
+    </div>
+</body>
+</html>

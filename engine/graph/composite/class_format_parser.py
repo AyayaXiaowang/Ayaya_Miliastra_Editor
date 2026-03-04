@@ -19,6 +19,7 @@ from engine.graph.common import node_name_index_from_library, is_loop_node_name
 from engine.graph.models import GraphModel, NodeModel
 from engine.graph.composite.param_usage_tracker import ParamUsageTracker
 from engine.graph.semantic import GraphSemanticPass
+from engine.graph.utils.composite_instance_utils import iter_composite_instance_pairs
 
 
 class ClassFormatParser:
@@ -46,6 +47,13 @@ class ClassFormatParser:
         )
         # 实例字段别名映射：attr_name -> 入口形参名（例如 "_定时器标识" -> "定时器标识"）
         self._state_attr_aliases: Dict[str, str] = {}
+        # 复合实例映射：alias -> composite_id（来自 __init__ 的 self.xxx = CompositeClass(...)）
+        self._composite_instances: Dict[str, str] = {}
+        # 复合类名 -> NodeDef（用于解析 __init__ 中的实例声明）
+        self._composite_defs_by_class: Dict[str, NodeDef] = {}
+        for _, node_def in (node_library or {}).items():
+            if getattr(node_def, "is_composite", False):
+                self._composite_defs_by_class[str(getattr(node_def, "name", "") or "")] = node_def
     
     def parse_class_methods(
         self,
@@ -76,6 +84,10 @@ class ClassFormatParser:
         # 例如：在某个入口方法中出现 `self._定时器标识 = 定时器标识`
         # 则记录映射 {"_定时器标识": "定时器标识"}
         self._state_attr_aliases = self._collect_state_attr_aliases(class_def)
+
+        # 复合节点定义文件中允许“复合内嵌套复合”时，必须从 __init__ 提取复合实例声明，
+        # 否则方法体内的 `self.<实例>.<入口>(...)` 会被当作普通 Python 方法调用而无法建模为 IR 节点。
+        self._composite_instances = self._collect_composite_instances_from_init(class_def)
         
         # 语义元数据（signal_bindings/struct_bindings）不在解析过程中多点写入，
         # 统一在方法合并完成后由 GraphSemanticPass 覆盖式生成。
@@ -194,6 +206,8 @@ class ClassFormatParser:
         
         # 使用 IR 管线解析方法体
         ir_env = IRVarEnv()
+        # 将 __init__ 中识别到的复合实例映射注入到 IR 环境，支持“复合内调用复合”建模。
+        ir_env.composite_instances = dict(self._composite_instances)
         data_output_var_map = method_spec.get('data_output_var_map', {}) or {}
         predeclared_locals: List[str] = []
         for pin_name, pin_type in method_spec.get('outputs', []):
@@ -214,7 +228,7 @@ class ClassFormatParser:
             register_event_outputs(event_node, method_def, ir_env)
         
         ir_validators = IRValidators()
-        nodes, edges = ir_parse_method_body(
+        nodes, edges, _final_prev = ir_parse_method_body(
             method_def.body,
             event_node,
             method_graph,
@@ -256,6 +270,22 @@ class ClassFormatParser:
         )
         
         return method_graph
+
+    def _collect_composite_instances_from_init(self, class_def: ast.ClassDef) -> Dict[str, str]:
+        """从 __init__ 中提取复合节点实例映射：alias -> composite_id。
+
+        约定：仅识别 `self.<alias> = <CompositeClassName>(...)` 赋值语句。
+        """
+        instances: Dict[str, str] = {}
+        for alias, class_name in iter_composite_instance_pairs(class_def):
+            node_def = self._composite_defs_by_class.get(str(class_name))
+            if not node_def:
+                continue
+            composite_id = str(getattr(node_def, "composite_id", "") or "").strip()
+            if not composite_id:
+                continue
+            instances[str(alias)] = composite_id
+        return instances
     
     def _build_virtual_pin_mappings_for_method(
         self,
@@ -838,6 +868,28 @@ class ClassFormatParser:
                 id_mapping[node_id] = new_id
                 node.id = new_id
             target.nodes[new_id] = node
+
+        # 合并 GraphModel.metadata（仅合并可叠加的子域；避免覆盖语义 pass 的单点写入字段）
+        #
+        # 关键：IR 的局部变量建模（local_var_builder）会把“中文类型注解”写入 source.metadata["port_type_overrides"]，
+        # 若合并阶段丢失该字段，会在后续结构校验/端口类型推断中表现为“端口类型仍为泛型”。
+        source_meta = getattr(source, "metadata", None) or {}
+        if isinstance(source_meta, dict):
+            source_overrides = source_meta.get("port_type_overrides")
+            if isinstance(source_overrides, dict) and source_overrides:
+                target_meta = getattr(target, "metadata", None) or {}
+                if not isinstance(target_meta, dict):
+                    target_meta = {}
+                target_overrides_raw = target_meta.get("port_type_overrides")
+                target_overrides: Dict[str, Any] = dict(target_overrides_raw) if isinstance(target_overrides_raw, dict) else {}
+                for old_node_id, mapping in source_overrides.items():
+                    if not isinstance(mapping, dict):
+                        continue
+                    new_node_id = id_mapping.get(str(old_node_id), str(old_node_id))
+                    # 同一 node_id 不应跨方法冲突；若冲突，以后写入者覆盖（避免残留旧 mapping）
+                    target_overrides[str(new_node_id)] = dict(mapping)
+                target_meta["port_type_overrides"] = target_overrides
+                target.metadata = target_meta
         
         for edge_id, edge in source.edges.items():
             if edge.src_node in id_mapping:

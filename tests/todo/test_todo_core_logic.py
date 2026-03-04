@@ -3,19 +3,19 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Set
 
 from app.models import TodoItem
-from app.ui.todo.current_todo_resolver import (
+from app.ui.todo.runtime.current_todo_resolver import (
     CurrentTodoContext,
     resolve_current_todo_for_leaf,
     resolve_current_todo_for_root,
 )
-from app.ui.todo.todo_execution_service import (
+from app.ui.todo.runtime.todo_execution_service import (
     plan_execute_from_this_step,
     plan_single_step_execution,
     plan_template_root_execution,
     plan_event_flow_root_execution,
 )
-from app.ui.todo.graph_data_resolver import resolve_graph_data_for_execution
-from app.ui.todo.recognition_backfill_planner import (
+from app.ui.todo.runtime.graph_data_resolver import resolve_graph_data_for_execution
+from app.ui.todo.runtime.recognition_backfill_planner import (
     RecognitionFlowProgress,
     plan_recognition_backfill,
 )

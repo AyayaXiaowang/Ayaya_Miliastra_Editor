@@ -190,7 +190,12 @@ def materialize_call_node(
     
     # 1. 检查是否是复合节点实例方法调用
     if isinstance(call_expr.func, ast.Attribute):
-        composite_node = create_composite_node_from_instance_call(call_expr, ctx.node_library, env)
+        composite_node = create_composite_node_from_instance_call(
+            call_expr,
+            ctx.node_library,
+            env,
+            graph_model=graph_model,
+        )
         
         if composite_node:
             # 这是复合节点调用
@@ -212,6 +217,7 @@ def materialize_call_node(
                 ctx,
                 validators,
                 env,
+                graph_model=graph_model,
             )
             result.nested_nodes = nested_nodes
             result.edges.extend(nested_edges)
@@ -223,6 +229,7 @@ def materialize_call_node(
                 ctx.node_library,
                 ctx.node_name_index,
                 env,
+                graph_model=graph_model,
             )
             result.edges.extend(data_edges)
             
@@ -238,7 +245,7 @@ def materialize_call_node(
         return result
     
     # 2. 预判：纯数据节点的未使用检查
-    preview = create_node_from_call(call_expr, ctx, validators, env=env)
+    preview = create_node_from_call(call_expr, ctx, validators, env=env, graph_model=graph_model)
     if preview and check_unused and assigned_names and later_stmts is not None:
         if (not is_flow_node(preview)) and (not is_event_node(preview)):
             # 检查赋值变量是否被后续使用
@@ -253,12 +260,18 @@ def materialize_call_node(
             return result
     
     # 4. 提取嵌套节点
-    nested_nodes, nested_edges, param_node_map = extract_nested_nodes(call_expr, ctx, validators, env)
+    nested_nodes, nested_edges, param_node_map = extract_nested_nodes(
+        call_expr,
+        ctx,
+        validators,
+        env,
+        graph_model=graph_model,
+    )
     result.nested_nodes = nested_nodes
     result.edges.extend(nested_edges)
     
     # 5. 创建节点
-    node = preview or create_node_from_call(call_expr, ctx, validators, env=env)
+    node = preview or create_node_from_call(call_expr, ctx, validators, env=env, graph_model=graph_model)
     if not node:
         result.should_skip = True
         return result
@@ -280,7 +293,13 @@ def materialize_call_node(
     
     # 7. 数据边
     data_edges = create_data_edges_for_node_enhanced(
-        node, call_expr, param_node_map, ctx.node_library, ctx.node_name_index, env
+        node,
+        call_expr,
+        param_node_map,
+        ctx.node_library,
+        ctx.node_name_index,
+        env,
+        graph_model=graph_model,
     )
     result.edges.extend(data_edges)
     

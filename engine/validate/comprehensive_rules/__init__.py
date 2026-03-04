@@ -4,6 +4,7 @@ from typing import List
 
 from ..comprehensive_types import ValidationIssue
 from .base import BaseComprehensiveRule
+from .auto_custom_variable_registry_rule import AutoCustomVariableRegistryRule
 from .composite_rule import CompositeNodesRule
 from .frontend_variable_rule import FrontendVariableRule
 from .graph_performance_rule import GraphPerformanceRule
@@ -34,6 +35,7 @@ def build_rules(validator) -> List[BaseComprehensiveRule]:
         PackageGraphMountRule(validator),
         UiControlsRule(validator),
         ManagementConfigRule(validator),
+        AutoCustomVariableRegistryRule(validator),
         LevelVariableReferenceRule(validator),
         GraphLevelVariableUsageRule(validator),
         FrontendVariableRule(validator),

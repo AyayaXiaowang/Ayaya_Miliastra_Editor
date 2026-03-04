@@ -51,13 +51,17 @@ class ResourceWatchPolicy:
 
     @staticmethod
     def _normalize_path_text(path: Path) -> str:
-        return normalize_slash(str(path.resolve())).rstrip("/").lower()
+        # 性能：避免 `Path.resolve()` 触发的文件系统 IO（directoryChanged 风暴下代价很高）。
+        # watcher 回调传入的路径通常已是绝对路径；这里仅做纯字符串归一化。
+        return normalize_slash(str(path)).rstrip("/").lower()
 
     @classmethod
     def create(cls, *, resource_root_dir: Path, active_package_id: str | None) -> "ResourceWatchPolicy":
         normalized_active_package_id = str(active_package_id or "").strip() or None
-        packages_root_dir = get_packages_root_dir(resource_root_dir)
-        shared_root_dir = get_shared_root_dir(resource_root_dir)
+        # 仅在构造时做一次 resolve，确保根路径文本稳定；后续 per-event/per-dir 判断不再触发 IO。
+        resource_root_dir = resource_root_dir.resolve()
+        packages_root_dir = get_packages_root_dir(resource_root_dir).resolve()
+        shared_root_dir = get_shared_root_dir(resource_root_dir).resolve()
         return cls(
             resource_root_dir=resource_root_dir,
             packages_root_dir=packages_root_dir,

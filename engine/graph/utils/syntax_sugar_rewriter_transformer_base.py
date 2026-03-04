@@ -784,6 +784,22 @@ class _GraphCodeSyntaxSugarTransformerBase:
             self.used_names.add(candidate)
             return candidate
 
+    def _next_temp_min_max_list_var_name(self, lineno: Optional[int]) -> str:
+        """为 client 的 max(a,b)/min(a,b) 改写生成临时列表变量名。
+
+        背景：client 侧用“拼装列表 → 获取列表最大值/最小值”表达两值 max/min；
+        但拼装列表输出为“泛型列表”，若没有中间带注解的列表变量承接，会触发结构校验
+        的“端口类型未实例化（仍为泛型）”。
+        """
+        line_part = int(lineno) if isinstance(lineno, int) and lineno > 0 else 0
+        while True:
+            candidate = f"__auto_min_max_list_for_{line_part}_{self._temp_counter}"
+            self._temp_counter += 1
+            if candidate in self.used_names:
+                continue
+            self.used_names.add(candidate)
+            return candidate
+
     def _visit_stmt_list(self, stmts: List[ast.stmt]) -> List[ast.stmt]:
         new_list: List[ast.stmt] = []
         for stmt in list(stmts or []):

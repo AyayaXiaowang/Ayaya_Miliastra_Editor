@@ -23,15 +23,20 @@
   - `test_alias_assignment_allowed_rule.py`：回归运行期变量之间允许别名赋值（同数据来源映射），同时保持“常量复制赋值”仍报错。
   - `test_dict_mutation_requires_graph_var_rule.py`：回归字典引用/写回语义规则（compute 多下游 warning、原地修改后继续使用 error）。
   - `test_pull_eval_reevaluation_hazard_rule.py`：回归“写入后复用同一 pull-eval 实例”的重算风险 warning，并避免安全写法误报。
+  - `test_pull_eval_same_source_arith_hazard_rule.py`：回归“同一自定义变量两次读取接入同一算术节点左右输入”的同源运算风险 warning，并避免变量名不同的安全写法误报。
 - **覆盖类回归**
   - `test_enum_coverage_graphs.py`：回归“枚举覆盖图”包含节点库声明的全部枚举候选值（server/client 分作用域统计；覆盖图按目录收集 `*.py` 文件）。
 - **类型一致性 / 节点调用守卫**
   - `test_port_same_type_rule.py`：回归部分比较/运算节点输入端口必须同型的规则（整数≠浮点数）。
   - `test_generic_type_annotation_forbidden_rule.py`：回归显式中文类型注解禁止使用“泛型家族”占位类型（含别名字典键/值类型为泛型的情况），避免用万能类型绕过类型收敛。
   - `test_typed_dict_alias_port_enforced.py`：回归“别名字典端口”键/值类型强校验：当端口期望 `配置ID-整数字典` 时，字典字面量/拼装字典必须满足键=配置ID、值=整数，且禁止用 `泛型/泛型字典` 绕过。
+  - `test_typed_list_element_type_enforced.py`：回归“强类型列表端口/注解变量”逐元素类型校验：例如 `浮点数列表` 中出现 `整数` 元素必须报错，避免 `拼装列表→泛型列表` 被连线规则放行导致漏报。
   - `test_unknown_node_call_rule.py`：回归“疑似节点调用但节点不存在/拼写错误”必须在校验期报错。
+  - `test_edge_port_reference_must_exist.py`：回归“边引用的端口必须存在于节点 inputs/outputs”：对非动态端口节点传入不存在的关键字参数时，应在校验期报错，避免写回阶段才以低层异常暴露。
 - `test_guid_ui_key_placeholder.py`：工程化回归：GUID/整数（含列表类型）的常量输入与 `GRAPH_VARIABLES.default_value` 允许 `ui_key:<key>` / `ui:<key>` 占位符；当节点图位于资源库目录结构下时，校验会要求占位符 key 必须存在于 `管理配置/UI源码/**/*.html` 的 `data-ui-key` 集合中（缺失 UI源码 或缺失 key 均应报错）。
-- `test_ui_level_custom_var_target_entity_rule.py`：工程化回归：UI源码占位符引用到的 `ui_*` 自定义变量必须写到正确的目标实体；并支持通过 docstring `mount_entity_type: 关卡/玩家` 明确 `self.owner_entity` 的归属。
+- `test_component_key_placeholder.py`：工程化回归：元件ID（含列表类型）的常量输入与 `GRAPH_VARIABLES.default_value` 允许 `component_key:<元件名>` / `component:<元件名>` 占位符；校验阶段仅做占位符非空语法校验（不做“元件名是否存在”校验），写回/导出阶段由 `ugc_file_tools` 通过 registry/参考 `.gil` 回填真实元件ID；若允许缺失则回填为 0。
+- `test_entity_key_placeholder.py`：工程化回归：GUID/整数（含列表类型）的常量输入与 `GRAPH_VARIABLES.default_value` 允许 `entity_key:<实体名>` / `entity:<实体名>` 占位符；校验阶段仅做占位符非空语法校验（不做实体名存在性校验），写回/导出阶段由 `ugc_file_tools` 从参考 `.gil` 回填真实实体 GUID/ID（同名取第一个）；若允许缺失则回填为 0。
+- `test_ui_level_custom_var_target_entity_rule.py`：工程化回归：UI源码占位符引用到的自定义变量必须写到正确的目标实体；并支持通过 docstring `mount_entity_type: 关卡/玩家` 明确 `self.owner_entity` 的归属。
 - **节点库解析与语义入口（校验层单一事实源）**
   - `test_node_def_resolver.py`：回归 `node_def_resolver` 的 key 解析规则（类别规范化、`#{scope}` 优先级与回退）。
   - `test_node_semantics_entrypoints.py`：回归 `node_semantics` 在图数据层优先使用 `NodeDef.semantic_id` 的语义识别入口。

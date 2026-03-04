@@ -283,7 +283,13 @@ def validate_pin_type_annotation(type_name: str, allow_python_builtin: bool = Fa
     from engine.type_registry import (
         BANNED_TYPE_ALIASES,
         PIN_TYPE_ANNOTATION_ALLOWED_TYPES,
+        parse_typed_dict_alias,
         TYPE_GENERIC,
+        TYPE_DICT,
+        TYPE_FLOW,
+        TYPE_GENERIC_DICT,
+        TYPE_GENERIC_LIST,
+        TYPE_LIST_PLACEHOLDER,
     )
 
     # 允许的中文类型集合（唯一事实来源：engine.type_registry）
@@ -297,6 +303,22 @@ def validate_pin_type_annotation(type_name: str, allow_python_builtin: bool = Fa
     # 已是中文类型，直接返回
     if type_name in allowed_types:
         return type_name
+
+    # 别名字典（键类型_值类型字典 / 键类型-值类型字典）
+    #
+    # 说明：
+    # - 该类型名集合是“无限”的，不能靠静态 set 穷举；
+    # - 但它是合法且可校验的中文端口类型标注（在复合节点 pins、图变量等处都需要稳定表达 K/V）。
+    ok_alias, key_type, value_type = parse_typed_dict_alias(type_name)
+    if ok_alias:
+        # 键/值必须是可接受的中文端口类型（基础或列表），且不能是“占位型”（泛型/列表/字典/流程）。
+        if (
+            key_type in allowed_types
+            and value_type in allowed_types
+            and key_type not in {TYPE_GENERIC, TYPE_GENERIC_LIST, TYPE_GENERIC_DICT, TYPE_LIST_PLACEHOLDER, TYPE_DICT, TYPE_FLOW}
+            and value_type not in {TYPE_GENERIC, TYPE_GENERIC_LIST, TYPE_GENERIC_DICT, TYPE_LIST_PLACEHOLDER, TYPE_DICT, TYPE_FLOW}
+        ):
+            return type_name
     
     # Python内置类型处理
     if type_name in PYTHON_TYPE_TO_PIN_TYPE:

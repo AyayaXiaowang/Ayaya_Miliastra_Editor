@@ -1,15 +1,15 @@
 # 贡献指南
 
-本仓库是“Graph Code → 节点图/复合节点”的离线工具链与 UI 查看器。
+本仓库是面向原神“千星奇域”的离线沙箱编辑器与 Graph Code 工具链。
 
-对大多数使用者来说：**只需要编写节点图 Graph Code，不要修改解释器/工具链代码**（见 `docs/用户必读.md`）。  
-如果你发现了解释器 BUG，推荐先通过 Issue/群反馈给作者并提供最小可复现；如确需提交代码改动，请先开 Issue 与作者对齐方向。
+对大多数使用者来说：**只需要编写节点图 Graph Code，不要修改引擎（engine/）/工具链代码**（见 `docs/用户必读.md`）。  
+如果你发现了引擎 BUG，推荐先通过 Issue/群反馈给作者并提供最小可复现；如确需提交代码改动，请先开 Issue 与作者对齐方向。
 
 ## 你可以贡献什么
 - 反馈问题并提供**最小可复现**（优先：报错输出 + 单文件复现）
 - 为重要规则补充回归测试（优先）
 - 改进用户文档（例如 `README.md`、`docs/用户必读.md`、各公开目录的 `claude.md`）
-- 在 Issue 讨论达成一致后，提交解释器/工具链的 bug 修复或改进
+- 在 Issue 讨论达成一致后，提交引擎/工具链的 bug 修复或改进
 
 ## 你不应该提交什么
 - 任何私密资源、账号信息、Token、截图、个人工程存档
@@ -18,7 +18,7 @@
 
 ## 开发环境
 - Windows 10/11
-- Python 3.10+
+- Python 3.10 - 3.12（推荐 3.10.x，不支持 3.13）
 - 依赖安装（PowerShell，逐行执行）：
 
 ```powershell
@@ -43,7 +43,10 @@ python -X utf8 -m pytest
 # 运行回归测试
 python -X utf8 -m pytest
 
-# 校验（节点图/复合节点 + 项目存档）
+# 校验（单文件调试，开发期推荐）
+python -X utf8 -m app.cli.graph_tools validate-file <对应文件路径>
+
+# 校验（节点图/复合节点 + 项目存档，全量扫描）
 python -X utf8 -m app.cli.graph_tools validate-graphs --all
 python -X utf8 -m app.cli.graph_tools validate-project
 ```
@@ -67,9 +70,11 @@ python -X utf8 -m app.cli.graph_tools validate-project
 python -X utf8 -m app.cli.graph_tools validate-graphs --all
 ```
 
-> 注意：不要直接运行 `run_app.py` / `main_package.py` 这类入口；工具脚本与校验脚本请使用 `python -m ...` 的模块方式运行。
+> 注意：不要直接运行 `run_app.py` 这类入口；工具脚本与校验脚本请使用 `python -m ...` 的模块方式运行。
+
 
 ## 目录约定（重要）
+
 - 每个公开目录都有一个 `claude.md`，用于描述“目录用途 / 当前状态 / 注意事项”（不写修改历史）。
 - 资源库采用“默认忽略 + 白名单放行示例”的策略：不要扩大白名单范围，除非明确确认资源可公开且不会泄露隐私。
 

@@ -11,6 +11,7 @@ from typing import Optional, Set, List, Union, Callable, Dict, Tuple, TYPE_CHECK
 
 from engine.graph.models import GraphModel, NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
+from engine.nodes.port_type_system import FLOW_PORT_TYPE
 from engine.configs.settings import settings
 from ..internal.constants import (
     NODE_HEIGHT_DEFAULT,
@@ -69,6 +70,28 @@ if TYPE_CHECKING:
     from ..internal.layout_context import LayoutContext
 
 
+def _get_port_type_snapshot(node: NodeModel, port_name: str, *, is_input: bool) -> str:
+    """从 NodeModel 的端口类型快照中查询端口类型（缺失则返回空串）。"""
+    if node is None:
+        return ""
+    port_name_text = str(port_name or "")
+    if not port_name_text:
+        return ""
+    type_map = getattr(node, "effective_input_types" if bool(is_input) else "effective_output_types", None)
+    if not isinstance(type_map, dict):
+        return ""
+    value = type_map.get(port_name_text)
+    return str(value or "") if isinstance(value, str) else ""
+
+
+def is_flow_input_port(node: NodeModel, port_name: str) -> bool:
+    """上下文感知的流程输入口判定（以端口类型快照为真源，名称规则仅作兼容回退）。"""
+    port_type = _get_port_type_snapshot(node, port_name, is_input=True)
+    if port_type == FLOW_PORT_TYPE:
+        return True
+    return is_flow_port_name(str(port_name or ""))
+
+
 def _make_pure_data_checker(model: GraphModel) -> Callable[[str], bool]:
     def _checker(node_id: str) -> bool:
         return is_pure_data_node(node_id, model)
@@ -92,7 +115,7 @@ def _resolve_data_in_edges_fetcher(
             if edge.dst_node != node_id:
                 continue
             dst_port = dst_node.get_input_port(edge.dst_port)
-            if dst_port and not is_flow_port_name(dst_port.name):
+            if dst_port and not is_flow_input_port(dst_node, dst_port.name):
                 edges.append(edge)
         return edges
 
@@ -149,7 +172,7 @@ def build_edge_indices(
         if not dst_node:
             continue
         dst_port = dst_node.get_input_port(edge.dst_port)
-        is_flow_target = bool(dst_port and is_flow_port_name(dst_port.name))
+        is_flow_target = bool(dst_port and is_flow_input_port(dst_node, dst_port.name))
 
         if is_flow_target:
             flow_out_by_node.setdefault(src_id, []).append(edge)
@@ -663,7 +686,7 @@ def build_input_port_layout_plan(
     render_input_names: List[str] = []
     for port in node_obj.inputs:
         port_name = str(port.name)
-        is_flow = is_flow_port_name(port_name)
+        is_flow = is_flow_input_port(node_obj, port_name)
         if is_variadic and ("~" in port_name) and (not is_flow):
             continue
         render_input_names.append(port_name)
@@ -673,11 +696,12 @@ def build_input_port_layout_plan(
     current_row = 0
 
     for port_name in render_input_names:
+        is_flow = is_flow_input_port(node_obj, port_name)
         row_index_by_port[port_name] = current_row
         current_row += 1
 
         needs_control_row = (
-            not is_flow_port_name(port_name)
+            (not is_flow)
             and port_name not in connected_input_ports
             and not _is_entity_input_port(node_obj, port_name, registry_context)
         )
@@ -742,7 +766,13 @@ def is_pure_data_node(node_or_id: Union[NodeModel, str], model: Optional[GraphMo
 
     if not node:
         return False
-    return not any(is_flow_port_name(port.name) for port in node.inputs + node.outputs)
+    for port in node.inputs:
+        if is_flow_input_port(node, port.name):
+            return False
+    for port in node.outputs:
+        if is_flow_output_port(node, port.name):
+            return False
+    return True
 
 
 def is_flow_output_port(node: NodeModel, port_name: str) -> bool:
@@ -760,7 +790,16 @@ def is_flow_output_port(node: NodeModel, port_name: str) -> bool:
     Returns:
         True 如果是流程输出端口
     """
-    return is_flow_port_name(port_name) or node.title == TITLE_MULTI_BRANCH
+    port_type = _get_port_type_snapshot(node, port_name, is_input=False)
+    if port_type == FLOW_PORT_TYPE:
+        return True
+
+    if str(getattr(node, "title", "") or "") == TITLE_MULTI_BRANCH:
+        # 多分支：所有输出端口均视为流程口（包括动态命名分支）。
+        # 注意：为避免“错误方向查询”把不存在的端口也判为流程口，这里要求该端口确实存在于 outputs。
+        return bool(getattr(node, "has_output_port", None) and node.has_output_port(str(port_name or ""))) or is_flow_port_name(str(port_name or ""))
+
+    return is_flow_port_name(str(port_name or ""))
 
 
 def is_data_edge(model: GraphModel, edge) -> bool:
@@ -778,7 +817,7 @@ def is_data_edge(model: GraphModel, edge) -> bool:
     if not dst_node:
         return False
     dst_port = dst_node.get_input_port(edge.dst_port)
-    return bool(dst_port and (not is_flow_port_name(dst_port.name)))
+    return bool(dst_port and (not is_flow_input_port(dst_node, dst_port.name)))
 
 
 def is_jump_out_edge(model: GraphModel, src_node_id: str, dst_node_id: str) -> bool:
@@ -836,7 +875,7 @@ def count_outgoing_data_edges(
         dst = model.nodes.get(edge.dst_node)
         if dst:
             dst_port_obj = dst.get_input_port(edge.dst_port)
-            if dst_port_obj and not is_flow_port_name(dst_port_obj.name):
+            if dst_port_obj and not is_flow_input_port(dst, dst_port_obj.name):
                 count += 1
     return count
 
@@ -877,10 +916,9 @@ def is_flow_edge(model: GraphModel, edge) -> bool:
         return False
     # 目标为流程输入 → 必然是流程边
     dst_port = dst_node.get_input_port(edge.dst_port)
-    if dst_port and is_flow_port_name(dst_port.name):
+    if dst_port and is_flow_input_port(dst_node, dst_port.name):
         return True
     # 回退：源为流程输出 → 流程边
-    src_port = src_node.get_output_port(edge.src_port)
-    return bool(src_port and is_flow_output_port(src_node, src_port.name))
+    return bool(is_flow_output_port(src_node, str(getattr(edge, "src_port", "") or "")))
 
 

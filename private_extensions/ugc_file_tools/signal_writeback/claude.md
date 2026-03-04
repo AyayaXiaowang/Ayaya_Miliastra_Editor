@@ -1,0 +1,68 @@
+## 目录用途
+- 存放 `.gil` 信号定义写回的可复用实现：向存档新增信号定义（含参数）并生成对应的 3 个节点定义（发送信号/监听信号/向服务器节点图发送信号）。
+
+## 当前状态
+- `writer.py`：对外核心接口 `add_signals_to_gil(...)`（业务主流程编排：模板/参数→payload 追加→wire-level 写回；只替换 `payload_root.field_10`，其余段 bytes 保真）。
+  - `template_gil` 可选：未提供时会按 `base → bootstrap → 内置默认模板` 自动选择包含“无参数信号”的 node_def 样本作为基底。
+  - 会将“无参数信号”的 3 个 node_def 样本自动沉淀到本地缓存（`_signal_node_def_templates.cache.json`），用于在缺少模板文件时兜底复用。
+  - 参数口构建：`param_build_mode=semantic/template`（semantic 为推荐默认；template 需要模板覆盖参数类型样本）。
+  - 编号策略：**不再**按“同名信号”整段克隆 template 的 `signal_index/node_def_id`；始终按当前 base `.gil` 的现状重新分配：
+    - `signal_index`（signal_entry.field_6 / node_def.meta.field_5）：
+      - **占位无参信号**（常见名：`新建的没有参数的信号`，0x6000/0x6080 保留位）：固定为 `2`（不参与递增）。
+      - **业务信号**：默认从 `8` 起按信号条目递增（8,9,10,...），与参数个数/类型无关。
+        - 若关闭占位信号 entry 写入（`emit_reserved_placeholder_signal=False`）但仍预留占位槽位，则业务信号会按“右对齐到 11”的口径分配（最多占用 8~11 四个槽位），以对齐已观测的“校验成功”样本：
+          - 写入 1 条业务信号：11
+          - 写入 2 条业务信号：10/11
+          - 写入 3 条业务信号：9/10/11
+          - 写入 4 条业务信号：8/9/10/11
+          - 超过 4 条：从 8 起递增（无法完全右对齐）
+    - `node_def_id`：
+    - 号段选择以 **跟随 base `.gil`** 为第一原则：允许 base 中不同信号 entry 混用 `0x4000xxxx/0x4080xxxx` 与 `0x6000xxxx/0x6080xxxx`。
+      - 新增信号需要选择一套前缀继续分配：默认按 base 中信号 entry 的前缀占比选择；并列时按固定偏好 `0x4000 > 0x4080 > 0x6000 > 0x6080`。
+      - 若 **同一条 signal entry 内部**出现多前缀（例如 send/listen/server 分属不同号段），视为高风险损坏并 fail-fast 抛错。
+    - 空/极简 base（`section10` 缺失/空，无任何信号号段证据）时，默认按编辑器常见口径使用 `0x6000xxxx`（server）继续分配，并会在新增真实信号前预留“占位无参信号槽位”（常见名：`新建的没有参数的信号`）占用 `(prefix+4,+5,+6)` 保留位，确保后续真实信号从 `(prefix+7)` 起分配，避免把带参信号误占用到 `0x..0004` 导致运行时无法开始游戏。
+      - 默认行为：会**写入**占位信号 entry（旧口径/对照样本一致）。
+      - 可选：`add_signals_to_gil(..., emit_reserved_placeholder_signal=False)` / CLI `--no-emit-reserved-placeholder-signal` 可关闭占位信号 entry 写入（仍会预留其 node_def_id 与端口块；并按“右对齐到 11”的口径分配业务 `signal_index`），得到更干净且更贴近样本口径的导出产物。
+    - 目的：兼容真源存档存在的“跨 entry 号段共存”，并保证新增信号的分配口径可预测；同时避免在单条 entry 内混写导致无法可靠推断/分配。
+  - 端口索引分配：使用端口块（块宽 `16 + 3*param_count`，保留 4 个 padding 端口；支持 template 抬高 baseline 对齐真源号段）。
+    - 空 base（section10 无 node_defs）时会做保底起点（只抬高不降低）：
+      - `0x6000/0x6080` 口径：baseline≥423（占位无参信号 send_signal_name≈425；首个真实无参信号 send_signal_name≈441）。
+      - `0x4000/0x4080` 口径：baseline≥300（真源常见 send_signal_name≈302）。
+    - 标量参数：params 端口按 param 三连交错（send/listen/server）
+    - 含非标量参数：params 端口按角色分块（send*N, listen*N, server*N）
+  - 对齐真源存档：`root4/10/5` 仅维护 `2(node_def meta index)` 与 `3(signal entries)`；不会写入 `field_1(varint)`（若历史工具写入过会移除）。
+  - dump-json 形态兼容：当 base `.gil` 的 `root4/10/5` 在桥接层被输出为 `str("<binary_data> ..")`（raw_hex）或被异常标量化时，写回会先将其显式解码/纠正为可写 dict(message) 再继续，避免 `ensure_dict` 直接崩溃，并尽量保留原有信号表内容。
+  - **写回保真**：信号写回会限制 dump 解码深度（`max_depth=5`），确保 `root4/10/1` 的 NodeGraph blob bytes 不被“嵌套 message 解码→全量重编码”误改；仅对 `root4/10/5`（信号表）与新增的信号 node_defs 做增量 patch。为保证浅层解码下仍能稳定定位 base 的信号 node_defs，node_def 索引优先使用 `root4/10/5/2`（meta index）与 `root4/10/2` 的位置对齐口径；最终落盘阶段通过 wire-level patch 只替换 `payload_root.field_10` 的 length-delimited payload bytes，避免复杂 base `.gil` 在全量 encode 时对 templates/UI 等段产生 payload drift。
+  - 新增信号分配：
+    - 按 `signal_name` 做稳定排序，确保同一组信号写回顺序与产物可复现；
+    - `node_def_id` 以 “base 现状 + 递增分配” 为准（不依赖模板号段）；`signal_index`：占位无参信号固定为 `2`（不参与递增），业务信号从 `8` 起递增。
+- `helpers.py`：信号写回的底层工具函数（模板提取、端口/参数描述构造、protobuf-like 字段编辑等）。
+  - `.gil → dump-json` 的纯 Python 解码与通用树编辑工具已收口到 `ugc_file_tools/gil_dump_codec/dump_json_tree.py`，本目录仅保留信号域特有的“binary 字段归一化/模板选择”等逻辑。
+  - 提供“自动模板选择”辅助：尝试从 payload 中提取“无参数信号”的 3 个 node_def 样本。
+  - 兼容 repeated message 的 list/dict 形态：对 node_def 的流程端口容器（例如 `100/101`）统一按“单元素 dict 或 list([dict]) 等价”处理，避免 DLL dump 形态差异导致写回崩溃。
+  - 对齐“校验成功”样本口径的细节补丁：
+    - `node_def['106']`【信号名】端口：会补齐 `port_obj['4'].2`（StringBaseValue=signal_name）与 `port_obj['4'].6=1`；其中 VarBase 的 `item_type` 口径与常规 `node_graph_semantics.var_base` **不同**：
+      - send/listen：`item_type={"1":1,"100":"<binary_data> "}`
+      - server-send：`item_type={"1":2,"101":{"2":<port4.field_4>}}`（样本常见 `field_4=9`）
+    - `node_def['102']` param item：`field_3.field_2` 表达参数序号（首个参数省略该字段），不再误写“列表元素类型”。
+    - server-send 的 param type descriptor：使用独立 type_id 映射表（例如 `GUID(2)->14`、`Str(6)->9`、`L<Str>(11)->10`、`L<Int>(8)->4`、`Bool(4)->5`）；并对 Bool 额外写入 `field_101=200001`（样本一致）。
+- `template_cache.py`：信号写回模板缓存（读取/写入无参数信号 node_def 样本），用于减少手动选择模板的成本。
+- `cli.py`：命令行入口实现（参数解析与输出格式收口）；`--template-gil` 为可选参数；支持 `--emit-reserved-placeholder-signal/--no-emit-reserved-placeholder-signal` 控制是否写入占位无参信号 entry。
+- 参数类型：
+  - 参数 `type/type_id` 解析与允许集合对齐 `Graph_Generater/engine/type_registry.VARIABLE_TYPES`。
+  - 约束对齐 Graph_Generater：**信号参数类型禁止使用字典**（含别名字典）。
+- `.gia` 导出：
+  - `gia_export.py`：导出“基础信号（共享根 + 项目根的 *.py）”为 `.gia`（信号相关 node_defs GraphUnit），用于注入/对照。
+    - 复用 `builtin_resources/gia_templates/signals/signal_node_defs_full.gia` 的结构作为模板，通过“深拷贝 + 定点 patch”生成新 GraphUnit（发送/监听/向服务器发送）。
+    - 类型约束对齐写回：不支持字典/别名字典；结构体/结构体列表参数必须提供 `struct_id`（否则直接抛错）。
+  - `signal_node_def_units_builder.py`：基于信号规格（signal_name + params）生成自包含的 3 类信号 node_def GraphUnits（发送/监听/向服务器发送），用于在导出节点图 `.gia` 时将信号定义一并打包进 dependencies，使导入到空存档也能自动展开信号端口。
+    - 自包含 bundle 的 node_def_id / port_index 分配策略：按 signal_name 稳定排序后，node_def_id 从 `0x40000031` 起连续递增分配（send/listen/server 三连号），端口索引按 140 段“块分配”（真源样本常见 信号名端口=142），并为参数按三连端口（send/listen/server）顺延。该策略与真源样本一致：信号 node_def_id 位于 `0x4000xxxx`，与复合节点常见的 `0x6000xxxx` 分离，降低冲突风险。
+  - 额外输出各类信号节点的“node_def_id + 端口索引映射”（send/listen）：供 NodeGraph 导出阶段写入 META pins 与 compositePinIndex，并在命中时将 runtime_id 对齐为对应的 node_def_id（0x400000xx），并确保 node_def 端口索引与节点实例引用一致（140 段），减少导入后需要手动刷新端口的情况。
+  - 兼容 repeated message 在 dump-json 中的 `list([...]) / dict({...})` 两种形态（单元素时可能被“压扁”为 dict）
+  - 对外提供 `parse_signal_payload_to_params(...)`（公开 API，无下划线）：用于从代码级 `SIGNAL_PAYLOAD` 解析出 (signal_name, params[{param_name,type_id}])，供 pipelines 侧构造自包含信号 bundle。
+
+## 注意事项
+- 不使用 try/except：失败直接抛错，便于定位“写回合约/样本覆盖/类型映射”问题。
+- 写回不依赖额外 DLL 的 dump-json（使用 protobuf-like 纯 Python 解码/编码闭环）；操作前仍建议备份 `.gil`。
+- `.gia` 的 decoded_field_map/numeric_message 语义辅助统一使用 `ugc_file_tools.gia.varbase_semantics`（`gia_protobuf_like` 仅为兼容薄 wrapper）。
+- 本目录不记录修改历史，仅保持用途/状态/注意事项的实时描述。

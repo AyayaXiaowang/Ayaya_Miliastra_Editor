@@ -617,6 +617,24 @@ class DictLiteralRewriteRule(ValidationRule):
 
         file_path: Path = ctx.file_path
         tree = get_cached_module(ctx)
+        parent_map = build_parent_map(tree)
+
+        # 端口期望类型判定：用于对“别名字典端口”的 dict literal 入参做豁免
+        # （仍会改写为【拼装字典】调用，并由后续端口类型规则做键/值类型强校验）。
+        from .ast_utils import infer_graph_scope  # 避免在模块顶层形成循环 import
+        from .node_index import callable_node_defs_by_name  # 同上
+        from engine.type_registry import (
+            TYPE_DICT,
+            TYPE_FLOW,
+            TYPE_GENERIC,
+            TYPE_GENERIC_DICT,
+            TYPE_GENERIC_LIST,
+            TYPE_LIST_PLACEHOLDER,
+            parse_typed_dict_alias,
+        )
+
+        scope = infer_graph_scope(ctx)
+        node_defs_by_name = callable_node_defs_by_name(ctx.workspace_path, scope, include_composite=True)
         rewrite_config = _rewrite_config_for_ctx(ctx)
         rewritten_tree, rewrite_issues = rewrite_graph_code_dict_literals(
             tree,
@@ -624,9 +642,88 @@ class DictLiteralRewriteRule(ValidationRule):
         )
         ctx.ast_cache[ctx.file_path] = rewritten_tree
 
+        def _find_dict_node_in_original_tree(issue_node: ast.AST) -> ast.Dict | None:
+            lineno = getattr(issue_node, "lineno", None)
+            col = getattr(issue_node, "col_offset", None)
+            if not isinstance(lineno, int) or not isinstance(col, int):
+                return None
+            for n in ast.walk(tree):
+                if not isinstance(n, ast.Dict):
+                    continue
+                if getattr(n, "lineno", None) == lineno and getattr(n, "col_offset", None) == col:
+                    return n
+            return None
+
+        def _extract_call_context(dict_node: ast.Dict) -> tuple[str, str]:
+            """返回 (call_name, input_port_name)。仅支持“关键字参数=字典字面量”的场景。"""
+            parent = parent_map.get(dict_node)
+            if not isinstance(parent, ast.keyword):
+                return "", ""
+            if getattr(parent, "value", None) is not dict_node:
+                return "", ""
+            call_node = parent_map.get(parent)
+            if not isinstance(call_node, ast.Call):
+                return "", ""
+            port_name = str(getattr(parent, "arg", "") or "").strip()
+            func = getattr(call_node, "func", None)
+            if not isinstance(func, ast.Name):
+                return "", port_name
+            return str(func.id), port_name
+
+        def _resolve_input_port_type(call_name: str, port_name: str) -> str:
+            if not call_name or not port_name:
+                return ""
+            node_def = node_defs_by_name.get(str(call_name))
+            if node_def is None:
+                return ""
+            input_types = getattr(node_def, "input_types", {}) or {}
+            if port_name in input_types:
+                return str(input_types.get(port_name) or "").strip()
+            alias_map = getattr(node_def, "input_port_aliases", {}) or {}
+            if isinstance(alias_map, dict) and alias_map:
+                for canonical, aliases in alias_map.items():
+                    if not isinstance(canonical, str) or not isinstance(aliases, list):
+                        continue
+                    if port_name in aliases and canonical in input_types:
+                        return str(input_types.get(canonical) or "").strip()
+            return ""
+
+        def _is_concrete_non_generic_type_text(type_text: object) -> bool:
+            text = str(type_text or "").strip()
+            if text == "":
+                return False
+            if text in {
+                TYPE_GENERIC,
+                TYPE_GENERIC_LIST,
+                TYPE_GENERIC_DICT,
+                TYPE_LIST_PLACEHOLDER,
+                TYPE_DICT,
+                TYPE_FLOW,
+            }:
+                return False
+            return True
+
+        def _should_suppress_typed_annotation_required(rewrite_issue: DictLiteralRewriteIssue) -> bool:
+            if str(getattr(rewrite_issue, "code", "") or "") != "CODE_DICT_LITERAL_TYPED_ANNOTATION_REQUIRED":
+                return False
+            dict_node = _find_dict_node_in_original_tree(rewrite_issue.node)
+            if dict_node is None:
+                return False
+            call_name, port_name = _extract_call_context(dict_node)
+            if not call_name or not port_name:
+                return False
+            expected_port_type = _resolve_input_port_type(call_name, port_name)
+            is_alias, key_type, value_type = parse_typed_dict_alias(str(expected_port_type or ""))
+            if not is_alias:
+                return False
+            # 仅对“具体别名字典端口”放行：泛型家族仍要求显式落盘类型注解，避免出现未收敛的字典构造。
+            return _is_concrete_non_generic_type_text(key_type) and _is_concrete_non_generic_type_text(value_type)
+
         issues: List[EngineIssue] = []
         for rewrite_issue in list(rewrite_issues or []):
             if not isinstance(rewrite_issue, DictLiteralRewriteIssue):
+                continue
+            if _should_suppress_typed_annotation_required(rewrite_issue):
                 continue
             issues.append(
                 create_rule_issue(

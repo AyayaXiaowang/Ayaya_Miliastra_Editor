@@ -1,0 +1,6015 @@
+{
+  "template_id": "1077936164",
+  "name": "飞机头",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936164,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073749881",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.240000009536743,
+                "y": 24.183963775634766,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 8.640000343322754
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749881,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                8.640000343322754
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749882",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 23.823963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749882,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749883",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.6200000047683716,
+                "y": 23.823963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749883,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749884",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.9600000381469727,
+                "y": 23.823963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 8.640000343322754
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749884,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                8.640000343322754
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749885",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.1600000858306885,
+                "y": 23.46396255493164,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 10.079999923706055
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749885,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                10.079999923706055
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749886",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.860000133514404,
+                "y": 23.46396255493164,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749886,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749887",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.760000228881836,
+                "y": 23.46396255493164,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749887,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749888",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.880000114440918,
+                "y": 23.10396385192871,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 15.84000015258789
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749888,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                15.84000015258789
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749889",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.880000114440918,
+                "y": 22.74396324157715,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 17.280000686645508
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749889,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                17.280000686645508
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749890",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.9800000190734863,
+                "y": 22.383962631225586,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 15.119999885559082
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749890,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                15.119999885559082
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749891",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.940000057220459,
+                "y": 22.383962631225586,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749891,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749892",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.659999847412109,
+                "y": 22.383962631225586,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749892,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749893",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.9800000190734863,
+                "y": 22.023963928222656,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 16.559999465942383
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749893,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                16.559999465942383
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749894",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.300000190734863,
+                "y": 21.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749894,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749895",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.019999980926514,
+                "y": 21.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749895,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749896",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.6200000047683716,
+                "y": 21.663963317871094,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 18.0
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749896,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                18.0
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749897",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 21.30396270751953,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 17.280000686645508
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749897,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                17.280000686645508
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749898",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.2160000056028366
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749898,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.2160000056028366
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749899",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.579999923706055,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749899,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749900",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.940000057220459,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.2160000056028366
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749900,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.2160000056028366
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749901",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.300000190734863,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749901,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749902",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.659999847412109,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.2160000056028366
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749902,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.2160000056028366
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749903",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.380000114440918,
+                "y": 21.30396270751953,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749903,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749904",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 15.119999885559082
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749904,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                15.119999885559082
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749905",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.4200000762939453,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749905,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749906",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.320000171661377,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749906,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749907",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.019999980926514,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749907,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749908",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.380000114440918,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749908,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749909",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.739999771118164,
+                "y": 20.9439640045166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749909,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749910",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": 20.58396339416504,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 12.960000038146973
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749910,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                12.960000038146973
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749911",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.6200000047683716,
+                "y": 20.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749911,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749912",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.1600000858306885,
+                "y": 20.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749912,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749913",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.700000047683716,
+                "y": 20.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749913,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749914",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.240000009536743,
+                "y": 20.043962478637695,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749914,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.880000114440918,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749915",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.7799999713897705,
+                "y": 20.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749915,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749916",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 20.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749916,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749917",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.5,
+                "y": 20.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749917,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749918",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.860000133514404,
+                "y": 20.223962783813477,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749918,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749919",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.380000114440918,
+                "y": 20.043962478637695,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749919,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.880000114440918,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749920",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.700000047683716,
+                "y": 20.223962783813477,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 12.239999771118164
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749920,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                12.239999771118164
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749921",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.5400000214576721,
+                "y": 20.223962783813477,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749921,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749922",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.0800000429153442,
+                "y": 19.683963775634766,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749922,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.880000114440918,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749923",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.940000057220459,
+                "y": 20.043962478637695,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749923,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749924",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.059999942779541,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 12.239999771118164
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749924,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                12.239999771118164
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749925",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.36000001430511475,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749925,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749926",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.1600000858306885,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2880000174045563,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749926,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2880000174045563,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749927",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 19.863964080810547,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749927,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749928",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.9600000381469727,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 10.079999923706055
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749928,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                10.079999923706055
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749929",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.2599999904632568,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749929,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749930",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 19.323963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749930,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749931",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.18000000715255737,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749931,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749932",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.6200000047683716,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.2160000056028366
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749932,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.2160000056028366
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749933",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.9800000190734863,
+                "y": 19.323963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749933,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749934",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.5199999809265137,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749934,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749935",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.9600000381469727,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749935,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749936",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.679999828338623,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749936,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749937",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.400000095367432,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749937,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749938",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.940000057220459,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749938,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749939",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.480000019073486,
+                "y": 19.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749939,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749940",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.5,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 9.359999656677246
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749940,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                9.359999656677246
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749941",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.6200000047683716,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2160000056028366,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749941,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2160000056028366,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749942",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749942,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749943",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.18000000715255737,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749943,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749944",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.5400000214576721,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749944,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749945",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.3399999141693115,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749945,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749946",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.059999942779541,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749946,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749947",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.7799999713897705,
+                "y": 18.96396255493164,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749947,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749948",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.5,
+                "y": 18.96396255493164,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749948,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749949",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": 18.96396255493164,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749949,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749950",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.760000228881836,
+                "y": 18.96396255493164,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749950,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749951",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.300000190734863,
+                "y": 18.96396255493164,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749951,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749952",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.659999847412109,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749952,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749953",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.019999980926514,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749953,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749954",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.559999942779541,
+                "y": 19.143962860107422,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749954,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749955",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.940000057220459,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.039999961853027
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749955,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.039999961853027
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749956",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.5,
+                "y": 18.24396324157715,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.2880000174045563
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749956,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.2880000174045563
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749957",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.5999999046325684,
+                "y": 18.60396385192871,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749957,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749958",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2880000174045563,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749958,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.2880000174045563,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749959",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.760000228881836
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749959,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.760000228881836
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749960",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.700000047683716,
+                "y": 18.783964157104492,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 3.5999999046325684
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749960,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                3.5999999046325684
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749961",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.199999809265137,
+                "y": 18.60396385192871,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749961,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749962",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.119999885559082,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.760000228881836
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749962,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.760000228881836
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749963",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.700000047683716,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749963,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749964",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.3399999141693115,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749964,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749965",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749965,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749966",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 8.640000343322754
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749966,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                8.640000343322754
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749967",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.059999942779541,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749967,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749968",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.5,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.039999961853027
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749968,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.039999961853027
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749969",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.119999885559082,
+                "y": 18.42396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749969,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749970",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": 18.063962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749970,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749971",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": 17.883962631225586,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.14400000870227814
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749971,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.14400000870227814
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749972",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.400000095367432,
+                "y": 17.883962631225586,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749972,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749973",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 18.063962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 20.15999984741211
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749973,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                20.15999984741211
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749974",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.940000057220459,
+                "y": 18.063962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749974,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749975",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.840000152587891,
+                "y": 18.063962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749975,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749976",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.199999809265137,
+                "y": 17.703962326049805,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749976,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749977",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.7799999713897705,
+                "y": 17.703962326049805,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749977,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749978",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.059999942779541,
+                "y": 17.703962326049805,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749978,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749979",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.3399999141693115,
+                "y": 17.703962326049805,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 20.8799991607666
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749979,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                20.8799991607666
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749980",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 3.5999999046325684
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749980,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                3.5999999046325684
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749981",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.940000057220459,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749981,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749982",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 22.31999969482422
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749982,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                22.31999969482422
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749983",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.579999923706055,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749983,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749984",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.119999885559082,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749984,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749985",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.659999847412109,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749985,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749986",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.199999809265137,
+                "y": 17.343963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749986,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749987",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.039999961853027
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749987,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.039999961853027
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749988",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749988,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749989",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 20.8799991607666
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749989,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                20.8799991607666
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749990",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749990,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749991",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.300000190734863,
+                "y": 16.983963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 3.5999999046325684
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749991,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                3.5999999046325684
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749992",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.2599999904632568,
+                "y": 16.62396240234375,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 28.079999923706055
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749992,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                28.079999923706055
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749993",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.940000057220459,
+                "y": 16.62396240234375,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749993,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749994",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.480000019073486,
+                "y": 16.62396240234375,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749994,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749995",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.440000057220459,
+                "y": 16.26396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 27.360000610351562
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749995,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                27.360000610351562
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749996",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.579999923706055,
+                "y": 16.26396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749996,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749997",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.300000190734863,
+                "y": 16.26396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749997,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749998",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": 15.903963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 7.920000076293945
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749998,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                7.920000076293945
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073749999",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.9800000190734863,
+                "y": 15.903963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 18.0
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073749999,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                18.0
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750000",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.100000381469727,
+                "y": 15.543963432312012,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750000,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750001",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.739999771118164,
+                "y": 15.543963432312012,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750001,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750002",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": 15.543963432312012,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.039999961853027
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750002,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.039999961853027
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750003",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.9800000190734863,
+                "y": 15.543963432312012,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 16.559999465942383
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750003,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                16.559999465942383
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750004",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.920000076293945,
+                "y": 15.18396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750004,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750005",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.199999809265137,
+                "y": 15.18396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750005,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750006",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.119999885559082,
+                "y": 15.18396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750006,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750007",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.1600000858306885,
+                "y": 15.18396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 14.399999618530273
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750007,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                14.399999618530273
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750008",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.559999942779541,
+                "y": 14.823963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750008,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750009",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.659999847412109,
+                "y": 14.823963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750009,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750010",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.119999885559082,
+                "y": 14.823963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750010,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750011",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.5199999809265137,
+                "y": 14.823963165283203,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 11.520000457763672
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750011,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                11.520000457763672
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750012",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": 14.463963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.039999961853027
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750012,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.039999961853027
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750013",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.679999828338623,
+                "y": 14.463963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750013,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750014",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": 14.463963508605957,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750014,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750015",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.199999809265137,
+                "y": 13.92396354675293,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 4.320000171661377
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750015,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                4.320000171661377
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750016",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.860000133514404,
+                "y": 14.103962898254395,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750016,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750017",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.039999961853027,
+                "y": 13.563962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750017,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750018",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.380000114440918,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.009999999776482582,
+                "z": 3.5999999046325684
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750018,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.880000114440918,
+                0.009999999776482582,
+                3.5999999046325684
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750019",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.860000133514404,
+                "y": 13.02396297454834,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750019,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750020",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": 13.02396297454834,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750020,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750021",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750021,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750022",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.199999809265137,
+                "y": 11.943963050842285,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750022,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750023",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.559999942779541,
+                "y": 11.583963394165039,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750023,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750024",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002164,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": 11.583963394165039,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.009999999776482582,
+                "z": 0.07200000435113907
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750024,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002164,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.009999999776482582,
+                0.07200000435113907
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750025",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.659999847412109,
+                "y": 11.583963394165039,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750025,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073750026",
+            "displayName": "飞机头",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": 10.68396282196045,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073750026,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936164,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.880000114440918,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

@@ -6,339 +6,75 @@
 
 ---
 
-## 给使用者（必读）
+## 项目简介
 
-- 你只需要做的事：**编写 Graph Code 节点图源码** → **运行校验** → 在 UI 中预览（需要时再自动搭图）
-  - 节点图源码通常位于：
-    - `assets/资源库/共享/节点图/<server|client>/**/*.py`
-    - `assets/资源库/项目存档/<项目存档名>/节点图/<server|client>/**/*.py`
-  - 校验入口（源码环境）：`python -X utf8 -m app.cli.graph_tools validate-graphs ...`
-  - 校验入口（release）：`Ayaya_Miliastra_Editor_Tools.exe validate-graphs ...`
-- **请不要修改解释器/工具链代码**：`engine/`、`app/`、`plugins/` 等目录默认视为只读，由项目作者维护
-- 解释器 BUG / 缺节点 / 校验规则不合理：请直接反馈给作者（QQ群或 GitHub Issue），附上**最小可复现**（报错输出 + 对应节点图文件路径）
-- 从哪里开始：先读 `docs/用户必读.md`，再按本文档的「节点图开发流程（Graph Code）」写图与验证
+**Ayaya_Miliastra_Editor** 是一款面向原神“千星奇域”的**离线沙箱编辑器 + Graph Code 工具链**。
+本项目旨在将“难维护、难协作、难重构”的节点图视觉编程环境，转换为 AI 和程序员更熟悉的**代码工作流（Graph Code）**。
 
-## 项目状态（Beta）
+通过编写类结构的 Python 代码描述节点图逻辑，由内置引擎负责解析、验证并自动排版，最终一键导出并应用到游戏中。
 
-- 本项目目前处于 **Beta** 阶段，迭代可能会非常快：**API、校验规则、资源结构、CLI 参数**都可能调整。
-- 当 README 与实际行为不一致时，优先以以下内容为准：
-  - `claude.md`（根目录与各子目录的约束/入口说明）
-  - CLI 脚本自身的报错提示与 `--help`
-  - `app.cli.graph_tools` / `engine.validate` 的实现与校验输出
+### 核心特性
 
-### 用户文档入口（重要）
-- `docs/用户必读.md`：面向使用者，只覆盖“如何写节点图代码、如何校验、如何预览与反馈问题”。
-
-### 反馈与交流
-- BUG 反馈交流QQ群：`1073774505`
-
-面向原神千星奇域的 **离线沙箱编辑器 + Graph Code 工具链**：用 Python 代码描述节点图，由内置引擎负责解析、验证、自动排版，再配合自动化脚本把步骤精准落到真实编辑器。
-
----
-
-## 这个项目在解决什么问题？
-
-> 把“难维护、难协作、难重构”的节点图世界，翻译成 AI 和程序员都熟悉的代码世界。
-
-### 节点图维护困难、跳转成本极高
-
-- **痛点**：一个功能拆散在多个节点图、多个分支里，想改一个逻辑，需要在编辑器里层层点开、来回跳转，人脑要记一堆上下文。
-- **解决**：用代码统一表达逻辑，再自动转换成节点图，大部分维护工作都回到了“写代码”这一熟悉场景里。
-
-### AI 时代，纯手工 debug 成本过高
-
-- **痛点**：已经习惯用 AI 总结、解释、生成代码的人，很难再回到“在节点图里搬砖、一点点试”的工作方式。
-- **解决**：把节点图问题转化为代码问题，就能充分利用 AI 的生态：让 AI 帮你查 bug、写测试、做重构，再反向生成节点图。
-
-### 多人协作与版本管理体验差
-
-- **痛点**：节点图本质是复杂的结构化数据，Git diff / review 非常困难，合并冲突基本只能“谁最后覆盖谁”。
-- **解决**：代码是文本，适配现有的版本管理、Code Review 流程，再由程序负责把“最终认可的版本”转换为节点图，协作成本显著降低。
-
-### 难以做系统化的重构与大规模改动
-
-- **痛点**：在节点图里做全局改名、跨图重构、流程拆分/合并，基本靠人工点点点，非常容易遗漏。
-- **解决**：当逻辑在代码中，用正则、脚本、静态分析工具，甚至让 AI 生成重构方案，再自动映射到节点图，大改动变得更安全、更可控。
-
-### 学习效率受限，AI 难以直接教学节点图
-
-- **痛点**：就算新人学习速度再快，也很难靠“老师口述 + 自己点节点图”高效掌握复杂项目，更别说让 AI 手把手教你“怎么连线”——当前 AI 几乎无法直接生成高质量节点图。
-- **解决**：把逻辑变成代码后，AI 可以像正常教写代码一样：讲解、改写、补全、重构、加注释，甚至按你的节奏出练习；新人在 AI 辅助下学会这套 Graph Code，再由工具自动生成节点图，上手速度远高于直接学节点图。
-
-### 复杂节点图的可读性与排版问题
-
-- **痛点**：手工排版复杂图，线会绕来绕去，稍一修改就打乱布局，很难保持长期整洁。
-- **解决**：自动排版算法可以根据代码结构生成层次清晰的布局，逻辑修改后重新排版，始终保持“可读版本”。
-
-### 重复性机械操作多，易出错
-
-- **痛点**：手动搭节点、连线，本质是大量重复的机械操作，既浪费时间，又容易在复制过程中漏连/误连。
-- **解决**：程序通过模拟鼠标自动创建节点图，把机械劳动从人手中拿走，人只需要审阅与调整关键细节。
-
-### AI 对接节点图生态的鸿沟
-
-- **痛点**：AI 很难直接生成高质量的节点图结构（尤其是带有复杂约束的编辑器），中间缺少“标准接口”。
-- **解决**：把所有节点抽象为 Python 函数 + 转换器，等于给 AI 提供了一个稳定的“代码 → 节点图”桥梁，AI 能在自己最擅长的代码空间工作。
-
----
-
-## 这个项目能做什么？
-
-| 功能 | 说明 |
-| --- | --- |
-| **用 Python 写节点图（Graph Code）** | 把节点图逻辑写成类结构 Python 代码，AI 和开发者都能直接读写 |
-| **自动转换成节点图** | 引擎解析 Graph Code，生成 UGC 编辑器可用的节点图结构与布局 |
-| **自动验证** | 检查节点是否存在、端口连线是否正确、参数类型是否匹配 |
-| **自动排版** | 根据代码结构生成清晰的节点图布局，保持长期可读性 |
-| **可视化查看** | 在 UI 中查看节点图、复合节点、信号、结构体等 |
-| **自动搭图** | 自动化脚本模拟鼠标，在真实 UGC 编辑器中批量搭建节点图 |
-| **友好的 AI 工作流** | 用代码作为中间层，让 AI 负责生成与重构，工具链负责验证与落地 |
-
----
-
-## 安全与合规声明
-
-> ⚠️ **重要提示**
-
-- 本项目的“执行/同步”能力主要通过**截图/OCR + 键鼠模拟**，在《原神》客户端内的**千星沙箱（UGC 编辑器）**执行编辑操作，用于将本项目生成的任务清单步骤同步到编辑器
-- 使用该能力等价于对游戏客户端界面进行自动化操作；请务必遵守官方用户协议与相关规则，并自行评估可能的风险与后果
-- 本项目不支持、也不鼓励将自动化用于 UGC 编辑器之外的任何游戏玩法场景
-
----
-
-## 运行环境
-
-| 要求 | 说明 |
-| --- | --- |
-| **操作系统** | Windows 10/11（中文界面，推荐 4K 或 2K 分辨率） |
-| **显示设置（重要）** | 分辨率：1920×1080 / 2560×1440 / 3840×2160；系统显示缩放：100% / 125%（其他组合未纳入支持范围，可能影响视觉识别与坐标映射） |
-| **Python** | 3.10 - 3.12（推荐 3.10.x；当前依赖锁不支持 Python 3.13） |
-| **终端** | PowerShell（不要求版本；Windows 自带即可） |
-| **其他** | 确保安装 Visual C++ 运行库 |
-
-补充说明：
-- **CI 基线**：Python 3.10
-- **本地验证**：当前仓库已在 Python 3.12.3 下跑通 `pytest`
-- **重要**：`constraints.txt` 钉死的 `rapidocr-onnxruntime==1.4.4` 声明 `Requires-Python: <3.13`，因此 **Python 3.13 会在安装阶段直接失败**
-- **显示配置（支持范围）**：项目的执行/同步能力依赖截图模板、OCR 与像素坐标映射；目前仅对 1080p/2K/4K 且缩放 100%/125% 的组合做过完整验证与适配，超出该范围可能出现识别区域偏移、模板匹配失败或步骤定位不稳定，需要自行适配/重录模板。
-
-### 最小可运行版本矩阵（锁定基线）
-
-| 维度 | 基线 |
-| --- | --- |
-| OS | Windows 10/11 |
-| Python | 3.10 - 3.12（推荐 3.10.x） |
-| 关键依赖版本 | 见 `constraints.txt`（PyQt6 / onnxruntime / opencv / numpy 等已钉死） |
-
----
-
-## 安装依赖
-
-### 依赖安装（已提供版本约束锁）
-
-本仓库提供以下文件作为**单一权威依赖清单 + 可复现约束锁**：
-
-- `requirements.txt`：运行期直接依赖（不写版本）
-- `constraints.txt`：版本锁（钉死关键原生依赖版本）
-- `requirements-dev.txt`：开发/测试依赖（已钉死 pytest 版本）
-
-安装运行期依赖：
-
-```powershell
-pip install -r requirements.txt -c constraints.txt
-```
-
-如果你遇到类似下面的错误（`ResolutionImpossible` / `rapidocr-onnxruntime` 冲突）：
-
-- 先检查 `python --version`：**必须是 3.10 - 3.12**（Python 3.13 不支持 `rapidocr-onnxruntime==1.4.4`）
-- 确保你在正确的 venv 里安装（不要混用多个 Python 的 venv）
-
-安装开发/测试依赖：
-
-```powershell
-pip install -r requirements-dev.txt -c constraints.txt
-```
-
-### 依赖说明
-
-| 库 | 作用 |
-| --- | --- |
-| `PyQt6` | UI 主程序框架 |
-| `rapidocr-onnxruntime` | 节点标题 OCR 识别 |
-| `numpy` | 数值计算、布局算法 |
-| `opencv-python` | 视觉识别、图像处理 |
-| `Pillow` | 截图与图像变换 |
-| `pyperclip` | 剪贴板操作 |
-| `keyboard` | 键盘注入，用于自动搭图 |
+- **Graph Code（代码即节点图）**：使用 Python 编写节点逻辑，充分利用 AI 辅助生成、代码重构工具与 Git 版本控制。
+- **自动验证与排版**：内置引擎对参数类型、端口连线及节点有效性进行严格校验，并基于代码结构自动生成清晰的视觉布局。
+- **可视化 UI**：提供独立工具端，支持实时预览渲染出的节点图、复合节点、信号与结构体（仅供查看，修改需在源码中进行）。
+- **HTML UI 源码支持**：支持以 HTML 格式作为 UI 源码，并可直接导出为 `.gil`。
+- **一键导出（推荐）**：内置项目导入/导出中心，支持一键将资产导出为 `.gil`（覆盖本地缓存）或 `.gia`（项目交付），过程自动进行关联分析与严格校验。
 
 ---
 
 ## 快速开始
 
-### 1. 克隆仓库
+### 1. 最小环境与版本矩阵
+
+为了确保依赖的稳定性（特别是视觉与 OCR 模块），本项目对运行环境有严格约束：
+
+| 维度 | 要求说明 |
+| :--- | :--- |
+| **操作系统** | Windows 10/11（中文界面） |
+| **显示设置** | 分辨率 1080p/2K/4K，缩放 100%/125%（影响旧版 UI 自动化功能） |
+| **Python 环境** | **3.10 - 3.12**（推荐 3.10.x；因约束锁不支持 Python 3.13） |
+| **关键依赖** | 已在 `constraints.txt` 严格锁定版本（PyQt6 / onnxruntime 等） |
+
+### 2. 获取代码与安装
 
 ```powershell
-git clone <你的仓库地址>
-# 例如（上游参考）：
-# git clone https://github.com/AyayaXiaowang/Ayaya_Miliastra_Editor.git
-```
-
-```powershell
-cd <仓库目录>
-# 本地文件夹名可以和仓库名不同（例如你把仓库放在 Ayaya_Miliastra_Editor/ 目录下）
-```
-
-### 2. 安装依赖
-
-```powershell
+git clone https://github.com/AyayaXiaowang/Ayaya_Miliastra_Editor.git
+cd Ayaya_Miliastra_Editor
 pip install -r requirements.txt -c constraints.txt
 ```
 
-### 3. 启动 UI 主程序
+### 3. 启动 UI
 
 ```powershell
 python -X utf8 -m app.cli.run_app
 ```
 
-也可以使用更短入口：
-
-```powershell
-python -X utf8 -m app
-```
-
-VSCode 调试（F5）也可以直接运行根目录脚本：
-
-```powershell
-python run_app_debug.py
-```
-
-启动后会打开 PyQt6 主窗口，可以查看节点图、复合节点、资源配置等。
+*(VSCode 用户也可按 F5 调试执行 `run_app_debug.py`)*
 
 ---
 
-## Windows 打包（exe，assets 外置）
+## 核心工作流（Graph Code）
 
-**目标约束**：便携版分发时 **`assets/` 不会被打进 exe**，而是以“外置目录”的形式与 exe 同级分发（保证资源库可随时替换/增量更新）。
-
-> 说明：打包脚本属于内部构建工具链，不随仓库公开分发（避免把各种杂项工具一起上传 GitHub）。
-> 使用者请直接使用 release 产物目录；维护者可在私有构建环境中生成同结构便携目录。
-
-便携版目录应包含：
-- UI：`Ayaya_Miliastra_Editor.exe`
-- 校验工具：`Ayaya_Miliastra_Editor_Tools.exe`
-- 外置资源：`assets/`（与 exe 同级）
-
-运行（便携版）：
-- UI（默认工作区=exe 所在目录）：双击 `Ayaya_Miliastra_Editor.exe`（要求 `assets/` 与 exe 同级存在）
-- UI（指定工作区）：
+1. **编写代码**：在 `assets/资源库/` 下对应目录（如 `节点图/server/`），创建 `.py` 文件，用类结构编写逻辑。建议全程由 AI 辅助编写。
+1. **本地验证（必需）**：执行校验命令，根据报错修复参数、类型或连线错误。
 
 ```powershell
-.\Ayaya_Miliastra_Editor.exe --root <workspace_root>
+python -X utf8 -m app.cli.graph_tools validate-file <对应文件路径>
 ```
 
-- 校验（全量，节点图+复合节点）：
-
-```powershell
-.\Ayaya_Miliastra_Editor_Tools.exe validate-graphs --all
-```
-
-- 校验（单文件自检）：
-
-```powershell
-.\Ayaya_Miliastra_Editor_Tools.exe validate-file assets\资源库\项目存档\你的项目存档\节点图\server\你的图.py
-```
-
-- 校验（指定工作区）：
-
-```powershell
-.\Ayaya_Miliastra_Editor_Tools.exe --root <workspace_root> validate-graphs --all
-```
-
-> `workspace_root` 约定为“包含 `assets/` 的目录”；便携版默认以 exe 所在目录作为工作区。
-> 说明：便携版会在 exe 同级附带 `plugins/nodes/`（节点实现源码，仅用于静态解析与校验/索引；一般无需修改）。
+1. **导出应用**：点击 UI 顶部“导出”，在向导中选择内容并导出为 `.gil`（写回覆盖）或 `.gia`（交付）。导出/导入能力由扩展 `private_extensions/ugc_file_tools` 提供。
 
 ---
 
-## 常见问题（FAQ）
+## 常用命令参考
 
-### 如何告诉 AI 画什么节点？
-
-答：不需要。你只要打开项目，告诉它你要做什么，AI 会自动选择最合适的节点与写法。
-
-### 节点图画好了，怎么执行？
-
-答：首先打开千星沙箱，新建并打开一张空的节点图，确保编辑器上方没有任何窗口遮挡；然后前往本项目的“任务清单”页面，选择你对应的节点图，点击执行即可。
-
-### 目前都有哪些操作能直接全自动同步到千星沙箱里？
-
-答：目前只有**节点图**可以自动操作同步；其他的**信号、结构体**等内容需要自行并提前完成定义。
-
-### 自动运行有风险吗？
-
-答：有。节点图的“执行/同步”是通过模拟键鼠操作《原神》客户端内的千星沙箱编辑器完成的，因此使用该功能必然会操作游戏客户端。请在遵守官方用户协议与相关规则的前提下使用，并自行评估可能的风险与后果。
-
-### 程序有哪些快捷键（重要）？
-
-答：
-
-- `Ctrl+P`：执行过程中随时暂停（全局暂停请求）
-- `Ctrl+[`：在任务清单中切到上一个步骤/任务项
-- `Ctrl+]`：在任务清单中切到下一个步骤/任务项
-
-### 我看到节点图 UI 里也可以像千星沙箱一样创建节点图，我可以在 UI 里手动创建吗？
-
-答：不可以。现在的**信号、结构体、节点图、复合节点**只支持使用 Python 文件创建。虽然已经完全实现了 UI 内创建/修改的能力，但因存档容易出冲突、损坏文件等问题暂时禁用。如果你有创建或者修改的需求，建议你直接跟 AI 说。
-
-### 这个节点图居然用的是中文，不太习惯
-
-答：项目唯独资源库的内容使用中文命名和编程，目的是为了方便编程新手能稍微看懂一点。
-
-但不建议用户去查看和修改节点图代码：有任何需要修改的地方都应该交给 AI 操作。
-
-如你所见，这个项目的节点图代码的形式不是给人类操作的；人类要做的事情就是使用 UI 预览，即：**用代码写逻辑，用节点图看逻辑**。
-
-### 我还有别的什么问题……
-
-答：项目的文档非常详细，直接问 AI 即可；无法解决可以添加反馈群进行交流：BUG 反馈交流QQ群：`1073774505`。
-
----
-
-## 常用命令
-
-### 验证节点图
-
-验证所有节点图：
-
-```powershell
-python -X utf8 -m app.cli.graph_tools validate-graphs --all
-```
-
-验证单个节点图：
-
-```powershell
-python -X utf8 -m app.cli.graph_tools validate-graphs -f assets\资源库\项目存档\你的项目存档\节点图\server\你的图.py
-```
-
-### 验证项目存档
-
-```powershell
-python -X utf8 -m app.cli.graph_tools validate-project
-```
-
-说明：
-- 该命令校验的是 **目录模式项目存档**：`assets/资源库/项目存档/<package_id>/`
-- 典型问题：资源引用闭合（模板/实体摆放/关卡实体/管理配置）、挂载关系（节点图是否挂载）、GUID/ID 冲突等
-- 仅校验单个项目存档：
-
-```powershell
-python -X utf8 -m app.cli.graph_tools validate-project --package-id "你的项目存档名"
-```
-
-### 运行测试（CI 同源）
-
-```powershell
-python -X utf8 -m pytest
-```
+| 操作 | 对应命令 | 说明 |
+| :--- | :--- | :--- |
+| **全量验证** | `python -X utf8 -m app.cli.graph_tools validate-graphs --all` | 验证全量节点图与复合节点。 |
+| **单文件验证** | `python -X utf8 -m app.cli.graph_tools validate-file <path>` | 适合开发期单点调试。 |
+| **存档验证** | `python -X utf8 -m app.cli.graph_tools validate-project` | 校验目录存档级的资源引用健康度。 |
+| **单元测试** | `python -X utf8 -m pytest` | 跑通现有测试（要求安装 `requirements-dev.txt`）。 |
 
 ---
 
@@ -346,91 +82,45 @@ python -X utf8 -m pytest
 
 ```text
 repo_root/
-├── app/             # UI、自动化、CLI 入口
-│   ├── cli/
-│   │   └── run_app.py       # UI/CLI 入口（请用 python -m app.cli.run_app）
-│   └── runtime/
-│       └── cache/           # 运行期缓存（默认位置，自动生成）
-├── engine/          # 引擎核心（Graph Code 解析、布局、验证、模型）
-├── plugins/         # 节点实现及注册表（server/client/shared）
-├── assets/          # 资源库（节点图、复合节点、预设、OCR 模板等）
-│   └── 资源库/
-│       ├── 共享/        # 公共资源（所有存档可见）
-│       └── 项目存档/    # 每个项目存档一个目录（目录名即 package_id）
-└── runtime/         # 预留目录（当前通常为空/不使用）
+├── app/             # UI 渲染、CLI 入口与自动化控制
+├── engine/          # 核心引擎（解析、验证、布局算法）
+├── plugins/         # 节点实现注册表（包含 server/client/shared）
+├── assets/          # 资产资源库（图代码、信号、复合节点、OCR 模板等）
 ```
 
----
-
-## 节点图开发流程（Graph Code）
-
-### 1. 编写 Graph Code
-
-在任意“资源根目录”下创建 `.py` 文件，用类结构 Python 描述节点图逻辑。  
-常见位置：
-
-- `assets/资源库/项目存档/<项目存档名>/节点图/<server|client>/...`
-- `assets/资源库/共享/节点图/<server|client>/...`
-推荐让 AI 先给出草稿，再由人工审阅与补充注释。
-
-### 2. 运行验证（必须）
-
-```powershell
-python -X utf8 -m app.cli.graph_tools validate-graphs -f assets\资源库\项目存档\你的项目存档\节点图\server\你的图.py
-```
-
-验证不通过不得继续，必须根据错误提示修复。  
-Graph Code 只能使用节点库中已定义的节点（`plugins/nodes` 与复合节点库）。
-
-### 3. 在 UI 中查看
-
-```powershell
-python -X utf8 -m app.cli.run_app
-```
-
-打开对应存档，查看自动排版效果、端口连接、变量分层等。
-
-### 4. 自动搭图（可选）
-
-如需在官方编辑器中搭建节点图，可使用自动化脚本控制鼠标批量搭图，减少重复机械劳动。
+*(注意：日常开发只需关注 `assets/资源库/`，切勿随意修改 `engine/` 等核心组件。)*
 
 ---
 
-## 常用工具脚本
+## 常见问题（FAQ）
 
-| 脚本 | 用途 |
-| --- | --- |
-| `app.cli.graph_tools validate-graphs` | 节点图 & 复合节点验证（支持全量 / 单文件 / 严格模式） |
-| `app.cli.graph_tools validate-project` | 项目存档（目录模式）验证，等同 UI 中“验证”按钮（`validate-package` 为兼容旧名） |
-| `app.cli.convert_graph_to_executable` | 将 Graph Code 转成可执行 Python（必须使用 `python -m ...` 运行） |
+**Q：为什么 UI 里只能看不能连线？**
+A：我们的核心理念是“**用代码维护逻辑，用 UI 审阅逻辑**”。所有的逻辑构建与修改都应通过 Python 文件进行（便于 Git 管理和系统性重构），UI 仅作为不可变的实时投射面板。
 
----
+**Q：为什么节点图全是中文编程？**
+A：为了降低新手理解门槛并增强逻辑自说明能力，项目仅在 `assets/资源库/` 内采用纯中文命名体系，此机制同时与大语言模型（LLM）的生成特性高度契合。
 
-## 注意事项
-
-### UI 仅支持查看，不支持编辑
-
-以下内容在 UI 中 **仅允许查看，不支持修改**：
-
-- **信号（Signal）**
-- **结构体（Struct）**
-- **复合节点**
-- **节点图**
-
-所有修改必须在对应的 Python 源文件中进行，然后运行验证脚本。
-
-### 其他注意事项
-
-- 写完节点图代码后，**必须** 运行 `app.cli.graph_tools validate-graphs` 验证并根据结果修复
-- Graph Code 只能使用节点库中已定义的节点（`plugins/nodes` 与复合节点库）
-- 本项目只做静态建模与校验，不在本地执行节点实际业务逻辑
-- 运行期缓存缺失时会自动重建，不影响首次启动
+**Q：导出 `.gil` 直接覆盖会有风险吗？**
+A：本项目通过强大的导出校验确保文件合规，但覆盖前**务必手动备份源存档**，避免误操作导致存档损坏。
 
 ---
 
-## 许可
+## 开源协议与第三方致谢
 
-本项目遵循 **GNU General Public License v3.0**。  
-完整条款见根目录 `LICENSE`，或访问 [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.html)
+本项目遵循 **[GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0)** 开源许可。
 
+**免责声明**：本项目属于第三方辅助工具。若使用任何向游戏客户端直接操作的自动化功能，使用者需自行评估合规风险并承担相应后果。
 
+**致谢以下优秀的开源项目 / 运行期依赖**：
+
+- **核心依赖**：[PyQt6](https://www.riverbankcomputing.com/software/pyqt/) / [RapidOCR](https://github.com/RapidAI/RapidOCR) / [numpy](https://github.com/numpy/numpy) / [opencv-python](https://github.com/opencv/opencv-python) / [Pillow](https://github.com/python-pillow/Pillow) / [pytest](https://github.com/pytest-dev/pytest) 等
+- **对照分析与生态协同**：曾在开发期间提供启发与参考的外部项目：[genshin-ts](https://github.com/josStorer/genshin-ts) (MIT) / [Genshin-Impact-Miliastra-Wonderland-Code-Node-Editor-Pack](https://github.com/Wu-Yijun/Genshin-Impact-Miliastra-Wonderland-Code-Node-Editor-Pack) (MIT) / `Genshin-Impact-UGC-File-Converter` (MIT) / [perfectPixel](https://github.com/theamusing/perfectPixel) (MIT)
+
+**第三方派生报告（可选/可重建，不参与主流程强依赖）**：
+
+- 来自 `genshin-ts` / NodeEditorPack 的导出报告（MIT，可按需生成到 `private_extensions/ugc_file_tools/refs/genshin_ts/`）：
+  - `genshin_ts__struct_field_type_ids.report.json`
+  - `genshin_ts__node_schema.report.json`
+  - 对应许可证副本：`LICENSES/genshin-ts.MIT.txt`、`LICENSES/NodeEditorPack.MIT.txt`
+
+*(注：各第三方项目版权与授权以其独立声明或原仓库 `LICENSE` 为准)*

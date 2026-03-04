@@ -19,6 +19,7 @@ from app.ui.foundation.id_generator import generate_prefixed_id
 from app.ui.foundation import input_dialogs
 from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 from app.ui.foundation.keymap_store import KeymapStore
+from app.common.decorations_merge import merge_template_decorations
 from app.ui.graph.library_mixins import (
     ConfirmDialogMixin,
     SearchFilterMixin,
@@ -37,7 +38,7 @@ from engine.graph.models.entity_templates import (
     get_template_library_entity_types,
 )
 from engine.configs.entities.creature_models import get_creature_model_display_pairs, get_creature_model_category_for_name
-from engine.utils.resource_library_layout import discover_package_resource_roots, get_shared_root_dir
+from engine.utils.resource_library_layout import discover_package_resource_roots, get_shared_root_dir, get_packages_root_dir
 from engine.resources.custom_variable_file_refs import normalize_custom_variable_file_refs
 from app.ui.graph.library_pages.library_scaffold import (
     DualPaneLibraryScaffold,
@@ -48,6 +49,10 @@ from app.ui.graph.library_pages.library_scaffold import (
 from app.ui.graph.library_pages.library_view_scope import describe_resource_view_scope
 from app.ui.graph.library_pages.category_tree_mixin import EntityCategoryTreeMixin
 from app.ui.graph.library_pages.standard_dual_pane_list_page import StandardDualPaneListPage
+from app.ui.graph.library_pages.merge_decorations_dialog import (
+    MergeDecorationsDialog,
+    MergeDecorationsDialogItem,
+)
 
 
 TEMPLATE_ID_ROLE = QtCore.Qt.ItemDataRole.UserRole
@@ -100,10 +105,16 @@ class TemplateLibraryWidget(
         """设置UI"""
         self.add_template_btn = QtWidgets.QPushButton("+ 新建元件", self)
         self.duplicate_template_btn = QtWidgets.QPushButton("复制", self)
+        self.merge_decorations_btn = QtWidgets.QPushButton("合并装饰物…", self)
         self.delete_template_btn = QtWidgets.QPushButton("删除", self)
         widgets = self.build_standard_dual_pane_list_ui(
             search_placeholder="搜索元件...",
-            toolbar_buttons=[self.add_template_btn, self.duplicate_template_btn, self.delete_template_btn],
+            toolbar_buttons=[
+                self.add_template_btn,
+                self.duplicate_template_btn,
+                self.merge_decorations_btn,
+                self.delete_template_btn,
+            ],
             left_header_label="元件分类",
             left_title="元件分类",
             left_description="按实体类型过滤元件",
@@ -122,6 +133,7 @@ class TemplateLibraryWidget(
         # 连接信号
         self.add_template_btn.clicked.connect(self._add_template)
         self.duplicate_template_btn.clicked.connect(self._duplicate_template)
+        self.merge_decorations_btn.clicked.connect(self._merge_decorations_into_one_template)
         self.delete_template_btn.clicked.connect(self._delete_template)
         self.template_list.itemClicked.connect(self._on_template_clicked)
         self.template_list.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -226,6 +238,7 @@ class TemplateLibraryWidget(
         builder.add_action("新建", self._add_template, shortcut=shortcut_new)
         builder.add_separator()
         builder.add_action("复制", self._duplicate_template, enabled=has_item, shortcut=shortcut_dup)
+        builder.add_action("合并装饰物…", self._merge_decorations_into_one_template, enabled=has_item)
         builder.add_action("重命名", self._rename_template, enabled=has_item, shortcut=shortcut_rename)
         builder.add_action(
             "移动（所属存档）", self._change_selected_template_owner, enabled=has_item, shortcut=shortcut_move
@@ -321,20 +334,23 @@ class TemplateLibraryWidget(
             if isinstance(resource_manager_candidate, ResourceManager):
                 resource_library_dir = getattr(resource_manager_candidate, "resource_library_dir", None)
                 if isinstance(resource_library_dir, Path):
-                    shared_root_dir = (resource_library_dir / "共享").resolve()
+                    shared_root_dir = get_shared_root_dir(resource_library_dir)
+                    shared_root_abs = (
+                        shared_root_dir if shared_root_dir.is_absolute() else shared_root_dir.absolute()
+                    )
+                    shared_parts = tuple(part.casefold() for part in shared_root_abs.parts)
                     template_paths = resource_manager_candidate.list_resource_file_paths(ResourceType.TEMPLATE)
                     for resource_id, file_path in template_paths.items():
                         if not isinstance(resource_id, str) or not resource_id:
                             continue
                         if not isinstance(file_path, Path):
                             continue
-                        resolved_file = file_path.resolve()
-                        if hasattr(resolved_file, "is_relative_to"):
-                            if resolved_file.is_relative_to(shared_root_dir):  # type: ignore[attr-defined]
+                        file_abs = file_path if file_path.is_absolute() else file_path.absolute()
+                        if hasattr(file_abs, "is_relative_to"):
+                            if file_abs.is_relative_to(shared_root_abs):  # type: ignore[attr-defined]
                                 shared_template_ids.add(resource_id)
                         else:
-                            shared_parts = shared_root_dir.parts
-                            file_parts = resolved_file.parts
+                            file_parts = tuple(part.casefold() for part in file_abs.parts)
                             if len(file_parts) >= len(shared_parts) and file_parts[: len(shared_parts)] == shared_parts:
                                 shared_template_ids.add(resource_id)
 
@@ -871,6 +887,235 @@ class TemplateLibraryWidget(
         )
         self.data_changed.emit(event)
         ToastNotification.show_message(self, f"已复制元件：{new_name}", "success")
+
+    # ------------------------------------------------------------------ Decorations merge (project-level)
+
+    def _merge_decorations_into_one_template(self) -> None:
+        """将多个元件的 decorations 合并到同一个目标元件（项目资源级）。"""
+        if not isinstance(self.current_package, PackageView):
+            self.show_warning("提示", "请先切换到具体项目存档视图（非 <全部资源>）再使用“合并装饰物”。")
+            return
+
+        package = self.current_package
+        package_id = str(getattr(package, "package_id", "") or "").strip()
+        resource_manager = getattr(package, "resource_manager", None)
+        if not isinstance(resource_manager, ResourceManager):
+            self.show_warning("警告", "ResourceManager 不可用，无法执行合并。")
+            return
+
+        resource_library_dir = getattr(resource_manager, "resource_library_dir", None)
+        if not isinstance(resource_library_dir, Path):
+            self.show_warning("警告", "无法解析资源库根目录（resource_library_dir）。")
+            return
+
+        # 仅允许选择“当前项目存档目录”下的元件条目（不含共享根目录资源）。
+        package_root_dir = get_packages_root_dir(resource_library_dir) / package_id
+        package_root_abs = (
+            package_root_dir if package_root_dir.is_absolute() else package_root_dir.absolute()
+        )
+        pkg_parts = tuple(part.casefold() for part in package_root_abs.parts)
+        template_paths = resource_manager.list_resource_file_paths(ResourceType.TEMPLATE)
+
+        items: list[MergeDecorationsDialogItem] = []
+        for template_id, template in package.templates.items():
+            if not isinstance(template_id, str) or not template_id:
+                continue
+            file_path = template_paths.get(template_id)
+            if not isinstance(file_path, Path):
+                continue
+
+            file_abs = file_path if file_path.is_absolute() else file_path.absolute()
+            if hasattr(file_abs, "is_relative_to"):
+                if not file_abs.is_relative_to(package_root_abs):  # type: ignore[attr-defined]
+                    continue
+            else:
+                f_parts = tuple(part.casefold() for part in file_abs.parts)
+                if len(f_parts) < len(pkg_parts) or f_parts[: len(pkg_parts)] != pkg_parts:
+                    continue
+
+            # Decorations count from template.metadata
+            deco_count = 0
+            metadata = getattr(template, "metadata", {}) or {}
+            if isinstance(metadata, dict):
+                ci = metadata.get("common_inspector") if isinstance(metadata.get("common_inspector"), dict) else {}
+                model = ci.get("model") if isinstance(ci.get("model"), dict) else {}
+                decos = model.get("decorations")
+                if isinstance(decos, list):
+                    # Count dict entries + non-empty string entries (compat with legacy string list)
+                    deco_count = int(
+                        len([x for x in decos if isinstance(x, dict) or (isinstance(x, str) and x.strip())])
+                    )
+
+            category = ""
+            if isinstance(metadata, dict):
+                category_value = metadata.get("template_category") or metadata.get("category")
+                if isinstance(category_value, str):
+                    category = category_value.strip()
+
+            if category in ("元件组", "掉落物"):
+                icon = get_entity_type_info(category).get("icon", "📦")
+            else:
+                icon = get_entity_type_info(template.entity_type).get("icon", "📦")
+
+            name_text = str(getattr(template, "name", "") or "").strip() or template_id
+            display_text = f"{icon} {name_text}"
+            search_text = " ".join(
+                token
+                for token in [
+                    name_text,
+                    template_id,
+                    str(getattr(template, "entity_type", "") or "").strip(),
+                    category,
+                    str(deco_count),
+                ]
+                if token
+            )
+            items.append(
+                MergeDecorationsDialogItem(
+                    instance_id=template_id,
+                    display_text=display_text,
+                    search_text=search_text,
+                    decorations_count=int(deco_count),
+                )
+            )
+
+        if not items:
+            self.show_warning("提示", "当前项目存档目录下没有可用的元件资源。")
+            return
+
+        items.sort(key=lambda it: it.display_text.casefold())
+
+        dialog = MergeDecorationsDialog(
+            items=items,
+            package_id=package_id,
+            source_kind_label="元件",
+            target_kind_label="元件",
+            default_new_name=f"装饰物合并元件_{package_id}" if package_id else "装饰物合并元件",
+            show_center_policy=False,
+            parent=self,
+        )
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+
+        source_ids = dialog.get_selected_source_instance_ids()
+        target_choice_id = dialog.get_target_instance_id()
+
+        op = "update"
+        include_target_existing = True
+        if target_choice_id == "__new__":
+            new_template_id = generate_prefixed_id("template")
+            target_template = TemplateConfig(
+                template_id=new_template_id,
+                name=dialog.get_new_instance_name(),
+                entity_type="物件",
+                description="由“合并装饰物”工具生成",
+                default_graphs=[],
+                default_components=[],
+                entity_config={
+                    "render": {"model_name": "空模型", "visible": True},
+                },
+                metadata={
+                    "object_model_name": "空模型",
+                },
+                graph_variable_overrides={},
+            )
+            op = "create"
+            include_target_existing = False
+        else:
+            target_template = package.get_template(target_choice_id)  # type: ignore[call-arg]
+            if target_template is None:
+                self.refresh_templates()
+                self.show_warning("提示", "目标元件不存在或已被移除，请刷新后重试。")
+                return
+
+        # Build source templates list (exclude target itself to avoid duplication when keeping target existing).
+        source_templates: list[TemplateConfig] = []
+        target_id_text = str(getattr(target_template, "template_id", "") or "").strip()
+        for sid in source_ids:
+            if sid == target_id_text:
+                continue
+            tmpl = package.get_template(sid)  # type: ignore[call-arg]
+            if tmpl is None:
+                continue
+            source_templates.append(tmpl)
+
+        outcome = merge_template_decorations(
+            source_templates=source_templates,
+            target_template=target_template,
+            include_target_existing=include_target_existing,
+            center=dialog.should_center(),
+            center_mode=dialog.get_center_mode(),
+            center_axes=dialog.get_center_axes(),
+        )
+
+        updated_target = outcome.target_template
+        package.add_template(updated_target)
+
+        event = LibraryChangeEvent(
+            kind="template",
+            id=updated_target.template_id,
+            operation=op,
+            context={
+                "scope": describe_resource_view_scope(package),
+                "action": "merge_decorations",
+            },
+        )
+        self.data_changed.emit(event)
+
+        removed_ids: list[str] = []
+        if dialog.should_remove_sources():
+            window = self.window()
+            app_state = getattr(window, "app_state", None) if window is not None else None
+            package_index_manager = (
+                getattr(app_state, "package_index_manager", None) if app_state is not None else None
+            )
+            if not isinstance(package_index_manager, PackageIndexManager):
+                # 兼容旧别名（逐步迁移中）
+                package_index_manager = getattr(window, "package_index_manager", None) if window is not None else None
+
+            if not isinstance(package_index_manager, PackageIndexManager):
+                self.show_warning("警告", "无法移除源元件：PackageIndexManager 不可用。")
+            else:
+                for sid in source_ids:
+                    if sid == updated_target.template_id:
+                        continue
+                    moved_ok = package_index_manager.remove_resource_from_package(
+                        package.package_id,
+                        "template",
+                        sid,
+                    )
+                    if not moved_ok:
+                        continue
+                    removed_ids.append(sid)
+                    package.remove_template(sid)
+
+                if removed_ids and hasattr(package, "clear_cache"):
+                    package.clear_cache()
+
+                for rid in removed_ids:
+                    self.data_changed.emit(
+                        LibraryChangeEvent(
+                            kind="template",
+                            id=rid,
+                            operation="delete",
+                            context={
+                                "scope": describe_resource_view_scope(package),
+                                "action": "merge_decorations_remove_sources",
+                            },
+                        )
+                    )
+
+        self.refresh_templates()
+        self.select_template(updated_target.template_id)
+
+        skipped = len(outcome.skipped_template_ids)
+        removed = len(removed_ids)
+        msg = f"已合并装饰物：{len(outcome.merged_decorations)} 个 → {updated_target.name}"
+        if skipped:
+            msg += f"（跳过 {skipped} 个无装饰物元件）"
+        if removed:
+            msg += f"（已移除 {removed} 个源元件）"
+        ToastNotification.show_message(self, msg, "success")
 
     def _rename_template(self) -> None:
         """重命名当前选中的元件（仅修改 name 字段）。"""

@@ -1,17 +1,84 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 from typing import Dict
 
-from importlib.machinery import SourceFileLoader
 import pprint
+import tokenize
 
+from engine.graph.utils.ast_utils import (
+    NOT_EXTRACTABLE,
+    clear_module_constants_context,
+    collect_module_constants,
+    extract_constant_value,
+    set_module_constants_context,
+)
 from engine.utils.resource_library_layout import discover_scoped_resource_root_directories
 from engine.utils.workspace import (
     get_injected_workspace_root_or_none,
     looks_like_workspace_root,
     resolve_workspace_root,
 )
+
+
+def _find_module_assignment_value(tree: ast.Module, name: str) -> ast.expr | None:
+    """在模块顶层寻找对 name 的赋值表达式节点（支持 Assign/AnnAssign）。"""
+    want = str(name or "").strip()
+    if not want:
+        return None
+
+    for stmt in list(getattr(tree, "body", []) or []):
+        if isinstance(stmt, ast.Assign):
+            targets = list(getattr(stmt, "targets", []) or [])
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == want:
+                    return stmt.value
+        elif isinstance(stmt, ast.AnnAssign):
+            target = getattr(stmt, "target", None)
+            if isinstance(target, ast.Name) and target.id == want:
+                return getattr(stmt, "value", None)
+
+    return None
+
+
+def _try_extract_save_point_id_and_payload_from_code(py_path: Path) -> tuple[str | None, dict | None]:
+    """从局内存档模板代码资源文件中静态提取 (SAVE_POINT_ID, SAVE_POINT_PAYLOAD)。
+
+    约定：该方法**不执行**模块顶层代码；仅支持静态可提取的常量赋值：
+    - `SAVE_POINT_ID = "..."`
+    - `SAVE_POINT_PAYLOAD = { ... }`
+    - payload 内允许引用同模块内已声明的常量（例如 `SAVE_POINT_ID`）。
+    """
+    if not py_path.is_file():
+        return None, None
+
+    with tokenize.open(str(py_path)) as f:
+        source_text = f.read()
+
+    tree = ast.parse(source_text, filename=str(py_path))
+    constants = collect_module_constants(tree)
+    set_module_constants_context(constants)
+
+    id_expr = _find_module_assignment_value(tree, "SAVE_POINT_ID")
+    if id_expr is None:
+        clear_module_constants_context()
+        return None, None
+    id_value = extract_constant_value(id_expr)
+    if id_value is NOT_EXTRACTABLE or not isinstance(id_value, str) or not id_value:
+        clear_module_constants_context()
+        return None, None
+
+    payload_expr = _find_module_assignment_value(tree, "SAVE_POINT_PAYLOAD")
+    if payload_expr is None:
+        clear_module_constants_context()
+        return None, None
+    payload_value = extract_constant_value(payload_expr)
+    clear_module_constants_context()
+
+    if payload_value is NOT_EXTRACTABLE or not isinstance(payload_value, dict):
+        return None, None
+    return str(id_value), dict(payload_value)
 
 
 class IngameSaveTemplateSchemaService:
@@ -63,12 +130,7 @@ class IngameSaveTemplateSchemaService:
                 # 允许在目录中放置校验或工具脚本（如 `校验局内存档管理.py`），这些脚本不参与模板 Schema 聚合。
                 if "校验" in python_path.stem:
                     continue
-                module_name = f"code_save_point_template_{abs(hash(python_path.as_posix()))}"
-                loader = SourceFileLoader(module_name, str(python_path))
-                module = loader.load_module()
-
-                template_id_value = getattr(module, "SAVE_POINT_ID", None)
-                payload_value = getattr(module, "SAVE_POINT_PAYLOAD", None)
+                template_id_value, payload_value = _try_extract_save_point_id_and_payload_from_code(python_path)
 
                 if not isinstance(template_id_value, str) or not template_id_value:
                     raise ValueError(f"无效的 SAVE_POINT_ID（{python_path}）")

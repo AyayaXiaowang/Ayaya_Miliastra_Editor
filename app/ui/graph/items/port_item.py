@@ -29,6 +29,28 @@ if TYPE_CHECKING:
 PORT_RADIUS = 7
 
 
+def _build_event_mapping_tooltip_lines(*, node: object, scene: object) -> list[str]:
+    node_def_ref = getattr(node, "node_def_ref", None)
+    kind = str(getattr(node_def_ref, "kind", "") or "").strip() if node_def_ref is not None else ""
+    if kind != "event":
+        return []
+
+    event_key = str(getattr(node_def_ref, "key", "") or "").strip()
+    category = str(getattr(node, "category", "") or "").strip()
+    title = str(getattr(node, "title", "") or "").strip()
+    mapped_builtin_key = f"{category}/{title}" if (category and title) else ""
+
+    mapping_hit: Optional[bool] = None
+    node_library = getattr(scene, "node_library", None)
+    if isinstance(node_library, dict) and mapped_builtin_key:
+        mapping_hit = node_library.get(mapped_builtin_key) is not None
+
+    hit_text = "unknown" if mapping_hit is None else ("hit" if mapping_hit else "miss")
+    return [
+        f"🧭 event映射: event_key={event_key or '(empty)'} mapped_builtin_key={mapped_builtin_key or '(empty)'} mapping={hit_text}"
+    ]
+
+
 class PortGraphicsItem(QtWidgets.QGraphicsItem):
     def __init__(self, node_item: 'NodeGraphicsItem', name: str, is_input: bool, index: int, is_flow: bool = False):
         super().__init__()
@@ -91,6 +113,10 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
                     self.is_flow,
                 )
                 self._printed_tooltip_log = True
+
+        event_lines = _build_event_mapping_tooltip_lines(node=self.node_item.node, scene=scene)
+        if event_lines:
+            tooltip = f"{tooltip}\n" + "\n".join(event_lines)
 
         self.setToolTip(tooltip)
     

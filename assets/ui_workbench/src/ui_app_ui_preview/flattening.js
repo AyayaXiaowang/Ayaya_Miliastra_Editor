@@ -215,15 +215,50 @@ async function _extractElementsDataForSize(previewDoc, sourceHtmlText, canvasSiz
   var trimmed = String(sourceHtmlText || "").trim();
   var elementsData = null;
 
+  function _safeNumber(n) {
+    var x = Number(n);
+    if (!isFinite(x)) return 0;
+    return x;
+  }
+
+  function _isComputeCanvasSizeStable(data, opt) {
+    var d = data && data.diagnostics ? data.diagnostics : null;
+    if (!d || !d.bodyRect || !d.canvasSize) return false;
+    var bw = _safeNumber(d.bodyRect.width);
+    var bh = _safeNumber(d.bodyRect.height);
+    var cw = _safeNumber(d.canvasSize.width);
+    var ch = _safeNumber(d.canvasSize.height);
+    var ew = _safeNumber(opt && opt.width);
+    var eh = _safeNumber(opt && opt.height);
+    if (!(bw > 1) || !(bh > 1) || !(cw > 1) || !(ch > 1) || !(ew > 1) || !(eh > 1)) return false;
+    var eps = 1.5;
+    return (
+      Math.abs(bw - ew) <= eps &&
+      Math.abs(bh - eh) <= eps &&
+      Math.abs(cw - ew) <= eps &&
+      Math.abs(ch - eh) <= eps
+    );
+  }
+
   if (trimmed) {
     var computeReady = await preview.ensureComputePreviewIsReadyForHtml(trimmed);
     if (computeReady) {
-      preview.setComputePreviewCanvasSize(canvasSizeOption);
-      var computeDoc = preview.getComputePreviewDocument();
+      function _applyComputeCanvasSizeAndForceReflow() {
+        preview.setComputePreviewCanvasSize(canvasSizeOption);
+        var doc0 = preview.getComputePreviewDocument();
+        if (!doc0) return null;
+        // 关键：同时应用 CSS vars（--canvas-width/--canvas-height/--ui-scale）
+        preview.applyCanvasSizeToPreviewDocument(doc0, canvasSizeOption);
+        // 强制 reflow：避免 iframe 尺寸刚变更但 bodyRect 仍为旧值/0
+        if (doc0.body) {
+          doc0.body.getBoundingClientRect();
+          void doc0.body.offsetHeight;
+        }
+        return doc0;
+      }
+
+      var computeDoc = _applyComputeCanvasSizeAndForceReflow();
       if (computeDoc) {
-        // 关键：compute 预览同样需要应用 canvas size（vw/vh/clamp/--canvas-* 等依赖），否则可能提取到空 elementsData，
-        // 从而触发 fallback（会导致可视预览闪回原稿）。
-        preview.applyCanvasSizeToPreviewDocument(computeDoc, canvasSizeOption);
         await waitForNextFrame();
         await waitForNextFrame();
         elementsData = extractDisplayElementsData(computeDoc);
@@ -234,12 +269,43 @@ async function _extractElementsDataForSize(previewDoc, sourceHtmlText, canvasSiz
         // 等用户切换到别的文件/项目再切回来时，时间足够所以又正常。
         //
         // 这里做一次“额外等待 + 重试提取”，以消除这种首轮时序问题。
-        if (!elementsData || !elementsData.elements || elementsData.elements.length <= 0) {
+        //
+        // 同时：若 compute iframe 的尺寸未稳定到目标 canvas（bodyRect/canvasSize 与 opt 不一致），
+        // 则即便 elements 非空也可能来自“旧尺寸”，会导致 4 尺寸扁平化互相串台（例如 1600 区块实际上是 1560 的排版）。
+        // 因此这里对“空”与“尺寸不一致”统一做等待+重试。
+        var needRetry =
+          (!elementsData || !elementsData.elements || elementsData.elements.length <= 0) ||
+          !_isComputeCanvasSizeStable(elementsData, canvasSizeOption);
+        var retryCount = 0;
+        while (needRetry && retryCount < 2) {
           await waitForNextFrame();
           await waitForNextFrame();
           await waitForNextFrame();
           await waitForNextFrame();
-          elementsData = extractDisplayElementsData(computeDoc);
+          computeDoc = _applyComputeCanvasSizeAndForceReflow();
+          if (computeDoc) {
+            await waitForNextFrame();
+            await waitForNextFrame();
+            elementsData = extractDisplayElementsData(computeDoc);
+          }
+          retryCount += 1;
+          needRetry =
+            (!elementsData || !elementsData.elements || elementsData.elements.length <= 0) ||
+            !_isComputeCanvasSizeStable(elementsData, canvasSizeOption);
+        }
+
+        // Hard reset：若仍无法让尺寸稳定（典型：compute iframe 卡在旧尺寸/0×0），重建后再试一次。
+        if (needRetry && preview.resetComputePreviewHard) {
+          preview.resetComputePreviewHard();
+          var computeReady2 = await preview.ensureComputePreviewIsReadyForHtml(trimmed);
+          if (computeReady2) {
+            computeDoc = _applyComputeCanvasSizeAndForceReflow();
+            if (computeDoc) {
+              await waitForNextFrame();
+              await waitForNextFrame();
+              elementsData = extractDisplayElementsData(computeDoc);
+            }
+          }
         }
       }
     }

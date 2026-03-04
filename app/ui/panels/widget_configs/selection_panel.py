@@ -4,7 +4,7 @@ from typing import Any
 
 from PyQt6 import QtCore, QtWidgets
 
-from app.ui.panels.ui_control_group_collapsible_section import CollapsibleSection
+from app.ui.panels.ui.ui_control_group_collapsible_section import CollapsibleSection
 from .base import BaseWidgetConfigPanel, WidgetConfigForm
 from .card_selector_editor_dialog import CardPoolEditorDialog
 

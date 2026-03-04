@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from engine.graph.graph_code_parser import GraphCodeParser
 from engine.validate.api import validate_files
 from tests._helpers.project_paths import get_repo_root
 
@@ -226,3 +227,47 @@ class 字典字面量_键约束_报错:
     assert "PORT_GENERIC_CONSTRAINT_VIOLATION" in codes
 
 
+
+
+def test_module_level_typed_dict_constant_used_in_call_is_materialized_as_build_dict_node(tmp_path: Path) -> None:
+    graph_code = '''
+"""
+graph_id: graph_module_level_dict_constant_as_build_dict
+graph_name: 模块级字典常量_调用参数_改写为拼装字典
+graph_type: server
+"""
+
+from __future__ import annotations
+
+from _prelude import *
+
+模块常量字典: "字符串-整数字典" = {"a": 1, "b": 2}
+
+
+class 模块级字典常量_调用参数_改写为拼装字典:
+    def __init__(self, game, owner_entity):
+        self.game = game
+        self.owner_entity = owner_entity
+
+    def on_实体创建时(self, 事件源实体, 事件源GUID):
+        是否包含: "布尔值" = 查询字典是否包含特定键(self.game, 字典=模块常量字典, 键="a")
+'''
+    workspace = _workspace_root()
+    graph_path = _write_graph_code(tmp_path, "graph_module_level_dict_constant_as_build_dict.py", graph_code)
+
+    parser = GraphCodeParser(workspace, strict=True)
+    model, _meta = parser.parse_file(graph_path)
+
+    contains_nodes = [n for n in model.nodes.values() if n.title == "查询字典是否包含特定键"]
+    assert len(contains_nodes) == 1
+    contains_node = contains_nodes[0]
+    assert "字典" not in (contains_node.input_constants or {}), "字典输入不应直接写为 input_constants 常量"
+
+    incoming_edges = [
+        e
+        for e in model.edges.values()
+        if e.dst_node == contains_node.id and e.dst_port == "字典"
+    ]
+    assert incoming_edges, "查询字典是否包含特定键.字典 应由数据边提供"
+    src_titles = {model.nodes[e.src_node].title for e in incoming_edges if e.src_node in model.nodes}
+    assert "拼装字典" in src_titles

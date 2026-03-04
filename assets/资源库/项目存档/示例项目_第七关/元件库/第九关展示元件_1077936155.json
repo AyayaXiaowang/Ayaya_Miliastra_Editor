@@ -1,0 +1,5318 @@
+{
+  "template_id": "1077936155",
+  "name": "第九关展示元件",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936155,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073747035",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.04833984375,
+                "y": 4.2385406494140625,
+                "z": -0.597900390625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -3.0517578125e-05,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.5039876699447632,
+                "y": 1.5015991926193237,
+                "z": 0.29506081342697144
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747035,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.5039876699447632,
+                1.5015991926193237,
+                0.29506081342697144
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747036",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.04754638671875,
+                "y": 4.3396148681640625,
+                "z": -0.5511474609375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -3.0517578125e-05,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.3859549760818481,
+                "y": 1.3837538957595825,
+                "z": 0.27190449833869934
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747036,
+              "unit_name": "装饰物_2",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.3859549760818481,
+                1.3837538957595825,
+                0.27190449833869934
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747037",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.543914794921875,
+                "y": 4.4327545166015625,
+                "z": 0.006683349609375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.277246117591858,
+                "y": 1.2752176523208618,
+                "z": 0.25057733058929443
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747037,
+              "unit_name": "装饰物_3",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.277246117591858,
+                1.2752176523208618,
+                0.25057733058929443
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747038",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.467987060546875,
+                "y": 4.4327545166015625,
+                "z": -0.010955810546875
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -90.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.277246117591858,
+                "y": 1.2752177715301514,
+                "z": 0.25057733058929443
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747038,
+              "unit_name": "装饰物_4",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.277246117591858,
+                1.2752177715301514,
+                0.25057733058929443
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747039",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.993194580078125,
+                "y": 3.4569091796875,
+                "z": -0.0201416015625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.603095531463623,
+                "y": 2.598961591720581,
+                "z": 0.5106900334358215
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747039,
+              "unit_name": "装饰物_5",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.603095531463623,
+                2.598961591720581,
+                0.5106900334358215
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747040",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.069061279296875,
+                "y": 3.4569091796875,
+                "z": 0.015838623046875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.603095531463623,
+                "y": 2.598961591720581,
+                "z": 0.5106900334358215
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747040,
+              "unit_name": "装饰物_6",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.603095531463623,
+                2.598961591720581,
+                0.5106900334358215
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747041",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.9527587890625,
+                "y": 3.5507659912109375,
+                "z": -0.0194091796875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.5010135173797607,
+                "y": 2.497041702270508,
+                "z": 0.49066299200057983
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747041,
+              "unit_name": "装饰物_7",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.5010135173797607,
+                2.497041702270508,
+                0.49066299200057983
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747042",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.028656005859375,
+                "y": 3.5507659912109375,
+                "z": 0.015167236328125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.5010135173797607,
+                "y": 2.497041702270508,
+                "z": 0.49066299200057983
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747042,
+              "unit_name": "装饰物_8",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.5010135173797607,
+                2.497041702270508,
+                0.49066299200057983
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747043",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.884796142578125,
+                "y": 3.637664794921875,
+                "z": -0.018218994140625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.3294994831085205,
+                "y": 2.3258001804351807,
+                "z": 0.45701444149017334
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747043,
+              "unit_name": "装饰物_9",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.3294994831085205,
+                2.3258001804351807,
+                0.45701444149017334
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747044",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.960723876953125,
+                "y": 3.637664794921875,
+                "z": 0.01397705078125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.3294994831085205,
+                "y": 2.3258001804351807,
+                "z": 0.45701444149017334
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747044,
+              "unit_name": "装饰物_10",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.3294994831085205,
+                2.3258001804351807,
+                0.45701444149017334
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747045",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.821441650390625,
+                "y": 3.7119903564453125,
+                "z": -0.017120361328125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.1695735454559326,
+                "y": 2.166127920150757,
+                "z": 0.42563918232917786
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747045,
+              "unit_name": "装饰物_11",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.1695735454559326,
+                2.166127920150757,
+                0.42563918232917786
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747046",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.897369384765625,
+                "y": 3.7119903564453125,
+                "z": 0.012847900390625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.1695735454559326,
+                "y": 2.166127920150757,
+                "z": 0.42563918232917786
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747046,
+              "unit_name": "装饰物_12",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.1695735454559326,
+                2.166127920150757,
+                0.42563918232917786
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747047",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.762542724609375,
+                "y": 3.798492431640625,
+                "z": -0.01611328125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.020853042602539,
+                "y": 2.017643928527832,
+                "z": 0.39646241068840027
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747047,
+              "unit_name": "装饰物_13",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.020853042602539,
+                2.017643928527832,
+                0.39646241068840027
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747048",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.838470458984375,
+                "y": 3.798492431640625,
+                "z": 0.011810302734375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.020853042602539,
+                "y": 2.017643928527832,
+                "z": 0.39646241068840027
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747048,
+              "unit_name": "装饰物_14",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.020853042602539,
+                2.017643928527832,
+                0.39646241068840027
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747049",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7835693359375,
+                "y": 3.8910369873046875,
+                "z": 0.0108642578125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.8822674751281738,
+                "y": 1.8792781829833984,
+                "z": 0.3692739009857178
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747049,
+              "unit_name": "装饰物_15",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.8822674751281738,
+                1.8792781829833984,
+                0.3692739009857178
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747050",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7076416015625,
+                "y": 3.8910369873046875,
+                "z": -0.01513671875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.8822674751281738,
+                "y": 1.8792781829833984,
+                "z": 0.3692739009857178
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747050,
+              "unit_name": "装饰物_16",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.8822674751281738,
+                1.8792781829833984,
+                0.3692739009857178
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747051",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.663818359375,
+                "y": 4.0207366943359375,
+                "z": -0.014373779296875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.7716213464736938,
+                "y": 1.7688078880310059,
+                "z": 0.347566694021225
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747051,
+              "unit_name": "装饰物_17",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.7716213464736938,
+                1.7688078880310059,
+                0.347566694021225
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747052",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.73974609375,
+                "y": 4.0207366943359375,
+                "z": 0.010101318359375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.7716213464736938,
+                "y": 1.7688078880310059,
+                "z": 0.347566694021225
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747052,
+              "unit_name": "装饰物_18",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.7716213464736938,
+                1.7688078880310059,
+                0.347566694021225
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747053",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.62255859375,
+                "y": 4.120819091796875,
+                "z": -0.013641357421875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.6674646139144897,
+                "y": 1.6648163795471191,
+                "z": 0.32713261246681213
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747053,
+              "unit_name": "装饰物_19",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.6674646139144897,
+                1.6648163795471191,
+                0.32713261246681213
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747054",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.698486328125,
+                "y": 4.120819091796875,
+                "z": 0.009368896484375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.6674646139144897,
+                "y": 1.6648163795471191,
+                "z": 0.32713261246681213
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747054,
+              "unit_name": "装饰物_20",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.6674646139144897,
+                1.6648163795471191,
+                0.32713261246681213
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747055",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.438232421875,
+                "y": 4.5248870849609375,
+                "z": -0.01043701171875
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -90.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.202165126800537,
+                "y": 1.2002558708190918,
+                "z": 0.2358475625514984
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747055,
+              "unit_name": "装饰物_21",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.202165126800537,
+                1.2002558708190918,
+                0.2358475625514984
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747056",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.514190673828125,
+                "y": 4.5248870849609375,
+                "z": 0.00616455078125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.202165126800537,
+                "y": 1.2002558708190918,
+                "z": 0.2358475625514984
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747056,
+              "unit_name": "装饰物_22",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.202165126800537,
+                1.2002558708190918,
+                0.2358475625514984
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747057",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.476837158203125,
+                "y": 4.6141204833984375,
+                "z": 0.005523681640625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.1078784465789795,
+                "y": 1.1061190366744995,
+                "z": 0.21734987199306488
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747057,
+              "unit_name": "装饰物_23",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.1078784465789795,
+                1.1061190366744995,
+                0.21734987199306488
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747058",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.40087890625,
+                "y": 4.6141204833984375,
+                "z": -0.009796142578125
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -90.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.1078784465789795,
+                "y": 1.1061190366744995,
+                "z": 0.2173498570919037
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747058,
+              "unit_name": "装饰物_24",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.1078784465789795,
+                1.1061190366744995,
+                0.2173498570919037
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747059",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.398895263671875,
+                "y": 4.7735595703125,
+                "z": 0.004150390625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9111081957817078,
+                "y": 0.9096612930297852,
+                "z": 0.17874637246131897
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747059,
+              "unit_name": "装饰物_25",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.9111081957817078,
+                0.9096612930297852,
+                0.17874637246131897
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747060",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.32293701171875,
+                "y": 4.7735595703125,
+                "z": -0.0084228515625
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -90.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9111081957817078,
+                "y": 0.9096612930297852,
+                "z": 0.17874638736248016
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747060,
+              "unit_name": "装饰物_26",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.9111081957817078,
+                0.9096612930297852,
+                0.17874638736248016
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747061",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.4381103515625,
+                "y": 4.6977996826171875,
+                "z": 0.004852294921875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0101429224014282,
+                "y": 1.008538842201233,
+                "z": 0.1981755793094635
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747061,
+              "unit_name": "装饰物_27",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.0101429224014282,
+                1.008538842201233,
+                0.1981755793094635
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747062",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.362152099609375,
+                "y": 4.6977996826171875,
+                "z": -0.009124755859375
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -90.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0101429224014282,
+                "y": 1.008538842201233,
+                "z": 0.1981755644083023
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747062,
+              "unit_name": "装饰物_28",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.0101429224014282,
+                1.008538842201233,
+                0.1981755644083023
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747063",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.08966064453125,
+                "y": 3.17803955078125,
+                "z": 0.016204833984375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.6551127433776855,
+                "y": 2.6508967876434326,
+                "z": 1.1470236778259277
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747063,
+              "unit_name": "装饰物_29",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.6551127433776855,
+                2.6508967876434326,
+                1.1470236778259277
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747064",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.049774169921875,
+                "y": 2.7776641845703125,
+                "z": 0.015533447265625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.5543806552886963,
+                "y": 2.550323963165283,
+                "z": 0.5011327862739563
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747064,
+              "unit_name": "装饰物_30",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.5543806552886963,
+                2.550323963165283,
+                0.5011327862739563
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747065",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.079498291015625,
+                "y": 2.8717803955078125,
+                "z": 0.016021728515625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.62941312789917,
+                "y": 2.625237464904785,
+                "z": 0.5158531665802002
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747065,
+              "unit_name": "装饰物_31",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.62941312789917,
+                2.625237464904785,
+                0.5158531665802002
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747066",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.013763427734375,
+                "y": 3.17803955078125,
+                "z": -0.020477294921875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.6551127433776855,
+                "y": 2.6508967876434326,
+                "z": 1.1470236778259277
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747066,
+              "unit_name": "装饰物_32",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.6551127433776855,
+                2.6508967876434326,
+                1.1470236778259277
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747067",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.027587890625,
+                "y": 4.2385406494140625,
+                "z": 0.5936279296875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -180.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.5039876699447632,
+                "y": 1.5015991926193237,
+                "z": 0.29506081342697144
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747067,
+              "unit_name": "装饰物_33",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.5039876699447632,
+                1.5015991926193237,
+                0.29506081342697144
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747068",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.028411865234375,
+                "y": 4.3396148681640625,
+                "z": 0.546875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -180.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.3859549760818481,
+                "y": 1.3837538957595825,
+                "z": 0.27190449833869934
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747068,
+              "unit_name": "装饰物_34",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                1.3859549760818481,
+                1.3837538957595825,
+                0.27190449833869934
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747069",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.32470703125,
+                "y": 4.9610137939453125,
+                "z": 0.00286865234375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7238080501556396,
+                "y": 0.7226585745811462,
+                "z": 0.2772148847579956
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747069,
+              "unit_name": "装饰物_35",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.7238080501556396,
+                0.7226585745811462,
+                0.2772148847579956
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747070",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.24871826171875,
+                "y": 4.9610137939453125,
+                "z": -0.00714111328125
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -90.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7238080501556396,
+                "y": 0.722658634185791,
+                "z": 0.27863001823425293
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747070,
+              "unit_name": "装饰物_36",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.7238080501556396,
+                0.722658634185791,
+                0.27863001823425293
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747071",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.37408447265625,
+                "y": 4.8578033447265625,
+                "z": 0.00372314453125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.848548948764801,
+                "y": 0.847201406955719,
+                "z": 0.32499006390571594
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747071,
+              "unit_name": "装饰物_37",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.848548948764801,
+                0.847201406955719,
+                0.32499006390571594
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747072",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.29815673828125,
+                "y": 4.8578033447265625,
+                "z": -0.00799560546875
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -90.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.848548948764801,
+                "y": 0.8472013473510742,
+                "z": 0.3266490697860718
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747072,
+              "unit_name": "装饰物_38",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.848548948764801,
+                0.8472013473510742,
+                0.3266490697860718
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747073",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.9710693359375,
+                "y": 2.3453521728515625,
+                "z": 0.01416015625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.3555774688720703,
+                "y": 2.351836681365967,
+                "z": 0.4621305465698242
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747073,
+              "unit_name": "装饰物_39",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.3555774688720703,
+                2.351836681365967,
+                0.4621305465698242
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747074",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.916168212890625,
+                "y": 2.5001678466796875,
+                "z": 0.01318359375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.216973304748535,
+                "y": 2.2134525775909424,
+                "z": 0.4349384009838104
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747074,
+              "unit_name": "装饰物_40",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.216973304748535,
+                2.2134525775909424,
+                0.4349384009838104
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747075",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.917724609375,
+                "y": 2.6536102294921875,
+                "z": -0.018798828125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.412567615509033,
+                "y": 2.408735990524292,
+                "z": 0.4733111262321472
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747075,
+              "unit_name": "装饰物_41",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.412567615509033,
+                2.408735990524292,
+                0.4733111262321472
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747076",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.993621826171875,
+                "y": 2.6536102294921875,
+                "z": 0.014556884765625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.412567615509033,
+                "y": 2.408735990524292,
+                "z": 0.4733111262321472
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747076,
+              "unit_name": "装饰物_42",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.412567615509033,
+                2.408735990524292,
+                0.4733111262321472
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747077",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.973907470703125,
+                "y": 2.7776641845703125,
+                "z": -0.019775390625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.5543806552886963,
+                "y": 2.550323963165283,
+                "z": 0.5011327862739563
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747077,
+              "unit_name": "装饰物_43",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.5543806552886963,
+                2.550323963165283,
+                0.5011327862739563
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747078",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.84417724609375,
+                "y": 1.985504150390625,
+                "z": 0.513519287109375
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747078,
+              "unit_name": "装饰物_44",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747079",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.003631591796875,
+                "y": 2.8717803955078125,
+                "z": -0.02032470703125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.62941312789917,
+                "y": 2.625237464904785,
+                "z": 0.5158531665802002
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747079,
+              "unit_name": "装饰物_45",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.62941312789917,
+                2.625237464904785,
+                0.5158531665802002
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747080",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.03985595703125,
+                "y": 5.3451995849609375,
+                "z": -0.109466552734375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -3.0517578125e-05,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.27094244956970215,
+                "y": 0.2705121338367462,
+                "z": 0.7646824717521667
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747080,
+              "unit_name": "装饰物_46",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.27094244956970215,
+                0.2705121338367462,
+                0.7646824717521667
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747081",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.11474609375,
+                "y": 5.2433319091796875,
+                "z": -0.004791259765625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3856165111064911,
+                "y": 0.3850041329860687,
+                "z": 0.14768922328948975
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747081,
+              "unit_name": "装饰物_47",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.3856165111064911,
+                0.3850041329860687,
+                0.14768922328948975
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747082",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.190765380859375,
+                "y": 5.2433319091796875,
+                "z": 0.000518798828125
+              },
+              "rot": {
+                "x": 89.98021697998047,
+                "y": -270.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.38561639189720154,
+                "y": 0.3850039541721344,
+                "z": 0.1484430879354477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747082,
+              "unit_name": "装饰物_48",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.38561639189720154,
+                0.3850039541721344,
+                0.1484430879354477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747083",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.0406494140625,
+                "y": 5.183074951171875,
+                "z": -0.154876708984375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3856165111064911,
+                "y": 0.3850041329860687,
+                "z": 0.14768922328948975
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747083,
+              "unit_name": "装饰物_49",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.3856165111064911,
+                0.3850041329860687,
+                0.14768922328948975
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747084",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.04150390625,
+                "y": 5.1182098388671875,
+                "z": -0.2044677734375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.5108401775360107,
+                "y": 0.5100288987159729,
+                "z": 0.19564926624298096
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747084,
+              "unit_name": "装饰物_50",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.5108401775360107,
+                0.5100288987159729,
+                0.19564926624298096
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747085",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.0406494140625,
+                "y": 5.2996673583984375,
+                "z": -0.1549072265625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -3.0517578125e-05,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3856165111064911,
+                "y": 0.3850041329860687,
+                "z": 0.14844313263893127
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747085,
+              "unit_name": "装饰物_51",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.3856165111064911,
+                0.3850041329860687,
+                0.14844313263893127
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747086",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.16436767578125,
+                "y": 5.042327880859375,
+                "z": -0.005645751953125
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -90.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.5108401775360107,
+                "y": 0.5100288987159729,
+                "z": 0.19664797186851501
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747086,
+              "unit_name": "装饰物_52",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.5108401775360107,
+                0.5100288987159729,
+                0.19664797186851501
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747087",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.240325927734375,
+                "y": 5.042327880859375,
+                "z": 0.00140380859375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -270.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.5108401775360107,
+                "y": 0.5100288987159729,
+                "z": 0.19564926624298096
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747087,
+              "unit_name": "装饰物_53",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.5108401775360107,
+                0.5100288987159729,
+                0.19564926624298096
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747088",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.846649169921875,
+                "y": 1.3937835693359375,
+                "z": -0.88421630859375
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7646824717521667,
+                "y": 0.030083077028393745,
+                "z": 0.7413143515586853
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747088,
+              "unit_name": "装饰物_54",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.7646824717521667,
+                0.030083077028393745,
+                0.7413143515586853
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747089",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.845703125,
+                "y": 2.220123291015625,
+                "z": -0.5587158203125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 90.0,
+                "z": 41.8018798828125
+              },
+              "scale": {
+                "x": 0.12530271708965302,
+                "y": 0.06789826601743698,
+                "z": 0.7119185328483582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747089,
+              "unit_name": "装饰物_55",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.12530271708965302,
+                0.06789826601743698,
+                0.7119185328483582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747090",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.845703125,
+                "y": 1.985504150390625,
+                "z": -0.8482666015625
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747090,
+              "unit_name": "装饰物_56",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747091",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.895172119140625,
+                "y": 2.3453521728515625,
+                "z": -0.018402099609375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.3555774688720703,
+                "y": 2.351836681365967,
+                "z": 0.4621305465698242
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747091,
+              "unit_name": "装饰物_57",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.3555774688720703,
+                2.351836681365967,
+                0.4621305465698242
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747092",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.845703125,
+                "y": 2.3497161865234375,
+                "z": -0.330780029296875
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 90.0,
+                "z": 25.06414794921875
+              },
+              "scale": {
+                "x": 0.1253027319908142,
+                "y": 0.06789829581975937,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747092,
+              "unit_name": "装饰物_58",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027319908142,
+                0.06789829581975937,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747093",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.845703125,
+                "y": 2.40057373046875,
+                "z": -0.145172119140625
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 90.0,
+                "z": 8.79498291015625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747093,
+              "unit_name": "装饰物_59",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747094",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.844482421875,
+                "y": 2.40057373046875,
+                "z": 0.14544677734375
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -90.0,
+                "z": 8.79498291015625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747094,
+              "unit_name": "装饰物_60",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747095",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.844482421875,
+                "y": 2.3497161865234375,
+                "z": 0.331085205078125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -90.0,
+                "z": 25.06414794921875
+              },
+              "scale": {
+                "x": 0.1253027319908142,
+                "y": 0.06789829581975937,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747095,
+              "unit_name": "装饰物_61",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027319908142,
+                0.06789829581975937,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747096",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.840240478515625,
+                "y": 2.5001678466796875,
+                "z": -0.0174560546875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.216973304748535,
+                "y": 2.2134525775909424,
+                "z": 0.4349384009838104
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747096,
+              "unit_name": "装饰物_62",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                2.216973304748535,
+                2.2134525775909424,
+                0.4349384009838104
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747097",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.844482421875,
+                "y": 2.220123291015625,
+                "z": 0.55902099609375
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -90.0,
+                "z": 41.8018798828125
+              },
+              "scale": {
+                "x": 0.12530271708965302,
+                "y": 0.06789826601743698,
+                "z": 0.7119185328483582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747097,
+              "unit_name": "装饰物_63",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.12530271708965302,
+                0.06789826601743698,
+                0.7119185328483582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747098",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.844482421875,
+                "y": 2.105743408203125,
+                "z": 0.691925048828125
+              },
+              "rot": {
+                "x": 180.0000457763672,
+                "y": -90.0,
+                "z": 56.2447509765625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789831817150116,
+                "z": 0.7119187116622925
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747098,
+              "unit_name": "装饰物_64",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789831817150116,
+                0.7119187116622925
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747099",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.589813232421875,
+                "y": 2.220123291015625,
+                "z": 0.802520751953125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -180.0,
+                "z": 41.8018798828125
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789829581975937,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747099,
+              "unit_name": "装饰物_65",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789829581975937,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747100",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.72271728515625,
+                "y": 2.105743408203125,
+                "z": 0.802520751953125
+              },
+              "rot": {
+                "x": 180.0000457763672,
+                "y": -180.0,
+                "z": 56.2447509765625
+              },
+              "scale": {
+                "x": 0.12530271708965302,
+                "y": 0.06789828836917877,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747100,
+              "unit_name": "装饰物_66",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.12530271708965302,
+                0.06789828836917877,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747101",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5443115234375,
+                "y": 1.985504150390625,
+                "z": 0.802825927734375
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 0.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747101,
+              "unit_name": "装饰物_67",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747102",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.036865234375,
+                "y": 5.5550537109375,
+                "z": 0.062042236328125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -180.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.16202430427074432,
+                "y": 0.16176699101924896,
+                "z": 0.457282155752182
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747102,
+              "unit_name": "装饰物_68",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.16202430427074432,
+                0.16176699101924896,
+                0.457282155752182
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747103",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.036865234375,
+                "y": 6.879302978515625,
+                "z": 0.062042236328125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -180.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.16202430427074432,
+                "y": 0.16176699101924896,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747103,
+              "unit_name": "装饰物_69",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.16202430427074432,
+                0.16176699101924896,
+                0.3823412358760834
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747104",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.0361328125,
+                "y": 5.3451995849609375,
+                "z": 0.105194091796875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -180.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.27094244956970215,
+                "y": 0.2705121338367462,
+                "z": 0.7646824717521667
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747104,
+              "unit_name": "装饰物_70",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.27094244956970215,
+                0.2705121338367462,
+                0.7646824717521667
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747105",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.03533935546875,
+                "y": 5.183074951171875,
+                "z": 0.150634765625
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -180.00001525878906,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3856165111064911,
+                "y": 0.3850041329860687,
+                "z": 0.14844313263893127
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747105,
+              "unit_name": "装饰物_71",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.3856165111064911,
+                0.3850041329860687,
+                0.14844313263893127
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747106",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.034454345703125,
+                "y": 5.1182098388671875,
+                "z": 0.200225830078125
+              },
+              "rot": {
+                "x": 89.9720230102539,
+                "y": -180.00001525878906,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.5108401775360107,
+                "y": 0.5100288987159729,
+                "z": 0.1966479867696762
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747106,
+              "unit_name": "装饰物_72",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.5108401775360107,
+                0.5100288987159729,
+                0.1966479867696762
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747107",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.03533935546875,
+                "y": 5.2996673583984375,
+                "z": 0.150604248046875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -180.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3856165111064911,
+                "y": 0.3850041329860687,
+                "z": 0.14768922328948975
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747107,
+              "unit_name": "装饰物_73",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.3856165111064911,
+                0.3850041329860687,
+                0.14768922328948975
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747108",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20002149,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.0352783203125,
+                "y": 4.9514923095703125,
+                "z": -0.000885009765625
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.010038556531071663,
+                "y": 0.3823412358760834,
+                "z": 0.24205993115901947
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747108,
+              "unit_name": "装饰物_74",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20002149,
+              "ugc_scale": [
+                0.010038556531071663,
+                0.3823412358760834,
+                0.24205993115901947
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747109",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.03912353515625,
+                "y": 6.879302978515625,
+                "z": -0.066314697265625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -3.0517578125e-05,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.16202430427074432,
+                "y": 0.16176699101924896,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747109,
+              "unit_name": "装饰物_75",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.16202430427074432,
+                0.16176699101924896,
+                0.3823412358760834
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747110",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001385,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.03912353515625,
+                "y": 5.5550537109375,
+                "z": -0.066314697265625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -3.0517578125e-05,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.16202430427074432,
+                "y": 0.16176699101924896,
+                "z": 0.457282155752182
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747110,
+              "unit_name": "装饰物_76",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001385,
+              "ugc_scale": [
+                0.16202430427074432,
+                0.16176699101924896,
+                0.457282155752182
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747111",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.84857177734375,
+                "y": 1.3937835693359375,
+                "z": 0.724578857421875
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7646824717521667,
+                "y": 0.030083077028393745,
+                "z": 0.7413143515586853
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747111,
+              "unit_name": "装饰物_77",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.7646824717521667,
+                0.030083077028393745,
+                0.7413143515586853
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747112",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.589813232421875,
+                "y": 2.220123291015625,
+                "z": -0.80963134765625
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -180.0,
+                "z": 41.8018798828125
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789829581975937,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747112,
+              "unit_name": "装饰物_78",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789829581975937,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747113",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.845703125,
+                "y": 2.105743408203125,
+                "z": -0.691619873046875
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 90.0,
+                "z": 56.2447509765625
+              },
+              "scale": {
+                "x": 0.12530270218849182,
+                "y": 0.06789826601743698,
+                "z": 0.7119185328483582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747113,
+              "unit_name": "装饰物_79",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.12530270218849182,
+                0.06789826601743698,
+                0.7119185328483582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747114",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5443115234375,
+                "y": 1.985504150390625,
+                "z": -0.809326171875
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 0.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747114,
+              "unit_name": "装饰物_80",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747115",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36187744140625,
+                "y": 2.3497161865234375,
+                "z": -0.80963134765625
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -180.0,
+                "z": 25.06414794921875
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747115,
+              "unit_name": "装饰物_81",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747116",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.72271728515625,
+                "y": 2.105743408203125,
+                "z": -0.80963134765625
+              },
+              "rot": {
+                "x": 180.0000457763672,
+                "y": -180.0,
+                "z": 56.2447509765625
+              },
+              "scale": {
+                "x": 0.12530271708965302,
+                "y": 0.06789828836917877,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747116,
+              "unit_name": "装饰物_82",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.12530271708965302,
+                0.06789828836917877,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747117",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.17626953125,
+                "y": 2.40057373046875,
+                "z": -0.80963134765625
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -180.0,
+                "z": 8.79498291015625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747117,
+              "unit_name": "装饰物_83",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747118",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.17626953125,
+                "y": 2.40057373046875,
+                "z": 0.802520751953125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -180.0,
+                "z": 8.79498291015625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747118,
+              "unit_name": "装饰物_84",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747119",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36187744140625,
+                "y": 2.3497161865234375,
+                "z": 0.802520751953125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -180.0,
+                "z": 25.06414794921875
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747119,
+              "unit_name": "装饰物_85",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747120",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.1143798828125,
+                "y": 2.40057373046875,
+                "z": -0.810882568359375
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 0.0,
+                "z": 8.79498291015625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747120,
+              "unit_name": "装饰物_86",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747121",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.29998779296875,
+                "y": 2.3497161865234375,
+                "z": -0.810882568359375
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 0.0,
+                "z": 25.06414794921875
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747121,
+              "unit_name": "装饰物_87",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747122",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.527923583984375,
+                "y": 2.220123291015625,
+                "z": -0.810882568359375
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 0.0,
+                "z": 41.8018798828125
+              },
+              "scale": {
+                "x": 0.1253027617931366,
+                "y": 0.06789829581975937,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747122,
+              "unit_name": "装饰物_88",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027617931366,
+                0.06789829581975937,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747123",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.764068603515625,
+                "y": 2.40057373046875,
+                "z": -0.145172119140625
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 90.0,
+                "z": 8.79498291015625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747123,
+              "unit_name": "装饰物_89",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747124",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.29998779296875,
+                "y": 2.3497161865234375,
+                "z": 0.801300048828125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 0.0,
+                "z": 25.06414794921875
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747124,
+              "unit_name": "装饰物_90",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747125",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.1143798828125,
+                "y": 2.40057373046875,
+                "z": 0.801300048828125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 0.0,
+                "z": 8.79498291015625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747125,
+              "unit_name": "装饰物_91",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747126",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.765289306640625,
+                "y": 2.40057373046875,
+                "z": 0.14544677734375
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -90.0,
+                "z": 8.79498291015625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747126,
+              "unit_name": "装饰物_92",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747127",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.764068603515625,
+                "y": 2.3497161865234375,
+                "z": -0.330780029296875
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 90.0,
+                "z": 25.06414794921875
+              },
+              "scale": {
+                "x": 0.1253027319908142,
+                "y": 0.06789829581975937,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747127,
+              "unit_name": "装饰物_93",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027319908142,
+                0.06789829581975937,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747128",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.764068603515625,
+                "y": 2.220123291015625,
+                "z": -0.5587158203125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 90.0,
+                "z": 41.8018798828125
+              },
+              "scale": {
+                "x": 0.12530271708965302,
+                "y": 0.06789826601743698,
+                "z": 0.7119185328483582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747128,
+              "unit_name": "装饰物_94",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.12530271708965302,
+                0.06789826601743698,
+                0.7119185328483582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747129",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.764068603515625,
+                "y": 2.105743408203125,
+                "z": -0.691619873046875
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 90.0,
+                "z": 56.2447509765625
+              },
+              "scale": {
+                "x": 0.12530270218849182,
+                "y": 0.06789826601743698,
+                "z": 0.7119185328483582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747129,
+              "unit_name": "装饰物_95",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.12530270218849182,
+                0.06789826601743698,
+                0.7119185328483582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747130",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.66082763671875,
+                "y": 2.105743408203125,
+                "z": -0.810882568359375
+              },
+              "rot": {
+                "x": 180.0000457763672,
+                "y": 0.0,
+                "z": 56.2447509765625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789828836917877,
+                "z": 0.711918294429779
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747130,
+              "unit_name": "装饰物_96",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789828836917877,
+                0.711918294429779
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747131",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.764068603515625,
+                "y": 1.985504150390625,
+                "z": -0.882080078125
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747131,
+              "unit_name": "装饰物_97",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747132",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.817474365234375,
+                "y": 1.985504150390625,
+                "z": -0.810882568359375
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 0.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747132,
+              "unit_name": "装饰物_98",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747133",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.764068603515625,
+                "y": 1.985504150390625,
+                "z": -0.8482666015625
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747133,
+              "unit_name": "装饰物_99",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747134",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.01898193359375,
+                "y": -0.3170318603515625,
+                "z": -1.490020751953125
+              },
+              "rot": {
+                "x": 179.99998474121094,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.07788954675197601,
+                "y": 0.5648412108421326,
+                "z": 14.543017387390137
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747134,
+              "unit_name": "装饰物_100",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.07788954675197601,
+                0.5648412108421326,
+                14.543017387390137
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747135",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.765289306640625,
+                "y": 2.220123291015625,
+                "z": 0.55902099609375
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -90.0,
+                "z": 41.8018798828125
+              },
+              "scale": {
+                "x": 0.12530271708965302,
+                "y": 0.06789826601743698,
+                "z": 0.7119185328483582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747135,
+              "unit_name": "装饰物_101",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.12530271708965302,
+                0.06789826601743698,
+                0.7119185328483582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747136",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.765289306640625,
+                "y": 2.105743408203125,
+                "z": 0.691925048828125
+              },
+              "rot": {
+                "x": 180.0000457763672,
+                "y": -90.0,
+                "z": 56.2447509765625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789831817150116,
+                "z": 0.7119187116622925
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747136,
+              "unit_name": "装饰物_102",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789831817150116,
+                0.7119187116622925
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747137",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.66082763671875,
+                "y": 2.105743408203125,
+                "z": 0.801300048828125
+              },
+              "rot": {
+                "x": 180.0000457763672,
+                "y": 0.0,
+                "z": 56.2447509765625
+              },
+              "scale": {
+                "x": 0.1253027468919754,
+                "y": 0.06789828836917877,
+                "z": 0.711918294429779
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747137,
+              "unit_name": "装饰物_103",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027468919754,
+                0.06789828836917877,
+                0.711918294429779
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747138",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.765289306640625,
+                "y": 2.3497161865234375,
+                "z": 0.331085205078125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": -90.0,
+                "z": 25.06414794921875
+              },
+              "scale": {
+                "x": 0.1253027319908142,
+                "y": 0.06789829581975937,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747138,
+              "unit_name": "装饰物_104",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027319908142,
+                0.06789829581975937,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747139",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.527923583984375,
+                "y": 2.220123291015625,
+                "z": 0.801300048828125
+              },
+              "rot": {
+                "x": 180.00003051757812,
+                "y": 0.0,
+                "z": 41.8018798828125
+              },
+              "scale": {
+                "x": 0.1253027617931366,
+                "y": 0.06789829581975937,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747139,
+              "unit_name": "装饰物_105",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.1253027617931366,
+                0.06789829581975937,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747140",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.037994384765625,
+                "y": -0.25933837890625,
+                "z": -0.7396240234375
+              },
+              "rot": {
+                "x": 179.99998474121094,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.09660693258047104,
+                "y": 0.2929360568523407,
+                "z": 7.54224967956543
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747140,
+              "unit_name": "装饰物_106",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.09660693258047104,
+                0.2929360568523407,
+                7.54224967956543
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747141",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.0357666015625,
+                "y": -0.105072021484375,
+                "z": -0.623138427734375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 4.8296737986675e-06,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.5885398387908936,
+                "y": 0.26832619309425354,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747141,
+              "unit_name": "装饰物_107",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.5885398387908936,
+                0.26832619309425354,
+                0.3823412358760834
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747142",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.765594482421875,
+                "y": 1.985504150390625,
+                "z": 0.513519287109375
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747142,
+              "unit_name": "装饰物_108",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747143",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.817474365234375,
+                "y": 1.985504150390625,
+                "z": 0.801300048828125
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 0.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.19602073729038239,
+                "y": 0.06789830327033997,
+                "z": 0.7119186520576477
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747143,
+              "unit_name": "装饰物_109",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.19602073729038239,
+                0.06789830327033997,
+                0.7119186520576477
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747144",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.491424560546875,
+                "y": -0.25933837890625,
+                "z": -0.533355712890625
+              },
+              "rot": {
+                "x": 179.99998474121094,
+                "y": 45.0,
+                "z": 89.99996948242188
+              },
+              "scale": {
+                "x": 0.09660696983337402,
+                "y": 0.2929361164569855,
+                "z": 7.54224967956543
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747144,
+              "unit_name": "装饰物_110",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.09660696983337402,
+                0.2929361164569855,
+                7.54224967956543
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747145",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.496917724609375,
+                "y": -0.1110382080078125,
+                "z": -0.466644287109375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 45.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.5885398387908936,
+                "y": 0.26832619309425354,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747145,
+              "unit_name": "装饰物_111",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.5885398387908936,
+                0.26832619309425354,
+                0.3823412358760834
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747146",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.405548095703125,
+                "y": -0.0746917724609375,
+                "z": -0.45330810546875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3823412358760834,
+                "y": 0.8699360489845276,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747146,
+              "unit_name": "装饰物_112",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.3823412358760834,
+                0.8699360489845276,
+                0.3823412358760834
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747147",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.483642578125,
+                "y": -0.07073974609375,
+                "z": -0.375213623046875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3823412358760834,
+                "y": 0.8699360489845276,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747147,
+              "unit_name": "装饰物_113",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.3823412358760834,
+                0.8699360489845276,
+                0.3823412358760834
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747148",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.428253173828125,
+                "y": -0.06689453125,
+                "z": -0.45330810546875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3823412358760834,
+                "y": 0.8699360489845276,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747148,
+              "unit_name": "装饰物_114",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.3823412358760834,
+                0.8699360489845276,
+                0.3823412358760834
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747149",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.483642578125,
+                "y": -0.07073974609375,
+                "z": 0.45855712890625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.3823412358760834,
+                "y": 0.8699360489845276,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747149,
+              "unit_name": "装饰物_115",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.3823412358760834,
+                0.8699360489845276,
+                0.3823412358760834
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747150",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.248382568359375,
+                "y": -0.04425048828125,
+                "z": -0.239776611328125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.21739482879638672,
+                "y": 0.49463561177253723,
+                "z": 0.21739482879638672
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747150,
+              "unit_name": "装饰物_116",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.21739482879638672,
+                0.49463561177253723,
+                0.21739482879638672
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747151",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.27008056640625,
+                "y": -0.04644775390625,
+                "z": -0.19537353515625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.21739482879638672,
+                "y": 0.49463561177253723,
+                "z": 0.21739482879638672
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747151,
+              "unit_name": "装饰物_117",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.21739482879638672,
+                0.49463561177253723,
+                0.21739482879638672
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747152",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.2257080078125,
+                "y": -0.0486907958984375,
+                "z": -0.239776611328125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.21739482879638672,
+                "y": 0.49463561177253723,
+                "z": 0.21739482879638672
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747152,
+              "unit_name": "装饰物_118",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.21739482879638672,
+                0.49463561177253723,
+                0.21739482879638672
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747153",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.27008056640625,
+                "y": -0.04644775390625,
+                "z": 0.278717041015625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -90.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.21739482879638672,
+                "y": 0.49463561177253723,
+                "z": 0.21739482879638672
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747153,
+              "unit_name": "装饰物_119",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.21739482879638672,
+                0.49463561177253723,
+                0.21739482879638672
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747154",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.41741943359375,
+                "y": -0.0539093017578125,
+                "z": -0.071563720703125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -315.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.29301807284355164,
+                "y": 0.1906614899635315,
+                "z": 0.25487837195396423
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747154,
+              "unit_name": "装饰物_120",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.29301807284355164,
+                0.1906614899635315,
+                0.25487837195396423
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747155",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.427093505859375,
+                "y": -0.050506591796875,
+                "z": 0.166168212890625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -225.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.26645588874816895,
+                "y": 0.1906614601612091,
+                "z": 0.25487837195396423
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747155,
+              "unit_name": "装饰物_121",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.26645588874816895,
+                0.1906614601612091,
+                0.25487837195396423
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747156",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.106414794921875,
+                "y": -0.050506591796875,
+                "z": -0.395782470703125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -135.0000457763672,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.26645591855049133,
+                "y": 0.1906614601612091,
+                "z": 0.25487837195396423
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747156,
+              "unit_name": "装饰物_122",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.26645591855049133,
+                0.1906614601612091,
+                0.25487837195396423
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747157",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.13128662109375,
+                "y": -0.0539093017578125,
+                "z": -0.3861083984375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -225.00003051757812,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.29301807284355164,
+                "y": 0.1906614601612091,
+                "z": 0.25487837195396423
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747157,
+              "unit_name": "装饰物_123",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.29301807284355164,
+                0.1906614601612091,
+                0.25487837195396423
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747158",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.134857177734375,
+                "y": -0.050506591796875,
+                "z": 0.486846923828125
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -315.0000305175781,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.26645588874816895,
+                "y": 0.1906614899635315,
+                "z": 0.254878431558609
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747158,
+              "unit_name": "装饰物_124",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.26645588874816895,
+                0.1906614899635315,
+                0.254878431558609
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747159",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.10284423828125,
+                "y": -0.0539093017578125,
+                "z": 0.4771728515625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -45.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.29301807284355164,
+                "y": 0.19066143035888672,
+                "z": 0.25487837195396423
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747159,
+              "unit_name": "装饰物_125",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.29301807284355164,
+                0.19066143035888672,
+                0.25487837195396423
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747160",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.455535888671875,
+                "y": -0.050506591796875,
+                "z": -0.07513427734375
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -45.000030517578125,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.26645588874816895,
+                "y": 0.1906615048646927,
+                "z": 0.254878431558609
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747160,
+              "unit_name": "装饰物_126",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.26645588874816895,
+                0.1906615048646927,
+                0.254878431558609
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747161",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.44586181640625,
+                "y": -0.0539093017578125,
+                "z": 0.16259765625
+              },
+              "rot": {
+                "x": 90.0,
+                "y": -135.00001525878906,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2930179834365845,
+                "y": 0.19066143035888672,
+                "z": 0.25487831234931946
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747161,
+              "unit_name": "装饰物_127",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.2930179834365845,
+                0.19066143035888672,
+                0.25487831234931946
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747162",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.761810302734375,
+                "y": 1.3937835693359375,
+                "z": 0.723480224609375
+              },
+              "rot": {
+                "x": 180.00001525878906,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7646824717521667,
+                "y": 0.030587298795580864,
+                "z": 0.7413143515586853
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747162,
+              "unit_name": "装饰物_128",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.7646824717521667,
+                0.030587298795580864,
+                0.7413143515586853
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073747163",
+            "displayName": "第九关展示元件",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.008697509765625,
+                "y": -0.06689453125,
+                "z": -0.09100341796875
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7086986303329468,
+                "y": 0.2283744215965271,
+                "z": 0.3823412358760834
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073747163,
+              "unit_name": "装饰物_129",
+              "template_root_id_int": 1077936155,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.7086986303329468,
+                0.2283744215965271,
+                0.3823412358760834
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

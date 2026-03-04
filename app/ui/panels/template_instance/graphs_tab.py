@@ -27,7 +27,7 @@ from app.ui.foundation.theme_manager import Colors, Sizes
 from app.ui.panels.template_instance.tab_base import TemplateInstanceTabBase
 from app.ui.panels.template_instance_service import TemplateInstanceService
 from app.runtime.services.graph_data_service import GraphDataService, GraphLoadPayload
-from app.ui.panels.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
+from app.ui.panels.graph.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
 from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
 
 

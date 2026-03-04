@@ -13,8 +13,13 @@ from ...pipeline import ValidationRule
 from ..ast_utils import create_rule_issue, get_cached_module, line_span_text
 from ..ui_key_registry_utils import (
     parse_ui_key_placeholder,
+    try_format_invalid_ui_state_group_placeholder_message,
     try_load_ui_html_ui_keys_for_ctx,
 )
+from ..component_registry_utils import (
+    parse_component_key_placeholder,
+)
+from ..entity_registry_utils import parse_entity_key_placeholder
 
 _ID_TYPES: set[str] = {TYPE_GUID, TYPE_CONFIG_ID, TYPE_COMPONENT_ID}
 
@@ -24,6 +29,18 @@ def _is_ui_key_guid_placeholder(value: object) -> bool:
         return False
     s = value.strip().lower()
     return s.startswith("ui_key:") or s.startswith("ui:")
+
+
+def _is_component_key_placeholder(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    return parse_component_key_placeholder(str(value)) is not None
+
+
+def _is_entity_key_placeholder(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    return parse_entity_key_placeholder(str(value)) is not None
 
 
 def _extract_type_name(annotation: ast.AST | None) -> str:
@@ -110,6 +127,18 @@ class IdLiteralTenDigitsRule(ValidationRule):
                         )
                         continue
                     if ui_view is not None and ui_key not in ui_key_set:
+                        invalid_msg = try_format_invalid_ui_state_group_placeholder_message(str(value))
+                        if invalid_msg is not None:
+                            issues.append(
+                                create_rule_issue(
+                                    self,
+                                    file_path,
+                                    node,
+                                    "CODE_UI_STATE_GROUP_PLACEHOLDER_INVALID_FORMAT",
+                                    f"{line_span_text(node)}: {invalid_msg} 当前写法为 {str(value)!r}",
+                                )
+                            )
+                            continue
                         issues.append(
                             create_rule_issue(
                                 self,
@@ -124,6 +153,15 @@ class IdLiteralTenDigitsRule(ValidationRule):
                         )
                         continue
                     continue
+
+            # 工程化：允许 GUID 常量用 entity_key/entity 占位符（写回阶段解析为真实实体 GUID/ID）
+            if type_name == TYPE_GUID and _is_entity_key_placeholder(value):
+                continue
+
+            # 工程化：允许 元件ID 常量用 component_key 占位符（写回阶段解析为真实元件ID）
+            if type_name == TYPE_COMPONENT_ID and _is_component_key_placeholder(value):
+                # 校验阶段不做“元件名存在性”校验（参考 GIL 在导出/写回阶段才由用户选择）。
+                continue
 
             if is_digits_1_to_10(value):
                 continue

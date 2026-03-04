@@ -29,8 +29,11 @@ from engine.graph.composite.class_format_parser import ClassFormatParser
 from engine.utils.logging.logger import log_info
 from engine.graph.utils.ast_utils import (
     collect_module_constants,
+    collect_module_constant_types,
     set_module_constants_context,
+    set_module_constant_types_context,
     clear_module_constants_context,
+    clear_module_constant_types_context,
 )
 
 
@@ -171,15 +174,18 @@ class CompositeCodeParser:
         
         # 5. 收集模块级常量并设置上下文（支持在节点调用中引用模块级常量）
         module_constants = collect_module_constants(tree)
+        module_constant_types = collect_module_constant_types(tree)
         if self.verbose and module_constants:
             log_info("  收集到 {} 个模块级常量: {}", len(module_constants), list(module_constants.keys()))
         set_module_constants_context(module_constants)
+        set_module_constant_types_context(module_constant_types)
         
         # 6. 委托类格式解析器解析所有装饰的方法，生成子图
         graph_model = self.class_parser.parse_class_methods(class_def, virtual_pins)
         
         # 清除模块常量上下文
         clear_module_constants_context()
+        clear_module_constant_types_context()
         
         # 7. 应用布局
         if self.verbose:

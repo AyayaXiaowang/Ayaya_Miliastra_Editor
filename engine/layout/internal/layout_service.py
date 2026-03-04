@@ -9,7 +9,6 @@ from engine.configs.settings import settings
 from .layout_algorithm import layout_by_event_regions
 from .layout_context import LayoutContext
 from .layout_registry_context import LayoutRegistryContext, ensure_layout_registry_context_for_model
-from ..flow.preprocess import promote_flow_outputs_for_layout
 from ..utils.node_copy_utils import collapse_duplicate_data_copies
 from ..utils.copy_identity_utils import compute_copy_rank, resolve_copy_target_id
 
@@ -63,9 +62,8 @@ class LayoutService:
             workspace_path=workspace_path,
             include_composite=True,
         )
-        working_model, rename_records = LayoutService._prepare_model_for_layout(
+        working_model = LayoutService._prepare_model_for_layout(
             model,
-            node_library,
             clone_model,
             registry_context=effective_registry_context,
         )
@@ -81,7 +79,6 @@ class LayoutService:
             model,
             working_model,
             clone_model=clone_model,
-            rename_records=rename_records,
             write_back_to_input_model=write_back_to_input_model,
         )
 
@@ -91,21 +88,17 @@ class LayoutService:
     @staticmethod
     def _prepare_model_for_layout(
         model: GraphModel,
-        node_library: Optional[Dict[str, Any]],
         clone_model: bool,
         *,
         registry_context: LayoutRegistryContext,
-    ) -> Tuple[GraphModel, Dict[str, Dict[str, str]]]:
+    ) -> GraphModel:
         working_model = model.clone() if clone_model else model
         ensure_layout_registry_context_for_model(
             working_model,
             registry_context=registry_context,
             include_composite=True,
         )
-        rename_records: Dict[str, Dict[str, str]] = {}
-        if node_library:
-            rename_records = promote_flow_outputs_for_layout(working_model, node_library)
-        return working_model, rename_records
+        return working_model
 
     @classmethod
     def _finalize_layout(
@@ -114,12 +107,8 @@ class LayoutService:
         working_model: GraphModel,
         *,
         clone_model: bool,
-        rename_records: Dict[str, Dict[str, str]],
         write_back_to_input_model: bool,
     ) -> None:
-        if rename_records and not clone_model:
-            cls._revert_promoted_flow_outputs(working_model, rename_records)
-
         cls._sync_block_relationship_cache(source_model, working_model)
 
         if clone_model and write_back_to_input_model:
@@ -281,34 +270,6 @@ class LayoutService:
             cloned_context = LayoutContext(target, registry_context=registry_context)
             cloned_context.set_event_metadata(getattr(source_ctx, "eventMetadataByNode", {}))
         setattr(target, "_layout_context_cache", cloned_context)
-
-    @staticmethod
-    def _revert_promoted_flow_outputs(
-        model: GraphModel,
-        rename_records: Dict[str, Dict[str, str]],
-    ) -> None:
-        """在 clone_model=False 时，将临时提升的端口名恢复为原始命名。"""
-        if not rename_records:
-            return
-        edges_by_src: Dict[str, List[object]] = {}
-        for edge in model.edges.values():
-            edges_by_src.setdefault(edge.src_node, []).append(edge)
-        for node_id, mapping in rename_records.items():
-            node = model.nodes.get(node_id)
-            if not node:
-                continue
-            reverted: Dict[str, str] = {}
-            for new_name, original_name in mapping.items():
-                port = node.get_output_port(new_name)
-                if port is None:
-                    continue
-                port.name = original_name
-                reverted[new_name] = original_name
-            if reverted:
-                node._rebuild_port_maps()
-                for edge in edges_by_src.get(node_id, ()):
-                    if edge.src_port in reverted:
-                        edge.src_port = reverted[edge.src_port]
 
     @staticmethod
     def _register_copy_override(

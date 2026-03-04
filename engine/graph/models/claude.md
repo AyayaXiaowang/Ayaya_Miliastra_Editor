@@ -3,7 +3,7 @@
 
 ## 当前状态
 - **图模型**：`graph_model.py` / `graph_serialization.py` / `graph_hash.py` / `graph_config.py` 提供图结构、序列化与内容哈希。
-  - `NodeModel` 额外携带 `input_types/output_types` 端口类型快照，用于 `graph_cache` 与工具链快速读取（不作为连线判定的单一真源）。
+  - `NodeModel` 额外携带 `effective_input_types/effective_output_types` 端口类型快照，用于 `graph_cache` 与工具链快速读取（不作为连线判定的单一真源）。
   - `NodeModel.node_def_ref`（`NodeDefRef(kind+key)`）作为节点定义定位的唯一真源：builtin/composite 用于精确解析节点库 NodeDef；event 用于表达“自定义事件入口”等不在节点库中的事件节点（不依赖 title fallback）。后续校验/UI/自动化/导出应通过该引用解析 NodeDef，禁止使用 `title` 作为定位键；缺失该字段视为旧数据，由上层缓存门禁触发重建（不做 title fallback）。
     - `NodeDefRef.from_dict` 明确接受 `kind="event"`，保证包含事件稳定标识的图数据可被反序列化/加载（UI 会话恢复等场景不应因该 kind 崩溃）。
 - **语义元数据单一写入**：`signal_bindings` / `struct_bindings` 仅允许 `engine.graph.semantic.GraphSemanticPass` 写入，其他模块不得直接写入 metadata。

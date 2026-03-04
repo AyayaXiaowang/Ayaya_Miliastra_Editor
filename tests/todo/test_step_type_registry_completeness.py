@@ -3,8 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from app.ui.todo.todo_config import StepTypeRules, TodoStyles
-from app.ui.todo import todo_detail_builder_registry
+from app.ui.todo.misc.todo_config import StepTypeRules, TodoStyles
+from app.ui.todo.detail import todo_detail_builder_registry
 from tests._helpers.project_paths import get_repo_root
 
 
@@ -19,7 +19,12 @@ def _collect_preview_controller_detail_types() -> set[str]:
     """
 
     file_path = (
-        _workspace_root() / "app" / "ui" / "todo" / "todo_preview_controller.py"
+        _workspace_root()
+        / "app"
+        / "ui"
+        / "todo"
+        / "preview"
+        / "todo_preview_controller.py"
     )
     source_text = file_path.read_text(encoding="utf-8")
     module = ast.parse(source_text)

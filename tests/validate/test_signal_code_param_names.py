@@ -33,6 +33,23 @@ def _validate_in_example_package_scope(*, graph_path: Path, workspace: Path):
         invalidate_default_signal_repository_cache()
 
 
+def _validate_in_test_package_scope(*, graph_path: Path, workspace: Path):
+    # 该文件的用例依赖测试项目下的信号定义（assets/资源库/项目存档/测试项目/管理配置/信号）。
+    from engine.resources.definition_schema_view import set_default_definition_schema_view_active_package_id
+    from engine.signal import invalidate_default_signal_repository_cache
+    from engine.utils.runtime_scope import set_active_package_id
+
+    set_active_package_id("测试项目")
+    set_default_definition_schema_view_active_package_id("测试项目")
+    invalidate_default_signal_repository_cache()
+    try:
+        return validate_files([graph_path], workspace, strict_entity_wire_only=False, use_cache=False)
+    finally:
+        set_active_package_id(None)
+        set_default_definition_schema_view_active_package_id(None)
+        invalidate_default_signal_repository_cache()
+
+
 def test_send_signal_with_unknown_param_produces_error(tmp_path: Path) -> None:
     """发送信号使用信号定义中不存在的参数名时，应在代码级校验阶段报错。"""
     # 使用已存在的信号『名称』，参数名刻意写错一个。
@@ -150,6 +167,44 @@ class 信号名校验_误用ID:
         if issue.code == "CODE_SIGNAL_ID_NOT_ALLOWED"
     ]
     assert id_not_allowed_issues, "应当检测到“信号名”参数误用了信号 ID 而不是名称"
+
+
+def test_send_signal_with_extra_param_on_zero_param_signal_produces_error(tmp_path: Path) -> None:
+    """当信号定义参数列表为空（零参信号）时，发送信号不应允许携带任何额外数据参数。"""
+    graph_code = '''
+""" 
+graph_id: test_signal_zero_param_extra_kw
+graph_name: 信号参数名校验_零参信号额外参数
+graph_type: server
+"""
+
+from __future__ import annotations
+
+from _prelude import *
+
+
+class 信号参数名校验_零参信号额外参数:
+    def __init__(self, game, owner_entity):
+        self.game = game
+        self.owner_entity = owner_entity
+
+    def on_实体创建时(self, 事件源实体, 事件源GUID):
+        发送信号(
+            self.game,
+            信号名="第七关_开始游戏",
+            多余参数=1,
+        )
+'''
+    workspace = _workspace_root()
+    graph_path = _make_temp_graph_code(tmp_path, graph_code)
+
+    report = _validate_in_test_package_scope(graph_path=graph_path, workspace=workspace)
+    extra_param_issues = [
+        issue
+        for issue in report.issues
+        if issue.code == "CODE_SIGNAL_EXTRA_PARAMS"
+    ]
+    assert extra_param_issues, "应当检测到零参信号的发送信号调用携带了多余参数"
 
 
 

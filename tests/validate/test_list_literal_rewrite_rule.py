@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from engine.graph.graph_code_parser import GraphCodeParser
 from engine.validate.api import validate_files
 from tests._helpers.project_paths import get_repo_root
 
@@ -399,6 +400,50 @@ class 列表下标链式赋值_禁止:
     )
     codes = [issue.code for issue in report.issues if issue.level == "error"]
     assert "CODE_LIST_SUBSCRIPT_ASSIGN_CHAIN_FORBIDDEN" in codes
+
+
+def test_module_level_typed_list_constant_used_in_call_is_materialized_as_build_list_node(tmp_path: Path) -> None:
+    graph_code = '''
+"""
+graph_id: graph_module_level_list_constant_as_build_list
+graph_name: 模块级列表常量_调用参数_改写为拼装列表
+graph_type: server
+"""
+
+from __future__ import annotations
+
+from _prelude import *
+
+模块常量列表: "整数列表" = [1, 2, 3]
+
+
+class 模块级列表常量_调用参数_改写为拼装列表:
+    def __init__(self, game, owner_entity):
+        self.game = game
+        self.owner_entity = owner_entity
+
+    def on_实体创建时(self, 事件源实体, 事件源GUID):
+        值: "整数" = 获取列表对应值(self.game, 列表=模块常量列表, 序号=0)
+'''
+    workspace = _workspace_root()
+    graph_path = _write_graph_code(tmp_path, "graph_module_level_list_constant_as_build_list.py", graph_code)
+
+    parser = GraphCodeParser(workspace, strict=True)
+    model, _meta = parser.parse_file(graph_path)
+
+    list_get_nodes = [n for n in model.nodes.values() if n.title == "获取列表对应值"]
+    assert len(list_get_nodes) == 1
+    list_get_node = list_get_nodes[0]
+    assert "列表" not in (list_get_node.input_constants or {}), "列表输入不应直接写为 input_constants 常量"
+
+    incoming_edges = [
+        e
+        for e in model.edges.values()
+        if e.dst_node == list_get_node.id and e.dst_port == "列表"
+    ]
+    assert incoming_edges, "获取列表对应值.列表 应由数据边提供"
+    src_titles = {model.nodes[e.src_node].title for e in incoming_edges if e.src_node in model.nodes}
+    assert "拼装列表" in src_titles
 
 
 def test_del_list_multiple_subscripts_is_forbidden(tmp_path: Path) -> None:

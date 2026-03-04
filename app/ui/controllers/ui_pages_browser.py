@@ -100,10 +100,10 @@ def convert_ui_pages_for_package(
     if html_files and converter is None:
         # 设计变更：允许“仅 Web 手动刷新/导入”工作流，不再把未注册 converter 视为失败。
         warning_lines.append("未启用 HTML→UI bundle 自动转换：当前不会自动派生 UI布局/UI控件模板/UI页面。")
-        warning_lines.append("请在主程序中打开「UI转换器 / UI控件组预览（Web）」后，在网页里手动导出并导入/刷新。")
+        warning_lines.append("请在主程序中打开「UI预览（Web）」后，在网页里手动导出并导入/刷新。")
         if progress_callback is not None:
             progress_callback("未启用 HTML→UI bundle 自动转换：当前不会自动派生 UI页面。")
-            progress_callback("请打开「UI控件组预览（Web）」并在网页里手动导入/刷新。")
+            progress_callback("请打开「UI预览（Web）」并在网页里手动导入/刷新。")
 
     if converter is not None:
         total = len(html_files)
@@ -272,6 +272,15 @@ def _open_url_or_raise(*, url: str, purpose: str) -> None:
     raise RuntimeError(f"webbrowser.open returned False and os.startfile unavailable: {url_text}")
 
 
+EFFECT_PREVIEW_URL = "https://ys.keqizu.com/"
+EFFECT_PREVIEW_PURPOSE = "effect_preview"
+
+
+def open_effect_preview_browser_or_raise() -> None:
+    """打开“特效预览”网页（系统默认浏览器）。"""
+    _open_url_or_raise(url=EFFECT_PREVIEW_URL, purpose=EFFECT_PREVIEW_PURPOSE)
+
+
 def _get_builtin_workbench_dir_or_raise(*, workspace_root: Path) -> Path:
     workbench_dir = (workspace_root / "assets" / "ui_workbench").resolve()
     if not workbench_dir.is_dir():
@@ -343,6 +352,7 @@ __all__ = [
     "open_private_ui_workbench_browser_or_raise",
     "open_ui_preview_browser_or_raise",
     "open_ui_workbench_browser_or_raise",
+    "open_effect_preview_browser_or_raise",
     "UiPagesConversionSummary",
 ]
 

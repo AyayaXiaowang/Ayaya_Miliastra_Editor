@@ -105,7 +105,7 @@ def execute_config_node_merged(
     功能：为节点的输入端口注入参数值
     - 布尔类型：点击两次切换
     - 三维向量：OCR识别X/Y/Z标签或几何法定位
-    - 普通类型：基于端口间距几何定位输入框并输入（不依赖 Warning），失败则端口偏移兜底
+    - 普通类型：基于端口间距几何定位输入框并输入（不依赖 Warning）；失败则直接返回 False 暴露问题（不做端口偏移兜底）
     
     Args:
         executor: 执行器实例
@@ -493,7 +493,7 @@ def execute_config_node_merged(
             snapshot.mark_dirty(require_bbox=True)
             continue
         
-        # 普通参数：优先使用“端口间距法”定位输入框，失败则走端口偏移 fallback
+        # 普通参数：优先使用“端口间距法”定位输入框；失败则直接失败暴露（不做端口偏移 fallback）
         port_context = find_vertical_context_for_input_port(
             executor,
             screenshot,

@@ -297,11 +297,45 @@ export function buildElementInspectorText(targetDocument, targetElement) {
     var computedStyle = targetDocument.defaultView ? targetDocument.defaultView.getComputedStyle(targetElement) : null;
     var labelName = resolvePreviewElementLabel(targetElement);
 
+    var previewScale = Number(state.currentPreviewScale || 1);
+    if (!isFinite(previewScale) || previewScale <= 0) {
+        previewScale = 1;
+    }
+
     var importantLines = [];
     var detailLines = [];
+    var canvasSizeOption = getCanvasSizeByKey(state.currentSelectedCanvasSizeKey);
+    if (canvasSizeOption) {
+        importantLines.push("画布：" + String(canvasSizeOption.label || canvasSizeOption.key || ""));
+    }
+    // 注意：这里的缩放有两类：
+    // - 舞台缩放（previewScale）：父页面为了把 iframe 画布塞进容器而施加的 transform: scale(...)，可能长期为 1（容器足够大）。
+    // - UI缩放（--ui-scale）：Workbench 注入到预览文档的 CSS 变量，用于作者的响应式布局（若页面使用它，则元素 rect 会随之变化）。
+    var uiScaleText = "";
+    if (targetDocument && targetDocument.defaultView && targetDocument.defaultView.getComputedStyle && targetDocument.documentElement) {
+        var csRoot = targetDocument.defaultView.getComputedStyle(targetDocument.documentElement);
+        var rawUiScale = csRoot ? String(csRoot.getPropertyValue("--ui-scale") || "").trim() : "";
+        if (rawUiScale) {
+            var uiScaleNum = Number(rawUiScale);
+            if (isFinite(uiScaleNum) && uiScaleNum > 0) {
+                uiScaleText = String(Math.round(uiScaleNum * 1000) / 1000);
+            } else {
+                uiScaleText = rawUiScale;
+            }
+        }
+    }
+    if (uiScaleText) {
+        importantLines.push("UI缩放：--ui-scale×" + uiScaleText);
+    }
     importantLines.push("组件：" + labelName);
-    importantLines.push("尺寸：宽 " + Math.round(elementRect.width) + " 高 " + Math.round(elementRect.height));
-    importantLines.push("坐标：中心(左下)=(" + Math.round(centerXLocal) + ", " + Math.round(centerYLocalFromBottom) + ")");
+    importantLines.push(
+        "尺寸：宽 " + Math.round(elementRect.width) + " 高 " + Math.round(elementRect.height) +
+        "（预览显示：宽 " + Math.round(elementRect.width * previewScale) + " 高 " + Math.round(elementRect.height * previewScale) + "；舞台缩放×" + (Math.round(previewScale * 1000) / 1000) + "）"
+    );
+    importantLines.push(
+        "坐标：中心(左下)=(" + Math.round(centerXLocal) + ", " + Math.round(centerYLocalFromBottom) + ")" +
+        "（预览显示=(" + Math.round(centerXLocal * previewScale) + ", " + Math.round(centerYLocalFromBottom * previewScale) + ")）"
+    );
 
     if (computedStyle) {
         importantLines.push("文字颜色：" + (formatColorTextAsHex(computedStyle.color) || String(computedStyle.color || "")));
@@ -427,10 +461,38 @@ export function updateInspectorForGroup(targetDocument, elementList) {
     var centerX = groupRect.left + groupRect.width / 2;
     var centerYFromBottom = canvasHeight - (groupRect.top + groupRect.height / 2);
 
+    var previewScale = Number(state.currentPreviewScale || 1);
+    if (!isFinite(previewScale) || previewScale <= 0) {
+        previewScale = 1;
+    }
+
     var importantLines = [];
+    importantLines.push("画布：" + String(canvasSizeOption.label || canvasSizeOption.key || ""));
+    var uiScaleText = "";
+    if (targetDocument && targetDocument.defaultView && targetDocument.defaultView.getComputedStyle && targetDocument.documentElement) {
+        var csRoot = targetDocument.defaultView.getComputedStyle(targetDocument.documentElement);
+        var rawUiScale = csRoot ? String(csRoot.getPropertyValue("--ui-scale") || "").trim() : "";
+        if (rawUiScale) {
+            var uiScaleNum = Number(rawUiScale);
+            if (isFinite(uiScaleNum) && uiScaleNum > 0) {
+                uiScaleText = String(Math.round(uiScaleNum * 1000) / 1000);
+            } else {
+                uiScaleText = rawUiScale;
+            }
+        }
+    }
+    if (uiScaleText) {
+        importantLines.push("UI缩放：--ui-scale×" + uiScaleText);
+    }
     importantLines.push("组件：多选（" + elementList.length + "个）");
-    importantLines.push("整体尺寸：宽 " + Math.round(groupRect.width) + " 高 " + Math.round(groupRect.height));
-    importantLines.push("整体坐标：中心(左下)=(" + Math.round(centerX) + ", " + Math.round(centerYFromBottom) + ")");
+    importantLines.push(
+        "整体尺寸：宽 " + Math.round(groupRect.width) + " 高 " + Math.round(groupRect.height) +
+        "（预览显示：宽 " + Math.round(groupRect.width * previewScale) + " 高 " + Math.round(groupRect.height * previewScale) + "；舞台缩放×" + (Math.round(previewScale * 1000) / 1000) + "）"
+    );
+    importantLines.push(
+        "整体坐标：中心(左下)=(" + Math.round(centerX) + ", " + Math.round(centerYFromBottom) + ")" +
+        "（预览显示=(" + Math.round(centerX * previewScale) + ", " + Math.round(centerYFromBottom * previewScale) + ")）"
+    );
 
     var detailLines = [];
     detailLines.push("说明：以上为所选组件整体包围框数据。");

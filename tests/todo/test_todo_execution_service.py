@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from app.models import TodoItem
-from app.ui.todo.current_todo_resolver import CurrentTodoContext
-from app.ui.todo.todo_execution_service import (
+from app.ui.todo.runtime.current_todo_resolver import CurrentTodoContext
+from app.ui.todo.runtime.todo_execution_service import (
     plan_template_root_execution,
     plan_remaining_event_flows_execution,
     plan_execute_from_this_step,

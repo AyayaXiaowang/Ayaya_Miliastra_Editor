@@ -7,11 +7,12 @@ from engine.utils.logging.logger import log_info
     name="创建元件",
     category="执行节点",
     inputs=[("流程入", "流程"), ("元件ID", "元件ID"), ("位置", "三维向量"), ("旋转", "三维向量"), ("拥有者实体", "实体"), ("是否覆写等级", "布尔值"), ("等级", "整数"), ("单位标签索引列表", "整数列表")],
+    input_defaults={"旋转": None},
     outputs=[("流程出", "流程"), ("创建后实体", "实体")],
     description="根据元件ID创建一个实体",
     doc_reference="服务器节点/执行节点/执行节点.md"
 )
-def 创建元件(game, 元件ID, 位置, 旋转, 拥有者实体, 是否覆写等级, 等级, 单位标签索引列表):
+def 创建元件(game, 元件ID, 位置, 旋转=None, 拥有者实体=None, 是否覆写等级=False, 等级=1, 单位标签索引列表=()):
     """根据元件ID创建一个实体"""
     新实体 = game.create_mock_entity(f"元件_{元件ID}")
     if isinstance(位置, (list, tuple)) and len(位置) == 3:

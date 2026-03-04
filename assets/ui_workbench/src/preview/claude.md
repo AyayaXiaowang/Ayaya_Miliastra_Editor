@@ -14,9 +14,11 @@
   - 预览占位页：提供“空输入”与“处理中（生成扁平化）”两类占位页，避免首次切换时出现短暂白屏造成误解。
   - `srcdoc` 写入后采用 **load 事件 + 帧轮询/超时兜底**，避免部分浏览器在多次切换时丢失 load 导致“预览切换挂起”。
   - 当本次确实更新了 `srcdoc` 时，必须等待 `iframe.contentDocument` 对象切换到新 document 后才 finalize（避免监听挂在旧 document 上，导致“切换几次页面后点选失效”）。
+  - 当 `srcdoc` 未变化（复用同一 document）时，渲染 finalize 不再强制清空 selection/隐藏蓝色选中框；只有在 `srcdoc` 确实更新、旧选中引用失效时才清空，减少隐式副作用。
   - compute iframe 同样需要该保护：若 compute 的 `contentDocument` 为空或仍为旧 document，会导致扁平化/分组树提取得到 0 元素。渲染逻辑会等待 document 切换，并在仍为空时向上层返回“未就绪”状态，由 UI 显示失败提示。
 - `scaling.js`：画布尺寸应用与舞台缩放（含选中框随缩放刷新）；尺寸按钮 active 态按 `button[data-size-key]` 泛化，支持 4 种预览尺寸；当预览为扁平化页面时，会优先按 `.flat-display-area[data-size-key]` 切换对应尺寸的扁平层（回退用 `data-size` label 匹配）。
   - 兼容：在应用 `--canvas-width/--canvas-height` 时会同步注入 **无单位** 的 `--ui-scale` 数值（按参考 1920×1080 推导并做下限保护），避免部分页面用 CSS `calc(length/length)` 推导比例导致变量失效，从而出现控件 `height:0` 被扁平化跳过的问题（典型：真实进度条）。
+  - 切换画布尺寸时会刷新选中态：在扁平化预览下，按 `data-debug-label`（并优先保持同类层：text/element/border/shadow）重新定位到当前尺寸对应的扁平层/多选集合；若无法确定性定位则清空选中，避免检查器显示 0×0 误导。
 - `selection.js`：点击选中、多选、框选、删除快捷键与检查器/覆盖层联动；扁平模式下会忽略 `.flat-display-area` 这类“画布容器”的点击目标，并在 `event.target` 不是 `flat-*` 层时强制回退到“按点几何命中（含 `elementsFromPoint` + 忽略 pointer-events 的矩形命中）”挑选真实扁平层，避免误选中底层原始 DOM 容器导致出现“巨大选中框/总选到 panel 容器”。
   - 新增 `selectPreviewElement(...)`：允许外层 UI（例如“分组列表”）驱动预览选中，用于实现“列表 ↔ 画布”双向联动（选中框/检查器同步刷新）。
   - 兜底：在极端 load 时序下若 `state.previewDocument` 暂时为空，会从 `previewIframe.contentDocument` 按需恢复，避免出现“点击画布/点击列表都选不中”的无响应体验。
@@ -30,6 +32,7 @@
   - 覆盖层回退同样支持 `.flat-button-anchor`（按钮锚点层），用于“视觉为空按钮”的列表/分组树定位时仍能正确画出选中框。
 - `inspector.js`：检查器文本构建与输出（含反向区域信息拼接）。
   - 提供“文本对齐锚点（3×3）”面板：对选中的文本类元素只读展示/高亮当前对齐锚点（优先 `data-ui-text-align / data-ui-text-valign`；扁平化预览下会从 `.flat-text-inner` 的 `justify-content/align-items` 等 flex 样式推断），并随选中元素与属性变化实时刷新（不提供点击写回）。
+  - 检查器尺寸/坐标同时展示两套口径：`iframe` 内的“画布像素”（未缩放）与父页面预览 `transform: scale(...)` 后的“预览显示像素”（按 `state.currentPreviewScale`（舞台缩放）换算），并额外展示预览文档的 `--ui-scale`（UI 缩放）以解释“舞台缩放长期为 1，但元素仍可能随画布变化”的情况。
 - `color.js`：颜色文本 → `#rrggbb`/`#rrggbbaa` 转换（供检查器与 autotest 使用）。
 - `labels.js`：元素标签（data-debug-label/id/class/tag）提取策略。
 - `geometry.js`：DOMRect → 画布坐标系的几何计算工具。

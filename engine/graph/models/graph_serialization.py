@@ -101,8 +101,8 @@ def serialize_graph(graph: "GraphModel") -> dict:
                 "inputs": [port.name for port in node.inputs],
                 "outputs": [port.name for port in node.outputs],
                 # 端口类型快照（可选，cache/工具链使用；推导失败应在构建缓存阶段抛错）
-                "input_types": dict(getattr(node, "input_types", {}) or {}),
-                "output_types": dict(getattr(node, "output_types", {}) or {}),
+                "effective_input_types": dict(getattr(node, "effective_input_types", {}) or {}),
+                "effective_output_types": dict(getattr(node, "effective_output_types", {}) or {}),
                 "input_constants": node.input_constants,
                 # 源代码行范围（用于UI错误定位与布局稳定排序；可选字段）
                 "source_lineno": node.source_lineno,
@@ -207,13 +207,13 @@ def deserialize_graph(data: dict) -> "GraphModel":
             ),
             composite_id=node_data.get("composite_id", ""),  # 加载复合节点ID
             pos=tuple(node_data.get("pos", [0.0, 0.0])),
-            input_types=_parse_str_to_str_dict(
-                node_data.get("input_types", {}),
-                field_name="input_types",
+            effective_input_types=_parse_str_to_str_dict(
+                node_data.get("effective_input_types", {}),
+                field_name="effective_input_types",
             ),
-            output_types=_parse_str_to_str_dict(
-                node_data.get("output_types", {}),
-                field_name="output_types",
+            effective_output_types=_parse_str_to_str_dict(
+                node_data.get("effective_output_types", {}),
+                field_name="effective_output_types",
             ),
         )
         

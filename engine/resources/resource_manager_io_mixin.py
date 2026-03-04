@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import ast
 from datetime import datetime
-from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import tokenize
+
 from engine.configs.resource_types import ResourceType
+from engine.graph.utils.ast_utils import (
+    NOT_EXTRACTABLE,
+    clear_module_constants_context,
+    collect_module_constants,
+    extract_constant_value,
+    set_module_constants_context,
+)
 from engine.resources.management_naming_rules import (
     get_display_name_field_for_type,
     get_id_field_for_type,
@@ -13,6 +22,51 @@ from engine.resources.management_naming_rules import (
 from engine.utils.logging.logger import log_warn
 
 from .resource_file_ops import ResourceFileOps
+
+
+def _find_module_assignment_value(tree: ast.Module, name: str) -> ast.expr | None:
+    """在模块顶层寻找对 name 的赋值表达式节点（支持 Assign/AnnAssign）。"""
+    want = str(name or "").strip()
+    if not want:
+        return None
+
+    for stmt in list(getattr(tree, "body", []) or []):
+        if isinstance(stmt, ast.Assign):
+            targets = list(getattr(stmt, "targets", []) or [])
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == want:
+                    return stmt.value
+        elif isinstance(stmt, ast.AnnAssign):
+            target = getattr(stmt, "target", None)
+            if isinstance(target, ast.Name) and target.id == want:
+                return getattr(stmt, "value", None)
+
+    return None
+
+
+def _try_extract_module_dict_constant_from_code(py_path: Path, *, const_name: str) -> dict | None:
+    """从代码级资源文件中静态提取模块常量 dict（不执行顶层代码）。"""
+    if not py_path.is_file():
+        return None
+
+    with tokenize.open(str(py_path)) as f:
+        source_text = f.read()
+
+    tree = ast.parse(source_text, filename=str(py_path))
+    constants = collect_module_constants(tree)
+    set_module_constants_context(constants)
+
+    expr = _find_module_assignment_value(tree, str(const_name))
+    if expr is None:
+        clear_module_constants_context()
+        return None
+
+    value = extract_constant_value(expr)
+    clear_module_constants_context()
+
+    if value is NOT_EXTRACTABLE or not isinstance(value, dict):
+        return None
+    return dict(value)
 
 
 class ResourceManagerIoMixin:
@@ -257,15 +311,7 @@ class ResourceManagerIoMixin:
             return cached
 
         payload_attr = "SIGNAL_PAYLOAD" if resource_type == ResourceType.SIGNAL else "STRUCT_PAYLOAD"
-        # mtime 纳入 module_name，确保外部修改文件后不会复用旧模块对象。
-        module_name = (
-            f"code_resource_{resource_type.name.lower()}_"
-            f"{abs(hash(file_path.as_posix()))}_{int(file_mtime * 1000)}"
-        )
-        loader = SourceFileLoader(module_name, str(file_path))
-        module = loader.load_module()
-
-        payload_value = getattr(module, payload_attr, None)
+        payload_value = _try_extract_module_dict_constant_from_code(file_path, const_name=payload_attr)
         if not isinstance(payload_value, dict):
             raise ValueError(f"{file_path} 未导出有效的 {payload_attr}（期望 dict）")
 

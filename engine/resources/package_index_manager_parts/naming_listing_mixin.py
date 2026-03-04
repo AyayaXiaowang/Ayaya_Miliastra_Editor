@@ -102,8 +102,12 @@ class PackageIndexNamingListingMixin:
 
     @staticmethod
     def _is_path_under(root_dir: Path, file_path: Path) -> bool:
-        root_parts = root_dir.resolve().parts
-        target_parts = file_path.resolve().parts
+        root_abs = root_dir if root_dir.is_absolute() else root_dir.absolute()
+        file_abs = file_path if file_path.is_absolute() else file_path.absolute()
+        if hasattr(file_abs, "is_relative_to"):
+            return file_abs.is_relative_to(root_abs)  # type: ignore[attr-defined]
+        root_parts = tuple(part.casefold() for part in root_abs.parts)
+        target_parts = tuple(part.casefold() for part in file_abs.parts)
         if len(target_parts) < len(root_parts):
             return False
         return target_parts[: len(root_parts)] == root_parts
@@ -121,7 +125,9 @@ class PackageIndexNamingListingMixin:
             if not package_id:
                 continue
 
-            name = self._infer_package_display_name(package_dir, package_id)
+            # 显示名唯一真源：项目存档目录名（package_id）。
+            # 说明：不再从包内“关卡实体文件名”推断显示名，避免不同项目存档因历史文件命名而出现同名项。
+            name = package_id
             latest_mtime = self._get_latest_mtime_under_dir(package_dir)
             updated_at = datetime.fromtimestamp(latest_mtime).isoformat() if latest_mtime > 0 else ""
 
@@ -141,35 +147,6 @@ class PackageIndexNamingListingMixin:
             reverse=True,
         )
         return results
-
-    @staticmethod
-    def _resolve_instance_dir(package_root_dir: Path) -> Path:
-        """返回“实体摆放”目录路径。
-
-        约定：
-        - 目录名以 `ResourceType.INSTANCE.value` 为唯一真源（当前为 `实体摆放`）。
-        - 不再兼容旧目录名 `实例`；若检测到旧目录将直接抛错，避免静默漏扫/串包。
-        """
-        preferred = package_root_dir / ResourceType.INSTANCE.value
-        legacy_dir = package_root_dir / "实例"
-        if legacy_dir.exists() and legacy_dir.is_dir():
-            raise ValueError(
-                f"检测到旧目录名 '实例'：{legacy_dir}。请将其改名为 '{ResourceType.INSTANCE.value}' 后重试。"
-            )
-        return preferred
-
-    @classmethod
-    def _infer_package_display_name(cls, package_dir: Path, package_id: str) -> str:
-        instances_dir = cls._resolve_instance_dir(package_dir)
-        if instances_dir.exists() and instances_dir.is_dir():
-            candidates = sorted(instances_dir.glob("*_关卡实体.json"), key=lambda path: path.name.casefold())
-            if candidates:
-                stem = candidates[0].stem
-                if stem.endswith("_关卡实体"):
-                    display = stem[: -len("_关卡实体")].strip()
-                    if display:
-                        return display
-        return package_id
 
     @staticmethod
     def _get_latest_mtime_under_dir(root_dir: Path) -> float:

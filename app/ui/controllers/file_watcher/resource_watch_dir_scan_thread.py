@@ -65,7 +65,7 @@ class ResourceWatchDirScanThread(QtCore.QThread):
                 if self.isInterruptionRequested():
                     return []
                 # 剪枝：避免进入明显无意义/高风险子树
-                sub_dirs[:] = [name for name in list(sub_dirs) if name not in ignored_dir_names]
+                sub_dirs[:] = [name for name in sub_dirs if name not in ignored_dir_names]
                 dirs.append(str(current_dir))
             return dirs
 
