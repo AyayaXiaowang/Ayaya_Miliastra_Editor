@@ -3,6 +3,7 @@
 
 ## 当前状态
 - `composite_多引脚模板_示例.py`：多流程入/出与多数据入/出骨架示例，包含最小可读逻辑与 `__main__` 自检入口（调用 `validate_file`）。
+- `composite_多分支_示例_类格式.py`：类格式复合节点示例（多分支流程出口），用于 match over composite 的控制流回归与示范用法。
 
 ## 注意事项
 - 复合节点文件必须可通过引擎校验（`engine.validate_files` / `app.runtime.engine.node_graph_validator.validate_file`）。
