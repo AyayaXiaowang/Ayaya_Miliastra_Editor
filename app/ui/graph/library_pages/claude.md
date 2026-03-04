@@ -7,6 +7,7 @@
 - **异步与预览**：项目存档页的预览不自动切包，资源列表来自磁盘扫描（`ResourcePreviewScanService`）；双击节点图等重任务通过 `GraphResourceAsyncLoader` 后台加载，避免阻塞 UI。
 - **写操作语义**：复制/派生会生成新的业务 ID；删除在 PackageView 表示“从当前包移出/归档”，在 GlobalResourceView 才是物理删除（会做二次确认与引用提示）。
 - **扩展点**：节点图库/项目存档页提供工具栏扩展入口（`ensure_extension_toolbar_*`），便于私有扩展注入按钮或状态控件而不改内部布局。
+- **CI 可维护性**：库页文件需满足 `check_large_files --max-lines 1500`；复杂操作（如“全局删除元件”的引用分析与确认文案生成）拆分到独立的 utils 模块，保持页面主类可读。
 
 ## 注意事项
 - 页面以“展示 + 发出操作请求”为主；涉及索引/移动/删除必须走 `ResourceManager`/`PackageIndexManager`/控制器，不要在页面内散落写盘逻辑。
