@@ -1,0 +1,37 @@
+{
+  "shield_id": "shield_sample_all_fields_01",
+  "shield_name": "示例_护盾_全字段",
+  "absorbable_damage_types": [
+    "physical",
+    "magical",
+    "elemental"
+  ],
+  "remove_when_depleted": true,
+  "show_ui": true,
+  "ui_color": "#00FFFF",
+  "damage_ratio": 0.9,
+  "shield_value": 250.0,
+  "ignore_shield_amplification": false,
+  "infinite_absorption": false,
+  "absorption_ratio": 1.2,
+  "settlement_priority": 10,
+  "layer_based_effect": false,
+  "nullify_overflow_damage": true,
+  "attack_tags": [
+    "示例攻击标签_1",
+    "示例攻击标签_2"
+  ],
+  "description": "示例护盾：覆盖可吸收类型、承伤比例、溢出归零与结算优先级等高级字段。",
+  "shield_type": "absorb",
+  "duration": 8.0,
+  "absorb_types": [],
+  "visual_effect": "fx_sample_shield",
+  "metadata": {
+    "category": "教学示例",
+    "ui": {
+      "show_value_text": true
+    }
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_护盾_全字段"
+}

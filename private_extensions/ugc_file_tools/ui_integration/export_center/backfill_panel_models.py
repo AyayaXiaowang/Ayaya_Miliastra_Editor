@@ -6,6 +6,11 @@ from typing import Iterable, Mapping, Sequence
 from .._common import IdRefPlaceholderUsage
 
 
+_AUTO_SYNC_ENABLED_TEXT = "开启"
+_AUTO_SYNC_DISABLED_TEXT = "关闭"
+_AUTO_SYNC_NOT_APPLICABLE_TEXT = "（UI未写回）"
+
+
 def build_backfill_deps_rows(
     *,
     fmt: str,
@@ -48,6 +53,67 @@ def build_backfill_deps_rows(
                 _add_pending(category="自定义变量(关卡实体)", key=str(display))
 
     return list(rows)
+
+
+def format_backfill_deps_text(
+    *,
+    fmt: str,
+    graphs_total: int,
+    target_gil_text: str,
+    id_ref_usage: IdRefPlaceholderUsage,
+    ui_keys: Iterable[str],
+    selected_level_custom_variable_ids: Sequence[str],
+    level_custom_variable_meta_by_id: Mapping[str, Mapping[str, object]] | None,
+    write_ui_effective: bool,
+    ui_auto_sync_enabled: bool,
+) -> str:
+    """构造“回填依赖清单”的纯文本摘要（用于 UI 展示/tooltip/测试锁定）。
+
+    注意：该函数必须保持纯逻辑，不引入任何 PyQt6/UI 依赖。
+    """
+
+    fmt2 = str(fmt or "").strip() or "gil"
+    total = int(graphs_total)
+    target = str(target_gil_text or "").strip()
+
+    usage = id_ref_usage
+    entity_list = sorted([str(x) for x in usage.entity_names], key=lambda t: t.casefold())
+    component_list = sorted([str(x) for x in usage.component_names], key=lambda t: t.casefold())
+    ui_key_list = sorted([str(x) for x in set(ui_keys or [])], key=lambda t: t.casefold())
+
+    lines: list[str] = [
+        f"节点图：{total} 个",
+        f"识别目标 .{fmt2}：{target if target else '<未选择>'}",
+        f"实体（entity_key/entity）[{len(entity_list)}]：",
+    ]
+    for name in entity_list:
+        lines.append(f"- {name}")
+
+    lines.append(f"元件（component_key/component）[{len(component_list)}]：")
+    for name in component_list:
+        lines.append(f"- {name}")
+
+    lines.append(f"UIKey（ui_key/ui）[{len(ui_key_list)}]：")
+    for k in ui_key_list:
+        lines.append(f"- {k}")
+
+    if fmt2 == "gil":
+        ids = [str(x) for x in list(selected_level_custom_variable_ids or []) if str(x).strip() != ""]
+        meta_by_id = level_custom_variable_meta_by_id or {}
+        lines.append(f"关卡实体自定义变量（全部）[{len(ids)}]：")
+        for vid in ids:
+            meta = meta_by_id.get(str(vid))
+            vname = str(meta.get("variable_name") or "").strip() if isinstance(meta, Mapping) else ""
+            display = f"{vname} ({vid})" if vname else f"{vid}"
+            lines.append(f"- {display}")
+
+        if bool(write_ui_effective):
+            auto_sync_text = _AUTO_SYNC_ENABLED_TEXT if bool(ui_auto_sync_enabled) else _AUTO_SYNC_DISABLED_TEXT
+        else:
+            auto_sync_text = _AUTO_SYNC_NOT_APPLICABLE_TEXT
+        lines.append(f"UI 自定义变量自动同步：{auto_sync_text}")
+
+    return "\n".join(lines)
 
 
 def compute_backfill_signature_gia(
@@ -113,5 +179,6 @@ __all__ = [
     "compute_backfill_signature_gia",
     "compute_backfill_signature_gil",
     "build_backfill_deps_rows",
+    "format_backfill_deps_text",
 ]
 

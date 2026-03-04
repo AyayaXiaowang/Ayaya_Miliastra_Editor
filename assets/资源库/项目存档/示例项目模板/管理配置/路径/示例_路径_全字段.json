@@ -1,0 +1,58 @@
+{
+  "path_id": "path_sample_all_fields_01",
+  "path_name": "示例_路径_全字段",
+  "waypoints": [
+    {
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "speed": 3.0,
+      "wait_time": 0.0
+    },
+    {
+      "position": [
+        5.0,
+        0.0,
+        5.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "speed": 4.0,
+      "wait_time": 0.5
+    },
+    {
+      "position": [
+        10.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "speed": 5.0,
+      "wait_time": 1.0
+    }
+  ],
+  "path_type": "spline",
+  "speed": 5.0,
+  "smooth_curve": true,
+  "description": "示例路径：展示路径点列表、路径类型与平滑开关等字段。",
+  "metadata": {
+    "category": "教学示例",
+    "loop_mode": "ping_pong"
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_路径_全字段"
+}

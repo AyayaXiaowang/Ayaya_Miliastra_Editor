@@ -1,0 +1,24 @@
+{
+  "channel_id": "chat_channel_sample_all_fields_01",
+  "channel_name": "示例_聊天频道_全字段",
+  "channel_type": "team",
+  "max_message_length": 240,
+  "allow_emotes": true,
+  "filter_profanity": true,
+  "message_history_limit": 200,
+  "description": "示例聊天频道：展示频道类型、限制参数与快捷消息结构。",
+  "metadata": {
+    "category": "教学示例"
+  },
+  "color": "#66CCFF",
+  "apply_mode": "all_players",
+  "priority": 5,
+  "icon": "",
+  "quick_messages": [
+    "集合！",
+    "注意BOSS技能！",
+    "我需要支援！"
+  ],
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_聊天频道_全字段"
+}

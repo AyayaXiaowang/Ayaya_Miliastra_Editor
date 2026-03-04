@@ -1,0 +1,36 @@
+{
+  "config_id": "currency_backpack_sample_all_fields_01",
+  "currencies": [
+    {
+      "currency_id": "gold",
+      "currency_name": "金币",
+      "icon": "",
+      "initial_amount": 1000,
+      "max_amount": 9999999,
+      "description": "示例货币：金币"
+    },
+    {
+      "currency_id": "diamond",
+      "currency_name": "钻石",
+      "icon": "",
+      "initial_amount": 50,
+      "max_amount": 999999,
+      "description": "示例货币：钻石"
+    }
+  ],
+  "backpack_capacity": 60,
+  "max_stack_size": 99,
+  "initial_items": [
+    "item_sample_all_fields_01",
+    "item_1107296259"
+  ],
+  "description": "示例货币背包：覆盖货币列表、背包容量、堆叠上限与初始道具。",
+  "metadata": {
+    "category": "教学示例",
+    "note": "示例：此处可扩展经济系统的额外字段"
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_货币背包_全字段"
+}
+
+

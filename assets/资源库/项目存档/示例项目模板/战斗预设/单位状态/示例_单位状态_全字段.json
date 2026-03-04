@@ -1,0 +1,24 @@
+{
+  "id": "unit_status_sample_all_fields_01",
+  "status_id": "unit_status_sample_all_fields_01",
+  "status_name": "示例_单位状态_全字段",
+  "name": "示例_单位状态_全字段",
+  "description": "示例单位状态：展示持续时间/可叠加/效果类型/效果数值与 metadata 的典型写法。",
+  "duration": 12.5,
+  "is_stackable": true,
+  "max_stacks": 5,
+  "effect_type": "buff",
+  "effect_values": {
+    "attack_bonus": 10.0,
+    "move_speed_bonus": 1.5,
+    "damage_reduction_ratio": 0.15
+  },
+  "icon": "",
+  "metadata": {
+    "category": "教学示例",
+    "ui_color": "#33CC33",
+    "stack_behavior_note": "示例：可叠加状态的表现说明"
+  },
+  "updated_at": "2025-12-18T12:00:00.000000",
+  "last_modified": "2025-12-18 12:00:00"
+}

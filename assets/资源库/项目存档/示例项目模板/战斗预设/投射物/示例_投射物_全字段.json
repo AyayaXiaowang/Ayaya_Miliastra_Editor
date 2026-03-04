@@ -1,0 +1,28 @@
+{
+  "id": "projectile_sample_all_fields_01",
+  "projectile_id": "projectile_sample_all_fields_01",
+  "projectile_name": "示例_投射物_全字段",
+  "name": "示例_投射物_全字段",
+  "description": "示例投射物：覆盖速度、生命周期、重力、轨迹特效、命中检测、命中/销毁能力单元、弹跳/穿透等字段。",
+  "speed": 22.0,
+  "lifetime": 4.5,
+  "gravity": 0.15,
+  "model": "model_sample_projectile",
+  "trail_effect": "fx_sample_projectile_trail",
+  "hit_detection_enabled": true,
+  "hit_ability_units": [
+    "ability_unit_sample_on_hit_damage",
+    "ability_unit_sample_on_hit_apply_status"
+  ],
+  "destroy_ability_units": [
+    "ability_unit_sample_on_destroy_spawn_fx"
+  ],
+  "bounce_count": 2,
+  "pierce_count": 1,
+  "metadata": {
+    "category": "教学示例",
+    "collision_radius": 0.25
+  },
+  "last_modified": "2025-12-18 12:00:00",
+  "updated_at": "2025-12-18T12:00:00.000000"
+}

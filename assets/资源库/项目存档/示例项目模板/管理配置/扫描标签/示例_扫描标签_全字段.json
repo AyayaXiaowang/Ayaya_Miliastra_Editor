@@ -1,0 +1,15 @@
+{
+  "scan_tag_id": "scan_tag_sample_all_fields_01",
+  "scan_tag_name": "示例_扫描标签_全字段",
+  "scannable": true,
+  "scan_range": 18.0,
+  "scan_highlight_color": "#00FFCC",
+  "scan_info_text": "示例提示：按E进行交互",
+  "description": "示例扫描标签：展示范围、高亮颜色、提示文本与元数据。",
+  "metadata": {
+    "category": "教学示例",
+    "priority": 1
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_扫描标签_全字段"
+}

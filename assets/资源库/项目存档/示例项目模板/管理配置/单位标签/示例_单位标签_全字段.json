@@ -1,0 +1,14 @@
+{
+  "tag_id": "unit_tag_sample_all_fields_01",
+  "tag_name": "示例_单位标签_全字段",
+  "tag_category": "combat",
+  "color": "#FF3366",
+  "icon": "",
+  "description": "示例单位标签：展示分类/颜色/描述与元数据扩展。",
+  "metadata": {
+    "category": "教学示例",
+    "note": "示例：可用于 UI 过滤或玩法筛选"
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_单位标签_全字段"
+}

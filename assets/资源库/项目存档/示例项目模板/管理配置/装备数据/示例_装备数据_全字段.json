@@ -1,0 +1,31 @@
+{
+  "equipment_id": "equipment_sample_all_fields_01",
+  "equipment_name": "示例_装备数据_全字段",
+  "equipment_slot": "weapon",
+  "base_attributes": {
+    "attack": 25.0,
+    "critical_rate": 0.12,
+    "critical_damage": 0.5
+  },
+  "special_effects": [
+    "effect_sample_on_hit_fire",
+    "effect_sample_on_kill_heal"
+  ],
+  "rarity": "legendary",
+  "level_requirement": 10,
+  "icon": "",
+  "model": "model_sample_weapon_01",
+  "description": "示例装备数据：覆盖槽位、基础属性、特殊效果、稀有度、等级需求与扩展元数据。",
+  "metadata": {
+    "category": "教学示例",
+    "tags": [
+      "示例",
+      "武器"
+    ],
+    "ui": {
+      "color": "#FFD700"
+    }
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_装备数据_全字段"
+}

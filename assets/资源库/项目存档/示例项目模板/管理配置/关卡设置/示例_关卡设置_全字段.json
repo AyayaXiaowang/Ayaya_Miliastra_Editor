@@ -1,0 +1,91 @@
+{
+  "config_id": "level_settings_sample_all_fields_01",
+  "scene_range": "全场景",
+  "environment_level": 15,
+  "initial_time_hour": 10,
+  "time_flow_ratio": 1.5,
+  "load_optimization": true,
+  "out_of_range_disabled": false,
+  "hatred_type": "默认",
+  "shield_calc_mode": "统一计算",
+  "factions": [
+    {
+      "faction_id": "faction_a",
+      "faction_name": "阵营A",
+      "player_count": 2,
+      "enemy_factions": [
+        "faction_b"
+      ]
+    },
+    {
+      "faction_id": "faction_b",
+      "faction_name": "阵营B",
+      "player_count": 2,
+      "enemy_factions": [
+        "faction_a"
+      ]
+    }
+  ],
+  "spawn_shared": false,
+  "spawn_points": [
+    {
+      "spawn_id": "spawn_a_01",
+      "spawn_name": "阵营A出生点",
+      "preset_point_id": "point_sample_all_fields_01",
+      "character_templates": [],
+      "shared": false
+    }
+  ],
+  "respawn_points": [
+    {
+      "respawn_id": "respawn_a_01",
+      "priority": 10,
+      "preset_point_id": "point_sample_all_fields_01"
+    }
+  ],
+  "player_groups": [
+    {
+      "group_id": "group_all_players",
+      "count_type": "fixed",
+      "player_count": 4,
+      "included_players": [],
+      "is_required": true
+    }
+  ],
+  "loading_bg_image": "",
+  "loading_title": "示例关卡",
+  "loading_description": "示例：加载界面简介文本",
+  "settlement_type": "个人结算",
+  "enable_ranking": true,
+  "level_name": "示例_关卡设置_全字段",
+  "level_description": "示例关卡设置：覆盖基础设置、阵营、出生/复苏、人数分组、结算与胜负条件等字段。",
+  "max_players": 4,
+  "min_players": 1,
+  "time_limit": 600.0,
+  "victory_conditions": [
+    {
+      "condition_type": "collect",
+      "target_value": 10,
+      "description": "收集10个目标道具即胜利"
+    }
+  ],
+  "defeat_conditions": [
+    {
+      "condition_type": "time_out",
+      "target_value": 600,
+      "description": "时间耗尽失败"
+    }
+  ],
+  "difficulty": "normal",
+  "recommended_level": 10,
+  "metadata": {
+    "category": "教学示例",
+    "notes": [
+      "示例：此处可扩展关卡的玩法开关与额外规则"
+    ]
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_关卡设置_全字段"
+}
+
+

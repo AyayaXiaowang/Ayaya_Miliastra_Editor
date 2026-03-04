@@ -1,0 +1,17 @@
+{
+  "music_id": "music_sample_all_fields_01",
+  "music_name": "示例_背景音乐_全字段",
+  "audio_file": "audio/bgm/sample_theme.ogg",
+  "volume": 0.75,
+  "loop": true,
+  "fade_in_duration": 1.5,
+  "fade_out_duration": 2.0,
+  "trigger_condition": "示例：进入主城时播放",
+  "description": "示例背景音乐：展示完整字段与典型触发/淡入淡出配置。",
+  "metadata": {
+    "category": "教学示例",
+    "priority": 10
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_背景音乐_全字段"
+}

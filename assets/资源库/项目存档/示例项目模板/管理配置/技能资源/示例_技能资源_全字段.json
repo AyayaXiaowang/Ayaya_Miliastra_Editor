@@ -1,0 +1,23 @@
+{
+  "resource_id": "skill_resource_sample_all_fields_01",
+  "resource_name": "示例_技能资源_全字段",
+  "growth_type": "跟随技能(保留值)",
+  "max_obtainable_value": 150.0,
+  "initial_value": 50.0,
+  "recovery_rate": 7.5,
+  "referenced_skills": [
+    "skill_sample_all_fields_01",
+    "skill_signal_all_types_debug"
+  ],
+  "icon": "",
+  "color": "#00AAFF",
+  "description": "示例技能资源：展示增长类型、最大值、恢复速率、引用技能与显示配置。",
+  "resource_type": "custom",
+  "max_value": 150.0,
+  "metadata": {
+    "category": "教学示例",
+    "ui_style": "bar"
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_技能资源_全字段"
+}

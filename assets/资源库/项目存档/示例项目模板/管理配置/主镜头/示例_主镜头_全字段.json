@@ -1,0 +1,22 @@
+{
+  "id": "camera_sample_all_fields_01",
+  "camera_id": "camera_sample_all_fields_01",
+  "camera_name": "示例_主镜头_全字段",
+  "camera_type": "follow",
+  "fov": 75.0,
+  "near_clip": 0.1,
+  "far_clip": 1500.0,
+  "follow_target": "player",
+  "follow_distance": 6.0,
+  "follow_height": 2.5,
+  "description": "示例主镜头：展示完整字段与常用跟随参数。",
+  "metadata": {
+    "category": "教学示例",
+    "smoothing": {
+      "enabled": true,
+      "ratio": 0.2
+    }
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_主镜头_全字段"
+}

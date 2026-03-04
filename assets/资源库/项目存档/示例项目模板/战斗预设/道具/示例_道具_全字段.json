@@ -1,0 +1,31 @@
+{
+  "id": "item_sample_all_fields_01",
+  "item_id": "item_sample_all_fields_01",
+  "item_name": "示例_道具_全字段",
+  "name": "示例_道具_全字段",
+  "description": "示例道具：覆盖类型、稀有度、堆叠、冷却、属性加成、使用条件与 metadata 扩展。",
+  "item_type": "consumable",
+  "rarity": "epic",
+  "max_stack": 20,
+  "icon": "",
+  "use_effect": "use_effect_sample_restore_hp",
+  "cooldown": 8.0,
+  "attributes": {
+    "hp_restore": 250.0,
+    "move_speed_bonus": 0.5
+  },
+  "requirements": {
+    "min_level": 5,
+    "allowed_classes": [
+      "player_class_sample_all_fields_01"
+    ]
+  },
+  "config_id": "900001",
+  "metadata": {
+    "category": "教学示例",
+    "equipment_id": "equipment_sample_all_fields_01",
+    "note": "示例：当 item_type 为 equipment 时，建议在 metadata 中关联装备数据模板ID"
+  },
+  "last_modified": "2025-12-18 12:00:00",
+  "updated_at": "2025-12-18T12:00:00.000000"
+}

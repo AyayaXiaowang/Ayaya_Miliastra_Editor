@@ -1,0 +1,33 @@
+{
+  "point_id": "point_sample_all_fields_01",
+  "point_name": "示例_预设点_全字段",
+  "position": [
+    10.0,
+    0.0,
+    5.0
+  ],
+  "rotation": [
+    0.0,
+    180.0,
+    0.0
+  ],
+  "point_type": "teleport",
+  "tags": [
+    "示例",
+    "传送点",
+    "教学"
+  ],
+  "description": "示例预设点：展示完整字段、标签与元数据扩展。",
+  "metadata": {
+    "category": "教学示例",
+    "scene_marker": "sample_marker_01",
+    "custom_data": {
+      "radius": 2.0,
+      "cooldown": 1.0
+    }
+  },
+  "lock_transform": true,
+  "visible_in_scene": true,
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_预设点_全字段"
+}

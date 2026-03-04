@@ -1,0 +1,21 @@
+{
+  "id": "text_sample_all_fields_01",
+  "name": "示例_多语言_全字段",
+  "original_text": "示例原文：欢迎来到资源库全类型示例包",
+  "source": "ui",
+  "needs_translation": false,
+  "translations": {
+    "zh-CN": "欢迎来到资源库全类型示例包",
+    "en-US": "Welcome to the full resource library sample package",
+    "ja-JP": "リソースライブラリ全タイプのサンプルパッケージへようこそ"
+  },
+  "description": "示例多语言文本：展示多语言翻译表与元数据字段。",
+  "metadata": {
+    "category": "ui",
+    "tags": [
+      "示例",
+      "欢迎语"
+    ]
+  },
+  "updated_at": "2025-12-18T12:10:00.000000"
+}

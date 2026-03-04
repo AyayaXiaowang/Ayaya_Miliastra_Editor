@@ -1,0 +1,107 @@
+{
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_外围系统_全字段",
+  "system_id": "peripheral_systems_sample_all_fields_01",
+  "system_name": "示例_外围系统_全字段",
+  "peripheral_sample_leaderboard_01": {
+    "system_id": "peripheral_sample_leaderboard_01",
+    "system_name": "示例_排行榜系统",
+    "name": "示例_排行榜系统",
+    "description": "示例：排行榜系统配置",
+    "leaderboard_settings": {
+      "enabled": true,
+      "allow_room_settle": true,
+      "records": [
+        {
+          "record_id": "record_score",
+          "record_name": "积分榜",
+          "sort_desc": true,
+          "max_entries": 100
+        }
+      ]
+    },
+    "competitive_rank_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "note": "",
+      "score_groups": []
+    },
+    "achievement_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "extreme_enabled": false,
+      "items": []
+    },
+    "last_modified": "2025-12-18 12:10:00"
+  },
+  "peripheral_sample_rank_01": {
+    "system_id": "peripheral_sample_rank_01",
+    "system_name": "示例_段位系统",
+    "name": "示例_段位系统",
+    "description": "示例：段位/竞技分组配置",
+    "leaderboard_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "records": []
+    },
+    "competitive_rank_settings": {
+      "enabled": true,
+      "allow_room_settle": true,
+      "note": "示例：按积分区间划分段位",
+      "score_groups": [
+        {
+          "group_id": "rank_bronze",
+          "group_name": "青铜",
+          "min_score": 0,
+          "max_score": 999
+        },
+        {
+          "group_id": "rank_silver",
+          "group_name": "白银",
+          "min_score": 1000,
+          "max_score": 1999
+        }
+      ]
+    },
+    "achievement_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "extreme_enabled": false,
+      "items": []
+    },
+    "last_modified": "2025-12-18 12:10:00"
+  },
+  "peripheral_sample_achievement_01": {
+    "system_id": "peripheral_sample_achievement_01",
+    "system_name": "示例_成就系统",
+    "name": "示例_成就系统",
+    "description": "示例：成就系统配置",
+    "leaderboard_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "records": []
+    },
+    "competitive_rank_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "note": "",
+      "score_groups": []
+    },
+    "achievement_settings": {
+      "enabled": true,
+      "allow_room_settle": true,
+      "extreme_enabled": false,
+      "items": [
+        {
+          "achievement_id": "ach_first_login",
+          "achievement_name": "初次登录",
+          "description": "示例成就：首次进入游戏",
+          "target_value": 1
+        }
+      ]
+    },
+    "last_modified": "2025-12-18 12:10:00"
+  }
+}
+
+

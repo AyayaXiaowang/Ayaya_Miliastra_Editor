@@ -1,0 +1,26 @@
+{
+  "light_id": "light_sample_all_fields_01",
+  "light_name": "示例_光源_全字段",
+  "light_type": "spot",
+  "color": "#FFE8CC",
+  "intensity": 2.0,
+  "range_distance": 25.0,
+  "position": [
+    0.0,
+    8.0,
+    0.0
+  ],
+  "direction": [
+    0.0,
+    -1.0,
+    0.0
+  ],
+  "cast_shadows": true,
+  "description": "示例光源：展示完整字段与典型参数。",
+  "metadata": {
+    "category": "教学示例",
+    "shadow_quality": "high"
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_光源_全字段"
+}

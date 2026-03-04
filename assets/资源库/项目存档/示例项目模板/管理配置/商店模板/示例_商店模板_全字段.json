@@ -1,0 +1,22 @@
+{
+  "shop_id": "shop_sample_all_fields_01",
+  "shop_name": "示例_商店模板_全字段",
+  "shop_type": "equipment",
+  "available_items": [
+    "item_sample_all_fields_01",
+    "item_1107296259",
+    "item_1107296260"
+  ],
+  "refresh_interval": 3600.0,
+  "currency_type": "gold",
+  "description": "示例商店模板：覆盖商店类型、商品列表、刷新与货币字段。",
+  "metadata": {
+    "category": "教学示例",
+    "ui": {
+      "title": "示例商店",
+      "banner": ""
+    }
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_商店模板_全字段"
+}

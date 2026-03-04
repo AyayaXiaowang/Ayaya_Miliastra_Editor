@@ -1,0 +1,18 @@
+{
+  "template_id": "template_20251130_190000_000001_signal_all_types_example",
+  "name": "信号全类型_测试台",
+  "entity_type": "物件",
+  "description": "用于挂载 signal_all_supported_types_example 信号示例节点图的教学用测试台模板。",
+  "default_graphs": [
+    "server_signal_all_types_example_01"
+  ],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "object_model_name": "空模型",
+    "template_category": "教学示例"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": "2025-12-17T11:48:16.142409"
+}

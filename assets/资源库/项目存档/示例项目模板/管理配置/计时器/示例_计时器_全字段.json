@@ -1,0 +1,16 @@
+{
+  "timer_id": "timer_sample_all_fields_01",
+  "timer_name": "示例_计时器_全字段",
+  "initial_time": 90.0,
+  "is_loop": true,
+  "auto_start": true,
+  "trigger_condition": "示例：进入关卡后自动开始；满足条件时可由运行时触发重置或启动",
+  "callback_graph": "server_template_local_variable_counter",
+  "description": "示例计时器：展示完整字段与典型写法。",
+  "metadata": {
+    "category": "教学示例",
+    "ui_color": "#FFCC00"
+  },
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "name": "示例_计时器_全字段"
+}
