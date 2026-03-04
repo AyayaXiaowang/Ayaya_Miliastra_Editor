@@ -5,6 +5,7 @@
 - **规则脚本**：例如 `no_direct_vision_bridge_import.py`（禁止使用历史 `tools.vision_bridge` 路径）、`no_custom_chinese_regex_or_similarity.py`（禁止手写中文正则/相似度，统一走 OCR/文本相似度公共入口）。
 - **扫描工具**：`utils.py` 提供 `iter_python_files()` 等通用遍历助手。
 - **协议一致性**：`check_executor_protocol.py` 检查执行器协议一致性，workspace_root 推断复用 `engine.utils.workspace.resolve_workspace_root`，控制台输出复用 `engine.utils.logging` 的编码/净化工具。
+- **扫描精度**：`no_custom_chinese_regex_or_similarity.py` 仅对 `re.` 作为标识符调用做匹配（使用正则 `\\bre\\.`），避免误报 `editor_capture.get_*` 等正常调用；相似度库拦截仅针对显式 `import/from` 引入第三方库，避免误伤注释/变量名。
 
 ## 注意事项
 - 这些脚本不改变运行时逻辑，仅用于本地巡检；如需纳入 CI/预提交，应由外层工具链调用。
