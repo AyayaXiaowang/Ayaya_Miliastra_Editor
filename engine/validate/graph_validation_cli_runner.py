@@ -198,6 +198,7 @@ def run_validate_graphs_cli(
     issues_by_file = group_issues_by_file(all_issues, workspace_root)
     folder_stats = build_folder_stats(targets, issues_by_file, workspace_root)
     level_counts, category_counts, code_counts = build_issue_summary(all_issues)
+    error_count = int(level_counts.get("error", 0) or 0)
 
     if output_json:
         payload = build_validate_graphs_json_report(
@@ -217,7 +218,7 @@ def run_validate_graphs_cli(
             code_counts=code_counts,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
-        return 1 if all_issues else 0
+        return 1 if error_count > 0 else 0
 
     failed_files = print_file_details(
         targets,
@@ -236,9 +237,12 @@ def run_validate_graphs_cli(
         code_counts,
         annotate_legacy_packages_bucket=bool(annotate_legacy_packages_bucket),
     )
-    if failed_files > 0:
+    if error_count > 0:
         return 1
-    print("\n[SUCCESS] 所有文件通过（引擎）")
+    if all_issues:
+        print("\n[SUCCESS] 无错误（存在 warning/info；不会阻断退出码）")
+    else:
+        print("\n[SUCCESS] 所有文件通过（无问题）")
     return 0
 
 

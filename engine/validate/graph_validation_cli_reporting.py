@@ -155,7 +155,7 @@ def print_file_details(
 
 def print_summary(
     total_files: int,
-    failed_files: int,
+    files_with_issues: int,
     folder_stats: Mapping[str, Mapping[str, int]],
     level_counts: Counter[str],
     category_counts: Counter[str],
@@ -163,15 +163,22 @@ def print_summary(
     *,
     annotate_legacy_packages_bucket: bool = False,
 ) -> None:
-    passed_files = total_files - failed_files
+    error_files = 0
+    warning_files = 0
+    for stat in folder_stats.values():
+        error_files += int(stat.get("error_files", 0) or 0)
+        warning_files += int(stat.get("warning_files", 0) or 0)
+    files_with_issues = int(files_with_issues or 0)
+    ok_files = total_files - error_files - warning_files
     error_count = level_counts.get("error", 0)
     warning_count = level_counts.get("warning", 0)
 
     print("=" * 80)
     print("验证完成:")
     print(f"  总计: {total_files} 个文件")
-    print(f"  通过: {passed_files} 个")
-    print(f"  失败: {failed_files} 个")
+    print(f"  通过: {ok_files} 个")
+    print(f"  告警: {warning_files} 个")
+    print(f"  失败: {error_files} 个")
     print(f"  问题: {error_count} 错误, {warning_count} 警告")
 
     if folder_stats:

@@ -129,3 +129,5 @@
                   Number of buffers.
   -B  ........  --auto-buffers
                   Don't automatically allocate buffers for pipes.
+  -c  ........  --clear-screen
+                  Repaint by clearing rather than scrolling.

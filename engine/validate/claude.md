@@ -4,6 +4,7 @@
 ## 当前状态
 - **稳定入口**：上层通过 `engine.validate.api.validate_files`、`ComprehensiveValidator`、`RoundtripValidator` 等调用；CLI 仅做包装（如 `app.cli.graph_tools`）。
 - **目标收集与报告**：`graph_validation_targets` 负责扫描目标与路径归一化；`graph_validation_cli_runner` / `graph_validation_cli_reporting` 负责 `validate-graphs` 的编排与输出（含 `--json`）。
+- **退出码语义**：`validate-graphs` 默认 **仅 error 视为失败**（exit code=1）；warning/info 会完整输出但不阻断（exit code=0）。
 - **作用域切换**：批量校验由 `graph_validation_orchestrator.collect_validate_graphs_engine_issues(...)` 按资源根目录分组切换 `active_package_id`，并刷新 NodeRegistry + 代码级 Schema 作用域，避免跨项目存档混扫串包。
 - **单文件入口**：`node_graph_validator` 提供 `validate_file/strict_parse_file` 与类装饰器入口；收集与文本报告格式化逻辑收敛在 `node_graph_validation_utils.py`（用于在纯文本模式下输出更可定位的信息，如 error code、行号范围与少量源码片段）。
 - **严格语义对齐**：
