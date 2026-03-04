@@ -217,7 +217,9 @@ def run_validate_graphs_cli(
             category_counts=category_counts,
             code_counts=code_counts,
         )
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        # CI/PowerShell 管道下曾出现编码链路导致 JSON 损坏（非 ASCII 字符被破坏甚至破坏引号闭合）。
+        # `--json` 主要用于脚本/CI 消费：优先保证“跨编码环境稳定可解析”，因此强制 ensure_ascii=True。
+        print(json.dumps(payload, ensure_ascii=True, indent=2))
         return 1 if error_count > 0 else 0
 
     failed_files = print_file_details(
