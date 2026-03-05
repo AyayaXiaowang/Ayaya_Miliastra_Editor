@@ -7,6 +7,7 @@
 - 读取代码资源（如 `自定义变量注册表.py`）的 CLI（例如 `sync-custom-vars`）统一使用 AST 静态提取（`engine.resources.auto_custom_variable_registry`），避免 import 执行顶层代码与副作用；其中 `sync-custom-vars` 已调整为 refs-only：仅同步引用点与第三方存放实体资源，不再生成 `自动分配_*.py` 变量文件。
 - 自定义变量注册表的 `owner` 直接填实体/元件 ID 或 `player`/`level` 关键字（支持 `str | list[str]` 多 owner）；`sync-custom-vars` 按 owner 值在实体摆放/元件库中查找实体并追加变量文件引用到对应模板。
 - UI 占位符校验（`validate-ui`）为只读校验（不写盘、不提供 `--fix` 自动生成变量定义），并跳过 `UI源码/__hook_tests__/` 夹具目录；支持 typed dict alias（例如 `字符串-整数字典`），允许 `lv.<字典变量>.<key>` 的一层键路径校验。
+  - 玩家变量（`ps/p1~p8`）不再依赖“玩家模板闭包”推断变量来源：以 **自定义变量注册表（owner=player）派生的 Schema** 为真源做存在性与键路径校验。
 - `local_graph_sim.py`：本地节点图模拟器 CLI（serve/click/emit-signal）；`serve` 支持 `--ready-file` 将启动后的 URL/端口写入 JSON，供 UI 父进程读取。
 
 ## 注意事项

@@ -214,6 +214,46 @@ def _build_level_variable_name_index_for_package(*, package_id: str) -> dict[str
     return results
 
 
+def _build_custom_variable_name_index_for_package_by_owner(
+    *,
+    package_id: str,
+    owner: str,
+) -> dict[str, list[dict]]:
+    """构建 {variable_name: [payload...]} 索引：仅包含普通自定义变量（排除局内存档变量），且 owner 匹配。
+
+    说明：
+    - 自定义变量注册表（单一真源）会派生虚拟变量文件并填充 payload.owner；
+    - UI 占位符的 scope（lv/ps/p1..p8）与 payload.owner（level/player）是两套口径：
+      - lv.* -> owner=level
+      - ps/pN.* -> owner=player
+    """
+    package_id_text = str(package_id or "").strip()
+    owner_text = str(owner or "").strip().lower()
+    if not package_id_text or not owner_text:
+        return {}
+
+    schema_view = LevelVariableSchemaView()
+    schema_view.set_active_package_id(package_id_text)
+    all_vars = schema_view.get_all_variables()
+    if not isinstance(all_vars, dict):
+        return {}
+
+    results: dict[str, list[dict]] = {}
+    for _var_id, payload in all_vars.items():
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("source_directory") or "").strip() != CATEGORY_CUSTOM:
+            continue
+        payload_owner = str(payload.get("owner") or "").strip().lower()
+        if payload_owner != owner_text:
+            continue
+        name = str(payload.get("variable_name") or "").strip()
+        if not name:
+            continue
+        results.setdefault(name, []).append(payload)
+    return results
+
+
 def _resolve_variable_file_payloads_for_package(*, package_id: str, refs: Sequence[str]) -> list[dict]:
     """按 file_id/source_path/stem 匹配引用，返回命中的变量 payload 列表（按引用顺序合并）。"""
     schema_view = LevelVariableSchemaView()
@@ -645,11 +685,11 @@ def validate_ui_source_dir(
                     )
                 )
 
-    # ===== 玩家变量（ps/p1~p8）：玩家模板闭包 + 冲突检测 =====
+    # ===== 玩家变量（ps/p1~p8）：注册表真源（owner=player）存在性 + 字典键路径 =====
     if workspace_root is None:
         return all_issues
 
-    # 先快速探测：是否存在玩家占位符；若没有，跳过玩家模板闭包校验
+    # 先快速探测：是否存在玩家占位符；若没有，跳过玩家变量校验
     first_player_placeholder: tuple[Path, int, str] | None = None  # (file_path, start_offset, raw_expr)
     for file_path in html_files:
         text = file_path.read_text(encoding="utf-8")
@@ -666,114 +706,10 @@ def validate_ui_source_dir(
     if first_player_placeholder is None:
         return all_issues
 
-    player_templates = _discover_player_templates_for_package(
-        workspace_root=Path(workspace_root),
+    player_index = _build_custom_variable_name_index_for_package_by_owner(
         package_id=package_id_text,
-        resource_manager=resource_manager,
-        package_index_manager=package_index_manager,
+        owner="player",
     )
-    if not player_templates:
-        file_path, start_offset, raw_expr = first_player_placeholder
-        text = file_path.read_text(encoding="utf-8")
-        line, column = _compute_line_col(text, start_offset)
-        all_issues.append(
-            UiVariableIssue(
-                file_path=file_path,
-                line=line,
-                column=column,
-                raw_expr=raw_expr,
-                token="{{...}}",
-                message=(
-                    "发现玩家变量占位符（ps/p1~p8），但当前项目存档未发现任何【玩家模板】资源，"
-                    "因此无法校验变量来源闭包（导出/生成阶段会失败）。\n"
-                    "检查项：\n"
-                    f"- PackageIndex.resources.combat_presets.player_templates（共享+当前存档）\n"
-                    f"- {Path(workspace_root) / 'assets' / '资源库' / '项目存档' / package_id_text / '战斗预设' / '玩家模板'}\n"
-                            "建议：补齐至少一个玩家模板，并在其 metadata.custom_variable_file 中引用注册表派生的稳定变量文件："
-                            f"auto_custom_vars__player__{package_id_text}（必要时也可附加其它变量文件）。"
-                ),
-            )
-        )
-        return all_issues
-
-    template_available: dict[str, dict[str, dict]] = {}
-    template_sources: dict[str, str] = {}
-    ordered_template_ids: list[str] = []
-    for t in player_templates:
-        template_id = str(t.template_id)
-        ordered_template_ids.append(template_id)
-        template_sources[template_id] = str(t.source_path)
-        template_json = t.payload
-        metadata = template_json.get("metadata") if isinstance(template_json, dict) else None
-        refs = normalize_custom_variable_file_refs(
-            metadata.get("custom_variable_file") if isinstance(metadata, dict) else None
-        )
-        payloads = _resolve_variable_file_payloads_for_package(package_id=package_id_text, refs=refs)
-        by_name: dict[str, dict] = {}
-        duplicates: dict[str, list[dict]] = {}
-        for payload in payloads:
-            # 仅允许普通自定义变量目录（UI 禁止局内存档变量）
-            if str(payload.get("source_directory") or "").strip() != CATEGORY_CUSTOM:
-                continue
-            name = str(payload.get("variable_name") or "").strip()
-            if not name:
-                continue
-            if name in by_name:
-                duplicates.setdefault(name, [by_name[name]]).append(payload)
-                continue
-            if name not in by_name:
-                by_name[name] = payload
-        template_available[template_id] = by_name
-
-        # 单个玩家模板引用的变量文件集合内，最终落到模板身上的自定义变量不得出现同名（这是模板级硬约束）。
-        if duplicates:
-            file_path, start_offset, raw_expr = first_player_placeholder
-            text = file_path.read_text(encoding="utf-8")
-            line, column = _compute_line_col(text, start_offset)
-
-            for var_name, payload_list in sorted(duplicates.items(), key=lambda kv: kv[0]):
-                sources = sorted(
-                    {
-                        str(p.get("source_path") or p.get("source_file") or p.get("variable_file_id") or "").strip()
-                        for p in payload_list
-                        if isinstance(p, dict)
-                    }
-                )
-                sources = [x for x in sources if x]
-                all_issues.append(
-                    UiVariableIssue(
-                        file_path=file_path,
-                        line=line,
-                        column=column,
-                        raw_expr=raw_expr,
-                        token="{{...}}",
-                        message=(
-                            "玩家模板变量冲突：同一玩家模板合并后的自定义变量出现同名定义。\n"
-                            f"- 玩家模板：{template_id}{f' ({template_sources.get(template_id, '')})' if template_sources.get(template_id, '') else ''}\n"
-                            f"- variable_name：{var_name!r}\n"
-                            + (f"- 来源变量文件：{', '.join(sources)}\n" if sources else "")
-                            + "建议：从玩家模板 metadata.custom_variable_file 中移除其中一个冲突来源，或重命名变量以避免同名。"
-                        ),
-                    )
-                )
-
-    def _pick_template_ids_for_scope(scope: str) -> tuple[list[str], str | None]:
-        """返回 (template_ids_to_check, error_message_if_any)。"""
-        if scope == "ps":
-            return list(ordered_template_ids), None
-        if scope.startswith("p") and scope[1:].isdigit():
-            idx = int(scope[1:]) - 1
-            if idx < 0:
-                return [], f"玩家变量作用域非法：{scope!r}"
-            if idx >= len(ordered_template_ids):
-                return [], (
-                    f"UI 使用了 {scope} 变量占位符，但当前项目存档只发现 {len(ordered_template_ids)} 个玩家模板槽位。"
-                    f"（期望至少 {idx + 1} 个玩家模板）"
-                )
-            return [ordered_template_ids[idx]], None
-        # 兜底：未知 scope 当作 ps 处理（理论上不会到这里，因为 allowed_scopes 已过滤）
-        return list(ordered_template_ids), None
-
     for file_path in html_files:
         text = file_path.read_text(encoding="utf-8")
         refs3 = list(_iter_valid_placeholders_in_text(text, allowed_scopes=allowed_scopes))
@@ -783,9 +719,8 @@ def validate_ui_source_dir(
                 continue
             var_name = segments[0]
             key_path = tuple(segments[1:])
-
-            check_template_ids, scope_error = _pick_template_ids_for_scope(scope)
-            if scope_error:
+            candidates = player_index.get(var_name, [])
+            if not candidates:
                 line, column = _compute_line_col(text, start_offset)
                 all_issues.append(
                     UiVariableIssue(
@@ -795,59 +730,49 @@ def validate_ui_source_dir(
                         raw_expr=raw_expr,
                         token=token,
                         message=(
-                            f"{scope_error}\n"
-                            "建议：补齐玩家模板槽位，或改用正确的 p1~p8 作用域。"
+                            f"玩家变量未定义：{var_name!r}。\n"
+                            "建议：在【管理配置/关卡变量/自定义变量注册表.py】补齐 owner='player' 的变量声明/默认结构。"
                         ),
                     )
                 )
                 continue
 
-            missing_templates: list[str] = []
-            wrong_type_templates: list[str] = []
-            missing_key_templates: list[str] = []
+            payload = candidates[0]
+            if len(candidates) > 1:
+                types = {str(p.get("variable_type") or "").strip() for p in candidates if isinstance(p, dict)}
+                if len(types) != 1:
+                    line, column = _compute_line_col(text, start_offset)
+                    source_files = sorted(
+                        {
+                            str(p.get("source_path") or p.get("source_file") or p.get("variable_file_id") or "")
+                            for p in candidates
+                        }
+                    )
+                    source_files = [x for x in source_files if x]
+                    all_issues.append(
+                        UiVariableIssue(
+                            file_path=file_path,
+                            line=line,
+                            column=column,
+                            raw_expr=raw_expr,
+                            token=token,
+                            message=(
+                                f"玩家同名变量类型不一致：{var_name!r}。\n"
+                                f"- 类型集合：{sorted(types)}\n"
+                                f"- 来源文件：{', '.join(source_files)}\n"
+                                "建议：统一类型/默认结构，或重命名以避免 UI 来源不明确。"
+                            ),
+                        )
+                    )
+                    continue
+                payload = candidates[0]
 
-            for template_id in check_template_ids:
-                available_by_name = template_available.get(template_id, {})
-                payload = available_by_name.get(var_name)
-                if payload is None:
-                    missing_templates.append(template_id)
-                    continue
-                if not key_path:
-                    continue
-                vtype = str(payload.get("variable_type") or "").strip()
-                if not is_dict_type_name(vtype):
-                    wrong_type_templates.append(template_id)
-                    continue
-                default_value = payload.get("default_value")
-                leaf_parent = (
-                    _extract_dict_at_path(default_value, key_path[:-1]) if len(key_path) > 1 else default_value
-                )
-                if key_path:
-                    leaf = key_path[len(key_path) - 1]
-                    if not isinstance(leaf_parent, dict) or leaf not in leaf_parent:
-                        missing_key_templates.append(template_id)
+            if not key_path:
+                continue
 
-            if missing_templates or wrong_type_templates or missing_key_templates:
+            vtype = str(payload.get("variable_type") or "").strip()
+            if not is_dict_type_name(vtype):
                 line, column = _compute_line_col(text, start_offset)
-                parts: list[str] = []
-                if missing_templates:
-                    details = []
-                    for tid in sorted(missing_templates):
-                        source = template_sources.get(tid, "")
-                        details.append(f"{tid}{f' ({source})' if source else ''}")
-                    parts.append(f"未定义变量的玩家模板：{', '.join(details)}")
-                if wrong_type_templates:
-                    details = []
-                    for tid in sorted(wrong_type_templates):
-                        source = template_sources.get(tid, "")
-                        details.append(f"{tid}{f' ({source})' if source else ''}")
-                    parts.append(f"变量不是字典类型的玩家模板：{', '.join(details)}")
-                if missing_key_templates:
-                    details = []
-                    for tid in sorted(missing_key_templates):
-                        source = template_sources.get(tid, "")
-                        details.append(f"{tid}{f' ({source})' if source else ''}")
-                    parts.append(f"字典键缺失的玩家模板：{', '.join(details)}")
                 all_issues.append(
                     UiVariableIssue(
                         file_path=file_path,
@@ -856,15 +781,28 @@ def validate_ui_source_dir(
                         raw_expr=raw_expr,
                         token=token,
                         message=(
-                            "玩家变量引用不完整："
-                            f"{scope}.{var_name}"
-                            + (f".{'.'.join(key_path)}" if key_path else "")
-                            + "\n"
-                            + "\n".join(parts)
-                            + "\n"
-                            + "建议：在【自定义变量注册表.py】补齐变量声明/默认结构，并确保对应玩家模板的 "
-                            "metadata.custom_variable_file 引用到注册表派生的稳定文件（例如 "
-                            f"auto_custom_vars__player__{package_id_text}）。"
+                            f"玩家变量不是字典类型：{var_name!r}，但 UI 使用了键路径 {'.'.join(key_path)!r}。\n"
+                            "建议：将变量类型改为 typed dict alias（例如 字符串-字符串字典），并补齐 default_value 键集合。"
+                        ),
+                    )
+                )
+                continue
+
+            default_value = payload.get("default_value")
+            leaf_parent = _extract_dict_at_path(default_value, key_path[:-1]) if len(key_path) > 1 else default_value
+            leaf = key_path[len(key_path) - 1]
+            if not isinstance(leaf_parent, dict) or leaf not in leaf_parent:
+                line, column = _compute_line_col(text, start_offset)
+                all_issues.append(
+                    UiVariableIssue(
+                        file_path=file_path,
+                        line=line,
+                        column=column,
+                        raw_expr=raw_expr,
+                        token=token,
+                        message=(
+                            f"玩家字典键不存在：{var_name!r} 缺少键路径 {'.'.join(key_path)!r}。\n"
+                            "建议：在【自定义变量注册表.py】补齐 default_value 的键集合（typed dict）。"
                         ),
                     )
                 )

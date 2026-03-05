@@ -73,6 +73,9 @@ runtime/name_sync_state.json
 # `assets/资源库/` 需要被程序员开发与协作：不做默认忽略。
 # 编译产物与缓存仍应忽略（已由全局规则覆盖：__pycache__/ *.pyc 等）。
 
+# UI Workbench bundle 输出（构建产物；写回端会读取，但应由 HTML 重新生成，避免把旧产物提交进仓库）
+assets/资源库/项目存档/**/管理配置/UI源码/__workbench_out__/*.ui_bundle.json
+
 
 
 # 项目存档归档快照（原始解析/二进制数据块/大体量 dump；默认不对外）

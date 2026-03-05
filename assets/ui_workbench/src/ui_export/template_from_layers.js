@@ -611,7 +611,12 @@ export function buildUiControlGroupTemplateFromFlattenedLayers(layerList, option
                 }
             }
             var cleaned = String(normalized.text || "").trim();
-            if (!cleaned) {
+            // 关键：允许“可见示例文本为空，但声明了 data-ui-text（写回用占位符/真实文本）”的动态文本导出。
+            // 否则会导致：textbox_widget.js 虽支持 data-ui-text 覆盖，但上游跳过 text layer，根本不会创建 TextBox。
+            var attrsTextTemplate = (source0 && source0.attributes) ? source0.attributes : null;
+            var overrideTextTemplate = attrsTextTemplate ? String(attrsTextTemplate.dataUiText || "") : "";
+            var hasOverrideTextTemplate = (overrideTextTemplate && overrideTextTemplate.trim()) ? true : false;
+            if (!cleaned && !hasOverrideTextTemplate) {
                 continue;
             }
             var textId = buildWidgetId(idPrefix, "text", source0, zIndex);

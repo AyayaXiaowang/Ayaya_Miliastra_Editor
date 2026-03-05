@@ -30,6 +30,7 @@
   - 交互/导出几何：button 的基础 rect 默认使用“去掉边框后的 innerRect”（从 `source.rect` 扣除 `border-*-width`），以对齐“忽略 border 但内容区域变小”的扁平化口径，避免出现“预览变小但导出 GIL 仍按 border-box 偏大”。
   - `data-ui-export-as="decor"`（导出语义提示）：
     - 若按钮根元素标记为 `decor`，导出时不会生成该按钮的“道具展示(可交互)”按钮锚点控件（避免占用 1..14 槽位）。
+  - **动态文本导出（data-ui-text）**：即使网页中“可见示例文本为空”，只要元素声明了 `data-ui-text` 且非空，也会导出 TextBox；导出的 `settings.text_content` 由 `textbox_widget.js` 优先使用 `data-ui-text`（可写 `{{lv.xxx}}/{1:lv.xxx}` 等）。
   - 单字符/emoji ICON 的导出策略（重要）：
     - 不再“自动把单字符/emoji 文本转换为道具展示(ICON)”。
     - 只有当该元素显式声明 `data-ui-role="item_display"` 时，才允许导出为“道具展示(ICON)”控件（建议同时提供 `data-inventory-item-id` 作为配置ID变量）。
