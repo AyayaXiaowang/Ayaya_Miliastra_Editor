@@ -84,6 +84,7 @@ def import_ui_from_workbench_bundles_to_gil(
     input_gil_file_path: Path,
     output_gil_file_path: Path,
     auto_sync_custom_variables: bool = True,
+    include_layout_names: list[str] | None = None,
     layout_conflict_resolutions: list[dict[str, str]] | None = None,
 ) -> Dict[str, Any]:
     """
@@ -135,6 +136,35 @@ def import_ui_from_workbench_bundles_to_gil(
         raise FileNotFoundError(
             f"未找到 UI Workbench bundle：{str(project_root / '管理配置' / 'UI源码' / '__workbench_out__')}/*.ui_bundle.json"
         )
+
+    # 可选：按 layout_name 过滤写回范围（由导出中心 selection-json 提供）。
+    # 说明：
+    # - layout_name 口径与 `_infer_layout_name_from_bundle_file` 保持一致（按 bundle 文件名推断）。
+    # - 仅当调用方明确提供 include_layout_names 时才启用过滤；缺省仍写回全部 bundle。
+    if include_layout_names is not None:
+        want: list[str] = []
+        seen_cf: set[str] = set()
+        for x in list(include_layout_names or []):
+            name = str(x or "").strip()
+            if name == "":
+                continue
+            k = name.casefold()
+            if k in seen_cf:
+                continue
+            seen_cf.add(k)
+            want.append(name)
+
+        if want:
+            want_cf = {n.casefold() for n in want}
+            filtered = [p for p in list(bundle_files) if _infer_layout_name_from_bundle_file(p).casefold() in want_cf]
+            if not filtered:
+                existing = [_infer_layout_name_from_bundle_file(p) for p in list(bundle_files)]
+                raise ValueError(
+                    "指定的 UI 页面未找到对应 Workbench bundle（按 bundle 文件名推断 layout_name）。\n"
+                    f"- selected_ui_layout_names={want}\n"
+                    f"- existing_bundles={existing}"
+                )
+            bundle_files = list(filtered)
 
     from ugc_file_tools.ui_patchers import import_web_ui_control_group_template_to_gil_layout
 

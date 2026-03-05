@@ -16,6 +16,7 @@
   - project 节点图冲突策略回归：selection-json 可携带 `node_graph_conflict_resolutions`，支持对同名图选择 `overwrite/add/skip`（add 写入新图名；skip 不导出且可在 report 的 skipped_graphs 中看到）
   - project 节点图写回回归：单图 strict 解析失败（`GraphParseError`）应跳过并记录到 `skipped_graphs`（不中断整次写回，供导出中心提示）。
   - selection-json 解析（模板 JSON / 实体摆放 JSON 列表）
+  - selection-json 解析（UI 写回过滤）：`selected_ui_layout_names` 可将 UI Workbench bundle 写回范围收敛到指定页面（覆盖：`test_project_selection_json_ui_layout_names.py`）
   - 模板/实体同名冲突策略回归：断言“同名模板/实例 + action=add”会生成 `__new_1` 等新名字时，测试对 dump-json 的名字字段先做归一化（支持 `"<binary_data> 0A .."` 与控制前缀误判形态），避免 `<binary_data>` 噪音导致误报。
   - 关卡实体自定义变量写回护栏回归：当变量定义的 `owner` 不为 `level` 时，写回应 fail-fast，避免误把玩家/第三方变量写入关卡实体。覆盖：`test_level_custom_variables_importer.py`
   - 元件模板 importer（非纯数字 template_id 的稳定映射）
@@ -84,6 +85,8 @@
   - 写回保真回归：node_graph_writeback / signal_writeback 写回时必须 **不触碰** base `.gil` 的其它 payload_root 段 bytes（使用 wire-level 只替换 `field_10`），避免 UI base 下 templates 段发生 payload drift。见 `test_writeback_preserves_unrelated_payload_sections_wire_bytes.py`。
   - UI records → `ui_key` GUID 回填规则回归：`ui_guid_resolution.resolve_ui_key_guid_from_output_gil`（layout 消歧、state group、btn_item fallback）
   - UI records 辅助规则回归：legacy key 别名回填、registry(group/btn_item) 覆盖推断、缺失 key 从 UI records 反查补齐（均在 `ui_guid_resolution.py`）
+- UI records 提取兼容回归：当 UI record 的 `component_list(505)` 内出现 `"<binary_data> "`（empty bytes）条目时，`extract_ui_record_list` 会将其归一化为 `{}`，避免后续 UI 导出/解析类型分叉。见 `test_ui_readable_dump_normalizes_empty_binary_component_item.py`。
+- UI records 解码兼容回归：当 UI record 的 `component_list(505)` 内出现 `"<binary_data> "`（empty bytes）条目时，`extract_ui_record_list` 应将其归一化为 `{}`，避免后续导出/解析因列表混入 `str` 发生类型分叉。
   - 导出中心 UI 写回策略回归：选择 `UI源码(ui_src)` 时 write_ui 必须强制开启；非强制时按用户勾选决定（`ui_integration/export_center/write_ui_policy.py`）。
   - 资源选择器回归：管理配置（mgmt_cfg）在导出中心收敛为“信号/结构体定义”候选（排除校验脚本与杂项目录），并对代码级资源提取友好显示名（优先 `signal_name/struct_name/VARIABLE_FILE_NAME`），避免仅显示文件名/ID；GIL 模式左侧提供“关卡实体自定义变量（全部）”勾选项，启用后会自动按关卡实体引用的 VARIABLE_FILE_ID 收集候选并全量写回（跳过 owner=player/data），预览文本会显示数量。
   - 导出中心回归：GIL 模式支持“使用内置空存档（默认布局）”作为 base，允许在不选择输入基础 `.gil` 的情况下构建 plan 并执行导出。见 `test_export_center_builtin_empty_base_gil_option.py`。

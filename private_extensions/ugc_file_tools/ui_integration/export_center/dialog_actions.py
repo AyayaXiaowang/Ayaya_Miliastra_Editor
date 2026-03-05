@@ -1603,7 +1603,10 @@ def start_export_center_backfill_identify_action(
             else:
                 required_level_custom_vars.append({"variable_id": str(vid), "variable_name": "", "variable_type": "", "source": ""})
 
-        ui_src_selected = any(it.category == "ui_src" for it in selected_items)
+        # 仅 project scope 的 UI源码 选择才会触发 “UI 写回强制开启”。
+        ui_src_selected = any(
+            it.category == "ui_src" and str(getattr(it, "source_root", "")) == "project" for it in selected_items
+        )
         policy = compute_write_ui_effective_policy(
             fmt="gil",
             ui_src_selected=bool(ui_src_selected),

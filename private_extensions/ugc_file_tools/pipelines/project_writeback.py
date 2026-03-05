@@ -72,6 +72,9 @@ class ProjectWritebackPlan:
     selected_template_json_files: list[Path] | None = None
     selected_instance_json_files: list[Path] | None = None
     graph_source_roots: list[Path] | None = None  # project/shared，用于“稳定分配 graph_id_int”
+    # UI 写回选择过滤：仅写回这些 layout_name（对应 `UI源码/<stem>.html` 的 stem；bundle 文件名同 stem）。
+    # - None/空：不做过滤；写回全部 Workbench bundle（或 raw_template）。
+    selected_ui_layout_names: list[str] | None = None
     # 节点图写回时的“同名节点图冲突策略”（导出中心交互用；按 graph_code_file 精确匹配）。
     # - action="overwrite"：默认行为（按 (scope, graph_name) 复用 base 中同名图的 graph_id_int 并替换写回）
     # - action="add"：以 new_graph_name 作为输出名写回，避免命中“同名复用”，从而写入为新图
@@ -781,6 +784,7 @@ def run_project_writeback_to_gil(
                 input_gil_file_path=current_input,
                 output_gil_file_path=output_tool_path,
                 auto_sync_custom_variables=bool(plan.ui_auto_sync_custom_variables),
+                include_layout_names=(list(plan.selected_ui_layout_names) if plan.selected_ui_layout_names else None),
                 layout_conflict_resolutions=(list(plan.ui_layout_conflict_resolutions) if plan.ui_layout_conflict_resolutions else None),
             )
             report["steps"].append({"kind": "ui_html_workbench_bundles", "report": step_report})

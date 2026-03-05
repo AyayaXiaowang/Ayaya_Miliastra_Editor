@@ -7,6 +7,7 @@
 - **注入与重写**：`output.js` 负责生成注入 HTML + CSS、重写资源路径/页面跳转链接，并支持直接替换 `<body>` 内容为扁平层。
 - **算法子模块**：`colors.js / shadows.js / text_layout.js / ...` 提供颜色吸附、阴影拆层、文本矩形扩展、分组调试覆盖等可复用算法；降级/近似会通过 diagnostics 输出 warning/error。
 - **关键语义**：支持多状态初始显隐（默认态可见、其他态 `visibility:hidden`）、`.game-cutout` 背景挖空、`.highlight-display-area` 周围压暗高亮、以及 `data-ui-text-align/valign` 对齐覆盖。
+- **文本导出触发（新增）**：当元素可见文本为空时，只要声明了非空 `data-ui-text`，仍会生成 text layer（`text=""` + `source.attributes.dataUiText`），以保证导出侧能创建 TextBox 并写回 `.gil`。
 
 ## 注意事项
 - 代码运行在浏览器侧：禁止依赖 Node.js API。

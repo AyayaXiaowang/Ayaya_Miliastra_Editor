@@ -330,7 +330,7 @@ class VariableSelector(QtWidgets.QWidget):
         app_state = self._resolve_app_state()
         package_index_manager = getattr(app_state, "package_index_manager", None) if app_state is not None else None
         if package_index_manager is None:
-            dialog_utils.show_error_dialog(self, "选择变量", "无法获取 PackageIndexManager（app_state.package_index_manager 缺失）。")
+            dialog_utils.show_error_dialog(self, "选择变量", "无法获取项目存档列表，请检查项目状态。")
             return ""
 
         packages = package_index_manager.list_packages()
@@ -383,13 +383,13 @@ class VariableSelector(QtWidgets.QWidget):
             dialog_utils.show_error_dialog(
                 self,
                 "选择变量",
-                "无法构建存档视图（resource_manager/package_index_manager 缺失）。",
+                "无法加载项目存档，请检查资源是否就绪。",
             )
             return None
 
         package_index = package_index_manager.load_package_index(package_id_text)
         if package_index is None:
-            dialog_utils.show_error_dialog(self, "选择变量", f"未找到项目存档索引：{package_id_text}")
+            dialog_utils.show_error_dialog(self, "选择变量", f"未找到指定的项目存档：{package_id_text}，它可能已被移动或删除。")
             return None
 
         package_view = PackageView(package_index=package_index, resource_manager=resource_manager)

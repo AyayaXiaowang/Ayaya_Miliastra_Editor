@@ -113,7 +113,7 @@ class TodoExecutorBridge(QtCore.QObject):
         if not self._ensure_execution_backend_available():
             return
         if self.tree_manager is None:
-            self._notify("内部错误：任务树管理器未初始化，无法解析事件流", "error")
+            self._notify("无法执行：任务列表尚未加载完成，请稍后再试。", "error")
             return
 
         context = self.ui_context.build_current_todo_context()
@@ -128,10 +128,10 @@ class TodoExecutorBridge(QtCore.QObject):
         if error is not None:
             user_message = error.user_message or ""
             toast_type = "warning" if error.reason == "no_event_flows" else "error"
-            self._notify(user_message or "内部错误：剩余事件流执行规划失败", toast_type)
+            self._notify(user_message or "无法执行：规划后续步骤失败，请检查节点图是否有误。", toast_type)
             return
         if remaining_plan is None:
-            self._notify("内部错误：剩余事件流执行规划失败", "error")
+            self._notify("无法执行：规划后续步骤失败，请检查节点图是否有误。", "error")
             return
 
         current_flow_root = remaining_plan.current_flow_root
@@ -176,10 +176,10 @@ class TodoExecutorBridge(QtCore.QObject):
         if not self._ensure_execution_backend_available():
             return
         if not isinstance(detail_info, dict):
-            self._notify("内部错误：当前详情为空，无法执行", "error")
+            self._notify("无法执行：当前步骤没有具体内容。", "error")
             return
         if not StepTypeRules.is_composite_step(detail_type):
-            self._notify("内部错误：当前步骤并非复合节点类型，无法执行复合节点指引", "error")
+            self._notify("无法执行：当前步骤类型不匹配，仅支持复合节点。", "error")
             return
 
         monitor_panel = self._ensure_monitor_panel()
@@ -201,7 +201,7 @@ class TodoExecutorBridge(QtCore.QObject):
         # 定位根
         item = self._get_item_by_id(start_todo.todo_id)
         if item is None:
-            self._notify("内部错误：未找到树项（item is None）", "error")
+            self._notify("无法执行：在列表中未找到对应的任务步骤。", "error")
             return
         root_todo = self._find_template_graph_root_for_item(item)
         graph_data = self._resolve_graph_data(start_todo, root_todo)
@@ -240,7 +240,7 @@ class TodoExecutorBridge(QtCore.QObject):
             return
         item = self._get_item_by_id(step_todo.todo_id)
         if item is None:
-            self._notify("内部错误：未找到树项（item is None）", "error")
+            self._notify("无法执行：在列表中未找到对应的任务步骤。", "error")
             return
         root_todo = self._find_template_graph_root_for_item(item)
         graph_data = self._resolve_graph_data(step_todo, root_todo)
@@ -265,7 +265,7 @@ class TodoExecutorBridge(QtCore.QObject):
             if user_message:
                 self._log_to_monitor_or_toast(user_message)
             else:
-                self._notify("内部错误：单步执行规划失败", "error")
+                self._notify("无法单步执行：未能规划下一步操作。", "error")
             return
         if step_plan is None or not step_plan.step_list:
             self._notify("没有可执行的步骤（规划结果为空）", "warning")
@@ -281,7 +281,7 @@ class TodoExecutorBridge(QtCore.QObject):
     def _execute_flow_root(self) -> None:
         # 定位当前事件流根任务（使用统一解析器：树选中 → current_todo_id → detail_info 匹配 → 父链回溯）
         if self.tree_manager is None:
-            self._notify("内部错误：任务树管理器未初始化，无法解析事件流", "error")
+            self._notify("无法执行：任务列表尚未加载完成，请稍后再试。", "error")
             return
         context = self.ui_context.build_current_todo_context()
         todo_map = self.tree_manager.todo_map
@@ -293,7 +293,7 @@ class TodoExecutorBridge(QtCore.QObject):
             find_event_flow_root_for_todo=find_flow_root,
         )
         if root_plan is None:
-            self._notify("内部错误：未找到当前任务项（current_todo）", "error")
+            self._notify("无法执行：未找到当前选择的任务步骤。", "error")
             return
         current_todo = root_plan.root_todo
         if not self._maybe_show_graph_preflight_warning(
@@ -332,7 +332,7 @@ class TodoExecutorBridge(QtCore.QObject):
         - 保持与事件流根入口一致，都直接依赖 current_todo_resolver 提供的根解析逻辑。
         """
         if self.tree_manager is None:
-            self._notify("内部错误：任务树管理器未初始化，无法解析模板图根", "error")
+            self._notify("无法执行：任务列表尚未加载完成，请稍后再试。", "error")
             return
         context = self.ui_context.build_current_todo_context()
         todo_map = self.tree_manager.todo_map
@@ -342,7 +342,7 @@ class TodoExecutorBridge(QtCore.QObject):
             find_template_root_for_item=self._find_template_graph_root_for_item,
         )
         if root_plan is None:
-            self._notify("内部错误：未找到当前任务项（current_todo）", "error")
+            self._notify("无法执行：未找到当前选择的任务步骤。", "error")
             return
         current_todo = root_plan.root_todo
 

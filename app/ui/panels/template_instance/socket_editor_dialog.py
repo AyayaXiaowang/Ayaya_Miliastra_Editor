@@ -298,7 +298,7 @@ class SocketEditorDialog(BaseDialog):
 
             preview_box = QtWidgets.QCheckBox(table)
             preview_box.setChecked(socket_name in self._unit_socket_preview_set)
-            preview_box.setToolTip("标记为“预览坐标轴”（由后续 3D 视口实现决定如何展示）。")
+            preview_box.setToolTip("在预览中显示坐标轴辅助线。")
             preview_box.stateChanged.connect(
                 lambda state, name=socket_name: self._on_unit_preview_changed(name, state)
             )

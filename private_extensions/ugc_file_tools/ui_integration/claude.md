@@ -28,11 +28,14 @@
 - **导出中心（GIA 回填）**：GIA 模式提供“基底 `.gil`”用于节点图 `entity_key/component_key` 回填；并支持可选“占位符参考 `.gil`”覆盖（留空=使用基底）。
 - **导出中心（实体摆放）**：写回实体摆放时，若所选实例在 base `.gil` 中不存在，会按“新增实例（克隆样本 entry）”策略写入输出 `.gil`；若无法解析模板类型/样本不足会 fail-fast 报错（避免产物进游戏不可见）。
 - **导出中心（UI 写回）**：当用户选择 `UI源码` 且 Workbench bundle 过期/缺失时，会在导出前通过子进程调用 `tool export_ui_workbench_bundles_from_html` 自动更新 `UI源码/__workbench_out__` 产物，再继续写回导出（依赖 Playwright/Chromium）。
+  - 仅 **project scope** 的 `UI源码(ui_src)` 选择会触发“UI 写回强制开启”；shared scope 的 `UI源码` 不参与写回（不对应当前项目存档的 `__workbench_out__` bundle）。
+  - 当用户在左侧明确勾选了若干 `UI源码/*.html` 页面时，导出中心会通过 selection-json 透传 `selected_ui_layout_names`，将 UI 写回范围收敛到这些页面（避免未选页面被一并写入 `.gil`）。
 - **导出中心（自定义变量/注册表）**：GIL 模式在左侧资源树提供“自定义变量（注册表）”分类（`custom_vars` 虚拟条目）；按 owner 分组展示（关卡实体/玩家/第三方 owner），**同一 owner 必须整组一起勾选**（每组仅提供一个 `（全部）` 入口）。
   - 当用户勾选了 `UI源码`（并将写回 UI）时，UI HTML 中引用到的变量会被自动加入“已选资源”（强联动，避免漏写回）。
   - 当用户勾选了 `元件库(templates)` 或 `实体摆放(instances)` 时，对应模板/实例 ID 的第三方 owner 变量组也会被自动加入“已选资源”（按 owner 整组）。
     - 为避免 Qt 侧 re-entrancy 崩溃，自动勾选/移除使用 `QtCore.QTimer.singleShot(0, ...)` 延迟执行（而不是在 selection_changed 回调栈内同步修改 selection）。
   - 写回语义：仅补齐缺失变量；不修改已存在同名变量当前值；同名但类型不同默认不覆盖（报告列出）。
+  - 右侧写回配置区块不展示冗长说明文本；仅展示“已选预览”（避免占用空间）。
 - **导出中心（GIL 冲突提示）**：UI 布局同名冲突弹窗会明确提示触发条件：仅在启用“UI 写回”时出现；“UI 回填记录”仅用于 ui_key→GUID 回填，不会启用 UI 写回。
 - **稳定性**：导出中心的 base `.gil` 冲突扫描与“回填识别”均在子进程内执行，避免 `.gil` 解码在 UI 进程内触发 Windows access violation（闪退）。
 - **回填识别进度**：导出中心步骤 2“识别”支持进度条展示；识别 worker 会持续发出 progress 事件供 UI 更新。

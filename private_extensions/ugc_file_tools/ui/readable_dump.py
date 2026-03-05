@@ -284,9 +284,34 @@ def _extract_ui_record_list(dll_dump_object: Dict[str, Any]) -> List[Any]:
     # 若不解码，后续 GUID 收集/查找/唯一性校验会漏掉这些 record，进而导致 GUID 复用与串页问题。
     from ugc_file_tools.gil_dump_codec.protobuf_like_bridge import binary_data_text_to_numeric_message
 
+    def _normalize_ui_record_component_list_inplace(record: Dict[str, Any]) -> None:
+        """
+        兼容旧/异常样本：
+        - 在部分 `.gil` 中，UI record 的 component_list(505) 内可能出现 `"<binary_data> "`（空 bytes）条目。
+          该条目在 UI 语义上更像“空 message”，但 dump-json 会表现为 str，容易让后续导出/解析逻辑在
+          `for comp in record['505']` 时发生类型分叉（甚至崩溃/提前退出），进而导致网页导出文本/样式异常。
+
+        处理策略（最小、确定性）：
+        - 仅当该 `<binary_data>` 解码结果为 **empty bytes** 时，将其归一化为 `{}`（空 dict message）。
+        - 非空 bytes 仍保持为原始 `<binary_data> ..`（避免误把真实 bytes/blob 解码为 message 造成语义漂移）。
+        """
+        component_list = record.get("505")
+        if not isinstance(component_list, list):
+            return
+
+        from ugc_file_tools.gil_dump_codec.protobuf_like import parse_binary_data_hex_text
+
+        for idx, comp in enumerate(list(component_list)):
+            if not isinstance(comp, str) or (not comp.startswith("<binary_data>")):
+                continue
+            raw = parse_binary_data_hex_text(comp)
+            if len(raw) == 0:
+                component_list[idx] = {}
+
     normalized: List[Any] = []
     for item in list(record_list):
         if isinstance(item, dict):
+            _normalize_ui_record_component_list_inplace(item)
             normalized.append(item)
             continue
         if isinstance(item, str) and item.startswith("<binary_data>"):
@@ -296,6 +321,7 @@ def _extract_ui_record_list(dll_dump_object: Dict[str, Any]) -> List[Any]:
                     "DLL dump JSON 字段 '4/9/502' 的 record 解码后不是 dict："
                     f"type={type(decoded_item).__name__}"
                 )
+            _normalize_ui_record_component_list_inplace(decoded_item)
             normalized.append(decoded_item)
             continue
         raise TypeError(

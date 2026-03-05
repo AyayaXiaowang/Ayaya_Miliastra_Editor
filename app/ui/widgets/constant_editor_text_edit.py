@@ -325,7 +325,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
             dialog_utils.show_error_dialog(
                 parent,
                 "选择 GUID",
-                "无法构建 Resolver（resource_manager/package_index_manager 缺失）。",
+                "无法解析变量配置，请检查资源加载状态。",
             )
             return
 
@@ -347,7 +347,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
                 dialog_utils.show_info_dialog(
                     parent,
                     "选择 GUID",
-                    "当前工程未发现任何可用的项目存档（无法为 GUID 选择提供包上下文）。",
+                    "当前工程未发现可用的项目存档，请先创建一个项目存档。",
                 )
                 return ""
 
@@ -384,7 +384,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
                 return
             loaded_index = package_index_manager.load_package_index(chosen_package_id)
             if loaded_index is None:
-                dialog_utils.show_error_dialog(parent, "选择 GUID", f"未找到项目存档索引：{chosen_package_id}")
+                dialog_utils.show_error_dialog(parent, "选择 GUID", f"未找到指定的项目存档：{chosen_package_id}，它可能已被移动或删除。")
                 return
             package_id_to_use = chosen_package_id
             package_index_to_use = loaded_index
@@ -482,7 +482,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
 
         def prompt_package_id_for_scope() -> str:
             if package_index_manager is None:
-                dialog_utils.show_error_dialog(parent, "选择自定义变量", "无法获取 PackageIndexManager（app_state.package_index_manager 缺失）。")
+                dialog_utils.show_error_dialog(parent, "选择自定义变量", "无法获取项目存档列表，请检查项目状态。")
                 return ""
             packages = package_index_manager.list_packages()
             items: list[str] = []
@@ -500,7 +500,7 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
                 dialog_utils.show_info_dialog(
                     parent,
                     "选择自定义变量",
-                    "当前工程未发现任何可用的项目存档（无法为变量选择提供包上下文）。",
+                    "当前工程未发现可用的项目存档，请先创建一个项目存档。",
                 )
                 return ""
             selected_pkg = input_dialogs.prompt_item(
@@ -534,12 +534,12 @@ class ConstantTextEdit(QtWidgets.QGraphicsTextItem):
                 dialog_utils.show_error_dialog(
                     parent,
                     "选择自定义变量",
-                    "无法加载项目存档视图（resource_manager/package_index_manager 缺失）。",
+                    "无法加载项目存档，请检查资源是否就绪。",
                 )
                 return
             package_index = package_index_manager.load_package_index(selected_package_id)
             if package_index is None:
-                dialog_utils.show_error_dialog(parent, "选择自定义变量", f"未找到项目存档索引：{selected_package_id}")
+                dialog_utils.show_error_dialog(parent, "选择自定义变量", f"未找到指定的项目存档：{selected_package_id}，它可能已被移动或删除。")
                 return
             from engine.resources import PackageView
 

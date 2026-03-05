@@ -407,19 +407,19 @@ class CombatTab(TemplateInstanceTabBase):
             self.aggro_hint.setStyleSheet(ThemeManager.info_label_style())
             return
 
-        self.aggro_hint.setText("当前关卡已启用「自定义」仇恨类型（本页具体配置项待接入）。")
+        self.aggro_hint.setText("当前关卡已启用自定义仇恨类型，具体配置界面即将推出。")
         self.aggro_hint.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; padding: 8px;")
 
     # ------------------------------------------------------------------ Detail buttons
 
     def _on_edit_hitbox_detail(self) -> None:
-        show_info_dialog(self, "受击盒设置", "当前版本仅支持“初始生效”字段；受击盒形状/位置编辑器待接入。")
+        show_info_dialog(self, "受击盒设置", "受击盒的形状与位置编辑功能即将推出，目前仅支持配置初始状态。")
 
     def _on_edit_combat_detail(self) -> None:
-        show_info_dialog(self, "战斗设置", "当前版本仅支持基础标记/追踪点/特效引用；高级战斗参数编辑器待接入。")
+        show_info_dialog(self, "战斗设置", "高级战斗参数编辑功能即将推出，目前仅支持基础标记与特效配置。")
 
     def _on_edit_ability_detail(self) -> None:
-        show_info_dialog(self, "能力单元", "能力单元编辑器待接入。")
+        show_info_dialog(self, "能力单元", "能力单元编辑功能即将推出。")
 
 
 def _safe_int(value: object, *, default: int, minimum: int) -> int:

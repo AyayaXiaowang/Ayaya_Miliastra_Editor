@@ -333,7 +333,7 @@ class TodoListOrchestrator:
         """执行按钮点击（委托给执行桥接层）。"""
         host = self.host
         if not host.current_detail_info:
-            host._notify("内部错误：当前详情为空，无法执行", "error")
+            host._notify("无法执行：当前步骤没有具体内容。", "error")
             return
         detail_type = get_detail_type(host.current_detail_info)
         execution_profile = StepTypeRules.build_execution_profile(detail_type)
@@ -368,7 +368,7 @@ class TodoListOrchestrator:
         """执行剩余序列：叶子步骤 → 同级末尾；事件流根 → 当前及后续事件流。"""
         host = self.host
         if not host.current_detail_info:
-            host._notify("内部错误：当前详情为空，无法执行", "error")
+            host._notify("无法执行：当前步骤没有具体内容。", "error")
             return
         detail_type = get_detail_type(host.current_detail_info)
         execution_profile = StepTypeRules.build_execution_profile(detail_type)

@@ -16,6 +16,7 @@
 - 临时产物与对比报告等统一落在 `tmp/`（例如 `tmp/artifacts/`、`tmp/agent_todos/`）；根目录应保持“入口/索引/配置”为主，临时产物以 `.gitignore` / `.cursorignore` 为准忽略与可清理。
 - Cursor 相关配置位于 `.cursor/`（本地规则与 hooks；默认被 ignore）。
 - Git 上传卫生：运行期缓存/临时产物/导出物等（如 `app/runtime/cache/`、`tmp/`、`docs/`、`private_extensions/**/out/`、`assets/资源库/项目存档/_archive/`）应保持为本地可再生成或需授权的内容，不作为源码仓库提交对象；嵌套仓库目录（`private_extensions/**/.git/`）严禁进入待上传内容。
+- UI Workbench bundle（`assets/资源库/项目存档/**/管理配置/UI源码/__workbench_out__/*.ui_bundle.json`）属于构建产物：写回端会读取，但应由 HTML 重新生成，避免把旧 bundle 提交进仓库导致协作环境使用陈旧产物。
 - `ugc_file_tools` 本地样本与解析状态：`private_extensions/ugc_file_tools/save/`、`private_extensions/ugc_file_tools/parse_status/`、以及 UI schema library 沉淀数据 `private_extensions/ugc_file_tools/ui_schema_library/data/` 默认视为本地输入样本/可再生成视图；对外仓库默认忽略。运行必需/默认依赖的 seed 版本化收口在 `private_extensions/ugc_file_tools/builtin_resources/`（见根目录 `.gitignore`）。
 - 对外开源发布：在内容/授权未确认前，`assets/资源库/共享/**`、`assets/ocr_templates/**`、以及活跃项目存档（如 `assets/资源库/项目存档/第七关/**`、`assets/资源库/项目存档/锻刀/**`）默认不随仓库上传；确认可公开后再做白名单放开。
 - `tools/`：同时包含通用审计脚本与内部/项目专项脚本；对外发布默认通过根目录 `.gitignore` 排除“依赖 `private_extensions/ugc_file_tools` 的工具脚本”与“Level7/第七关等内容生产脚本”。

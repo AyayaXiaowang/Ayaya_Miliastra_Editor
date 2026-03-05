@@ -313,7 +313,7 @@ class CardPoolEditorDialog(BaseDialog):
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data, list):
-            raise ValueError("导入失败：JSON 顶层必须是 list[dict]")
+            raise ValueError("导入失败：配置文件格式不正确，需要列表格式")
         self._load_cards([entry for entry in data if isinstance(entry, dict)])
 
     # ----------------------------------------------------------------------------------

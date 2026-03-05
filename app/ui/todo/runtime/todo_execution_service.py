@@ -148,21 +148,21 @@ def plan_remaining_event_flows_execution(
     if current_flow_root is None:
         return None, RemainingEventFlowsExecutionError(
             reason="no_current_todo",
-            user_message="内部错误：未找到当前任务项（current_todo）",
+            user_message="无法执行：未找到当前选择的任务步骤。",
         )
 
     graph_root_id = _resolve_graph_root_todo_id_for_flow(current_flow_root)
     if not graph_root_id:
         return None, RemainingEventFlowsExecutionError(
             reason="missing_graph_root_id",
-            user_message="内部错误：无法确定当前事件流所属的节点图根 Todo",
+            user_message="无法执行：无法定位当前步骤所属的节点图。",
         )
 
     graph_root = todo_map.get(graph_root_id)
     if graph_root is None:
         return None, RemainingEventFlowsExecutionError(
             reason="graph_root_not_found",
-            user_message="内部错误：未找到所属节点图根 Todo",
+            user_message="无法执行：无法定位所属的节点图。",
         )
 
     flow_roots_in_graph: List[TodoItem] = []
@@ -188,7 +188,7 @@ def plan_remaining_event_flows_execution(
     if start_index == -1:
         return None, RemainingEventFlowsExecutionError(
             reason="current_flow_not_in_graph",
-            user_message="内部错误：当前事件流不在所属节点图的事件流列表中",
+            user_message="无法执行：当前步骤不在有效的执行序列中。",
         )
 
     remaining_flow_roots = flow_roots_in_graph[start_index:]

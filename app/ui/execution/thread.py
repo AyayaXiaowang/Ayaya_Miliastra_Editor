@@ -208,7 +208,7 @@ class ExecutionThread(QtCore.QThread):
                             anchor_prog_pos,
                         )
                 else:
-                    self.monitor.log("⚠ 快速映射失败且未找到可用锚点节点：后续步骤可能无法定位节点")
+                    self.monitor.log("提示：未能成功定位游戏窗口中的节点，可能会影响后续自动执行。")
 
             # 阶段6: 单步模式的识别与几何校验（仅在快速映射失败时生效）
             if (len(self.steps) == 1) and (not quick_mapped):

@@ -213,7 +213,9 @@ def validate_gil_plan(
     instance_json_files = [Path(it.absolute_path).resolve() for it in instance_items]
     instance_json_files.sort(key=lambda x: x.as_posix().casefold())
     signal_ids, basic_struct_ids, ingame_struct_ids = _collect_writeback_ids_from_mgmt_cfg_items(selected_items)
-    ui_src_selected = any(it.category == "ui_src" for it in selected_items)
+    # 仅 project scope 的 UI源码 选择才会触发 “UI 写回强制开启”。
+    # shared scope 的 UI源码 不对应当前项目存档的 `管理配置/UI源码/__workbench_out__` bundle，不能用于写回 .gil。
+    ui_src_selected = any(it.category == "ui_src" and str(getattr(it, "source_root", "")) == "project" for it in selected_items)
     # 自定义变量（注册表）：来自左侧资源树的 `custom_vars` 虚拟条目（按 owner_ref 分组/变量粒度可勾选）
     custom_var_items = [it for it in selected_items if str(getattr(it, "category", "")) == "custom_vars"]
     selected_custom_variable_refs: list[dict[str, str]] = []

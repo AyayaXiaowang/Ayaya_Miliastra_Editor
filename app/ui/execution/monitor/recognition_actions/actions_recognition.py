@@ -985,7 +985,7 @@ class RecognitionActions:
                 {
                     "rects": rects,
                     "circles": circles,
-                    "header": "布尔/枚举选项：未找到可定位的布尔/枚举端口",
+                    "header": "选项识别失败：未能找到对应的配置端口",
                 },
             )
             if debug_log_lines:
@@ -1127,7 +1127,7 @@ class RecognitionActions:
                             "label": "点击点",
                         }
                     ],
-                    "header": "步骤3/颜色扫描失败：未找到 D7D7D7 下拉矩形",
+                    "header": "步骤3/扫描失败：未在游戏画面中找到下拉菜单",
                 },
             )
             self._log("✗ 布尔/枚举选项测试失败：未扫描到颜色为 D7D7D7 的下拉矩形")

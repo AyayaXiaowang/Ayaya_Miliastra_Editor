@@ -52,6 +52,7 @@
     - 优先：`管理配置/UI源码/__workbench_out__/*.ui_bundle.json`（Workbench bundle）
     - 次选：`管理配置/UI控件模板/原始解析/*.raw.json`（raw_template）
     - 空/极简 base 会 bootstrap 最小 UI 段后再写回；同名布局冲突支持 `overwrite/add/skip`。
+    - Workbench bundle 写回支持按 layout_name 过滤（由上层 selection-json 传入 `selected_ui_layout_names`，按 bundle 文件名推断 layout_name）。
     - 导出中心链路（项目存档→写回 `.gil`）当前默认不接入“固有控件（HUD）初始显隐覆盖”，避免 base `.gil` 的布局内缺少固有控件时 fail-fast 阻断整次导出（report 会标记 skipped）。
   - **注册表自定义变量**（可选）：按 `selected_custom_variable_refs`（owner_ref+variable_id）补齐写入输出 `.gil` 的 override_variables(group1)。
     - 声明真源：项目存档 `管理配置/关卡变量/自定义变量注册表.py`（AutoCustomVariableDeclaration，AST 静态提取，不执行代码）。

@@ -1157,16 +1157,6 @@ def _build_gil_page(
     )
     gil_level_vars_layout.setSpacing(Sizes.SPACING_SMALL)
 
-    level_vars_hint = QtWidgets.QLabel(
-        "在左侧资源树勾选『自定义变量（注册表）/关卡实体/...』后，将按勾选补齐写入输出 .gil 的【关卡实体】override_variables（group_id=1）。\n"
-        "- 仅补齐缺失变量；不修改已存在同名变量的当前值\n"
-        "- 若存档中已存在同名但类型不同的变量：默认不覆盖（会在报告中列出）",
-        gil_level_vars_box,
-    )
-    level_vars_hint.setWordWrap(True)
-    level_vars_hint.setStyleSheet(ThemeManager.subtle_info_style())
-    gil_level_vars_layout.addWidget(level_vars_hint)
-
     level_vars_preview = QtWidgets.QLabel("", gil_level_vars_box)
     level_vars_preview.setWordWrap(True)
     level_vars_preview.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 10px;")

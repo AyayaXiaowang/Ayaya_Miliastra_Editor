@@ -14,7 +14,8 @@
   - `.gil` 写回支持可选信号策略 `prefer_signal_specific_type_id`：当信号节点静态绑定且 base 映射可用时，允许将信号节点 runtime type_id 切换为 signal-specific runtime_id（常见 0x6000xxxx/0x6080xxxx；由 base `.gil` 的 node_def_id 0x4000xxxx/0x4080xxxx 推导）。
   - `.gia` 导出/识别支持“基底 `.gil` + 可选占位符参考 `.gil` 覆盖”：用于 `entity_key/component_key` 的占位符回填（留空=使用基底；缺失同名默认回填为 0，但支持通过手动 overrides 覆盖为指定 ID）。
 - `dialog_runtime_state.py`：导出中心对话框运行期状态（显式 state），用于替代 controller 内分散的 nonlocal/闭包变量，降低顺序依赖与回归风险；并承载 IDRef 手动覆盖与候选缓存（缺失行双击选择）。
-- `write_ui_policy.py`：UI 写回策略单一真源：选择 `UI源码(ui_src)` 时强制开启 write_ui；非强制时由用户勾选决定（用于“强制→取消 UI源码→恢复用户选择”）。
+- `write_ui_policy.py`：UI 写回策略单一真源：选择 **project scope** 的 `UI源码(ui_src)` 时强制开启 write_ui；非强制时由用户勾选决定（用于“强制→取消 UI源码→恢复用户选择”）。
+  - selection-json 支持 `selected_ui_layout_names`：当用户明确勾选了若干 `UI源码/*.html` 页面时，UI 写回范围会收敛到这些页面对应的 Workbench bundle（避免未选页面被一并写入 `.gil`）。
 - `backfill_panel_models.py`：回填识别面板的纯逻辑模型（依赖清单 rows（待识别）/纯文本摘要（`format_backfill_deps_text`）与签名计算），供 controller 复用并便于单测锁行为。
 - `gil_backfill_analysis_cache.py`：导出中心“回填识别”的 `.gil` 分析结果缓存（base/id_ref 通用）。
   - 缓存落盘：`app/runtime/cache/ugc_file_tools/export_center/backfill_gil_analysis/`

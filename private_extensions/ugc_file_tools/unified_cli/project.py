@@ -38,6 +38,9 @@ class _ProjectWritebackSelection:
     graph_source_roots: list[Path]
     write_ui: bool
     ui_auto_sync_custom_variables: bool
+    # UI 写回选择过滤：仅写回这些 layout_name（对应 `UI源码/<stem>.html` 的 stem；bundle 文件名同 stem）。
+    # - 为空：表示“未指定过滤”，write_ui=true 时将按项目存档内全部 bundle 写回。
+    selected_ui_layout_names: list[str]
     # UI Workbench bundle（UI源码/__workbench_out__/*.ui_bundle.json）写回时的“同名布局冲突策略”
     # item schema（dict）：
     # - layout_name: str
@@ -309,6 +312,7 @@ def _load_project_writeback_selection(*, selection_json_file: Path) -> _ProjectW
 
     write_ui = bool(data.get("write_ui", False))
     ui_auto_sync_custom_variables = bool(data.get("ui_auto_sync_custom_variables", True))
+    selected_ui_layout_names = _read_str_list("selected_ui_layout_names")
     # 默认开启：对齐真源端口展开/绑定口径；仅在满足“静态绑定 + base 映射可用”时才会实际切换。
     prefer_signal_specific_type_id = bool(data.get("prefer_signal_specific_type_id", True))
 
@@ -324,6 +328,7 @@ def _load_project_writeback_selection(*, selection_json_file: Path) -> _ProjectW
         graph_source_roots=_read_abs_path_list("graph_source_roots"),
         write_ui=bool(write_ui),
         ui_auto_sync_custom_variables=bool(ui_auto_sync_custom_variables),
+        selected_ui_layout_names=list(selected_ui_layout_names),
         ui_layout_conflict_resolutions=_read_layout_conflict_resolutions("ui_layout_conflict_resolutions"),
         node_graph_conflict_resolutions=_read_node_graph_conflict_resolutions("node_graph_conflict_resolutions"),
         template_conflict_resolutions=_read_template_conflict_resolutions("template_conflict_resolutions"),
@@ -625,6 +630,11 @@ def _command_project_import(arguments: argparse.Namespace) -> None:
         graph_source_roots=(
             list(selection.graph_source_roots)
             if (selection is not None and selection.graph_source_roots)
+            else None
+        ),
+        selected_ui_layout_names=(
+            list(selection.selected_ui_layout_names)
+            if (selection is not None and selection.selected_ui_layout_names)
             else None
         ),
         templates_mode=str(getattr(arguments, "templates_mode", "overwrite") or "overwrite"),

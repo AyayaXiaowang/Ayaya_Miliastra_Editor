@@ -400,7 +400,7 @@ class ComponentsTab(TemplateInstanceTabBase):
 
         available_types = self._get_available_component_types_for_context()
         if not available_types:
-            show_warning_dialog(self, "不可用", "当前上下文没有可添加的通用组件类型。")
+            show_warning_dialog(self, "不可用", "当前不支持添加通用组件。")
             return
 
         dialog = ComponentPickerDialog(
@@ -431,7 +431,7 @@ class ComponentsTab(TemplateInstanceTabBase):
             return
 
         if row.source == "inherited" and self.object_type != "template":
-            show_warning_dialog(self, "无法删除", "继承自模板的组件无法在实体面板中删除，请在模板面板修改。")
+            show_warning_dialog(self, "无法删除", "无法删除：该组件继承自模板，请前往模板配置中进行修改。")
             return
 
         should_remove = ask_yes_no_dialog(
@@ -530,7 +530,7 @@ class ComponentsTab(TemplateInstanceTabBase):
             return
         settings = payload.get("settings")
         if not isinstance(settings, dict):
-            show_warning_dialog(self, "无法粘贴", "剪贴板配置缺少 settings 字段或类型不正确。")
+            show_warning_dialog(self, "无法粘贴", "无法粘贴：剪贴板中的组件配置格式不正确。")
             return
 
         row.component.settings = dict(settings)

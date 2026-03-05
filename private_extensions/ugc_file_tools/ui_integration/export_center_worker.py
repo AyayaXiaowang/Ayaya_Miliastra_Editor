@@ -267,6 +267,12 @@ def make_export_center_worker_cls(*, QtCore: object):
                     "instance_conflict_resolutions": list(self._plan.instance_conflict_resolutions),
                     "prefer_signal_specific_type_id": bool(self._plan.prefer_signal_specific_type_id),
                 }
+                selected_ui_layout_names = [str(Path(p).stem).strip() for p in list(self._plan.selected_ui_html_files or [])]
+                selected_ui_layout_names = [x for x in selected_ui_layout_names if x]
+                if selected_ui_layout_names:
+                    # 仅当用户明确勾选了 UI源码（HTML）页面时，才收窄 UI 写回范围；
+                    # 否则 `write_ui=true` 将按项目存档内的全部 Workbench bundle 写回。
+                    selection_manifest["selected_ui_layout_names"] = list(selected_ui_layout_names)
                 selection_file.write_text(
                     json.dumps(selection_manifest, ensure_ascii=False, indent=2),
                     encoding="utf-8",

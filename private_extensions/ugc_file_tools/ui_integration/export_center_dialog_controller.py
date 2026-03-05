@@ -120,7 +120,10 @@ def wire_export_center_dialog(
     def _sync_write_ui_effective_state(*_args: object) -> None:
         fmt = str(format_combo.currentData() or "gia")
         selected_items = list(picker.get_selected_items())
-        ui_src_selected = any(it.category == "ui_src" for it in selected_items)
+        # 仅 project scope 的 UI源码 选择才会触发 “UI 写回强制开启”。
+        ui_src_selected = any(
+            it.category == "ui_src" and str(getattr(it, "source_root", "")) == "project" for it in selected_items
+        )
         policy = compute_write_ui_effective_policy(
             fmt=str(fmt),
             ui_src_selected=bool(ui_src_selected),
@@ -393,7 +396,9 @@ def wire_export_center_dialog(
         id_ref_text2 = str(gil.gil_id_ref_edit.text() or "").strip()
         rid1 = str(gil.gil_ui_export_record_combo.currentData() or "").strip() if not gil.gil_ui_export_record_row.isHidden() else ""
         ui_export_record_id2 = rid1 if rid1 != "" else None
-        ui_src_selected = any(it.category == "ui_src" for it in selected_items)
+        ui_src_selected = any(
+            it.category == "ui_src" and str(getattr(it, "source_root", "")) == "project" for it in selected_items
+        )
         policy2 = compute_write_ui_effective_policy(
             fmt="gil",
             ui_src_selected=bool(ui_src_selected),

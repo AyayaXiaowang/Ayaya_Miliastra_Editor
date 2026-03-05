@@ -179,7 +179,7 @@ class DecorationEditorDialog(BaseDialog):
         self._select_in_scene_btn = QtWidgets.QPushButton("在场景选取", footer)
         self._select_in_scene_btn.setStyleSheet(ThemeManager.button_style())
         self._select_in_scene_btn.setEnabled(False)
-        self._select_in_scene_btn.setToolTip("当前项目未接入 3D 视口，暂不支持在场景中选取。")
+        self._select_in_scene_btn.setToolTip("目前仅支持在列表中配置，场景内点击选取功能即将推出。")
         footer_layout.addWidget(self._select_in_scene_btn)
 
         left_layout.addWidget(footer)
@@ -777,14 +777,14 @@ class DecorationEditorDialog(BaseDialog):
             instance_id = _safe_str(deco.get("instanceId"))
             name = _safe_str(deco.get("displayName"))
             if not instance_id:
-                dialog_utils.show_warning_dialog(self, "提示", "存在缺少 instanceId 的装饰物。")
+                dialog_utils.show_warning_dialog(self, "提示", "部分装饰物配置不完整（缺少标识符），请重新检查。")
                 return False
             if not name:
                 dialog_utils.show_warning_dialog(self, "提示", "存在未命名的装饰物，请填写名称。")
                 return False
             instance_ids.append(instance_id)
         if len(set(instance_ids)) != len(instance_ids):
-            dialog_utils.show_warning_dialog(self, "提示", "存在重复的 instanceId，请重新生成。")
+            dialog_utils.show_warning_dialog(self, "提示", "存在重复的装饰物标识符，请尝试重新生成。")
             return False
         return True
 

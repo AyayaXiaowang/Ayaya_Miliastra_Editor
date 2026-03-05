@@ -402,9 +402,12 @@ export function generateFlattenedDivs(elementsData, sizeKey, opts) {
         var rawTextContent = (elementInfo.textContent || "").trim();
         var normalizedTextContent = _normalizeTextContent(rawTextContent);
         // 允许“混合内容”（元素有子节点，但仍有直接文本节点）导出 directTextContent。
-        var hasText = !!normalizedTextContent;
+        var hasVisibleText = !!normalizedTextContent;
+        var attrsForExportText = elementInfo && elementInfo.attributes ? (elementInfo.attributes || null) : null;
+        var declaredExportText = attrsForExportText ? String(attrsForExportText.dataUiText || "").trim() : "";
+        var hasDeclaredExportText = !!declaredExportText;
 
-        if (isTransparentBackground && !hasBorder && !hasShadow && !hasText) {
+        if (isTransparentBackground && !hasBorder && !hasShadow && !hasVisibleText && !hasDeclaredExportText) {
             // 与 layer_data.js 保持一致：
             // 若元素具备显式按钮语义但“视觉为空”，补一个专用锚点层（button_anchor），
             // 以便预览侧/导出侧能做到 1:1 的 flat_layer_key 精确定位（避免列表点击靠 rect 猜）。
@@ -829,7 +832,7 @@ export function generateFlattenedDivs(elementsData, sizeKey, opts) {
         }
 
         var textContent = normalizedTextContent;
-        if (textContent) {
+        if (textContent || hasDeclaredExportText) {
             var textZIndex = elementBaseZIndex + 8;
             var fontFamilyText = String(styles.fontFamily || "sans-serif").replace(/"/g, "'");
 

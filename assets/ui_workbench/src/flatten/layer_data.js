@@ -389,7 +389,12 @@ export function buildFlattenedLayerData(elementsData, opts) {
         var hasShadow = (styles.boxShadow || "none") !== "none" && (styles.boxShadow || "") !== "";
         var rawTextContent = (elementInfo.textContent || "").trim();
         var normalizedTextContent = _normalizeTextContent(rawTextContent);
-        var hasText = !!normalizedTextContent;
+        var hasVisibleText = !!normalizedTextContent;
+        // 关键：允许“可见文本为空，但声明了 data-ui-text（用于写回到游戏）”的场景仍然生成 text layer，
+        // 否则导出阶段拿不到 text layer，就无法创建 TextBox（即使 template_from_layers 已允许 override 文本）。
+        var attrsForExportText = elementInfo && elementInfo.attributes ? (elementInfo.attributes || null) : null;
+        var declaredExportText = attrsForExportText ? String(attrsForExportText.dataUiText || "").trim() : "";
+        var hasDeclaredExportText = !!declaredExportText;
         // ---------------------------------------------------------------------
         // Placeholder-length pitfall (lint):
         // If author uses a long variable placeholder as the *visible* text,
@@ -402,9 +407,7 @@ export function buildFlattenedLayerData(elementsData, opts) {
         // - Keep the visible text short for layout measurement.
         // - Put the real binding/placeholder into data-ui-text for export.
         // ---------------------------------------------------------------------
-        if (hasText && diagnostics && diagnostics.warn && elementInfo && elementInfo.attributes) {
-            var attrsForText = elementInfo.attributes || null;
-            var declaredExportText = attrsForText ? String(attrsForText.dataUiText || "").trim() : "";
+        if (hasVisibleText && diagnostics && diagnostics.warn && elementInfo && elementInfo.attributes) {
             if (!declaredExportText) {
                 if (_looksLikeVariablePlaceholderText(normalizedTextContent) && normalizedTextContent.length >= 18) {
                     diagnostics.warn({
@@ -442,7 +445,7 @@ export function buildFlattenedLayerData(elementsData, opts) {
         // 关键：按钮锚点允许“视觉为空”：
         // 多状态按钮常见写法是 button 本体透明，视觉（底色/边框/文字）放到子层互斥显示。
         // 若这里直接跳过，会导致导出链路看不到 data-ui-interact-key 等语义，从而无法生成“道具展示”按钮锚点。
-        if (isTransparentBackground && !hasBorder && !hasShadow && !hasText && !isButtonLike) {
+        if (isTransparentBackground && !hasBorder && !hasShadow && !hasVisibleText && !hasDeclaredExportText && !isButtonLike) {
             elementIndex += 1;
             continue;
         }
@@ -457,7 +460,7 @@ export function buildFlattenedLayerData(elementsData, opts) {
         // - Else: heuristic warning when close to right edge.
         // - data-ui-align-ok="1": opt-out.
         // ---------------------------------------------------------------------
-        if (hasText && diagnostics && diagnostics.warn && elementInfo && elementInfo.attributes) {
+        if (hasVisibleText && diagnostics && diagnostics.warn && elementInfo && elementInfo.attributes) {
             var attrs = elementInfo.attributes || null;
             var alignOk = attrs ? String(attrs.dataUiAlignOk || "").trim() : "";
             if (alignOk !== "1") {
@@ -637,7 +640,7 @@ export function buildFlattenedLayerData(elementsData, opts) {
 
         // 若按钮本体“视觉为空”，补一个专用锚点层，确保导出能创建按钮的“道具展示”控件。
         // 典型场景：button 本体透明，底色/边框/文字放在子层（多状态互斥）。
-        if (isButtonLike && isTransparentBackground && !hasBorder && !hasShadow && !hasText) {
+        if (isButtonLike && isTransparentBackground && !hasBorder && !hasShadow && !hasVisibleText && !hasDeclaredExportText) {
             layerList.push({
                 kind: "button_anchor",
                 rect: { left: left, top: top, width: width, height: height },
@@ -858,7 +861,7 @@ export function buildFlattenedLayerData(elementsData, opts) {
         }
 
         var textContent = normalizedTextContent;
-        if (textContent) {
+        if (textContent || hasDeclaredExportText) {
             var textZIndex = elementBaseZIndex + 8;
             var fontFamilyText = String(styles.fontFamily || "sans-serif").replace(/"/g, "'");
 
