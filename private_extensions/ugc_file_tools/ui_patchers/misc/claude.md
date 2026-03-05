@@ -3,7 +3,7 @@
 
 ## 当前状态
 - `control_variants.py`：通用控件属性写回（按 GUID 改名/显隐/RectTransform 位置大小/层级）。
-- `textboxes.py`：文本框控件写回补丁（GUID 分配/层级/RectTransform 等）。
+- `textboxes.py`：文本框控件写回补丁（GUID 分配/层级/RectTransform 等）；当输入 `.gil` 不含 TextBox 且本地 `ui_schema_library` 未沉淀模板时，会自动使用内置样本 seed `ugc_file_tools/builtin_resources/空的界面控件组/文本框样式.gil` 提取模板并沉淀后再写回。
 - `item_display_variants.py`：道具展示控件的差异化配置写回。
 - `progressbar_variants.py` / `progressbar_recolor_full.py`：进度条样式/颜色/绑定相关写回。
 - `add_progress_bars.py`：在指定父组下新增进度条控件（复制模板 record 并写回）。

@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from ugc_file_tools.output_paths import resolve_output_file_path_in_out_dir
-from ugc_file_tools.ui_schema_library.library import find_schema_ids_by_label, load_schema_record
+from ugc_file_tools.repo_paths import ugc_file_tools_builtin_resources_root
+from ugc_file_tools.ui_schema_library import compute_ui_record_schema_id, record_ui_schema_library_from_dll_dump
+from ugc_file_tools.ui_schema_library.library import find_schema_ids_by_label, load_schema_record, set_schema_label
 
 from ugc_file_tools.ui_patchers.layout.layout_templates_parts.shared import (
     DEFAULT_CANVAS_SIZE_BY_STATE_INDEX,
@@ -24,6 +26,8 @@ from ugc_file_tools.ui_patchers.layout.layout_templates_parts.shared import (
 
 
 _UI_SCHEMA_LABEL_TEXTBOX = "textbox"
+BUILTIN_UI_TEMPLATE_DIR_NAME = "空的界面控件组"
+BUILTIN_TEXTBOX_TEMPLATE_FILE_NAME = "文本框样式.gil"
 
 
 def _try_extract_textbox_text_node(record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -124,6 +128,40 @@ def _load_textbox_template_record_from_schema_library() -> Optional[Dict[str, An
     for sid in schema_ids:
         candidates.append(load_schema_record(sid))
     return _choose_textbox_record_template(candidates)
+
+
+def _resolve_builtin_textbox_template_gil_or_raise() -> Path:
+    template_path = (
+        ugc_file_tools_builtin_resources_root() / BUILTIN_UI_TEMPLATE_DIR_NAME / BUILTIN_TEXTBOX_TEMPLATE_FILE_NAME
+    ).resolve()
+    if not template_path.is_file():
+        raise FileNotFoundError(str(template_path))
+    return template_path
+
+
+def _load_textbox_template_record_from_gil_and_record_schema(
+    *,
+    template_gil_file_path: Path,
+    missing_error_message: str,
+) -> Dict[str, Any]:
+    template_path = Path(template_gil_file_path).resolve()
+    if not template_path.is_file():
+        raise FileNotFoundError(str(template_path))
+
+    template_dump = _dump_gil_to_raw_json_object(template_path)
+    template_ui_record_list = _extract_ui_record_list(template_dump)
+    template_record = _choose_textbox_record_template(template_ui_record_list)
+    if template_record is None:
+        raise RuntimeError(str(missing_error_message))
+
+    # 一次性沉淀到 schema library：后续无需再次读取模板存档
+    record_ui_schema_library_from_dll_dump(
+        dll_dump_object=template_dump,
+        source_gil_file_path=template_path,
+    )
+    textbox_schema_id = compute_ui_record_schema_id(template_record)
+    set_schema_label(schema_id=textbox_schema_id, label=_UI_SCHEMA_LABEL_TEXTBOX)
+    return template_record
 
 
 def _set_textbox_content(record: Dict[str, Any], *, content: str) -> None:
@@ -233,8 +271,15 @@ def add_textbox_to_gil(
     if template_record is None:
         template_record = _load_textbox_template_record_from_schema_library()
     if template_record is None:
+        builtin_template_path = _resolve_builtin_textbox_template_gil_or_raise()
+        template_record = _load_textbox_template_record_from_gil_and_record_schema(
+            template_gil_file_path=builtin_template_path,
+            missing_error_message="内置文本框样本 seed 未找到任何可克隆的 TextBox record。",
+        )
+    if template_record is None:
         raise RuntimeError(
-            "未找到任何可克隆的 TextBox record（输入 .gil 不含文本框且 schema library 未沉淀 textbox 模板）。"
+            "未找到任何可克隆的 TextBox record（输入 .gil 不含文本框且 schema library 未沉淀 textbox 模板，"
+            "并且内置文本框样本 seed 也不可用）。"
         )
 
     reserved = set(existing_guids)
@@ -485,8 +530,15 @@ def write_image_as_textboxes_in_gil(
     if template_record is None:
         template_record = _load_textbox_template_record_from_schema_library()
     if template_record is None:
+        builtin_template_path = _resolve_builtin_textbox_template_gil_or_raise()
+        template_record = _load_textbox_template_record_from_gil_and_record_schema(
+            template_gil_file_path=builtin_template_path,
+            missing_error_message="内置文本框样本 seed 未找到任何可克隆的 TextBox record。",
+        )
+    if template_record is None:
         raise RuntimeError(
-            "未找到任何可克隆的 TextBox record（输入 .gil 不含文本框且 schema library 未沉淀 textbox 模板）。"
+            "未找到任何可克隆的 TextBox record（输入 .gil 不含文本框且 schema library 未沉淀 textbox 模板，"
+            "并且内置文本框样本 seed 也不可用）。"
         )
 
     pivot = _extract_rect_pivot_from_state0(template_record)

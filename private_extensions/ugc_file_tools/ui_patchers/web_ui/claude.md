@@ -5,6 +5,10 @@
 ## 当前状态
 - 主入口：`web_ui_import_main.py`（调度各阶段与 report 输出）。
 - 控件类型导入：`web_ui_import_widget_*.py`（按控件种类落盘 record + RectTransform）。
+- 控件模板来源（`web_ui_import_templates.py`）：
+  - 优先从输入 `.gil` 现有 record 选择可克隆模板；
+  - 次选复用 `ui_schema_library` 中已标注模板（`progressbar` / `textbox` / `item_display`）；
+  - 若仍缺失，会自动使用内置样本 seed（`ugc_file_tools/builtin_resources/空的界面控件组/{进度条样式.gil, 文本框样式.gil, 道具展示.gil}`）提取模板并沉淀到 schema library，再继续写回。
 - 组件打组：`web_ui_import_component_groups.py` / `web_ui_import_component_groups_finalize.py` / `web_ui_import_grouping.py`。
 - 固有控件初始显隐（HTML 真源）：支持从同级源码 HTML 读取 `data-ui-builtin-visibility`（JSON object，仅 5 个固有控件），并将对应固有控件 record 的初始隐藏标记落盘；缺失/不完整/包含未知键会 fail-fast 报错。
   - 允许“布局内不存在某些固有控件”的场景（例如空/极简 base `.gil` 或某些页面不含对应 HUD）：该次覆盖会在 report 中标记 `not_found`，但不抛错。
