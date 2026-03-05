@@ -291,6 +291,28 @@ def _pick_port_by_name(
         for port_obj in candidates
         if str(getattr(port_obj, "name_cn", "") or "") == desired_port_text
     ]
+    if len(named_candidates) == 0 and len(candidates) > 0:
+        # 额外调试：命名未命中时打印候选摘要，便于排查“识别漂移/候选污染/端口名映射为空”等问题
+        def _fmt(port_obj: Any) -> str:
+            name_cn = str(getattr(port_obj, "name_cn", "") or "")
+            side = str(getattr(port_obj, "side", "") or "")
+            kind = str(getattr(port_obj, "kind", "") or "")
+            idx = getattr(port_obj, "index", None)
+            center = getattr(port_obj, "center", (0, 0))
+            bbox = getattr(port_obj, "bbox", (0, 0, 0, 0))
+            idx_text = str(int(idx)) if idx is not None else "None"
+            return (
+                f"name='{name_cn or '?'}' side={side or '?'} kind={kind or '?'} "
+                f"idx={idx_text} center=({int(center[0])},{int(center[1])}) bbox=({int(bbox[0])},{int(bbox[1])},{int(bbox[2])},{int(bbox[3])})"
+            )
+
+        preview_limit = 10
+        preview = " | ".join(_fmt(p) for p in list(candidates)[:preview_limit])
+        suffix = "" if len(candidates) <= preview_limit else f" ...(+{len(candidates) - preview_limit})"
+        executor.log(
+            f"[端口定位] 命名优先未命中: 端口='{desired_port}' 候选数={len(candidates)} 候选={preview}{suffix}",
+            log_callback,
+        )
 
     chosen = _pick_candidate_with_kind_preference(
         primary_candidates=named_candidates,

@@ -16,6 +16,7 @@ from app.runtime.services.graph_data_service import get_shared_graph_data_servic
 from app.ui.panels.package_membership_selector import build_package_membership_row
 from app.ui.panels.panel_scaffold import PanelScaffold
 from app.ui.panels.template_instance.basic_info_tab import BasicInfoTab
+from app.ui.panels.template_instance.combat_tab import CombatTab
 from app.ui.panels.template_instance.components_tab import ComponentsTab
 from app.ui.panels.template_instance.graphs_tab import GraphsTab
 from app.ui.panels.template_instance.variables_tab import VariablesTab
@@ -30,7 +31,7 @@ class TemplateInstancePanel(PanelScaffold):
     graph_selected = QtCore.pyqtSignal(str, dict)
     # 模板所属存档变更 (template_id, package_id, is_checked)
     template_package_membership_changed = QtCore.pyqtSignal(str, str, bool)
-    # 实例所属存档变更 (instance_id, package_id, is_checked)
+    # 实体摆放所属存档变更 (instance_id, package_id, is_checked)
     instance_package_membership_changed = QtCore.pyqtSignal(str, str, bool)
 
     def __init__(
@@ -52,7 +53,7 @@ class TemplateInstancePanel(PanelScaffold):
         self.service = TemplateInstanceService()
         self.graph_data_provider = get_shared_graph_data_service(resource_manager, package_index_manager)
         # 只读模式开关：
-        # - 在模板/实例页面中保持可编辑（False）
+        # - 在模板/实体摆放页面中保持可编辑（False）
         # - 在任务清单等只读上下文中由上层切换为 True，禁用内部编辑控件但保留标签切换能力
         self._read_only: bool = False
         self._pending_tab_contexts: dict[
@@ -72,7 +73,8 @@ class TemplateInstancePanel(PanelScaffold):
         self.tabs = QtWidgets.QTabWidget()
         self._register_tabs(
             (
-                ("basic", "基础信息", lambda: BasicInfoTab(self), True),
+                ("basic", "属性", lambda: BasicInfoTab(self), True),
+                ("combat", "战斗", lambda: CombatTab(self), True),
                 (
                     "graphs",
                     "节点图",
@@ -155,6 +157,7 @@ class TemplateInstancePanel(PanelScaffold):
             self.clear()
             return
         self.setEnabled(True)
+        self._update_combat_tab_visibility()
         self._update_graphs_tab_visibility()
         current_index = self.tabs.currentIndex()
         for index in range(len(self._tab_specs)):
@@ -205,8 +208,8 @@ class TemplateInstancePanel(PanelScaffold):
         """根据当前上下文刷新“所属存档”行。
 
         设计约定：
-        - 模板与实例都可以被多个存档索引纳入，因此使用多选下拉；
-        - 关卡实体的归属由面板级单选行管理（保持“每个存档至多一个关卡实体”的约束）。
+        - 目录即存档模式下，资源归属由其物理文件所在的资源根目录决定（共享/某项目存档）；
+        - 模板/实体摆放/关卡实体均使用同一行单选下拉来移动其归属位置。
         """
         manager = self.package_index_manager
         current_object = self.current_object
@@ -220,42 +223,36 @@ class TemplateInstancePanel(PanelScaffold):
             self._clear_package_membership_ui()
             return
 
-        # 模板：扫描 PackageIndex.resources.templates
+        # 模板：归属由物理文件所在根目录决定
         if self.object_type == "template" and isinstance(current_object, TemplateConfig):
             template_id = current_object.template_id
             if not template_id:
                 self._clear_package_membership_ui()
                 return
 
-            membership: set[str] = set()
-            for package_info in packages:
-                package_id = package_info.get("package_id", "")
-                if not package_id:
-                    continue
-                resources = manager.get_package_resources(package_id)
-                if resources and template_id in getattr(resources, "templates", []):
-                    membership.add(package_id)
+            owner_id = manager.get_resource_owner_root_id(
+                resource_type="template",
+                resource_id=template_id,
+            )
+            membership: set[str] = {owner_id} if owner_id else set()
 
             self.package_selector.set_packages(packages)
             self.package_selector.set_membership(membership)
             self._package_membership_widget.setVisible(True)
             return
 
-        # 实例：扫描 PackageIndex.resources.instances
+        # 实体摆放：归属由物理文件所在根目录决定
         if self.object_type == "instance" and isinstance(current_object, InstanceConfig):
             instance_id = current_object.instance_id
             if not instance_id:
                 self._clear_package_membership_ui()
                 return
 
-            membership = set()
-            for package_info in packages:
-                package_id = package_info.get("package_id", "")
-                if not package_id:
-                    continue
-                resources = manager.get_package_resources(package_id)
-                if resources and instance_id in getattr(resources, "instances", []):
-                    membership.add(package_id)
+            owner_id = manager.get_resource_owner_root_id(
+                resource_type="instance",
+                resource_id=instance_id,
+            )
+            membership: set[str] = {owner_id} if owner_id else set()
 
             self.package_selector.set_packages(packages)
             self.package_selector.set_membership(membership)
@@ -276,7 +273,7 @@ class TemplateInstancePanel(PanelScaffold):
 
         设计约定：
         - 模板：写入 PackageIndex.resources.templates；
-        - 实例：写入 PackageIndex.resources.instances；
+        - 实体摆放：写入 PackageIndex.resources.instances；
         - 关卡实体：直接通过 PackageIndexManager 写回 level_entity_id（保持“每个存档至多一个关卡实体”）。
         """
         if not package_id:
@@ -303,8 +300,13 @@ class TemplateInstancePanel(PanelScaffold):
             return
 
         if self.object_type == "level_entity" and isinstance(current_object, InstanceConfig):
-            self._handle_level_entity_package_change(current_object, package_id, is_checked)
-            # 关卡实体归属变化同样视为“数据已更新”，触发持久化链路
+            # 关卡实体作为实体摆放资源：归属变化通过主窗口统一走“移动文件”链路处理，
+            # 以确保与模板/实体摆放一致，并复用当前包缓存失效与库页联动刷新策略。
+            self.instance_package_membership_changed.emit(
+                current_object.instance_id,
+                package_id,
+                True,
+            )
             self.data_updated.emit()
             return
 
@@ -358,67 +360,17 @@ class TemplateInstancePanel(PanelScaffold):
             elif level_id is None:
                 available_packages.append(pkg)
 
+        # 额外支持“共享”根目录：当关卡实体位于共享根目录时，归属选择应显示为 shared。
+        owner_id = manager.get_resource_owner_root_id(
+            resource_type="instance",
+            resource_id=level_entity.instance_id,
+        )
+        if owner_id == "shared":
+            membership = {"shared"}
+
         selector.set_packages(available_packages)
         selector.set_membership(membership)
         selector.setEnabled(bool(available_packages))
-
-    def _handle_level_entity_package_change(
-        self,
-        level_entity: InstanceConfig,
-        package_id: str,
-        is_checked: bool,
-    ) -> None:
-        """写回关卡实体的“所属存档”，保持每个存档最多一个关卡实体。
-
-        设计约定：
-        - 一个关卡实体要么未绑定存档，要么只绑定一个存档；
-        - 一个存档的 level_entity_id 指向至多一个关卡实体；
-        - 其它关卡实体在属性页中看不到已经被占用的存档。
-        """
-        manager = self.package_index_manager
-        if manager is None:
-            return
-        if not package_id:
-            return
-
-        target_ids: set[str] = set()
-        if is_checked:
-            target_ids.add(package_id)
-
-        packages = manager.list_packages()
-        current_package_id = ""
-        if isinstance(self.current_package, PackageView):
-            current_package_id = getattr(self.current_package, "package_id", "")
-
-        for pkg in packages:
-            pkg_id = pkg.get("package_id", "")
-            if not pkg_id:
-                continue
-
-            if (
-                pkg_id == current_package_id
-                and isinstance(self.current_package, PackageView)
-            ):
-                index = self.current_package.package_index
-            else:
-                index = manager.load_package_index(pkg_id)
-            if not index:
-                continue
-
-            previously_assigned = index.level_entity_id == level_entity.instance_id
-            should_be_assigned = pkg_id in target_ids
-
-            if previously_assigned and not should_be_assigned:
-                index.level_entity_id = None
-                manager.save_package_index(index)
-            elif not previously_assigned and should_be_assigned:
-                index.level_entity_id = level_entity.instance_id
-                if level_entity.instance_id not in index.resources.instances:
-                    index.add_instance(level_entity.instance_id)
-                manager.save_package_index(index)
-
-        # 写回后刷新当前下拉内容，保证选项列表与选中状态与索引一致
-        self._refresh_level_entity_package_membership(level_entity)
 
     def _register_tabs(
         self,
@@ -476,22 +428,7 @@ class TemplateInstancePanel(PanelScaffold):
             self._inject_dependencies(tab)
 
     def _handle_tab_data_changed(self) -> None:
-        sender = self.sender()
-        basic_tab = self._tab_instances.get(self._tab_key_to_index["basic"])
-        if sender is basic_tab:
-            self._apply_basic_tab_changes()
         self.data_updated.emit()
-
-    def _apply_basic_tab_changes(self) -> None:
-        if not self.current_object:
-            return
-        payload = self.basic_tab.get_basic_payload()
-        self.service.apply_basic_info(self.current_object, payload["name"], payload["description"])
-        # GUID 始终通过 metadata['guid'] 统一存储（模板/实例/关卡实体通用）
-        self.service.apply_guid(self.current_object, payload.get("guid"))
-        drop_metadata = payload.get("drop_metadata")
-        if drop_metadata is not None:
-            self.service.apply_drop_metadata(self.current_object, drop_metadata)
 
     def flush_pending_changes(self) -> None:
         """在保存前刷新属性面板中尚未写回模型的基础信息变更。
@@ -511,8 +448,7 @@ class TemplateInstancePanel(PanelScaffold):
             return
         if hasattr(basic_tab, "flush_pending_changes"):
             basic_tab.flush_pending_changes()
-        else:
-            self._apply_basic_tab_changes()
+        return
 
     def _on_tab_changed(self, index: int) -> None:
         tab = self._ensure_tab_created(index)
@@ -527,7 +463,7 @@ class TemplateInstancePanel(PanelScaffold):
 
     # 只读模式 ---------------------------------------------------------------
     def set_read_only(self, read_only: bool) -> None:
-        """切换整套元件/实例属性面板的只读状态。
+        """切换整套元件/实体摆放属性面板的只读状态。
 
         设计约定：
         - 只读模式下仍可自由切换标签页，但禁用内部所有编辑控件；
@@ -539,9 +475,17 @@ class TemplateInstancePanel(PanelScaffold):
             if hasattr(tab, "set_read_only"):
                 tab.set_read_only(read_only)
 
+        # “所属存档”下拉属于会移动资源文件的编辑操作：只读模式下必须禁用，避免预览场景误改。
+        if hasattr(self, "package_selector") and self.package_selector is not None:
+            if read_only:
+                self.package_selector.setEnabled(False)
+            else:
+                # 恢复可编辑模式时按当前上下文重算可选项与启用态。
+                self._update_package_membership_ui()
+
     # 掉落物上下文辅助 -------------------------------------------------------
     def _is_drop_item_context(self) -> bool:
-        """当前面板上下文是否为“掉落物”模板或其实例。"""
+        """当前面板上下文是否为“掉落物”模板或其实体摆放。"""
         if not self.current_object:
             return False
 
@@ -573,6 +517,52 @@ class TemplateInstancePanel(PanelScaffold):
             set_tab_visible(graphs_index, not is_drop_context)
 
         if is_drop_context and self.tabs.currentIndex() == graphs_index:
+            basic_index = self._tab_key_to_index.get("basic")
+            if basic_index is not None:
+                self.tabs.setCurrentIndex(basic_index)
+
+    def _supports_combat_tab(self) -> bool:
+        """战斗标签页目前仅对物件/造物模板与其实体摆放开放。"""
+        if not self.current_object:
+            return False
+        if self.object_type == "level_entity":
+            return False
+        if self._is_drop_item_context():
+            return False
+
+        if self.object_type == "template" and isinstance(self.current_object, TemplateConfig):
+            entity_type = str(getattr(self.current_object, "entity_type", "") or "").strip()
+            return entity_type in {"物件", "造物"}
+
+        if self.object_type == "instance" and isinstance(self.current_object, InstanceConfig):
+            package = self.current_package
+            template: Optional[TemplateConfig] = None
+            if isinstance(package, (PackageView, GlobalResourceView)):
+                template = package.get_template(self.current_object.template_id)
+            if isinstance(template, TemplateConfig):
+                entity_type = str(getattr(template, "entity_type", "") or "").strip()
+                return entity_type in {"物件", "造物"}
+
+            metadata = getattr(self.current_object, "metadata", {}) or {}
+            if isinstance(metadata, dict):
+                entity_type_value = metadata.get("entity_type")
+                if isinstance(entity_type_value, str):
+                    return entity_type_value.strip() in {"物件", "造物"}
+
+        return False
+
+    def _update_combat_tab_visibility(self) -> None:
+        """根据当前上下文决定是否显示“战斗”标签页。"""
+        combat_index = self._tab_key_to_index.get("combat")
+        if combat_index is None:
+            return
+
+        should_show = self._supports_combat_tab()
+        set_tab_visible = getattr(self.tabs, "setTabVisible", None)
+        if callable(set_tab_visible):
+            set_tab_visible(combat_index, should_show)
+
+        if not should_show and self.tabs.currentIndex() == combat_index:
             basic_index = self._tab_key_to_index.get("basic")
             if basic_index is not None:
                 self.tabs.setCurrentIndex(basic_index)

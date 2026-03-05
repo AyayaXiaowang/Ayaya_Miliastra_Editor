@@ -1,0 +1,682 @@
+{
+  "field_1": {
+    "message": {
+      "field_1": {
+        "message": {
+          "field_2": {
+            "int": 1,
+            "int32_high16": 0,
+            "int32_low16": 1
+          },
+          "field_3": {
+            "int": 1,
+            "int32_high16": 0,
+            "int32_low16": 1
+          },
+          "field_4": {
+            "int": 1077936130,
+            "int32_high16": 16448,
+            "int32_low16": 2
+          }
+        }
+      },
+      "field_3": {
+        "raw_hex": "e7a9bae6a8a1e59e8b",
+        "utf8": "空模型"
+      },
+      "field_5": {
+        "int": 1,
+        "int32_high16": 0,
+        "int32_low16": 1
+      },
+      "field_11": {
+        "message": {
+          "field_1": {
+            "message": {
+              "field_1": {
+                "int": 1077936130,
+                "int32_high16": 16448,
+                "int32_low16": 2
+              },
+              "field_2": {
+                "int": 10005018,
+                "int32_high16": 152,
+                "int32_low16": 43546
+              },
+              "field_6": [
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_11": {
+                      "raw_hex": "0a09e7a9bae6a8a1e59e8b",
+                      "utf8": "空模型"
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 13,
+                      "int32_high16": 0,
+                      "int32_low16": 13
+                    },
+                    "field_22": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 14,
+                      "int32_high16": 0,
+                      "int32_low16": 14
+                    },
+                    "field_23": {
+                      "message": {
+                        "field_1": {
+                          "raw_hex": "1a0d4d50416374696f6e47726f7570",
+                          "utf8": "MPActionGroup"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 38,
+                      "int32_high16": 0,
+                      "int32_low16": 38
+                    },
+                    "field_48": {
+                      "message": {
+                        "field_1": {
+                          "fixed32_int": 1065353216,
+                          "fixed32_float": 1.0
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 40,
+                      "int32_high16": 0,
+                      "int32_low16": 40
+                    },
+                    "field_50": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 61,
+                      "int32_high16": 0,
+                      "int32_low16": 61
+                    },
+                    "field_65": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 62,
+                      "int32_high16": 0,
+                      "int32_low16": 62
+                    },
+                    "field_66": {
+                      "raw_hex": ""
+                    }
+                  }
+                }
+              ],
+              "field_7": [
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_11": {
+                      "message": {
+                        "field_1": {
+                          "message": {
+                            "field_1": {
+                              "fixed32_int": 3245281640,
+                              "fixed32_float": -14.941749572753906
+                            },
+                            "field_3": {
+                              "fixed32_int": 3252737040,
+                              "fixed32_float": -28.103546142578125
+                            }
+                          }
+                        },
+                        "field_2": {
+                          "raw_hex": ""
+                        },
+                        "field_3": {
+                          "message": {
+                            "field_1": {
+                              "fixed32_int": 1065353216,
+                              "fixed32_float": 1.0
+                            },
+                            "field_2": {
+                              "fixed32_int": 1065353216,
+                              "fixed32_float": 1.0
+                            },
+                            "field_3": {
+                              "fixed32_int": 1065353216,
+                              "fixed32_float": 1.0
+                            }
+                          }
+                        },
+                        "field_501": {
+                          "int": 4294967295,
+                          "int32_high16": 65535,
+                          "int32_low16": 65535
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 2,
+                      "int32_high16": 0,
+                      "int32_low16": 2
+                    },
+                    "field_12": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 3,
+                      "int32_high16": 0,
+                      "int32_low16": 3
+                    },
+                    "field_13": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 4,
+                      "int32_high16": 0,
+                      "int32_low16": 4
+                    },
+                    "field_14": {
+                      "message": {
+                        "field_1": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 5,
+                      "int32_high16": 0,
+                      "int32_low16": 5
+                    },
+                    "field_15": {
+                      "message": {
+                        "field_1": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        },
+                        "field_2": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 6,
+                      "int32_high16": 0,
+                      "int32_low16": 6
+                    },
+                    "field_16": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 7,
+                      "int32_high16": 0,
+                      "int32_low16": 7
+                    },
+                    "field_17": {
+                      "message": {
+                        "field_1": {
+                          "fixed32_int": 1148846080,
+                          "fixed32_float": 1000.0
+                        },
+                        "field_3": {
+                          "fixed32_int": 1140457472,
+                          "fixed32_float": 500.0
+                        },
+                        "field_4": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        },
+                        "field_5": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        },
+                        "field_6": {
+                          "message": {
+                            "field_2": {
+                              "int": 10200002,
+                              "int32_high16": 155,
+                              "int32_low16": 41922
+                            }
+                          }
+                        },
+                        "field_8": {
+                          "fixed32_int": 1036831949,
+                          "fixed32_float": 0.10000000149011612
+                        },
+                        "field_9": {
+                          "fixed32_int": 1036831949,
+                          "fixed32_float": 0.10000000149011612
+                        },
+                        "field_10": {
+                          "fixed32_int": 1036831949,
+                          "fixed32_float": 0.10000000149011612
+                        },
+                        "field_11": {
+                          "fixed32_int": 1036831949,
+                          "fixed32_float": 0.10000000149011612
+                        },
+                        "field_12": {
+                          "fixed32_int": 1036831949,
+                          "fixed32_float": 0.10000000149011612
+                        },
+                        "field_13": {
+                          "fixed32_int": 1036831949,
+                          "fixed32_float": 0.10000000149011612
+                        },
+                        "field_14": {
+                          "fixed32_int": 1036831949,
+                          "fixed32_float": 0.10000000149011612
+                        },
+                        "field_15": {
+                          "fixed32_int": 1036831949,
+                          "fixed32_float": 0.10000000149011612
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 8,
+                      "int32_high16": 0,
+                      "int32_low16": 8
+                    },
+                    "field_18": {
+                      "message": {
+                        "field_1": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        },
+                        "field_501": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 11,
+                      "int32_high16": 0,
+                      "int32_low16": 11
+                    },
+                    "field_21": {
+                      "message": {
+                        "field_1": {
+                          "message": {
+                            "field_1": {
+                              "raw_hex": "47495f526f6f744e6f6465",
+                              "utf8": "GI_RootNode"
+                            },
+                            "field_2": {
+                              "raw_hex": ""
+                            },
+                            "field_3": {
+                              "raw_hex": ""
+                            },
+                            "field_502": {
+                              "raw_hex": "e4b8ade5bf83e58e9fe782b9",
+                              "utf8": "中心原点"
+                            },
+                            "field_504": {
+                              "int": 1,
+                              "int32_high16": 0,
+                              "int32_low16": 1
+                            },
+                            "field_505": {
+                              "raw_hex": "526f6f744e6f6465",
+                              "utf8": "RootNode"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 12,
+                      "int32_high16": 0,
+                      "int32_low16": 12
+                    },
+                    "field_22": {
+                      "message": {
+                        "field_501": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 16,
+                      "int32_high16": 0,
+                      "int32_low16": 16
+                    },
+                    "field_26": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 17,
+                      "int32_high16": 0,
+                      "int32_low16": 17
+                    },
+                    "field_27": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 19,
+                      "int32_high16": 0,
+                      "int32_low16": 19
+                    },
+                    "field_29": {
+                      "message": {
+                        "field_1": {
+                          "int": 1,
+                          "int32_high16": 0,
+                          "int32_low16": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "field_8": [
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_2": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_11": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 3,
+                      "int32_high16": 0,
+                      "int32_low16": 3
+                    },
+                    "field_2": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_13": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 6,
+                      "int32_high16": 0,
+                      "int32_low16": 6
+                    },
+                    "field_2": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_16": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 14,
+                      "int32_high16": 0,
+                      "int32_low16": 14
+                    },
+                    "field_2": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_24": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 19,
+                      "int32_high16": 0,
+                      "int32_low16": 19
+                    },
+                    "field_2": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_29": {
+                      "raw_hex": ""
+                    }
+                  }
+                },
+                {
+                  "message": {
+                    "field_1": {
+                      "int": 18,
+                      "int32_high16": 0,
+                      "int32_low16": 18
+                    },
+                    "field_2": {
+                      "int": 1,
+                      "int32_high16": 0,
+                      "int32_low16": 1
+                    },
+                    "field_28": {
+                      "message": {
+                        "field_9": {
+                          "message": {
+                            "field_3": {
+                              "int": 1,
+                              "int32_high16": 0,
+                              "int32_low16": 1
+                            },
+                            "field_4": {
+                              "int": 1,
+                              "int32_high16": 0,
+                              "int32_low16": 1
+                            },
+                            "field_5": {
+                              "raw_hex": ""
+                            },
+                            "field_6": {
+                              "raw_hex": ""
+                            },
+                            "field_7": {
+                              "fixed32_int": 1065353216,
+                              "fixed32_float": 1.0
+                            },
+                            "field_8": {
+                              "raw_hex": ""
+                            },
+                            "field_10": {
+                              "raw_hex": ""
+                            },
+                            "field_11": {
+                              "int": 1,
+                              "int32_high16": 0,
+                              "int32_low16": 1
+                            },
+                            "field_503": {
+                              "raw_hex": "e58f97e587bbe789b9e69588",
+                              "utf8": "受击特效"
+                            },
+                            "field_507": {
+                              "int": 13,
+                              "int32_high16": 0,
+                              "int32_low16": 13
+                            }
+                          }
+                        },
+                        "field_10": {
+                          "message": {
+                            "field_3": {
+                              "int": 1,
+                              "int32_high16": 0,
+                              "int32_low16": 1
+                            },
+                            "field_4": {
+                              "int": 1,
+                              "int32_high16": 0,
+                              "int32_low16": 1
+                            },
+                            "field_5": {
+                              "raw_hex": ""
+                            },
+                            "field_6": {
+                              "raw_hex": ""
+                            },
+                            "field_7": {
+                              "fixed32_int": 1065353216,
+                              "fixed32_float": 1.0
+                            },
+                            "field_8": {
+                              "raw_hex": ""
+                            },
+                            "field_10": {
+                              "raw_hex": ""
+                            },
+                            "field_11": {
+                              "int": 1,
+                              "int32_high16": 0,
+                              "int32_low16": 1
+                            },
+                            "field_503": {
+                              "raw_hex": "e8a2abe587bbe58092e789b9e69588",
+                              "utf8": "被击倒特效"
+                            },
+                            "field_507": {
+                              "int": 13,
+                              "int32_high16": 0,
+                              "int32_low16": 13
+                            }
+                          }
+                        },
+                        "field_11": {
+                          "raw_hex": "47495f526f6f744e6f6465",
+                          "utf8": "GI_RootNode"
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "field_10": {
+                "int": 1,
+                "int32_high16": 0,
+                "int32_low16": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "field_3": {
+    "raw_hex": "3334313431363335382d313737303630373135392d313037333734323136342d5ce7a9bae6a8a1e59e8b322e676961",
+    "utf8": "341416358-1770607159-1073742164-\\空模型2.gia"
+  },
+  "field_5": {
+    "raw_hex": "362e332e30",
+    "utf8": "6.3.0"
+  }
+}

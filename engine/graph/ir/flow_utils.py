@@ -26,12 +26,14 @@ def register_output_variables(
     node: NodeModel,
     targets: Union[ast.Name, ast.Tuple, List[ast.expr]],
     env: VarEnv,
+    *,
+    node_library: Optional[Dict[str, Any]] = None,
 ) -> None:
     """注册节点输出变量到环境中
     
     支持：
     - 单变量赋值：target_var
-    - 元组解包：var1, var2, var3
+    - 元组拆分赋值：var1, var2, var3
     
     Args:
         node: 输出节点
@@ -39,11 +41,41 @@ def register_output_variables(
         env: 变量环境
     """
     # 获取所有数据输出端口（排除流程端口）
-    data_output_ports = [port.name for port in node.outputs if '流程' not in port.name]
+    #
+    # 注意：
+    # - 不能用“端口名是否包含『流程』”来判断流程口，因为像复合节点常见的流程出口名
+    #   可能是“完成/成功/失败”等，不包含“流程”关键字；
+    # - 必须优先使用 node_library 中的端口类型定义（FLOW_PORT_TYPE），回退时才用名称启发式。
+    from engine.nodes.port_type_system import is_flow_port_with_context
+
+    data_output_ports = [
+        port.name
+        for port in (node.outputs or [])
+        if not is_flow_port_with_context(node, port.name, True, node_library)
+    ]
 
     # 对于【拆分结构体】这类“纯数据拆分”节点，若尚未声明任何数据输出端口，
     # 则根据赋值目标动态补全一组输出端口，端口名与变量名一一对应。
     if not data_output_ports and getattr(node, "title", "") == STRUCT_SPLIT_NODE_TITLE:
+        def _normalize_struct_split_output_port_name(raw_name: str) -> str:
+            """结构体拆分的输出端口名归一化。
+
+            约定：
+            - 生成的 Graph Code 常用变量命名：`<字段名>字段`；
+            - 部分图会在变量名末尾附加 UI/语义后缀：`<字段名>字段_<后缀>`（例如 `_控件`）；
+            - 但结构体语义节点的动态端口应以“真实字段名”作为端口名（与 struct_bindings/结构体定义一致）。
+            """
+            text = str(raw_name or "").strip()
+            marker_with_suffix = "字段_"
+            idx = text.rfind(marker_with_suffix)
+            if idx != -1 and idx + len(marker_with_suffix) < len(text):
+                candidate = text[:idx].strip()
+                return candidate if candidate else text
+            if text.endswith("字段"):
+                candidate = text[:-2].strip()
+                return candidate if candidate else text
+            return text
+
         inferred_names: List[str] = []
 
         # 处理 Assign 的 targets 列表（取第一个目标）
@@ -59,17 +91,24 @@ def register_output_variables(
             for elt in effective_targets.elts:
                 if isinstance(elt, ast.Name):
                     name_text = elt.id.strip()
-                    if name_text and name_text not in inferred_names:
-                        inferred_names.append(name_text)
+                    port_name = _normalize_struct_split_output_port_name(name_text)
+                    if port_name and port_name not in inferred_names:
+                        inferred_names.append(port_name)
         elif isinstance(effective_targets, ast.Name):
             name_text = effective_targets.id.strip()
             if name_text:
-                inferred_names.append(name_text)
+                port_name = _normalize_struct_split_output_port_name(name_text)
+                if port_name:
+                    inferred_names.append(port_name)
 
         for name in inferred_names:
             node.add_output_port(name)
 
-        data_output_ports = [port.name for port in node.outputs if '流程' not in port.name]
+        data_output_ports = [
+            port.name
+            for port in (node.outputs or [])
+            if not is_flow_port_with_context(node, port.name, True, node_library)
+        ]
 
     if not data_output_ports:
         return
@@ -86,7 +125,7 @@ def register_output_variables(
     if isinstance(target, ast.Name):
         env.set_variable(target.id, node.id, data_output_ports[0])
     
-    # 元组解包
+    # 元组拆分赋值
     elif isinstance(target, ast.Tuple):
         for idx, elt in enumerate(target.elts):
             if isinstance(elt, ast.Name) and idx < len(data_output_ports):
@@ -151,7 +190,12 @@ def materialize_call_node(
     
     # 1. 检查是否是复合节点实例方法调用
     if isinstance(call_expr.func, ast.Attribute):
-        composite_node = create_composite_node_from_instance_call(call_expr, ctx.node_library, env)
+        composite_node = create_composite_node_from_instance_call(
+            call_expr,
+            ctx.node_library,
+            env,
+            graph_model=graph_model,
+        )
         
         if composite_node:
             # 这是复合节点调用
@@ -167,9 +211,25 @@ def materialize_call_node(
                 result.new_prev_flow_node = composite_node
                 result.new_suppress_flag = False
             
-            # 数据边
+            # 数据边：复合节点调用同样需要支持参数内的嵌套节点（如 `右值=加法运算(...)`）。
+            nested_nodes, nested_edges, param_node_map = extract_nested_nodes(
+                call_expr,
+                ctx,
+                validators,
+                env,
+                graph_model=graph_model,
+            )
+            result.nested_nodes = nested_nodes
+            result.edges.extend(nested_edges)
+
             data_edges = create_data_edges_for_node_enhanced(
-                composite_node, call_expr, {}, ctx.node_library, ctx.node_name_index, env
+                composite_node,
+                call_expr,
+                param_node_map,
+                ctx.node_library,
+                ctx.node_name_index,
+                env,
+                graph_model=graph_model,
             )
             result.edges.extend(data_edges)
             
@@ -178,12 +238,14 @@ def materialize_call_node(
         # 不是复合节点调用，发出警告
         obj_name = ast.unparse(call_expr.func.value) if hasattr(ast, 'unparse') else '?'
         method_name = call_expr.func.attr
-        validators.warn(f"行{line_no}: 发现Python原生方法调用 {obj_name}.{method_name}()，建议使用节点替代")
+        validators.error(
+            f"行{line_no}: 发现Python原生方法调用 {obj_name}.{method_name}()；该写法无法可靠解析为节点图语义，请改用节点替代"
+        )
         result.should_skip = True
         return result
     
     # 2. 预判：纯数据节点的未使用检查
-    preview = create_node_from_call(call_expr, ctx, validators, env=env)
+    preview = create_node_from_call(call_expr, ctx, validators, env=env, graph_model=graph_model)
     if preview and check_unused and assigned_names and later_stmts is not None:
         if (not is_flow_node(preview)) and (not is_event_node(preview)):
             # 检查赋值变量是否被后续使用
@@ -198,12 +260,18 @@ def materialize_call_node(
             return result
     
     # 4. 提取嵌套节点
-    nested_nodes, nested_edges, param_node_map = extract_nested_nodes(call_expr, ctx, validators, env)
+    nested_nodes, nested_edges, param_node_map = extract_nested_nodes(
+        call_expr,
+        ctx,
+        validators,
+        env,
+        graph_model=graph_model,
+    )
     result.nested_nodes = nested_nodes
     result.edges.extend(nested_edges)
     
     # 5. 创建节点
-    node = preview or create_node_from_call(call_expr, ctx, validators, env=env)
+    node = preview or create_node_from_call(call_expr, ctx, validators, env=env, graph_model=graph_model)
     if not node:
         result.should_skip = True
         return result
@@ -225,7 +293,13 @@ def materialize_call_node(
     
     # 7. 数据边
     data_edges = create_data_edges_for_node_enhanced(
-        node, call_expr, param_node_map, ctx.node_library, ctx.node_name_index, env
+        node,
+        call_expr,
+        param_node_map,
+        ctx.node_library,
+        ctx.node_name_index,
+        env,
+        graph_model=graph_model,
     )
     result.edges.extend(data_edges)
     
@@ -253,6 +327,9 @@ def handle_alias_assignment(
     value_expr: ast.expr,
     targets: Union[ast.Name, List[ast.expr]],
     env: VarEnv,
+    *,
+    graph_model: GraphModel | None = None,
+    annotation_type: str = "",
 ) -> bool:
     """处理纯别名赋值（变量到变量的直接赋值）
     
@@ -278,6 +355,27 @@ def handle_alias_assignment(
         return False
     
     src_node_id, src_port = src
+
+    # 带类型注解的“纯别名赋值”在 Graph Code 中常用于“绑定事件/信号的泛型输出端口类型”：
+    #
+    # 例如（监听信号事件回调）：
+    #   整数参数别名: "整数" = 整数参数
+    #
+    # 其中 `整数参数` 的数据来源是事件节点的输出端口（在图上通常声明为“泛型”），
+    # 作者通过注解明确该参数的具体类型。为了让画布与结构校验也能得到确定类型，
+    # 需要把该注解写回到 GraphModel.metadata["port_type_overrides"]，从而实例化端口类型。
+    annotation_text = str(annotation_type or "").strip()
+    if graph_model is not None and annotation_text and annotation_text != "泛型":
+        overrides_raw = graph_model.metadata.get("port_type_overrides")
+        overrides: Dict[str, Dict[str, str]] = dict(overrides_raw) if isinstance(overrides_raw, dict) else {}
+        node_overrides = overrides.get(src_node_id)
+        node_overrides = dict(node_overrides) if isinstance(node_overrides, dict) else {}
+        # 仅当来源端口当前未被更具体的覆盖绑定时才写入（避免覆盖已有确定类型）
+        existing = str(node_overrides.get(src_port, "") or "").strip()
+        if not existing:
+            node_overrides[src_port] = annotation_text
+            overrides[src_node_id] = node_overrides
+            graph_model.metadata["port_type_overrides"] = overrides
     
     # 处理 Assign 的 targets 列表
     if isinstance(targets, list):
@@ -326,11 +424,17 @@ def warn_literal_assignment(
     
     # 检查不同类型的字面量
     if isinstance(value_expr, ast.JoinedStr):
-        validators.warn(f"行{line_no}: 发现f-string赋值 ({var_name})，建议使用字符串操作节点")
+        validators.error(
+            f"行{line_no}: 发现f-string赋值 ({var_name})；该写法无法可靠解析为节点图语义，请改用字符串操作节点"
+        )
     elif isinstance(value_expr, ast.List):
-        validators.warn(f"行{line_no}: 发现列表字面量赋值 ({var_name})，建议使用拼装列表节点")
+        validators.error(
+            f"行{line_no}: 发现列表字面量赋值 ({var_name})；该写法无法可靠解析为节点图语义，请改用拼装列表节点"
+        )
     elif isinstance(value_expr, ast.Dict):
-        validators.warn(f"行{line_no}: 发现字典字面量赋值 ({var_name})，建议使用建立字典节点")
+        validators.error(
+            f"行{line_no}: 发现字典字面量赋值 ({var_name})；该写法无法可靠解析为节点图语义，请改用建立字典节点"
+        )
 
 
 

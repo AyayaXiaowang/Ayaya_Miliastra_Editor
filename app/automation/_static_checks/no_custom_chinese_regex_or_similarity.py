@@ -24,10 +24,13 @@ _REGEX_CHINESE_PATTERNS = [
 
 _SIMILARITY_HINTS = [
     r"\bdifflib\.SequenceMatcher\b",
-    r"\brapidfuzz\b",
-    r"\bfuzzywuzzy\b",
-    r"\bLevenshtein\b",
-    r"\bsimilarit(y|ies)\b",
+    # 仅拦截“显式引入第三方相似度库”的写法，避免误伤变量名/注释中的普通英文单词（例如 similarity）。
+    r"^\s*import\s+rapidfuzz\b",
+    r"^\s*from\s+rapidfuzz\b",
+    r"^\s*import\s+fuzzywuzzy\b",
+    r"^\s*from\s+fuzzywuzzy\b",
+    r"^\s*import\s+Levenshtein\b",
+    r"^\s*from\s+Levenshtein\b",
 ]
 
 
@@ -42,7 +45,9 @@ def scan_file(filepath: str) -> list[Tuple[int, str]]:
         if line.startswith("#"):
             continue
         # 中文正则嫌疑
-        if "re." in line:
+        # 注意：不能用 `"re." in line` 这种字符串包含判断，否则会误伤 `capture.get_*` 等正常调用
+        # （例如 `editor_capture.get_region_rect` 恰好包含子串 `re.`）。
+        if re.search(r"\bre\.", line):
             for pat in _REGEX_CHINESE_PATTERNS:
                 if re.search(pat, line):
                     findings.append((idx, "疑似自写中文正则匹配，请改用统一中文提取入口"))

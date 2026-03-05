@@ -15,7 +15,11 @@ from ..utils.data_graph_utils import compute_data_components_layers
 from .layout_context import LayoutContext
 from .layout_registry_context import ensure_layout_registry_context_for_model
 from ..utils.graph_query_utils import estimate_node_height_ui_exact_with_context
-from .constants import SLOT_WIDTH_MULTIPLIER
+from .constants import (
+    DATA_STACK_GAP_DEFAULT,
+    compute_slot_width_from_node_width,
+    scale_layout_gap_y,
+)
 from ..utils.basic_block_utils import build_basic_block
 
 
@@ -62,7 +66,7 @@ def layout_pure_data_graph(
     # 参数
     node_width = node_width_default
     node_height = node_height_default
-    slot_width = node_width * SLOT_WIDTH_MULTIPLIER
+    slot_width = compute_slot_width_from_node_width(node_width)
     block_padding_local = block_padding
     component_x_spacing = block_x_spacing
 
@@ -99,7 +103,7 @@ def layout_pure_data_graph(
                 else:
                     node_height_est = node_height_default
                 layer_positions[node_id] = (x_center, current_y)
-                current_y += node_height_est + 20.0  # 间距
+                current_y += float(node_height_est) + scale_layout_gap_y(DATA_STACK_GAP_DEFAULT)  # 间距
 
             if current_y > max_height_in_component:
                 max_height_in_component = current_y

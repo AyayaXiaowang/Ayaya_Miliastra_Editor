@@ -14,4 +14,17 @@ from engine.utils.logging.logger import log_info
 def 修改实体阵营(game, 目标实体, 阵营):
     """修改指定目标实体的阵营"""
     log_info(f"[修改阵营] {目标实体} -> 阵营{阵营}")
-    game.trigger_event("实体阵营变化时", 目标实体, 阵营)
+    # 事件节点「实体阵营变化时」端口：事件源实体 / 事件源GUID / 变化前阵营 / 变化后阵营
+    entity_id = game._get_entity_id(目标实体)
+    entity = game.get_entity(entity_id)
+    变化前阵营 = getattr(entity, "faction", 0) if entity is not None else 0
+    变化后阵营 = 阵营
+    if entity is not None:
+        setattr(entity, "faction", 变化后阵营)
+    game.trigger_event(
+        "实体阵营变化时",
+        事件源实体=目标实体,
+        事件源GUID=entity_id,
+        变化前阵营=变化前阵营,
+        变化后阵营=变化后阵营,
+    )

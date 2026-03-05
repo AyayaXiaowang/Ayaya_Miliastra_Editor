@@ -8,6 +8,7 @@ import inspect
 from engine.utils.cache.cache_paths import get_validation_cache_file
 from engine.utils.graph.graph_utils import compute_stable_md5_from_data
 from engine.utils.graph.node_defs_fingerprint import compute_node_defs_fingerprint
+from engine.utils.path_utils import normalize_slash
 
 from .issue import EngineIssue
 
@@ -20,7 +21,7 @@ def _normalize_file_key(file_path: Path, workspace: Path) -> str:
         resolved_workspace
     ):
         relative = resolved_file.relative_to(resolved_workspace)
-        return str(relative).replace("\\", "/")
+        return normalize_slash(str(relative))
     return str(resolved_file)
 
 

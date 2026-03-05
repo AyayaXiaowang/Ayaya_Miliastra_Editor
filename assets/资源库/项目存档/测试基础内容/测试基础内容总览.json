@@ -1,0 +1,235 @@
+{
+  "generated_notice": "这个文件由程序自动生成，旨在帮助理解项目整体结构，如果用户将他发给了你，说明他希望你理解当前项目结构，并且接下来的修改在当前目录下进行。",
+  "index_version": 5,
+  "generated_at": "2025-12-31T06:59:29.395107+00:00",
+  "package_name": "测试基础内容",
+  "package_id": "",
+  "project_root": "assets/资源库/项目存档/测试基础内容",
+  "summary": {
+    "graphs_count": 17,
+    "composite_nodes_count": 3,
+    "templates_count": 2,
+    "instances_with_guid_count": 1,
+    "instances_without_guid_count": 2,
+    "variable_files_count": 3,
+    "structs_count": 7
+  },
+  "folders": {
+    ".": {
+      "purpose": "项目存档根目录（项目：测试基础内容）。用于承载该项目的元件/实例/节点图/战斗预设/管理配置等资源。",
+      "children": [
+        "元件库",
+        "复合节点库",
+        "实体摆放",
+        "战斗预设",
+        "管理配置",
+        "节点图"
+      ]
+    },
+    "元件库": {
+      "purpose": "存放“测试基础内容”项目存档的元件库模板（`TemplateConfig`）JSON 资源（`template_id` → 模板定义）。",
+      "模板": {
+        "template_20251130_190000_000001_signal_all_types_example__测试基础内容": "信号全类型_测试台.json",
+        "template_sample_all_fields_01__测试基础内容": "示例_元件模板_全字段.json"
+      }
+    },
+    "复合节点库": {
+      "复合节点": {
+        "composite_多分支_示例_类格式__测试基础内容": {
+          "file": "composite_多分支_示例_类格式.py",
+          "name": "多分支_示例_类格式",
+          "scope": "server"
+        },
+        "composite_多引脚模板_示例__测试基础内容": {
+          "file": "composite_多引脚模板_示例.py",
+          "name": "多引脚模板_示例",
+          "scope": "server"
+        },
+        "composite_延迟执行_示例_类格式__测试基础内容": {
+          "file": "composite_延迟执行_示例_类格式.py",
+          "name": "延迟执行_示例",
+          "scope": "server"
+        }
+      }
+    },
+    "实体摆放": {
+      "purpose": "存放“测试基础内容”项目存档的实体摆放（InstanceConfig）JSON 资源，包括关卡实体与教学示例摆放实体。",
+      "实例": {
+        "by_guid": {
+          "1073742155": "示例_实体摆放_全字段.json"
+        },
+        "without_guid": [
+          "信号全类型_测试台实体摆放.json",
+          "测试基础内容_关卡实体.json"
+        ]
+      }
+    },
+    "战斗预设": {
+      "children": [
+        "单位状态",
+        "技能",
+        "投射物",
+        "玩家模板",
+        "职业",
+        "道具"
+      ]
+    },
+    "管理配置": {
+      "children": [
+        "UI布局",
+        "UI控件模板",
+        "主镜头",
+        "信号",
+        "光源",
+        "关卡变量",
+        "关卡设置",
+        "单位标签",
+        "商店模板",
+        "外围系统",
+        "多语言",
+        "实体布设组",
+        "局内存档管理",
+        "扫描标签",
+        "技能资源",
+        "护盾",
+        "结构体定义",
+        "聊天频道",
+        "背景音乐",
+        "装备数据",
+        "计时器",
+        "货币背包",
+        "路径",
+        "预设点"
+      ]
+    },
+    "节点图": {
+      "children": [
+        "client",
+        "server"
+      ]
+    },
+    "节点图/client/技能节点图/模板示例": {
+      "节点图": {
+        "client_template_syntax_sugar_random_vector_01__测试基础内容": {
+          "file": "模板示例_语法糖归一化_随机与向量.py",
+          "name": "模板示例_语法糖归一化_随机与向量"
+        }
+      }
+    },
+    "节点图/server/实体节点图/模板示例": {
+      "purpose": "存放服务器端节点图的教学示例脚本（类结构 Python）。 示例聚焦“如何写”，用于演示信号、复合节点、延迟执行、循环与局部变量等典型写法，便于在编辑器中对照学习。",
+      "节点图": {
+        "server_composite_multibranch_example_01__测试基础内容": {
+          "file": "模板示例_多分支_复合节点用法.py",
+          "name": "模板示例_多分支_复合节点用法"
+        },
+        "server_delay_composite_example_01__测试基础内容": {
+          "file": "模板示例_延迟执行_复合节点用法.py",
+          "name": "模板示例_延迟执行_复合节点用法"
+        },
+        "server_multi_pedal_link_example_01__测试基础内容": {
+          "file": "模板示例_多踏板联动.py",
+          "name": "模板示例_多踏板联动"
+        },
+        "server_signal_all_types_example_01__测试基础内容": {
+          "file": "模板示例_信号全类型_发送与监听.py",
+          "name": "模板示例_信号全类型_发送与监听"
+        },
+        "server_struct_all_types_example_01__测试基础内容": {
+          "file": "模板示例_结构体全类型_拆分与拼装.py",
+          "name": "模板示例_结构体全类型_拆分与拼装"
+        },
+        "server_template_add_one_plus_one_write_custom_variable__测试基础内容": {
+          "file": "模板示例_计算1加1_写入自定义变量.py",
+          "name": "模板示例_计算1加1_写入自定义变量"
+        },
+        "server_template_kill_count_victory_01__测试基础内容": {
+          "file": "模板示例_击杀计数_达10胜利.py",
+          "name": "模板示例_击杀计数_达10胜利"
+        },
+        "server_template_local_variable_branch_assign__测试基础内容": {
+          "file": "模板示例_局部变量_分支设置.py",
+          "name": "模板示例_局部变量_分支设置"
+        },
+        "server_template_local_variable_counter__测试基础内容": {
+          "file": "模板示例_局部变量计数.py",
+          "name": "模板示例_局部变量计数"
+        },
+        "server_template_loop_iterate_int_list__测试基础内容": {
+          "file": "模板示例_循环遍历整数列表.py",
+          "name": "模板示例_循环遍历整数列表"
+        },
+        "server_template_multi_pedals_open_door_receiver_01__测试基础内容": {
+          "file": "模板示例_多踏板同时按下_开门_接收端.py",
+          "name": "模板示例_多踏板同时按下_开门_接收端"
+        },
+        "server_template_pedal_double_door_open_and_mark_level1_01__测试基础内容": {
+          "file": "模板示例_踏板开关_双开门_开门并记录关卡1通过.py",
+          "name": "模板示例_踏板开关_双开门_开门并记录关卡1通过"
+        },
+        "server_template_pedal_switch_signal_broadcast_01__测试基础内容": {
+          "file": "模板示例_踏板开关_信号广播.py",
+          "name": "模板示例_踏板开关_信号广播"
+        },
+        "server_template_pedal_switch_signal_broadcast_constant_01__测试基础内容": {
+          "file": "模板示例_踏板开关_常量版_信号广播.py",
+          "name": "模板示例_踏板开关_常量版_信号广播"
+        },
+        "server_template_syntax_sugar_auto_shared_composites__测试基础内容": {
+          "file": "模板示例_语法糖_自动共享复合节点.py",
+          "name": "模板示例_语法糖_自动共享复合节点"
+        }
+      }
+    },
+    "节点图/server/实体节点图/测试": {
+      "节点图": {
+        "server_template_complex_flow_example_01__测试基础内容": {
+          "file": "测试_复杂控制流综合测试.py",
+          "name": "测试_复杂控制流综合测试"
+        }
+      }
+    },
+    "管理配置/关卡变量/自定义变量": {
+      "purpose": "存放“测试基础内容”项目存档的关卡变量（`LevelVariableDefinition`）代码级定义文件（Python），供资源系统加载，并在 UI/运行时按 `variable_id` 引用。",
+      "变量文件": {
+        "sample_custom_variables_all_types__测试基础内容": "示例_关卡变量_全类型.py",
+        "sample_level_progress_variables__测试基础内容": "示例_关卡进度变量.py"
+      }
+    },
+    "管理配置/关卡变量/自定义变量-局内存档变量": {
+      "变量文件": {
+        "sample_ingame_save_variables_all_types__测试基础内容": "示例_局内存档变量_全类型.py"
+      }
+    },
+    "管理配置/结构体定义/基础结构体": {
+      "purpose": "项目管理配置：结构体定义（基础结构体，.py）。",
+      "结构体": {
+        "basic:test__测试基础内容": "示例_结构体支持全类型.py"
+      }
+    },
+    "管理配置/结构体定义/局内存档结构体": {
+      "结构体": {
+        "ingame_save:示例_局内存档_事件记录条目__测试基础内容": "示例_局内存档_事件记录条目.py",
+        "ingame_save:示例_局内存档_基础信息__测试基础内容": "示例_局内存档_基础信息.py",
+        "ingame_save:示例_局内存档_收集汇总__测试基础内容": "示例_局内存档_收集汇总.py",
+        "ingame_save:示例_局内存档_状态标记__测试基础内容": "示例_局内存档_状态标记.py",
+        "ingame_save:示例_局内存档_资源账本__测试基础内容": "示例_局内存档_资源账本.py",
+        "ingame_save:示例_局内存档_进度记录条目__测试基础内容": "示例_局内存档_进度记录条目.py"
+      }
+    }
+  },
+  "入口": {
+    "玩家模板": {
+      "示例_玩家模板_全字段.json": {
+        "graphs": [
+          "server_template_local_variable_counter__测试基础内容"
+        ]
+      }
+    },
+    "关卡实体": {
+      "测试基础内容_关卡实体.json": {
+        "additional_graphs": []
+      }
+    }
+  }
+}

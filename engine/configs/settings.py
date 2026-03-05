@@ -55,6 +55,10 @@ class Settings:
     # 默认 False，避免打开节点图时在控制台大量输出
     GRAPH_UI_VERBOSE: bool = False
 
+    # TwoRowField 表格行高调试打印（[UI调试/TwoRowField]）
+    # 默认 False（关闭），用于排查两行结构字段表格的 sizeHint/行高对齐问题时再开启
+    UI_TWO_ROW_FIELD_DEBUG_PRINT: bool = False
+
     # UI预览日志详细输出（[PREVIEW] 标签）
     # 默认 False，避免启动或普通操作时刷屏
     PREVIEW_VERBOSE: bool = False
@@ -66,9 +70,10 @@ class Settings:
     VALIDATOR_VERBOSE: bool = False
 
     # 节点图运行时代码校验（类结构脚本）：
-    # False：默认关闭，仅依赖 CLI / 工具链在开发与构建阶段进行校验；
-    # True：在节点图类被导入或实例化时触发一次性文件级校验（适合调试阶段快速发现问题）。
-    RUNTIME_NODE_GRAPH_VALIDATION_ENABLED: bool = False
+    # 说明：`engine.validate.node_graph_validator.validate_node_graph` 当前会无条件触发一次性文件级校验，
+    # 以确保不支持语法/非法节点调用在“运行/导入节点图脚本”阶段立即暴露；
+    # 本开关主要保留为兼容与未来扩展（例如某些入口是否自动注入校验钩子）。
+    RUNTIME_NODE_GRAPH_VALIDATION_ENABLED: bool = True
 
     # 节点图验证：是否启用"实体入参仅允许连线/事件参数"的严格模式
     # False：默认模式，仅禁止文本/常量；允许变量/属性（如 self.owner_entity）
@@ -84,6 +89,30 @@ class Settings:
     # 节点实现层日志：控制 `engine.utils.logging.logger.log_info` 是否输出
     # 默认 False（关闭），生产环境下仅保留 warn/error
     NODE_IMPL_LOG_VERBOSE: bool = False
+
+    # 调试日志：控制 `engine.utils.logging.logger.log_debug` 是否输出
+    # 默认 False，避免启动或普通操作时刷屏
+    DEBUG_LOG_VERBOSE: bool = False
+
+    # 是否在 UI 全局未捕获异常时弹出阻塞错误对话框（QMessageBox）。
+    # 默认 False：避免“任何错误都弹窗”打断操作；异常仍会输出到控制台/日志并落盘到运行时缓存。
+    UI_UNHANDLED_EXCEPTION_DIALOG_ENABLED: bool = False
+
+    # ========== 全局性能监控（UI 卡顿定位） ==========
+    #
+    # 设计目标：
+    # - 当用户“感觉卡顿”时，直接在 UI 内看到：卡了多久、卡在什么调用栈；
+    # - 监控默认关闭：避免日常使用的额外开销与噪音；
+    # - 监控基于“UI 心跳 + 后台 watchdog 采样主线程堆栈”实现：当事件循环阻塞超过阈值时记录一次卡顿事件。
+    #
+    # 开启后会记录卡顿事件与少量命名耗时段（若上层有插桩），并可通过全局悬浮面板/详情面板查看。
+    APP_PERF_MONITOR_ENABLED: bool = False
+    # 在主窗口显示“性能悬浮面板”（全页面可见，点击可打开详情面板）。
+    APP_PERF_OVERLAY_ENABLED: bool = False
+    # 卡顿判定阈值（毫秒）。一般建议 >=200ms，过低可能因正常调度抖动产生误报。
+    APP_PERF_STALL_THRESHOLD_MS: int = 250
+    # 是否在卡顿期间采样主线程调用栈（用于定位“到底卡在哪里”）。
+    APP_PERF_CAPTURE_STACKS_ENABLED: bool = True
     
     # 自动保存间隔（秒），0 表示每次修改都立即保存
     AUTO_SAVE_INTERVAL: float = 0.0
@@ -95,6 +124,16 @@ class Settings:
     # 设置为 True 会在生成代码时打印事件流分析、拓扑排序等详细信息
     # 默认 False（关闭），减少控制台输出
     GRAPH_GENERATOR_VERBOSE: bool = False
+
+    # 节点图 `.gia` 导出：节点坐标缩放倍数（展示用，不影响图逻辑语义）
+    #
+    # 说明：
+    # - GraphModel(JSON) 的 node.payload.pos 为 Graph_Generater 画布坐标系；
+    # - 导出 `.gia` 时会对 x/y 同步乘以该系数，再做一次 X 轴居中偏移；
+    # - 默认 2.0 为历史经验值：不缩放时在真源编辑器中更容易显得“过于紧凑”（节点/连线更拥挤）。
+    #
+    # 取值建议：0.1 ~ 200.0（过大可能导致坐标过远，导入后需要频繁缩放/平移查看）
+    UGC_GIA_NODE_POS_SCALE: float = 2.0
     
     # 界面主题模式：
     # - "auto"：跟随系统浅色/深色（默认）
@@ -114,6 +153,21 @@ class Settings:
     # - 引擎层通过 `engine.utils.cache.cache_paths.get_runtime_cache_root()` 统一派生各类缓存路径；
     # - 当需要将缓存挪出仓库目录（例如放到更快的磁盘/临时目录）时，可修改该值。
     RUNTIME_CACHE_ROOT: str = "app/runtime/cache"
+
+    # ========== 私有扩展 ==========
+    # 说明：
+    # - 公开仓库只提供“扩展点 + 加载机制”，私有实现由使用者在本机配置并加载；
+    # - 配置值会写入用户设置文件 `app/runtime/cache/user_settings.json`（默认在 .gitignore 内），不会进入仓库。
+    #
+    # 启用方式：
+    # - PRIVATE_EXTENSION_ENABLED：是否启用私有扩展加载（默认 True；可在用户设置文件中手动关闭）；
+    # - 若想“放进工作区即可自动加载”：把插件放在 `<workspace_root>/private_extensions/<插件名>/plugin.py`（推荐）；
+    #   - 兼容：也支持 `<workspace_root>/plugins/private_extensions/<插件名>/plugin.py`；
+    # - 若想加载工作区外的私有包：配置 PRIVATE_EXTENSION_SYS_PATHS / PRIVATE_EXTENSION_MODULES；
+    # - 或使用环境变量覆盖（见 app.common.private_extension_loader 的说明）。
+    PRIVATE_EXTENSION_ENABLED: bool = True
+    PRIVATE_EXTENSION_SYS_PATHS: list[str] = []
+    PRIVATE_EXTENSION_MODULES: list[str] = []
     
     # ========== 布局增强（默认关闭/中性） ==========
     # 纯数据图：层内排序策略
@@ -129,6 +183,17 @@ class Settings:
     # 块间紧凑排列：在列内堆叠阶段满足端口/碰撞约束后，是否继续向左贴近上游块
     # True：尽量把块往左移动（默认行为）；False：保留列左边界，不额外左移
     LAYOUT_TIGHT_BLOCK_PACKING: bool = True
+
+    # ========== 自动排版间距（倍率，百分比） ==========
+    # 自动排版时相邻节点之间的基础间距倍率（横向/纵向，单位：%）。
+    # - 100：保持当前默认间距（基准）
+    # - 200：在当前基础间距上放大到 2 倍
+    #
+    # 说明：
+    # - 该倍率仅影响布局算法内部使用的“间距常量”（如列间距、块间距、堆叠间距等）；
+    # - 不改变节点的宽高估算与端口行高，只调节相邻节点矩形之间的空隙。
+    LAYOUT_NODE_SPACING_X_PERCENT: int = 100
+    LAYOUT_NODE_SPACING_Y_PERCENT: int = 100
 
     # 块内数据节点Y紧凑偏好：
     # 背景：块内数据节点的 Y 位置除了受“端口Y下界/列底不重叠/多父合流区间”等硬约束影响，
@@ -153,6 +218,17 @@ class Settings:
     # False：保持现有逻辑（跨块跳过，数据节点只属于第一个块）
     # 默认 True（开启）
     DATA_NODE_CROSS_BLOCK_COPY: bool = True
+
+    # 长连线自动生成“局部变量中转节点”（默认关闭）：
+    # 背景：当同一基本块内存在“跨越很多流程节点”的数据边（例如 A→...→Y），连线会非常长；
+    # 启用后，会在“跨块复制完成后、块内排版前”自动插入【获取局部变量】节点作为中转，
+    # 将一条长边拆成多段较短的边，并让该节点参与后续排版与任务清单生成。
+    #
+    # 约束：仅在节点库中的【获取局部变量】具备 “初始值→值” 透传端口形态时启用；
+    # 同时会尊重该节点对泛型类型的约束（例如禁止字典类型）。
+    LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY: bool = False
+    # 单段允许的最大“节点跨度”（范围：3~10；默认 5）。超过该跨度会自动插入中转节点拆分。
+    LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE: int = 5
 
     # 布局算法版本号：当跨块复制或块归属等布局语义发生不兼容变更时递增，
     # 用于让旧的 graph_cache 在加载节点图时失效并触发重新解析与自动布局。
@@ -193,6 +269,144 @@ class Settings:
     # 是否在节点旁显示"布局Y坐标分配逻辑"的调试叠加文本（前景层，描边文字）
     # 默认 False（关闭）
     SHOW_LAYOUT_Y_DEBUG: bool = False
+
+    # ========== 节点图画布显示 ==========
+
+    # 节点内容区背景的不透明度（0.0-1.0）。
+    # 数值越大越不透明（越难透过节点看到后面的网格/内容）。
+    # 默认 0.7：保持当前“节点半透明有底色”的观感。
+    GRAPH_NODE_CONTENT_ALPHA: float = 0.7
+
+    # 节点图画布：性能面板（用于定位拖拽/缩放/重绘卡顿来源）。
+    # 默认 False（关闭）：避免在正常使用中引入额外统计开销。
+    # 开启后会在画布左上角显示每帧耗时分解（scene绘制/网格/叠层/小地图/控件定位等）。
+    GRAPH_PERF_PANEL_ENABLED: bool = False
+
+    # 节点图画布：运行期 GraphScene LRU 缓存容量（同一次程序运行期内切图秒切回）。
+    #
+    # 说明：
+    # - 用于 A→B→A 这类短时切换场景复用 QGraphicsItem，避免反复装配导致卡顿；
+    # - 仅在同一进程内生效；跨重启无法复用 Qt 图元对象；
+    # - 缓存会占用显著内存（QGraphicsItem 很重），建议保持很小（1~2）。
+    #
+    # 取值：
+    # - 0：禁用（每次切图都重建画布）
+    # - 1~N：最多缓存 N 张“非激活节点图”的画布
+    GRAPH_SCENE_LRU_CACHE_SIZE: int = 2
+
+    # 节点图画布：行内常量控件虚拟化（推荐）。
+    #
+    # 设计目标：
+    # - 大图下最昂贵的对象通常是 QGraphicsProxyWidget（内嵌 QWidget 的布尔/向量等控件）；
+    # - 开启后，节点默认只绘制“输入框外观 + 文本占位值”，仅在用户显式交互（点击/聚焦）时
+    #   才临时创建真实控件，退出编辑后立即销毁，显著降低大图渲染与交互卡顿。
+    #
+    # 注意：该优化不等同于“快速预览模式”，不会压缩节点/连线，仅改变控件创建策略。
+    GRAPH_CONSTANT_WIDGET_VIRTUALIZATION_ENABLED: bool = True
+
+    # 节点图画布：超大图快速预览（压缩节点/连线，性能更好）。
+    #
+    # 说明：
+    # - True：在“不可落盘会话（can_persist=False）且节点/连线数量超过阈值”时自动启用 fast_preview_mode，
+    #   使用轻量 Node/Edge 图元（不创建端口与行内常量控件），并允许按节点展开查看详情；
+    # - False：默认关闭，不自动进入“压缩预览”模式，始终使用完整图元渲染（更直观，但超大图可能更卡）。
+    GRAPH_FAST_PREVIEW_ENABLED: bool = False
+    # 快速预览触发阈值（仅在 GRAPH_FAST_PREVIEW_ENABLED=True 时生效）
+    GRAPH_FAST_PREVIEW_NODE_THRESHOLD: int = 500
+    GRAPH_FAST_PREVIEW_EDGE_THRESHOLD: int = 900
+    # fast_preview_mode：批量绘制轻量预览边（进一步降低超大图的 QGraphicsItem 数量）。
+    # - True：在 fast_preview_mode 下优先使用单一渲染层绘制所有“轻量预览边”，节点仍保持为 item；
+    # - False：保持每条边一个 QGraphicsItem 的旧行为（更利于逐边调试，但超大图更卡）。
+    GRAPH_FAST_PREVIEW_BATCHED_EDGES_ENABLED: bool = True
+
+    # 只读大图：批量绘制连线（不启用 fast_preview 也可生效）。
+    #
+    # 设计目标：
+    # - 典型场景：任务清单右侧节点图预览（只读，但需要保留节点完整信息与点击联动）；
+    # - 节点仍保留为 item（NodeGraphicsItem），仅将连线从“每条边一个 EdgeGraphicsItem”
+    #   收敛为“单一批量边渲染层 + 模型级命中/高亮/灰显状态”；
+    # - 大幅降低超大图的 item 数量与重绘/命中开销。
+    GRAPH_READONLY_BATCHED_EDGES_ENABLED: bool = True
+    GRAPH_READONLY_BATCHED_EDGES_EDGE_THRESHOLD: int = 900
+
+    # 节点图画布：是否启用“自动适配全图（fit_all）”的压缩视图行为。
+    #
+    # 说明：
+    # - True：在进入编辑器/某些预览场景下会自动调用 `GraphView.fit_all()`，让全图一屏可见；
+    # - False：默认关闭，不自动缩放到全图，避免超大图进入“压缩状态”且触发全量边界计算带来的卡顿。
+    #
+    # 提示：用户仍可通过快捷键（默认 Ctrl+0）手动触发适配全图。
+    GRAPH_AUTO_FIT_ALL_ENABLED: bool = False
+
+    # 节点图画布：缩放分级渲染（LOD，推荐）。
+    #
+    # 说明：
+    # - True：在低倍率缩放（缩得很小时）自动隐藏端口标签/常量输入框等细节，并降低连线命中测试成本；
+    #   目标是让“平移/缩放”在超大图下更顺滑，同时避免明显的模式切换割裂感。
+    # - False：保持当前始终绘制全细节的行为（更直观，但超大图下更容易卡顿）。
+    GRAPH_LOD_ENABLED: bool = True
+
+    # LOD 阈值（场景缩放比例，1.0 为 100%）：
+    # - 节点细节（端口标签/常量占位文本/验证感叹号等）显示阈值
+    GRAPH_LOD_NODE_DETAILS_MIN_SCALE: float = 0.55
+    # - 节点标题显示阈值（再小会跳过文字以减少绘制成本）
+    GRAPH_LOD_NODE_TITLE_MIN_SCALE: float = 0.28
+    # - 端口绘制阈值（过小时端口/虚拟引脚角标不绘制）
+    GRAPH_LOD_PORT_MIN_SCALE: float = 0.30
+    # - 连线绘制阈值（过小时仅绘制“选中/高亮链路”连线）
+    GRAPH_LOD_EDGE_MIN_SCALE: float = 0.22
+    # - 连线命中测试阈值（过小时非高亮/非选中连线返回空 shape，降低 hit-test 成本）
+    GRAPH_LOD_EDGE_HITTEST_MIN_SCALE: float = 0.28
+
+    # 画布网格：低倍率下的“最小像素间距”。
+    # 当缩放导致网格线在屏幕像素上过密时，叠加层会自动放大 grid_size（例如 50→100→200），
+    # 以降低背景绘制开销并避免噪音。
+    GRAPH_GRID_MIN_PX: float = 12.0
+    # 画布网格：是否绘制网格线（背景底色仍保留）。
+    #
+    # 说明：
+    # - False：仅绘制纯底色，不绘制任何网格线，可显著降低超大图平移/缩放时的背景绘制开销。
+    # - True：绘制细网格+粗网格（每 5 格一条粗线），用于增强空间感与对齐参照。
+    GRAPH_GRID_ENABLED: bool = True
+
+    # 节点图画布：平移/缩放期间隐藏小图标/端口等细节（提升流畅度）。
+    #
+    # 说明：
+    # - True：平移（拖拽）或滚轮缩放期间临时隐藏端口圆点/⚙按钮/+按钮等小图元，并让叠加层跳过 YDebug 图标/链路徽标绘制；
+    #   停止交互后按当前 LOD 状态恢复。目标是减少 Qt item 枚举与绘制的固定开销。
+    # - False：平移/缩放期间不做该降级（画面更完整，但超大图更容易卡顿）。
+    GRAPH_PAN_HIDE_ICONS_ENABLED: bool = True
+
+    # 节点图画布：拖拽平移（手抓）期间“冻结为静态快照”（极致性能）。
+    #
+    # 说明：
+    # - True：拖拽平移开始抓一张 viewport 像素快照，拖拽平移过程中只移动该快照并禁用视图更新，
+    #   从而避免每帧重绘大量 QGraphicsItem（超大图平移更丝滑）。
+    # - 代价：拖拽平移过程中画面是静态快照，不会显示新进入视口的节点/连线；松手后恢复真实渲染。
+    #
+    # 建议：
+    # - 仅在“超大图平移卡顿明显”的场景开启；
+    # - 或搭配小地图/适配全图使用以避免迷失方向。
+    GRAPH_PAN_FREEZE_VIEWPORT_ENABLED: bool = False
+
+    # 节点图画布：滚轮缩放期间“冻结为静态快照”（极致性能）。
+    #
+    # 说明：
+    # - True：缩放开始抓一张 viewport 像素快照，滚轮缩放过程中仅对快照做缩放显示，并禁用视图更新，
+    #   从而避免每步滚轮都重绘大量 QGraphicsItem；缩放停止后恢复真实渲染。
+    # - 代价：缩放过程中画面是静态快照，不会显示新进入视口的节点/连线；停止滚轮后才会刷新真实内容。
+    GRAPH_ZOOM_FREEZE_VIEWPORT_ENABLED: bool = False
+
+    # LOD 可见性回滞阈值（避免在临界缩放附近频繁切换 setVisible 状态引发抖动）
+    GRAPH_LOD_PORT_VISIBILITY_EXIT_SCALE: float = 0.33
+    GRAPH_LOD_EDGE_VISIBILITY_EXIT_SCALE: float = 0.24
+
+    # 块鸟瞰模式（仅显示 basic blocks，隐藏节点/连线图元）
+    GRAPH_BLOCK_OVERVIEW_ENABLED: bool = True
+    GRAPH_BLOCK_OVERVIEW_ENTER_SCALE: float = 0.10
+    GRAPH_BLOCK_OVERVIEW_EXIT_SCALE: float = 0.12
+    # 鸟瞰模式下网格最小像素间距（更大，避免低倍率噪音）
+    GRAPH_BLOCK_OVERVIEW_GRID_MIN_PX: float = 24.0
     
     # ========== 任务清单选项 ==========
     
@@ -202,9 +416,15 @@ class Settings:
     TODO_MERGE_CONNECTION_STEPS: bool = True
 
     # 节点图步骤生成模式
-    # "human": 人类模式（保持现有逻辑，优先使用「连线并创建」）
-    # "ai": AI模式（先创建完所有节点，再逐个连接，不使用「连线并创建」）
+    # - "human": 人类模式（保持现有逻辑，优先使用「连线并创建」）
+    # - "ai": AI-先配置后连线（先生成创建节点 + 类型/参数配置步骤，最后统一生成连线步骤；不使用「连线并创建」）
+    # - "ai_node_by_node": AI-逐个节点模式（逐个节点：创建→类型→参数；连线仍最后统一生成）
     TODO_GRAPH_STEP_MODE: str = "ai"
+
+    # 任务清单：事件流根子步骤的 UI 加载策略
+    # True：展开事件流根时按批次挂载子步骤（推荐，超大图更流畅，不阻塞 UI）
+    # False：构建任务树时一次性创建事件流根的全部子步骤（更“完整”，但超大图可能明显卡顿）
+    TODO_EVENT_FLOW_LAZY_LOAD_ENABLED: bool = False
 
     # ========== 真实执行 ==========
     # 真实执行调试日志（详细打印每一步识别、拖拽、验证信息）
@@ -359,6 +579,10 @@ class Settings:
             if hasattr(self.__class__, key) and key.isupper():
                 setattr(self, key, value)
                 applied_count += 1
+
+        # 强制启用：资源库自动刷新不再由设置页控制
+        # - 避免“外部工具修改资源库后 UI 不刷新”的困惑。
+        self.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED = True
         
         log_info("[BOOT][Settings] load: 配置加载完成，共应用 {} 个键", applied_count)
         return True
@@ -368,24 +592,68 @@ class Settings:
         """重置所有设置为默认值"""
         cls.LAYOUT_DEBUG_PRINT = False
         cls.NODE_LOADING_VERBOSE = False
+        cls.UI_TWO_ROW_FIELD_DEBUG_PRINT = False
         cls.PREVIEW_VERBOSE = False
         cls.VALIDATOR_VERBOSE = False
         cls.RUNTIME_NODE_GRAPH_VALIDATION_ENABLED = False
         cls.AUTO_SAVE_INTERVAL = 0.0
         cls.GRAPH_PARSER_VERBOSE = False
         cls.GRAPH_GENERATOR_VERBOSE = False
+        cls.UGC_GIA_NODE_POS_SCALE = 2.0
         cls.SAFETY_NOTICE_SUPPRESSED = False
+        cls.UI_UNHANDLED_EXCEPTION_DIALOG_ENABLED = False
+        cls.APP_PERF_MONITOR_ENABLED = False
+        cls.APP_PERF_OVERLAY_ENABLED = False
+        cls.APP_PERF_STALL_THRESHOLD_MS = 250
+        cls.APP_PERF_CAPTURE_STACKS_ENABLED = True
         cls.RUNTIME_CACHE_ROOT = "app/runtime/cache"
+        cls.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED = True
+        cls.PRIVATE_EXTENSION_ENABLED = True
+        cls.PRIVATE_EXTENSION_SYS_PATHS = []
+        cls.PRIVATE_EXTENSION_MODULES = []
         cls.LAYOUT_DATA_LAYER_SORT = "none"
         cls.LAYOUT_ENABLE_GEOMETRIC_SLOT = True
         cls.LAYOUT_STRICT_NODE_KIND = False
         cls.LAYOUT_TIGHT_BLOCK_PACKING = True
+        cls.LAYOUT_NODE_SPACING_X_PERCENT = 100
+        cls.LAYOUT_NODE_SPACING_Y_PERCENT = 100
         cls.DATA_NODE_CROSS_BLOCK_COPY = True
+        cls.LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY = False
+        cls.LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE = 5
         cls.SHOW_BASIC_BLOCKS = True
         cls.BASIC_BLOCK_ALPHA = 0.2
         cls.SHOW_LAYOUT_Y_DEBUG = False
+        cls.GRAPH_NODE_CONTENT_ALPHA = 0.7
+        cls.GRAPH_PERF_PANEL_ENABLED = False
+        cls.GRAPH_SCENE_LRU_CACHE_SIZE = 2
+        cls.GRAPH_CONSTANT_WIDGET_VIRTUALIZATION_ENABLED = True
+        cls.GRAPH_FAST_PREVIEW_ENABLED = False
+        cls.GRAPH_FAST_PREVIEW_NODE_THRESHOLD = 500
+        cls.GRAPH_FAST_PREVIEW_EDGE_THRESHOLD = 900
+        cls.GRAPH_FAST_PREVIEW_BATCHED_EDGES_ENABLED = True
+        cls.GRAPH_READONLY_BATCHED_EDGES_ENABLED = True
+        cls.GRAPH_READONLY_BATCHED_EDGES_EDGE_THRESHOLD = 900
+        cls.GRAPH_AUTO_FIT_ALL_ENABLED = False
+        cls.GRAPH_LOD_ENABLED = True
+        cls.GRAPH_LOD_NODE_DETAILS_MIN_SCALE = 0.55
+        cls.GRAPH_LOD_NODE_TITLE_MIN_SCALE = 0.28
+        cls.GRAPH_LOD_PORT_MIN_SCALE = 0.30
+        cls.GRAPH_LOD_EDGE_MIN_SCALE = 0.22
+        cls.GRAPH_LOD_EDGE_HITTEST_MIN_SCALE = 0.28
+        cls.GRAPH_GRID_MIN_PX = 12.0
+        cls.GRAPH_GRID_ENABLED = True
+        cls.GRAPH_PAN_HIDE_ICONS_ENABLED = True
+        cls.GRAPH_PAN_FREEZE_VIEWPORT_ENABLED = False
+        cls.GRAPH_ZOOM_FREEZE_VIEWPORT_ENABLED = False
+        cls.GRAPH_LOD_PORT_VISIBILITY_EXIT_SCALE = 0.33
+        cls.GRAPH_LOD_EDGE_VISIBILITY_EXIT_SCALE = 0.24
+        cls.GRAPH_BLOCK_OVERVIEW_ENABLED = True
+        cls.GRAPH_BLOCK_OVERVIEW_ENTER_SCALE = 0.10
+        cls.GRAPH_BLOCK_OVERVIEW_EXIT_SCALE = 0.12
+        cls.GRAPH_BLOCK_OVERVIEW_GRID_MIN_PX = 24.0
         cls.TODO_MERGE_CONNECTION_STEPS = True
         cls.TODO_GRAPH_STEP_MODE = "human"
+        cls.TODO_EVENT_FLOW_LAZY_LOAD_ENABLED = True
         cls.REAL_EXEC_VERBOSE = False
         cls.REAL_EXEC_CLICK_BLANK_AFTER_STEP = True
         cls.REAL_EXEC_REPLAY_RECORDING_ENABLED = False
@@ -410,6 +678,7 @@ class Settings:
         """启用所有调试选项（用于开发调试）"""
         cls.LAYOUT_DEBUG_PRINT = True
         cls.NODE_LOADING_VERBOSE = True
+        cls.UI_TWO_ROW_FIELD_DEBUG_PRINT = True
         cls.PREVIEW_VERBOSE = True
         cls.VALIDATOR_VERBOSE = True
         cls.GRAPH_PARSER_VERBOSE = True
@@ -422,6 +691,7 @@ class Settings:
         """禁用所有调试选项（恢复默认）"""
         cls.LAYOUT_DEBUG_PRINT = False
         cls.NODE_LOADING_VERBOSE = False
+        cls.UI_TWO_ROW_FIELD_DEBUG_PRINT = False
         cls.PREVIEW_VERBOSE = False
         cls.VALIDATOR_VERBOSE = False
         cls.GRAPH_PARSER_VERBOSE = False

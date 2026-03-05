@@ -2,12 +2,13 @@
 图模型与相关数据结构/序列化/哈希/配置的稳定对外导出点。
 """
 
-from .graph_model import GraphModel, NodeModel, EdgeModel, PortModel, BasicBlock
+from .graph_model import GraphModel, NodeModel, EdgeModel, PortModel, BasicBlock, NodeDefRef
 from .graph_serialization import serialize_graph, deserialize_graph
 from .graph_hash import get_content_hash
 from .graph_config import GraphConfig
 from .package_model import (
-    VariableConfig,
+    LevelVariableDefinition,
+    LevelVariableOverride,
     GraphVariableConfig,
     SignalParameterConfig,
     SignalConfig,
@@ -38,6 +39,7 @@ __all__ = [
     "EdgeModel",
     "PortModel",
     "BasicBlock",
+    "NodeDefRef",
     # graph_serialization
     "serialize_graph",
     "deserialize_graph",
@@ -46,7 +48,8 @@ __all__ = [
     # graph_config
     "GraphConfig",
     # package_model（存档相关配置类型，不再暴露聚合 PackageModel）
-    "VariableConfig",
+    "LevelVariableDefinition",
+    "LevelVariableOverride",
     "GraphVariableConfig",
     "SignalParameterConfig",
     "SignalConfig",

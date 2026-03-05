@@ -4,6 +4,7 @@ from typing import Dict, Optional, Type
 
 from PyQt6 import QtWidgets
 
+from .container_panel import ContainerConfigPanel
 from .interaction_controls import InteractionButtonConfigPanel, ItemDisplayConfigPanel
 from .selection_panel import CardSelectorConfigPanel
 from .status_panels import ProgressBarConfigPanel, ScoreboardConfigPanel, TimerConfigPanel
@@ -20,6 +21,7 @@ PANEL_REGISTRY: Dict[str, PanelType] = {
     "计时器": TimerConfigPanel,
     "计分板": ScoreboardConfigPanel,
     "卡牌选择器": CardSelectorConfigPanel,
+    "面板": ContainerConfigPanel,
 }
 
 

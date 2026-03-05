@@ -9,7 +9,13 @@ from engine.utils.logging.logger import log_info
     inputs=[("流程入", "流程"), ("目标实体", "实体"), ("规则类型", "枚举")],
     outputs=[("流程出", "流程")],
     description="设置扫描标签的规则，会以设置好的规则执行扫描标签的逻辑",
-    doc_reference="服务器节点/执行节点/执行节点.md"
+    doc_reference="服务器节点/执行节点/执行节点.md",
+    input_enum_options={
+        "规则类型": [
+            "视野优先",
+            "距离优先",
+        ],
+    },
 )
 def 设置扫描标签的规则(game, 目标实体, 规则类型):
     """设置扫描标签的规则，会以设置好的规则执行扫描标签的逻辑"""

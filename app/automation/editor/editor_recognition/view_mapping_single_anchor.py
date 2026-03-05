@@ -13,7 +13,7 @@ from typing import Optional
 from PIL import Image
 
 from app.automation.editor.editor_mapping import FIXED_SCALE_RATIO
-from app.automation.editor.ui_constants import NODE_VIEW_HEIGHT_PX, NODE_VIEW_WIDTH_PX
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 
 from .constants import FIT_STRATEGY_SINGLE_ANCHOR
 from .models import MappingData, ViewMappingFitResult
@@ -74,10 +74,11 @@ def _try_single_anchor_mapping(
     anchor_detection = det_centers_for_title[0]
     bbox_x, bbox_y, bbox_w, bbox_h = anchor_detection["bbox"]
 
-    program_node_width = NODE_VIEW_WIDTH_PX
-    program_node_height = NODE_VIEW_HEIGHT_PX
-    scale_x = float(bbox_w) / program_node_width if bbox_w > 0 else 0.0
-    scale_y = float(bbox_h) / program_node_height if bbox_h > 0 else 0.0
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    base_w = float(node_view_w_px) if float(node_view_w_px) > 0.0 else 200.0
+    base_h = float(node_view_h_px) if float(node_view_h_px) > 0.0 else 100.0
+    scale_x = float(bbox_w) / float(base_w) if bbox_w > 0 else 0.0
+    scale_y = float(bbox_h) / float(base_h) if bbox_h > 0 else 0.0
     if scale_x <= 0.0 or scale_y <= 0.0:
         executor.log("[单锚点] 锚点识别结果异常：节点尺寸为 0，无法估算缩放比例", log_callback)
         return None

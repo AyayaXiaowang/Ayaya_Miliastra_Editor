@@ -1,0 +1,81 @@
+{
+  "template_id": "template_sample_all_fields_01",
+  "name": "示例_元件模板_全字段",
+  "entity_type": "物件",
+  "description": "示例模板：用于展示元件库模板的常用字段与典型写法（默认节点图挂载、组件配置、元数据、节点图变量覆盖等）。注意：自定义变量定义已迁移到【管理配置/关卡变量】；模板内通过 metadata.custom_variable_file 引用变量文件。",
+  "default_graphs": [
+    "server_template_local_variable_counter",
+    "server_template_pedal_switch_signal_broadcast_01"
+  ],
+  "default_components": [
+    {
+      "component_type": "交互",
+      "settings": {
+        "prompt_text": "示例_按E交互",
+        "interact_distance": 2.5,
+        "cooldown": 0.5,
+        "allow_repeat": true
+      },
+      "description": "示例：交互组件（字段结构仅用于演示，实际以运行时组件实现为准）"
+    },
+    {
+      "component_type": "特效播放",
+      "settings": {
+        "effect_id": "fx_sample_interact",
+        "auto_play": false,
+        "loop": false,
+        "play_on_events": [
+          "on_interact"
+        ]
+      },
+      "description": "示例：特效播放组件"
+    },
+    {
+      "component_type": "战利品",
+      "settings": {
+        "drop_table": [
+          "item_sample_all_fields_01"
+        ],
+        "drop_count": 1,
+        "drop_radius": 0.5
+      },
+      "description": "示例：战利品组件（引用道具ID列表）"
+    }
+  ],
+  "entity_config": {
+    "collider": {
+      "shape": "box",
+      "size": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "is_trigger": true
+    },
+    "render": {
+      "model_name": "空模型",
+      "visible": true
+    },
+    "tags": [
+      "教学示例",
+      "可交互"
+    ]
+  },
+  "metadata": {
+    "object_model_name": "空模型",
+    "template_category": "教学示例",
+    "custom_variable_file": "auto_custom_vars__level__示例项目模板",
+    "guid": "1073742154",
+    "ui": {
+      "icon": "",
+      "color": "#66CCFF"
+    }
+  },
+  "graph_variable_overrides": {
+    "server_template_local_variable_counter": {
+      "初始计数": 0,
+      "最大计数": 5
+    }
+  },
+  "updated_at": "2025-12-18T14:03:35.340405"
+}

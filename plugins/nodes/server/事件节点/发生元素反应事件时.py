@@ -8,7 +8,19 @@ from engine.utils.logging.logger import log_info
     category="事件节点",
     outputs=[("流程出", "流程"), ("事件源实体", "实体"), ("事件源GUID", "GUID"), ("元素反应类型", "枚举"), ("触发者实体", "实体"), ("触发者GUID", "GUID")],
     description="为实体添加单位状态效果【监听元素反应】，达成条件会触发该事件",
-    doc_reference="服务器节点/事件节点/事件节点.md"
+    doc_reference="服务器节点/事件节点/事件节点.md",
+    output_enum_options={
+        "元素反应类型": [
+            "超载",
+            "蒸发",
+            "燃烧",
+            "潮湿",
+            "绽放",
+            "融化",
+            "冻结",
+            "感电",
+        ],
+    },
 )
 def 发生元素反应事件时(game):
     """为实体添加单位状态效果【监听元素反应】，达成条件会触发该事件"""

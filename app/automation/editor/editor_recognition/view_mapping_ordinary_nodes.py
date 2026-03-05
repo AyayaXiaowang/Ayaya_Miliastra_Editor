@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from app.automation.input.common import compute_position_thresholds
+from app.automation.input.common import compute_position_thresholds_for_node_view
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 
 from .constants import (
     FIT_STRATEGY_ORDINARY_NODES,
@@ -36,7 +37,12 @@ def _try_ordinary_nodes_position_match(
     origin_x = float(executor.origin_node_pos[0])
     origin_y = float(executor.origin_node_pos[1])
 
-    pos_threshold_x, pos_threshold_y = compute_position_thresholds(scale_ratio)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    pos_threshold_x, pos_threshold_y = compute_position_thresholds_for_node_view(
+        scale=float(scale_ratio),
+        node_view_width_px=float(node_view_w_px),
+        node_view_height_px=float(node_view_h_px),
+    )
     pos_threshold_x *= ORDINARY_NODES_POSITION_TOLERANCE_MULTIPLIER
     pos_threshold_y *= ORDINARY_NODES_POSITION_TOLERANCE_MULTIPLIER
 

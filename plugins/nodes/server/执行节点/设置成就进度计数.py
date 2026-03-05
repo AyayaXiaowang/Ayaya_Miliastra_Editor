@@ -13,4 +13,8 @@ from engine.utils.logging.logger import log_info
 )
 def 设置成就进度计数(game, 设置实体, 成就序号, 进度计数):
     """设置指定实体上对应成就序号的成就进度计数"""
-    log_info(f"[设置成就进度计数] 执行")
+    idx = int(成就序号)
+    count = int(进度计数)
+    var_name = f"成就进度计数_{idx}"
+    game.set_custom_variable(设置实体, var_name, int(count), trigger_event=True)
+    log_info("[设置成就进度计数] {} = {}", var_name, int(count))

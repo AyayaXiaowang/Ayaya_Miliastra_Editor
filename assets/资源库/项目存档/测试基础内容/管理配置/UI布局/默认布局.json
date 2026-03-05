@@ -1,0 +1,25 @@
+{
+  "layout_id": "layout_default__测试基础内容",
+  "layout_name": "默认布局",
+  "builtin_widgets": [
+    "builtin_小地图__测试基础内容",
+    "builtin_技能区__测试基础内容",
+    "builtin_队伍信息__测试基础内容",
+    "builtin_角色生命值条__测试基础内容",
+    "builtin_摇杆__测试基础内容",
+    "builtin_造物生命值条__测试基础内容",
+    "builtin_退出按钮__测试基础内容",
+    "builtin_语音__测试基础内容",
+    "builtin_选项卡__测试基础内容",
+    "builtin_聊天按钮__测试基础内容",
+    "builtin_网络状态__测试基础内容",
+    "builtin_挣扎按钮__测试基础内容"
+  ],
+  "custom_groups": [],
+  "default_for_player": "所有玩家",
+  "description": "默认的界面布局，包含所有必要的固有控件",
+  "created_at": "2025-10-14T15:41:59.320620",
+  "updated_at": "2025-10-14T15:41:59.320620",
+  "visibility_overrides": {},
+  "name": "默认布局"
+}

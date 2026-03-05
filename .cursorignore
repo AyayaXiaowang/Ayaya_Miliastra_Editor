@@ -1,24 +1,70 @@
-# Cursor file-tree ignore rules (visual-only).
-# Goal: hide runtime artifacts / local state that are already in .gitignore,
-# so the workspace looks clean and newcomers don't误解为“需要维护的项目文件”。
+# Cursor ignore rules (affects AI indexing/reading & file tree).
+#
+# 目标：
+# - 运行期缓存、构建产物、临时目录等“噪音文件”不参与 Cursor 索引与搜索；
+# - 其余内容默认遵循仓库结构（源码 / 文档 / 资源库可被索引）。
+#
+# 约定：
+# - 尽量与 `.gitignore` 的“噪音文件”口径保持一致；
+# - 允许使用 `!` 保留少量被忽略目录中的文档（例如 `release/claude.md`）。
 
-# Python bytecode / caches
-**/__pycache__/
-**/*.py[cod]
-**/.mypy_cache/
-**/.pytest_cache/
-**/.ruff_cache/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.log
+.coverage
+coverage.xml
 
-# Project runtime caches / local state
+# Virtual env
+.venv/
+venv/
+env/
+.env
+.env.*/
+
+# IDE / Editors
+.idea/
+.vscode/
+
+
+# OS artifacts
+Thumbs.db
+.DS_Store
+
+# Jupyter notebooks（只在本地使用，不进仓库）
+*.ipynb
+
+
+
+# Project caches and local state
 runtime/cache/
 app/runtime/cache/
+app/runtime/todo_states/
+user_settings.json
+app/runtime/package_state.json
+
+# 防止误把 workspace_path 指到 engine/ 导致缓存跑到 engine/app/runtime/cache
 engine/app/runtime/cache/
 
-# Legacy root-level user settings (migrated into app/runtime/cache)
-user_settings.json
+# 旧版 runtime 缓存路径（兼容历史）
+runtime/graph_cache/
+runtime/resource_cache/
+runtime/node_cache/
+runtime/name_sync_state.json
 
-# Local notebooks / scratch
-*.ipynb
-__dummy__.ipynb
+# Release artifacts (local build outputs)
+release/**
+!release/claude.md
 
 
+# Private extensions artifacts (generated / debug outputs)
+private_extensions/**/_artifacts/_debug_screenshots/**

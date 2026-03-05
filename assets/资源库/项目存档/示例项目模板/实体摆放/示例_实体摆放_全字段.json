@@ -1,0 +1,67 @@
+{
+  "instance_id": "instance_sample_all_fields_01",
+  "name": "示例_实体摆放_全字段",
+  "template_id": "template_sample_all_fields_01",
+  "position": [
+    100.0,
+    0.0,
+    -50.0
+  ],
+  "rotation": [
+    0.0,
+    90.0,
+    0.0
+  ],
+  "override_variables": [
+    {
+      "variable_id": "var_sample_integer_counter",
+      "variable_name": "示例_计数器_整数",
+      "variable_type": "整数",
+      "value": 123
+    },
+    {
+      "variable_id": "var_sample_boolean_switch",
+      "variable_name": "示例_开关_布尔值",
+      "variable_type": "布尔值",
+      "value": true
+    },
+    {
+      "variable_id": "var_sample_string_note",
+      "variable_name": "示例_备注_字符串",
+      "variable_type": "字符串",
+      "value": "示例字符串：用于展示实体摆放 override_variables 的写法"
+    }
+  ],
+  "additional_graphs": [
+    "server_template_local_variable_counter",
+    "server_template_pedal_switch_signal_broadcast_01"
+  ],
+  "additional_components": [
+    {
+      "component_type": "碰撞体",
+      "settings": {
+        "shape": "box",
+        "size": [
+          1.0,
+          2.0,
+          1.0
+        ]
+      },
+      "description": "示例：额外组件（字段结构仅用于演示）"
+    }
+  ],
+  "metadata": {
+    "entity_type": "物件",
+    "guid": "1073742155",
+    "note": "示例实体摆放：用于对照 position/rotation、额外节点图、变量覆盖与组件扩展"
+  },
+  "graph_variable_overrides": {
+    "server_template_local_variable_counter": {
+      "初始计数": 10,
+      "最大计数": 20
+    }
+  },
+  "updated_at": "2025-12-18T12:00:00.000000"
+}
+
+

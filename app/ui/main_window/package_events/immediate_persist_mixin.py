@@ -63,7 +63,7 @@ class ImmediatePersistMixin:
         current_package_id = None
         if hasattr(self, "package_controller"):
             current_package_id = getattr(self.package_controller, "current_package_id", None)
-        is_special_view = current_package_id in ("global_view", "unclassified_view")
+        is_special_view = current_package_id == "global_view"
 
         if kind == "template":
             template_id = event.id
@@ -73,7 +73,7 @@ class ImmediatePersistMixin:
             graph_dirty = True
         elif kind == "combat":
             # 战斗预设库页的 create/delete 主要影响“当前存档索引引用列表”；
-            # 在 global/unclassified 视图下没有 PackageIndex，因此不应触发存档保存。
+            # 在 global 视图下没有 PackageIndex，因此不应触发存档保存。
             combat_dirty = not is_special_view
             index_dirty = not is_special_view
         elif kind == "management":
@@ -164,6 +164,11 @@ class ImmediatePersistMixin:
             if index_dirty:
                 controller.mark_index_dirty()
 
+        # 标记为“未保存”：库页/面板的任何有效变更都应让用户立即可感知。
+        set_status = getattr(self, "_set_last_save_status", None)
+        if callable(set_status):
+            set_status("unsaved")
+
         # 懒初始化去抖定时器
         timer = getattr(self, "_immediate_persist_timer", None)
         if timer is None or not isinstance(timer, QtCore.QTimer):
@@ -178,10 +183,33 @@ class ImmediatePersistMixin:
                 package_id = getattr(controller, "current_package_id", None)
                 if not package_id:
                     return
+
+                had_unsaved = False
+                has_unsaved_method = getattr(controller, "has_unsaved_changes", None)
+                if callable(has_unsaved_method):
+                    had_unsaved = bool(has_unsaved_method())
+                else:
+                    dirty_state = getattr(controller, "dirty_state", None)
+                    is_empty_method = getattr(dirty_state, "is_empty", None)
+                    if callable(is_empty_method):
+                        had_unsaved = not bool(is_empty_method())
+
+                # 仅在确有未保存修改时显示“保存中”，避免用户刚手动保存后又被去抖回调覆盖状态。
+                if had_unsaved:
+                    set_status = getattr(self, "_set_last_save_status", None)
+                    if callable(set_status):
+                        set_status("saving")
                 if hasattr(controller, "save_dirty_blocks"):
                     controller.save_dirty_blocks()
                 else:
                     controller.save_package()
+
+                if had_unsaved:
+                    has_unsaved_method = getattr(controller, "has_unsaved_changes", None)
+                    if callable(has_unsaved_method) and (not bool(has_unsaved_method())):
+                        set_status = getattr(self, "_set_last_save_status", None)
+                        if callable(set_status):
+                            set_status("saved")
 
             timer.timeout.connect(_do_persist)
             setattr(self, "_immediate_persist_timer", timer)

@@ -1,4 +1,14 @@
-"""存档索引模型 - 轻量级存档定义"""
+"""存档索引模型 - 轻量级存档定义（PackageIndex）。
+
+重要背景（目录即项目存档模式）：
+- 旧版本曾使用 `pkg_*.json / packages.json` 作为索引落盘；该模式已废弃。
+- 当前以目录结构作为唯一真相源：资源“所属存档/归属位置”由资源文件所在的资源根目录决定：
+  - `assets/资源库/共享/`
+  - `assets/资源库/项目存档/<package_id>/`
+- 因此，编辑器运行期的 `PackageIndex` 往往是 **从目录派生出来的内存视图**（不落盘为索引文件）：
+  - 用于 UI 侧统一的“资源集合快照”与导出（`serialize()` 输出索引格式，方便迁移/导出/工具链使用）
+  - 真正改变归属/移除/删除资源应通过 `PackageIndexManager`（移动文件）或 `ResourceManager.delete_resource`（物理删除）
+"""
 
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -39,6 +49,7 @@ class PackageResources:
         "shop_templates": [],
         "ui_layouts": [],
         "ui_widget_templates": [],
+        "ui_pages": [],
         "multi_language": [],
         "main_cameras": [],
         "light_sources": [],
@@ -100,6 +111,7 @@ class PackageResources:
             "shop_templates": management_data.get("shop_templates", []),
             "ui_layouts": management_data.get("ui_layouts", []),
             "ui_widget_templates": management_data.get("ui_widget_templates", []),
+            "ui_pages": management_data.get("ui_pages", []),
             "multi_language": management_data.get("multi_language", []),
             "main_cameras": management_data.get("main_cameras", []),
             "light_sources": management_data.get("light_sources", []),
@@ -154,7 +166,7 @@ class PackageIndex:
     description: str = ""
     resources: PackageResources = field(default_factory=PackageResources)
     resource_names: Dict[str, dict] = field(default_factory=dict)
-    level_entity_id: Optional[str] = None  # 关卡实体实例ID（存储在资源库/实例/中）
+    level_entity_id: Optional[str] = None  # 关卡实体实例ID（存储在资源库/实体摆放/中）
     signals: Dict[str, dict] = field(default_factory=dict)  # 信号配置（存档级别）
     created_at: str = ""
     updated_at: str = ""
@@ -259,7 +271,7 @@ class PackageIndex:
         设计约定：
         - PackageIndex 负责“索引”，只在磁盘上保存资源 ID 与基础元数据；
           存档级信号的完整定义存储在 `资源库/管理配置/信号/<package_id>_signals.json` 中；
-        - Todo 勾选状态属于编辑器运行期状态，不写回功能包索引 JSON，而是由运行时状态文件单独持久化。
+        - Todo 勾选状态属于编辑器运行期状态，不写回索引 JSON，而是由运行时状态文件单独持久化。
         - 内存中的 `signals` 字段可暂存完整定义，
           但序列化到存档索引 JSON 时只输出一个轻量摘要（信号 ID 列表），
           真实数据由管理配置资源承载。

@@ -17,7 +17,10 @@ from .validation_cache import (
 
 # 合并规则模块（仅基于 M2/M3 原子规则与复合节点结构规则，不再依赖旧适配器）
 from .rules.code_syntax_rules import (
-    NoListDictLiteralRule,
+    SyntaxSugarRewriteRule,
+    ListLiteralRewriteRule,
+    DictLiteralRewriteRule,
+    UnsupportedPythonSyntaxRule,
     NoFStringLambdaEnumerateRule,
     MatchCaseLiteralPatternRule,
     NoMethodNestedCallsRule,
@@ -29,12 +32,26 @@ from .rules.code_structure_rules import (
     NoDirectLogicNotCallInIfRule,
     IfBoolEqualityToConstRule,
     VariadicMinArgsRule,
+    DictAnnotationRequiresKeyValueRule,
     GraphVarsDeclarationRule,
+    GraphVarNameLengthRule,
+    GraphVarsDefaultIdDigitsRule,
+    GraphVarsDefaultIntegerPlaceholderRule,
+    GraphVarsStructNameRequiredRule,
+    GraphVarRedundantInitOnEntityCreatedRule,
+    CustomVarRedundantInitOnEntityCreatedRule,
+    CustomVarNameRequiredRule,
+    UiLevelCustomVarTargetEntityRule,
+    IdLiteralTenDigitsRule,
+    IdPortLiteralTenDigitsRule,
     NoLiteralAssignmentRule,
     UnknownNodeCallRule,
     EventHandlerNameRule,
+    EventHandlerSignatureRule,
     EventNameRule,
     OnMethodNameRule,
+    ClientSkillGraphSingleStartEventRule,
+    ClientFilterGraphSingleReturnRule,
     TypeNameRule,
     SignalParamNamesRule,
     RequiredInputsRule,
@@ -43,15 +60,29 @@ from .rules.code_structure_rules import (
     LocalVarUsageRule,
     NodeCallGameRequiredRule,
 )
-from .rules.code_quality_rules import (
+from .rules.code_quality import (
+    IrModelingErrorsRule,
+    GraphStructuralErrorsRule,
     LongWireRule,
     EventMultipleFlowOutputsRule,
+    EntityDestroyEventMountRule,
     PullEvalReevaluationHazardRule,
+    PullEvalSameSourceArithmeticHazardRule,
+    DictComputeMultiUseHazardRule,
+    DictMutationRequiresGraphVarRule,
     UnusedQueryOutputRule,
     UnreachableCodeRule,
 )
-from .rules.code_port_types_match import PortTypesMatchRule
+from .rules.code_port_types_match import PortTypesMatchRule, SameTypeInputsRule
 from .rules.composite_types_nesting import CompositeTypesAndNestingRule
+from .rules.composite_pin_direction import CompositePinDirectionRule
+from .rules.composite_node_name_length import CompositeNodeNameLengthRule
+from .rules.composite_flow_nodes_required import CompositeFlowNodesRequiredRule
+from .rules.composite_graph_structural_errors import CompositeGraphStructuralErrorsRule
+from .rules.composite_virtual_pins_must_be_mapped import (
+    CompositeFlowPinReachabilityRule,
+    CompositeVirtualPinsMustBeMappedRule,
+)
 from .rules.node_index import clear_node_index_caches
 from engine.nodes.composite_file_policy import is_composite_definition_file
 
@@ -68,7 +99,11 @@ def _freeze_config_value(value: Any) -> Any:
 
 def _is_composite_file(path: Path) -> bool:
     """判断文件是否应按“复合节点”规则集校验。"""
-    return is_composite_definition_file(path)
+    if is_composite_definition_file(path):
+        return True
+    # 兼容：测试/工具可能会把复合节点源码写入临时目录后直接传给 validate_files；
+    # 此时不应因“不在资源库目录结构下”而误判为普通节点图并触发 GraphCodeParser。
+    return path.is_file() and path.suffix == ".py" and path.stem.startswith("composite_") and path.name != "__init__.py"
 
 
 def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[ValidationRule[EngineIssue]]:
@@ -93,12 +128,37 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
     if is_composite:
         if composite_enabled:
             rules = [
+                CompositeNodeNameLengthRule(),
                 CompositeTypesAndNestingRule(),
+                CompositePinDirectionRule(),
+                CompositeFlowNodesRequiredRule(),
+                CompositeVirtualPinsMustBeMappedRule(),
+                CompositeFlowPinReachabilityRule(),
+                CompositeGraphStructuralErrorsRule(),
+                # 复合节点同样可能调用信号/结构体语义节点；这些端口包含静态配置端口（如“信号名/结构体名”），
+                # 必须在复合节点校验中同步约束，避免出现 UI/运行期不支持的“连线驱动静态端口”用法。
+                SignalParamNamesRule(),
+                StructNameRequiredRule(),
+                CustomVarNameRequiredRule(),
+                GraphVarNameLengthRule(),
+                IdLiteralTenDigitsRule(),
+                IdPortLiteralTenDigitsRule(),
                 LocalVarInitialValueRule(),
                 LocalVarUsageRule(),
                 NodeCallGameRequiredRule(),
-                NoListDictLiteralRule(),
+                SyntaxSugarRewriteRule(),
+                ListLiteralRewriteRule(),
+                DictLiteralRewriteRule(),
+                UnsupportedPythonSyntaxRule(),
                 MatchCaseLiteralPatternRule(),
+                NoFStringLambdaEnumerateRule(),
+                NoMethodNestedCallsRule(),
+                NoInlineIfInCallRule(),
+                NoInlineArithmeticInRangeRule(),
+                # 复合节点源码同样是 Graph Code：端口类型与同型输入约束必须在复合节点校验中覆盖，
+                # 否则会出现“节点图能报错，但复合节点内部同样写法不报错”的口径漂移。
+                PortTypesMatchRule(),
+                SameTypeInputsRule(),
             ]
             _RULE_CACHE[cache_key] = rules
             return rules
@@ -109,7 +169,13 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
     if atomic_enabled:
         rules.extend(
             [
-                NoListDictLiteralRule(),
+                # 工程化：UI源码占位符与自定义变量“目标实体”一致性校验需要基于原始 AST；
+                # 语法糖改写会 deepcopy AST 并可能改变节点调用形态，因此放在改写之前执行。
+                UiLevelCustomVarTargetEntityRule(),
+                SyntaxSugarRewriteRule(),
+                ListLiteralRewriteRule(),
+                DictLiteralRewriteRule(),
+                UnsupportedPythonSyntaxRule(),
                 MatchCaseLiteralPatternRule(),
                 NoFStringLambdaEnumerateRule(),
                 NoMethodNestedCallsRule(),
@@ -121,15 +187,34 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
                 VariadicMinArgsRule(),
                 RequiredInputsRule(),
                 GraphVarsDeclarationRule(),
+                GraphVarNameLengthRule(),
+                GraphVarsDefaultIdDigitsRule(),
+                GraphVarsDefaultIntegerPlaceholderRule(),
+                GraphVarsStructNameRequiredRule(),
+                GraphVarRedundantInitOnEntityCreatedRule(),
+                CustomVarRedundantInitOnEntityCreatedRule(),
+                CustomVarNameRequiredRule(),
                 NoLiteralAssignmentRule(),
                 UnknownNodeCallRule(),
                 EventHandlerNameRule(),
+                EventHandlerSignatureRule(),
                 EventNameRule(),
                 OnMethodNameRule(),
+                ClientSkillGraphSingleStartEventRule(),
+                ClientFilterGraphSingleReturnRule(),
+                DictAnnotationRequiresKeyValueRule(),
                 TypeNameRule(),
+                IdLiteralTenDigitsRule(),
+                IdPortLiteralTenDigitsRule(),
                 LongWireRule(),
                 EventMultipleFlowOutputsRule(),
+                EntityDestroyEventMountRule(),
+                IrModelingErrorsRule(),
+                GraphStructuralErrorsRule(),
                 PullEvalReevaluationHazardRule(),
+                PullEvalSameSourceArithmeticHazardRule(),
+                DictComputeMultiUseHazardRule(),
+                DictMutationRequiresGraphVarRule(),
                 SignalParamNamesRule(),
                 StructNameRequiredRule(),
                 LocalVarInitialValueRule(),
@@ -141,6 +226,7 @@ def _build_rules(config: Dict[str, Any], *, is_composite: bool) -> List[Validati
         rules.extend(
             [
                 PortTypesMatchRule(),
+                SameTypeInputsRule(),
                 UnusedQueryOutputRule(),
                 UnreachableCodeRule(),
             ]

@@ -13,4 +13,5 @@ from engine.utils.logging.logger import log_info
 )
 def 查询玩家职业(game, 玩家实体):
     """查询玩家当前的职业，会输出该职业的配置ID"""
-    return "职业ID_战士"
+    profession_id = game.get_custom_variable(玩家实体, "当前职业配置ID", "职业ID_战士")
+    return profession_id

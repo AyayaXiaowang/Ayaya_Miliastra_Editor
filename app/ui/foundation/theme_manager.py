@@ -97,6 +97,10 @@ class ThemeManager:
         return cls._cached("list", component_styles.list_style)
 
     @classmethod
+    def graph_search_overlay_style(cls) -> str:
+        return cls._cached("graph_search_overlay", component_styles.graph_search_overlay_style)
+
+    @classmethod
     def left_panel_style(cls) -> str:
         return cls._cached("left_panel", component_styles.left_panel_style)
 
@@ -276,7 +280,8 @@ class ThemeManager:
             palette.setColor(QtGui.QPalette.ColorRole.ToolTipBase, bg_card)
             palette.setColor(QtGui.QPalette.ColorRole.ToolTipText, text_primary)
             palette.setColor(QtGui.QPalette.ColorRole.Highlight, highlight)
-            palette.setColor(QtGui.QPalette.ColorRole.HighlightedText, text_on_primary)
+            # 浅色主题：BG_SELECTED 很浅（蓝 50），默认选中文本应使用主文本色，避免“白底白字”。
+            palette.setColor(QtGui.QPalette.ColorRole.HighlightedText, text_primary)
 
         app.setPalette(palette)
 

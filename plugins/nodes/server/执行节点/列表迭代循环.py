@@ -6,7 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="列表迭代循环",
     category="执行节点",
-    inputs=[("流程入", "流程"), ("跳出循环", "流程"), ("列表", "泛型列表")],
+    inputs=[("流程入", "流程"), ("跳出循环", "流程"), ("迭代列表", "泛型列表")],
     outputs=[("循环体", "流程"), ("循环完成", "流程"), ("迭代值", "泛型")],
     description="按照列表顺序遍历循环指定列表",
     doc_reference="服务器节点/执行节点/执行节点.md"

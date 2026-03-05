@@ -6,9 +6,14 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="是否大于等于",
     category="运算节点",
+    inputs=[("左值", "泛型"), ("右值", "泛型")],
     outputs=[("结果", "布尔值")],
     description="返回左值是否大于等于右值",
-    doc_reference="客户端节点/运算节点/运算节点.md"
+    doc_reference="客户端节点/运算节点/运算节点.md",
+    input_generic_constraints={
+        "左值": ["整数", "浮点数"],
+        "右值": ["整数", "浮点数"],
+    },
 )
 def 是否大于等于(game, 左值, 右值):
     """返回左值是否大于等于右值"""

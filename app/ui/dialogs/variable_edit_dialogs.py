@@ -7,7 +7,7 @@ from typing import Optional, Sequence
 from PyQt6 import QtWidgets
 
 from engine.graph.models.entity_templates import get_all_variable_types
-from engine.graph.models.package_model import GraphVariableConfig, VariableConfig
+from engine.graph.models.package_model import GraphVariableConfig
 from app.ui.foundation.base_widgets import BaseDialog
 from app.ui.foundation.theme_manager import Colors, ThemeManager
 from app.ui.foundation import dialog_utils
@@ -69,31 +69,6 @@ class _BaseVariableDialog(BaseDialog):
             dialog_utils.show_warning_dialog(self, "警告", "请输入变量名")
             return False
         return True
-
-
-class EntityVariableEditDialog(_BaseVariableDialog):
-    """实体/模板变量编辑对话框。"""
-
-    def __init__(self, parent=None, variable: Optional[VariableConfig] = None) -> None:
-        super().__init__(title="编辑自定义变量" if variable else "新建自定义变量", type_items=get_all_variable_types(), parent=parent)
-        self._variable = variable
-        if variable:
-            self._load_variable(variable)
-
-    def _load_variable(self, variable: VariableConfig) -> None:
-        self.name_edit.setText(variable.name)
-        self.type_combo.setCurrentText(variable.variable_type)
-        if variable.default_value is not None:
-            self.default_edit.setText(str(variable.default_value))
-        self.desc_edit.setPlainText(variable.description or "")
-
-    def get_variable(self) -> VariableConfig:
-        return VariableConfig(
-            name=self.name_edit.text().strip(),
-            variable_type=self.type_combo.currentText(),
-            default_value=self.default_edit.text().strip(),
-            description=self.desc_edit.toPlainText().strip(),
-        )
 
 
 class GraphVariableEditDialog(_BaseVariableDialog):

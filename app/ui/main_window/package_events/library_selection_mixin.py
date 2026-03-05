@@ -7,6 +7,13 @@ from typing import Any, Dict
 from app.models.view_modes import ViewMode
 from engine.utils.logging.logger import log_info
 from app.ui.graph.library_pages.library_scaffold import LibrarySelection
+from app.ui.main_window.right_panel_contracts import (
+    CONTRACT_SHOW_ITEM_EDITOR,
+    CONTRACT_SHOW_PLAYER_CLASS_EDITOR,
+    CONTRACT_SHOW_PLAYER_EDITOR,
+    CONTRACT_SHOW_PROPERTY,
+    CONTRACT_SHOW_SKILL_EDITOR,
+)
 
 
 class LibrarySelectionMixin:
@@ -164,7 +171,7 @@ class LibrarySelectionMixin:
                 self.package_controller.current_package,
                 template_id,
             )
-            self.right_panel.ensure_visible("property", visible=True, switch_to=True)
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_PROPERTY)
             view_state = getattr(self, "view_state", None)
             template_state = getattr(view_state, "template", None)
             if template_state is not None:
@@ -193,7 +200,7 @@ class LibrarySelectionMixin:
                 self.package_controller.current_package,
                 instance_id,
             )
-            self.right_panel.ensure_visible("property", visible=True, switch_to=True)
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_PROPERTY)
             view_state = getattr(self, "view_state", None)
             placement_state = getattr(view_state, "placement", None)
             if placement_state is not None:
@@ -211,7 +218,7 @@ class LibrarySelectionMixin:
         package = self.package_controller.current_package
         if package and package.level_entity:
             self.property_panel.set_level_entity(package)
-            self.right_panel.ensure_visible("property", visible=True, switch_to=True)
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_PROPERTY)
             view_state = getattr(self, "view_state", None)
             placement_state = getattr(view_state, "placement", None)
             if placement_state is not None:
@@ -247,7 +254,7 @@ class LibrarySelectionMixin:
             setattr(combat_state, "current_section_key", "player_template")
             setattr(combat_state, "current_item_id", str(template_id))
         if current_view_mode == ViewMode.COMBAT:
-            self.right_panel.set_combat_detail_tabs_visible(player_template=True)
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_PLAYER_EDITOR)
 
     def _on_skill_selected(self, skill_id: str) -> None:
         """战斗预设-技能选中"""
@@ -277,8 +284,7 @@ class LibrarySelectionMixin:
             setattr(combat_state, "current_item_id", str(skill_id))
         # 在战斗预设模式下选中技能时，自动切到“技能”标签，并按需插入对应标签页
         if current_view_mode == ViewMode.COMBAT:
-            self.right_panel.set_combat_detail_tabs_visible(skill=True)
-            self.right_panel.switch_to("skill_editor")
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_SKILL_EDITOR)
 
     def _on_item_selected(self, item_id: str) -> None:
         """战斗预设-道具选中"""
@@ -307,8 +313,7 @@ class LibrarySelectionMixin:
             setattr(combat_state, "current_section_key", "item")
             setattr(combat_state, "current_item_id", str(item_id))
         if current_view_mode == ViewMode.COMBAT:
-            self.right_panel.set_combat_detail_tabs_visible(item=True)
-            self.right_panel.switch_to("item_editor")
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_ITEM_EDITOR)
 
     def _on_player_class_selected(self, class_id: str) -> None:
         """战斗预设-职业选中"""
@@ -333,7 +338,6 @@ class LibrarySelectionMixin:
         self.player_class_panel.set_context(package, class_id)
         # 在战斗预设模式下选中职业时，将右侧当前标签切换到“职业”详情，并按需插入对应标签页
         if current_view_mode == ViewMode.COMBAT:
-            self.right_panel.set_combat_detail_tabs_visible(player_class=True)
-            self.right_panel.switch_to("player_class_editor")
+            self.right_panel.apply_visibility_contract(CONTRACT_SHOW_PLAYER_CLASS_EDITOR)
 
 

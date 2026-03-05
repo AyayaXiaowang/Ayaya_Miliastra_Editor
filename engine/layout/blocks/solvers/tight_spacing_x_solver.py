@@ -30,7 +30,7 @@ def compute_final_block_left_x(
         # 无全局上下文时，保持基础X不变（安全回退）
         return base_left_x
 
-    # 1) 端口约束：计算所有“来自已放置左侧块”的流程入边
+    # 1) 端口约束：计算所有“来自已放置左侧块”的 flow/data 入边
     required_min_left_from_ports: Optional[float] = compute_min_left_from_port_gap(config, runtime, block)
 
     # 2) 几何约束：避免与左侧已放置块发生矩形重叠（仅考虑Y区间有交的块）
@@ -64,7 +64,7 @@ def compute_min_left_from_port_gap(
     block: LayoutBlock,
 ) -> Optional[float]:
     """
-    计算由“流程入口X >= 上一个出口X + 200”产生的对当前块左边界的最小要求。
+    计算由“入口X >= 上一个出口X + spacing”产生的对当前块左边界的最小要求。
 
     Returns:
         required_min_left_from_ports 或 None（当不存在来自已放置块的入边时）
@@ -75,20 +75,24 @@ def compute_min_left_from_port_gap(
     if context is None:
         return None
 
-    # 收集该块内所有流程节点的“来自流程的入边”
+    # 收集该块内节点的“来自已放置块的入边”。
+    #
+    # 说明：旧实现仅考虑 flow 入边；这会导致仅通过 data 边相连的块在 X 贴近时缺少硬约束，
+    # 进而出现“data 连线右→左折返”（例如 获取局部变量 -> 设置节点图变量）。
     incoming_pairs: List[Tuple[float, float]] = []  # [(prev_output_abs_x, target_entrance_local_x), ...]
 
     # 当前块内部节点的局部位置映射
     local_pos_map = block.node_local_pos or {}
 
-    # 枚举该块的流程节点
-    for dst_node_id in getattr(block, "flow_nodes", []):
-        # 取所有流程入边（目标必须是流程端口）
-        for raw_edge in context.get_in_flow_edges(dst_node_id):
+    # 枚举该块内所有“已分配局部坐标”的节点（包含 flow 与 data 节点）
+    for dst_node_id in local_pos_map.keys():
+        # 目标入口端口的局部X（输入在左侧，取节点localX作为端口X）
+        target_entrance_local_x = float(local_pos_map[dst_node_id][0])
+
+        # 1) flow 入边（目标必须是流程端口）
+        for raw_edge in context.get_in_flow_edges(dst_node_id) or []:
             edge = cast("EdgeModel", raw_edge)
             src_node_id = edge.src_node
-            dst_port_name = edge.dst_port
-            _ = dst_port_name  # 保持与旧实现一致（dst_port_name 仅用于语义提示）
 
             # 源节点所属块
             src_block = config.block_map.get(src_node_id)
@@ -103,10 +107,23 @@ def compute_min_left_from_port_gap(
             node_width = getattr(src_block, "node_width", NODE_WIDTH_DEFAULT) or NODE_WIDTH_DEFAULT
             prev_output_abs_x = src_block_left + src_node_local_x + float(node_width)
 
-            # 目标入口端口的局部X（输入在左侧，取节点localX作为端口X）
-            if dst_node_id not in local_pos_map:
+            incoming_pairs.append((prev_output_abs_x, target_entrance_local_x))
+
+        # 2) data 入边（目标必须是数据端口）
+        for raw_edge in context.get_in_data_edges(dst_node_id) or []:
+            edge = cast("EdgeModel", raw_edge)
+            src_node_id = edge.src_node
+
+            src_block = config.block_map.get(src_node_id)
+            if (src_block is None) or (src_block == block) or (src_block not in runtime.positioned_blocks):
                 continue
-            target_entrance_local_x = float(local_pos_map[dst_node_id][0])
+
+            if src_node_id not in (src_block.node_local_pos or {}):
+                continue
+            src_block_left = float(src_block.top_left_pos[0])
+            src_node_local_x = float(src_block.node_local_pos[src_node_id][0])
+            node_width = getattr(src_block, "node_width", NODE_WIDTH_DEFAULT) or NODE_WIDTH_DEFAULT
+            prev_output_abs_x = src_block_left + src_node_local_x + float(node_width)
 
             incoming_pairs.append((prev_output_abs_x, target_entrance_local_x))
 

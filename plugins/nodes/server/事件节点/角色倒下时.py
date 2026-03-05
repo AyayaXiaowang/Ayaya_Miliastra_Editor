@@ -8,10 +8,17 @@ from engine.utils.logging.logger import log_info
     category="事件节点",
     outputs=[("流程出", "流程"), ("角色实体", "实体"), ("原因", "枚举"), ("击倒者实体", "实体")],
     description="角色倒下时，角色实体上的节点图可以触发该事件",
-    doc_reference="服务器节点/事件节点/事件节点.md"
+    doc_reference="服务器节点/事件节点/事件节点.md",
+    output_enum_options={
+        "原因": [
+            "倒下原因_节点图导致",
+            "倒下原因_正常被击倒",
+            "倒下原因_非正常被击倒",
+        ],
+    },
 )
 def 角色倒下时(game):
     """角色倒下时，角色实体上的节点图可以触发该事件"""
     角色 = game.create_mock_entity("角色")
     击倒者 = game.create_mock_entity("敌人")
-    return 角色, "生命值归零", 击倒者
+    return 角色, "倒下原因_正常被击倒", 击倒者

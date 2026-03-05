@@ -30,21 +30,36 @@ env/
 Thumbs.db
 .DS_Store
 
+# ---------- tests（不对外仓库上传） ----------
+tests/**
+
 # Jupyter notebooks（只在本地使用，不进仓库）
 *.ipynb
+
+# Local scratch / temporary debug scripts
+# .tmp_* 覆盖所有以 .tmp_ 开头的临时文件（.py, .json, .log 等）
+.tmp_*
+# _tmp_* 覆盖以 _tmp_ 开头的临时脚本和目录
+_tmp_*
+#
+# __tmp_*：历史临时目录/包名前缀（与 _tmp_* 语义一致）
+__tmp_*
+
+
+docs/**
 
 # Project caches and local state
 runtime/cache/
 app/runtime/cache/
 app/runtime/todo_states/
 user_settings.json
+app/runtime/package_state.json
 
 # 防止误把 workspace_path 指到 engine/ 导致缓存跑到 engine/app/runtime/cache
 engine/app/runtime/cache/
 
-# Directory rules docs:
-# - Public directories: `claude.md` is versioned to document purpose/state/notes.
-# - Private directories: rely on the directory-level ignore rules below (docs/, projects/, assets/资源库/** ...).
+# Docs（公开文档允许入库；仅本地诊断/证据链不对外）
+docs/diagnostics/
 
 # 旧版 runtime 缓存路径（兼容历史）
 runtime/graph_cache/
@@ -52,64 +67,95 @@ runtime/resource_cache/
 runtime/node_cache/
 runtime/name_sync_state.json
 
-# 本地私有工程目录（不随仓库分发 / 展示型发布不公开）
-docs/
-projects/
+# 打包与分发脚本（版本化；产物仍写入 release/ 并保持忽略）
 
-# 本地私有打包脚本目录（不进仓库）
-tools/packaging/
+# ---------- 资源库（版本化） ----------
+# `assets/资源库/` 需要被程序员开发与协作：不做默认忽略。
+# 编译产物与缓存仍应忽略（已由全局规则覆盖：__pycache__/ *.pyc 等）。
 
-# ---------- 资源库上传策略 ----------
-# 默认忽略整个资源库内容
-assets/资源库/**
 
-# 但保留资源库及其子目录结构本身，便于后续精细控制
-!assets/资源库/
-!assets/资源库/**/
 
-# 允许：以“示例_”或“模板示例_”开头的资源文件（任意子目录、任意后缀）
-!assets/资源库/**/示例_*
-!assets/资源库/**/模板示例_*
+# 项目存档归档快照（原始解析/二进制数据块/大体量 dump；默认不对外）
+assets/资源库/项目存档/_archive/**
 
-# 节点图前导脚本（生成的节点图代码会 `from _prelude import *` 依赖它；必须随仓库分发）
-!assets/资源库/节点图/server/_prelude.py
-!assets/资源库/节点图/server/_prelude.pyi
-!assets/资源库/节点图/client/_prelude.py
-!assets/资源库/节点图/client/_prelude.pyi
+# 对外开源发布：内容/授权未确认前，默认不上传（Need Confirm）
 
-# 节点图快速校验脚本（便于只在资源库维度做校验）
-!assets/资源库/节点图/校验节点图.py
+assets/资源库/项目存档/锻刀/**
+assets/资源库/项目存档/第七关/**
+# 项目存档下的临时/对比/验证包：一律视为临时产物，不入库
+assets/资源库/项目存档/__tmp_*/
+assets/资源库/项目存档/_tmp_*/
+assets/资源库/项目存档/verify_*/
+assets/资源库/项目存档/cmp_*/
+assets/资源库/项目存档/临时诊断_*/
+projects/**
+# Release artifacts (local build outputs)
+release/**
+!release/claude.md
 
-# 节点图目录规则文档（只放行节点图相关 claude.md，避免扩大资源库入库范围）
-!assets/资源库/节点图/claude.md
-!assets/资源库/节点图/server/claude.md
-!assets/资源库/节点图/server/模板示例/claude.md
-!assets/资源库/节点图/client/claude.md
-!assets/资源库/节点图/client/技能节点图/claude.md
-!assets/资源库/节点图/client/本地过滤器节点图/claude.md
+# Local scratch / generated artifacts (not versioned)
+tmp/**
+# tmp_ 开头的临时目录（如 tmp_user_case_compare/ 等调试对比目录）
+tmp_*/
 
-# 明确白名单：复合节点模板（用于公开测试与示例）
-!assets/资源库/复合节点库/composite_多引脚模板_示例.py
+# 构建/导出输出目录（性质同 release/，不进仓库）
+out/
 
-# 但即使被白名单放行，也必须继续忽略编译产物与缓存目录/文件（否则会把 .pyc 等带进仓库）
-assets/资源库/**/__pycache__/
-assets/资源库/**/*.py[cod]
-assets/资源库/**/*.pyo
-assets/资源库/**/*.pyd
+# Private extensions artifacts (generated / debug outputs)
+private_extensions/**/_artifacts/_debug_screenshots/**
 
-# 明确白名单：官方内置"信号/结构体全类型示例"及其功能包
-!assets/资源库/管理配置/结构体定义/struct_all_supported_types_example.py
-!assets/资源库/管理配置/信号/signal_all_supported_types_example.py
-!assets/资源库/地图索引/pkg_示例_信号全参数类型.json
+# Private extensions export outputs（导出/对比/诊断产物；禁止上传）
+private_extensions/**/out/**
 
-# 明确白名单：资源库全类型示例功能包索引
-!assets/资源库/功能包索引/pkg_示例_资源库全类型.json
+# Nested git repositories inside private_extensions（严禁上传；同时避免误 add）
+private_extensions/**/.git/**
 
-# 明确白名单：模板示例节点图依赖的教学示例信号（用于 CI 回归）
-!assets/资源库/管理配置/信号/signal_example_pedal_switch_state.py
-!assets/资源库/管理配置/信号/signal_example_pedal_switch_activation_ack.py
+# Private extensions caches（生成缓存；禁止上传）
+private_extensions/**/*.cache.json
 
-# 如需额外的测试资源，可以在此处增加精确白名单，例如：
-# !assets/资源库/实例/测试_关卡1.json
-# !assets/资源库/实例/测试用/**
+# ugc_file_tools 本地样本与解析状态（可再生成/可能包含本机或未授权内容；默认不对外）
+private_extensions/ugc_file_tools/save/**
 
+# ugc_file_tools 内置资源（运行必需/默认依赖的 seed；需要随仓库分发）
+# - 该目录为“对外仓库可版本化的最小 seed”
+# - 其余真源/样本请放在 save/ 并默认忽略
+!private_extensions/ugc_file_tools/builtin_resources/**
+!private_extensions/ugc_file_tools/builtin_resources/claude.md
+# 对外开源发布：`builtin_resources/资产/` 目录不随仓库上传（已迁移到 builtin_resources/gia_templates/）
+private_extensions/ugc_file_tools/builtin_resources/资产/**
+private_extensions/ugc_file_tools/parse_status/**
+!private_extensions/ugc_file_tools/parse_status/claude.md
+
+# UI schema library 沉淀数据（由 recorder 自动生成；可能包含私有 UI 信息与本机绝对路径）
+private_extensions/ugc_file_tools/ui_schema_library/data/index.json
+private_extensions/ugc_file_tools/ui_schema_library/data/records/**
+
+# ugc_file_tools 旧版 GIA 模板目录（已迁移到 builtin_resources/资产/；旧路径避免误入库）
+private_extensions/ugc_file_tools/资产/**
+
+# ---------- tools（对外发布时默认排除的脚本） ----------
+# 说明：
+# - `private_extensions/ugc_file_tools` 已对外；但 `private_extensions/**/out/**` 等仍为本地产物，保持忽略。
+# - Level/关卡专项内容生产脚本（如“第七关/亲戚”）属于项目数据生产链，不作为通用工具对外发布。
+tools/ui_workbench_batch_export_bundle_and_patch_gil.py
+tools/diagnose_equal_string_constants.py
+tools/generate_min_ui_node9_fixture.py
+tools/scan_ugc_file_tools_import_policy.py
+tools/extract_gia_template_names_for_graphs.py
+tools/inspect_gil_id_ref.py
+tools/fix_import_policy_*.py
+tools/debug_ui_workbench_*.py
+tools/generate_level7_*.py
+tools/import_level7_*.py
+tools/naturalize_level7_*.py
+tools/patch_level7_*.py
+
+
+
+# ---------- plugins（版本化） ----------
+# `plugins/` 需要程序员协作开发与维护：不做默认忽略。
+# 编译产物与缓存仍应忽略（已由全局规则覆盖：__pycache__/ *.pyc 等）。
+
+# Git config
+
+.cursorignore

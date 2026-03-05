@@ -1,0 +1,16 @@
+{
+  "status_id": "status_20251205_103537_348138_7bbc",
+  "status_name": "单位状态1",
+  "description": "",
+  "duration": 0.0,
+  "is_stackable": false,
+  "max_stacks": 1,
+  "effect_type": "buff",
+  "effect_values": {},
+  "icon": "",
+  "metadata": {},
+  "id": "status_20251205_103537_348138_7bbc",
+  "last_modified": "2025-12-05 10:35:37",
+  "updated_at": "2025-12-05T10:35:37.348138",
+  "name": "单位状态1"
+}

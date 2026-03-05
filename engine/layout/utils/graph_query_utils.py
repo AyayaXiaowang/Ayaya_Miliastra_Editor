@@ -11,6 +11,7 @@ from typing import Optional, Set, List, Union, Callable, Dict, Tuple, TYPE_CHECK
 
 from engine.graph.models import GraphModel, NodeModel
 from engine.utils.graph.graph_utils import is_flow_port_name
+from engine.nodes.port_type_system import FLOW_PORT_TYPE
 from engine.configs.settings import settings
 from ..internal.constants import (
     NODE_HEIGHT_DEFAULT,
@@ -69,6 +70,28 @@ if TYPE_CHECKING:
     from ..internal.layout_context import LayoutContext
 
 
+def _get_port_type_snapshot(node: NodeModel, port_name: str, *, is_input: bool) -> str:
+    """从 NodeModel 的端口类型快照中查询端口类型（缺失则返回空串）。"""
+    if node is None:
+        return ""
+    port_name_text = str(port_name or "")
+    if not port_name_text:
+        return ""
+    type_map = getattr(node, "effective_input_types" if bool(is_input) else "effective_output_types", None)
+    if not isinstance(type_map, dict):
+        return ""
+    value = type_map.get(port_name_text)
+    return str(value or "") if isinstance(value, str) else ""
+
+
+def is_flow_input_port(node: NodeModel, port_name: str) -> bool:
+    """上下文感知的流程输入口判定（以端口类型快照为真源，名称规则仅作兼容回退）。"""
+    port_type = _get_port_type_snapshot(node, port_name, is_input=True)
+    if port_type == FLOW_PORT_TYPE:
+        return True
+    return is_flow_port_name(str(port_name or ""))
+
+
 def _make_pure_data_checker(model: GraphModel) -> Callable[[str], bool]:
     def _checker(node_id: str) -> bool:
         return is_pure_data_node(node_id, model)
@@ -92,7 +115,7 @@ def _resolve_data_in_edges_fetcher(
             if edge.dst_node != node_id:
                 continue
             dst_port = dst_node.get_input_port(edge.dst_port)
-            if dst_port and not is_flow_port_name(dst_port.name):
+            if dst_port and not is_flow_input_port(dst_node, dst_port.name):
                 edges.append(edge)
         return edges
 
@@ -149,7 +172,7 @@ def build_edge_indices(
         if not dst_node:
             continue
         dst_port = dst_node.get_input_port(edge.dst_port)
-        is_flow_target = bool(dst_port and is_flow_port_name(dst_port.name))
+        is_flow_target = bool(dst_port and is_flow_input_port(dst_node, dst_port.name))
 
         if is_flow_target:
             flow_out_by_node.setdefault(src_id, []).append(edge)
@@ -187,12 +210,15 @@ def get_ordered_flow_out_edges(
 def collect_data_chain_paths(
     model: GraphModel,
     start_data_id: str,
+    start_data_output_port: Optional[str],
     flow_id_set: Set[str],
     skip_data_ids: Set[str] = None,
     get_data_in_edges_func: Callable = None,
     include_skip_node_as_terminus: bool = False,
     layout_context: Optional["LayoutContext"] = None,
-    shared_cache: Optional[Dict[str, List[Tuple[List[str], Optional[str], bool]]]] = None,
+    shared_cache: Optional[
+        Dict[Tuple[str, str], List[Tuple[List[str], Optional[str], bool]]]
+    ] = None,
     budget: Optional[ChainTraversalBudget] = None,
     max_results: Optional[int] = None,
 ) -> ChainPathsResult:
@@ -206,6 +232,7 @@ def collect_data_chain_paths(
     Args:
         model: 图模型
         start_data_id: 起始数据节点ID
+        start_data_output_port: 起始数据节点连接到消费者的输出端口名（用于端口感知的上游裁剪）
         flow_id_set: 流程节点ID集合
         skip_data_ids: 跨块边界节点集合（可选）
         get_data_in_edges_func: 获取数据输入边的函数（可选，若未提供则全图扫描）
@@ -221,7 +248,7 @@ def collect_data_chain_paths(
     """
     skip_data_ids = skip_data_ids or set()
     traversal_budget = budget or get_chain_traversal_budget()
-    memo: Dict[str, List[Tuple[List[str], Optional[str], bool]]] = (
+    memo: Dict[Tuple[str, str], List[Tuple[List[str], Optional[str], bool]]] = (
         shared_cache if shared_cache is not None else {}
     )
     is_pure_node = _make_pure_data_checker(model)
@@ -237,10 +264,15 @@ def collect_data_chain_paths(
                 return index
         return 10**6
 
-    def _collect_recursive(data_id: str, visiting: Set[str]) -> List[Tuple[List[str], Optional[str], bool]]:
+    def _collect_recursive(
+        data_id: str,
+        used_output_port: str,
+        visiting: Set[Tuple[str, str]],
+    ) -> List[Tuple[List[str], Optional[str], bool]]:
         nonlocal exhausted_due_to_limits
         """递归收集路径（优化：记忆化 + 限流）"""
-        if data_id in visiting:
+        memo_key = (data_id, used_output_port)
+        if memo_key in visiting:
             return []
         if not is_pure_node(data_id):
             return []
@@ -254,10 +286,11 @@ def collect_data_chain_paths(
                 return []
 
         # 优化（方案C）：检查记忆化缓存
-        if data_id in memo:
-            return memo[data_id]
+        cached = memo.get(memo_key)
+        if cached is not None:
+            return cached
 
-        visiting.add(data_id)
+        visiting.add(memo_key)
         data_node_obj = model.nodes.get(data_id)
         upstream_edges_raw = get_data_in_edges(data_id)
         upstream_edges: List = list(upstream_edges_raw) if upstream_edges_raw else []
@@ -275,22 +308,41 @@ def collect_data_chain_paths(
                     key=lambda edge: _fallback_input_port_index(data_node_obj, edge.dst_port),
                 )
 
-        # 终止条件1（修正）：若存在"流程→数据"的上游边，记录其来源，但仍需展开其余纯数据上游
-        flow_sources: List[Tuple[str, int]] = []
-        for edge in upstream_edges:
-            if edge.src_node in flow_id_set:
-                if data_node_obj and layout_context is not None:
-                    port_index = layout_context.get_input_port_index(data_node_obj.id, edge.dst_port)
-                else:
-                    port_index = _fallback_input_port_index(data_node_obj, edge.dst_port)
-                flow_sources.append((edge.src_node, port_index))
+        # 说明：对“流程→数据”的上游边，不再在本节点级别强行选取单一来源并覆盖所有路径，
+        # 而是把每一条流程来源边视作“该输入端口的一条叶子子路径”：
+        # - 这样可以同时保留多条流程来源（多输入来自不同 flow 节点）；
+        # - 也避免某个端口的流程来源把其它端口的链条来源信息覆盖掉，从而漏算 flow_pair_required_gap。
 
-        chosen_flow_src: Optional[str] = None
-        is_flow_origin_here: bool = False
-        if flow_sources:
-            flow_sources.sort(key=lambda pair: pair[1])
-            chosen_flow_src = flow_sources[0][0]
-            is_flow_origin_here = True
+        # 端口感知的上游裁剪（特例）：【获取局部变量】的“局部变量(句柄)”输出不依赖“初始值”输入。
+        #
+        # 若不区分输出端口，链遍历会在“设置局部变量.局部变量(句柄)”这类链上继续展开【获取局部变量】的
+        # “初始值”上游，把初始化计算错误归属到分支体块，从而在布局中产生 data 回头线：
+        #   范围限制运算 -> 获取局部变量.初始值（src 在右、dst 在左）
+        #
+        # 这里在“链遍历”层面做最小定点修复：当链正在消费【获取局部变量】的句柄输出时，将其视作叶子节点，
+        # 不再展开其纯数据上游。
+        if data_node_obj is not None:
+            if str(getattr(data_node_obj, "title", "") or "") == "获取局部变量" and used_output_port == "局部变量":
+                flow_source_ids: List[str] = []
+                seen_flow_sources: Set[str] = set()
+                for edge in upstream_edges:
+                    upstream_id = getattr(edge, "src_node", None)
+                    if not isinstance(upstream_id, str) or upstream_id == "":
+                        continue
+                    if upstream_id not in flow_id_set:
+                        continue
+                    if upstream_id in seen_flow_sources:
+                        continue
+                    flow_source_ids.append(upstream_id)
+                    seen_flow_sources.add(upstream_id)
+
+                if flow_source_ids:
+                    result = [([data_id], flow_src, True) for flow_src in flow_source_ids]
+                else:
+                    result = [([data_id], None, False)]
+                visiting.remove(memo_key)
+                memo[memo_key] = result
+                return result
 
         # 收集所有上游纯数据节点的路径（端口公平 + 轮转合并）
         all_paths: List[Tuple[List[str], Optional[str], bool]] = []
@@ -298,10 +350,16 @@ def collect_data_chain_paths(
         # 预计算每条上游输入边的子路径列表（保持端口序）
         per_input_subpaths: List[List[Tuple[List[str], Optional[str], bool]]] = []
         for edge in upstream_edges:
-            # 仅考虑纯数据上游
-            upstream_id = edge.src_node
-            if upstream_id in flow_id_set:
+            upstream_id = getattr(edge, "src_node", None)
+            if not isinstance(upstream_id, str) or upstream_id == "":
                 continue
+
+            # 流程→数据：作为该输入端口的“叶子子路径”保留（不展开 flow 节点本体）
+            if upstream_id in flow_id_set:
+                per_input_subpaths.append([([data_id], upstream_id, True)])
+                continue
+
+            # 仅考虑纯数据上游
             if not is_pure_node(upstream_id):
                 continue
             # 跨块边界：
@@ -313,7 +371,8 @@ def collect_data_chain_paths(
                     per_input_subpaths.append([([data_id, upstream_id], None, False)])
                 continue
 
-            subpaths = _collect_recursive(upstream_id, visiting)
+            upstream_out_port = str(getattr(edge, "src_port", "") or "")
+            subpaths = _collect_recursive(upstream_id, upstream_out_port, visiting)
             if subpaths:
                 subpaths = _deduplicate_paths(subpaths)
             # 将子路径改写为当前起点前缀
@@ -326,9 +385,9 @@ def collect_data_chain_paths(
         # - 若存在流程来源，则以当前节点为终点，保留流程来源信息
         # - 否则，以自身为终止路径（与既有逻辑一致）
         if not per_input_subpaths:
-            result = [([data_id], chosen_flow_src, is_flow_origin_here)]
-            visiting.remove(data_id)
-            memo[data_id] = result
+            result = [([data_id], None, False)]
+            visiting.remove(memo_key)
+            memo[memo_key] = result
             return result
 
         max_per_node = traversal_budget.max_per_node
@@ -341,12 +400,7 @@ def collect_data_chain_paths(
             for sublist in per_input_subpaths:
                 take_count = min(min_per_input, len(sublist))
                 for index in range(take_count):
-                    nodes_list, src_flow_id, is_flow_origin = sublist[index]
-                    # 若本节点存在流程来源，则覆盖来源与标记
-                    if is_flow_origin_here and chosen_flow_src is not None:
-                        all_paths.append((nodes_list, chosen_flow_src, True))
-                    else:
-                        all_paths.append(sublist[index])
+                    all_paths.append(sublist[index])
                     if max_per_node > 0 and len(all_paths) >= max_per_node:
                         exhausted_due_to_limits = True
                         break
@@ -363,11 +417,7 @@ def collect_data_chain_paths(
                 for index, sublist in enumerate(per_input_subpaths):
                     pointer = pointers[index]
                     if pointer < len(sublist):
-                        nodes_list, src_flow_id, is_flow_origin = sublist[pointer]
-                        if is_flow_origin_here and chosen_flow_src is not None:
-                            all_paths.append((nodes_list, chosen_flow_src, True))
-                        else:
-                            all_paths.append(sublist[pointer])
+                        all_paths.append(sublist[pointer])
                         pointers[index] = pointer + 1
                         progressed = True
                         if max_per_node > 0 and len(all_paths) >= max_per_node:
@@ -383,13 +433,14 @@ def collect_data_chain_paths(
 
         all_paths = _deduplicate_paths(all_paths)
 
-        visiting.remove(data_id)
+        visiting.remove(memo_key)
         # 优化（方案C）：缓存结果
-        memo[data_id] = all_paths
+        memo[memo_key] = all_paths
         return all_paths
 
     # 收集路径
-    result = _collect_recursive(start_data_id, set())
+    start_out_port = str(start_data_output_port or "")
+    result = _collect_recursive(start_data_id, start_out_port, set())
 
     budget_exhausted = exhausted_due_to_limits
 
@@ -635,7 +686,7 @@ def build_input_port_layout_plan(
     render_input_names: List[str] = []
     for port in node_obj.inputs:
         port_name = str(port.name)
-        is_flow = is_flow_port_name(port_name)
+        is_flow = is_flow_input_port(node_obj, port_name)
         if is_variadic and ("~" in port_name) and (not is_flow):
             continue
         render_input_names.append(port_name)
@@ -645,11 +696,12 @@ def build_input_port_layout_plan(
     current_row = 0
 
     for port_name in render_input_names:
+        is_flow = is_flow_input_port(node_obj, port_name)
         row_index_by_port[port_name] = current_row
         current_row += 1
 
         needs_control_row = (
-            not is_flow_port_name(port_name)
+            (not is_flow)
             and port_name not in connected_input_ports
             and not _is_entity_input_port(node_obj, port_name, registry_context)
         )
@@ -714,7 +766,13 @@ def is_pure_data_node(node_or_id: Union[NodeModel, str], model: Optional[GraphMo
 
     if not node:
         return False
-    return not any(is_flow_port_name(port.name) for port in node.inputs + node.outputs)
+    for port in node.inputs:
+        if is_flow_input_port(node, port.name):
+            return False
+    for port in node.outputs:
+        if is_flow_output_port(node, port.name):
+            return False
+    return True
 
 
 def is_flow_output_port(node: NodeModel, port_name: str) -> bool:
@@ -732,7 +790,16 @@ def is_flow_output_port(node: NodeModel, port_name: str) -> bool:
     Returns:
         True 如果是流程输出端口
     """
-    return is_flow_port_name(port_name) or node.title == TITLE_MULTI_BRANCH
+    port_type = _get_port_type_snapshot(node, port_name, is_input=False)
+    if port_type == FLOW_PORT_TYPE:
+        return True
+
+    if str(getattr(node, "title", "") or "") == TITLE_MULTI_BRANCH:
+        # 多分支：所有输出端口均视为流程口（包括动态命名分支）。
+        # 注意：为避免“错误方向查询”把不存在的端口也判为流程口，这里要求该端口确实存在于 outputs。
+        return bool(getattr(node, "has_output_port", None) and node.has_output_port(str(port_name or ""))) or is_flow_port_name(str(port_name or ""))
+
+    return is_flow_port_name(str(port_name or ""))
 
 
 def is_data_edge(model: GraphModel, edge) -> bool:
@@ -750,7 +817,7 @@ def is_data_edge(model: GraphModel, edge) -> bool:
     if not dst_node:
         return False
     dst_port = dst_node.get_input_port(edge.dst_port)
-    return bool(dst_port and (not is_flow_port_name(dst_port.name)))
+    return bool(dst_port and (not is_flow_input_port(dst_node, dst_port.name)))
 
 
 def is_jump_out_edge(model: GraphModel, src_node_id: str, dst_node_id: str) -> bool:
@@ -808,7 +875,7 @@ def count_outgoing_data_edges(
         dst = model.nodes.get(edge.dst_node)
         if dst:
             dst_port_obj = dst.get_input_port(edge.dst_port)
-            if dst_port_obj and not is_flow_port_name(dst_port_obj.name):
+            if dst_port_obj and not is_flow_input_port(dst, dst_port_obj.name):
                 count += 1
     return count
 
@@ -849,10 +916,9 @@ def is_flow_edge(model: GraphModel, edge) -> bool:
         return False
     # 目标为流程输入 → 必然是流程边
     dst_port = dst_node.get_input_port(edge.dst_port)
-    if dst_port and is_flow_port_name(dst_port.name):
+    if dst_port and is_flow_input_port(dst_node, dst_port.name):
         return True
     # 回退：源为流程输出 → 流程边
-    src_port = src_node.get_output_port(edge.src_port)
-    return bool(src_port and is_flow_output_port(src_node, src_port.name))
+    return bool(is_flow_output_port(src_node, str(getattr(edge, "src_port", "") or "")))
 
 

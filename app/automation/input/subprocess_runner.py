@@ -32,6 +32,7 @@ def run_process(
     capture_output: bool = True,
     text_mode: bool = True,
     encoding: str = "utf-8",
+    errors: str = "replace",
 ) -> ProcessResult:
     """以统一方式运行外部进程，返回退出码与可选输出。"""
     completed = subprocess.run(
@@ -40,11 +41,43 @@ def run_process(
         capture_output=capture_output,
         text=text_mode,
         encoding=encoding if text_mode else None,
+        errors=errors if text_mode else None,
     )
     return ProcessResult(
         exit_code=int(completed.returncode),
         stdout=str(completed.stdout) if capture_output and text_mode else None,
         stderr=str(completed.stderr) if capture_output and text_mode else None,
+    )
+
+
+def spawn_process(
+    args: Sequence[str],
+    *,
+    working_directory: Optional[Path | str] = None,
+    env: dict[str, str] | None = None,
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    text_mode: bool = False,
+    encoding: str = "utf-8",
+    errors: str = "replace",
+) -> subprocess.Popen:
+    """启动子进程（适用于常驻服务/后台工具）。
+
+    说明：
+    - 不做异常吞没；启动失败会直接抛错；
+    - 若需要捕获输出，建议把 stdout/stderr 重定向到文件（避免 pipe 缓冲区写满导致阻塞）。
+    """
+    return subprocess.Popen(
+        list(args),
+        cwd=str(working_directory) if working_directory is not None else None,
+        env=dict(env) if env is not None else None,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+        text=bool(text_mode),
+        encoding=encoding if text_mode else None,
+        errors=errors if text_mode else None,
     )
 
 

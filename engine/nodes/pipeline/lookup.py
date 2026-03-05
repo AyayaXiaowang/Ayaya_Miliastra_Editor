@@ -45,6 +45,22 @@ def get_by_alias(index: Dict[str, Any], category: str, name_or_alias: str) -> Op
     if item is not None:
         return (candidate_key, item)
 
+    # 兼容：真实编辑器/导出链路里部分节点名会用“或”表达“/”的含义（例如 `实体移除销毁时` vs `实体移除/销毁时`）。
+    # V2 管线默认会为 `/` 注入若干可调用别名（去掉 `/`、合法化标识符等），但不会自动注入“或”变体；
+    # 因此这里在查询侧做一次无副作用的兜底映射：仅在未命中任何键时才尝试替换，避免覆盖已存在的精确节点名。
+    if "或" in name_or_alias and "/" not in name_or_alias:
+        alt = str(name_or_alias).replace("或", "/")
+        if alt != name_or_alias:
+            alt_key = f"{category}/{alt}"
+            mapped_key = alias_to_key.get(alt_key)
+            if mapped_key:
+                item = get_by_key(index, mapped_key)
+                if item is not None:
+                    return (mapped_key, item)
+            item = get_by_key(index, alt_key)
+            if item is not None:
+                return (alt_key, item)
+
     return None
 
 

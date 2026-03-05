@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-"""信号管理右侧编辑面板。
+"""信号管理右侧详情面板（管理模式）。
 
-作为主窗口右侧标签页中的一个面板，承载信号的编辑器与“使用情况”摘要：
+作为主窗口右侧标签页中的一个面板，展示信号的只读详情与“使用情况”摘要，并允许维护“所属项目存档”归属关系：
 - 上方标题与说明由 `PanelScaffold` 提供；
 - 中部通过 `QTabWidget` 区分“基本信息”和“使用情况”；
-- “基本信息”页内嵌 `SignalEditorWidget`，用于编辑信号名、描述与参数列表；
+- “基本信息”页内嵌 `SignalEditorWidget`，用于展示信号名、描述与参数列表（管理模式下默认只读）；
 - “使用情况”页展示当前信号在服务器节点图中的引用统计文本。
 
-本面板只关心 UI 组织与展示，具体的数据加载与保存逻辑由 `SignalsPage`
-通过公开属性 `editor/usage_label/tab_widget` 间接驱动。
+数据的选择、加载与保存由外层管理视图/控制器驱动；本面板提供 `set_*` 方法并暴露
+`editor/usage_label/tab_widget` 等控件以便外层注入数据与触发刷新。
 """
 
 from PyQt6 import QtCore, QtWidgets
@@ -28,7 +28,7 @@ class SignalManagementPanel(PanelScaffold):
 
     左侧列表负责选择信号，本面板负责：
     - 展示与编辑信号的基础信息与参数；
-    - 通过统一的“所属存档”多选行维护信号与功能包之间的多对多归属关系。
+    - 通过统一的“所属项目存档”行维护信号的归属关系。
     """
 
     # 信号所属存档变更 (signal_id, package_id, is_checked)
@@ -56,7 +56,7 @@ class SignalManagementPanel(PanelScaffold):
             self.body_layout,
             self,
             self._on_package_membership_changed,
-            label_text="所属存档:",
+            label_text="所属项目存档:",
         )
         # 初始阶段尚未选中具体信号，仅禁用下拉，多选行本身保持可见以统一布局
         self._package_selector.setEnabled(False)
@@ -105,14 +105,14 @@ class SignalManagementPanel(PanelScaffold):
         self.editor.set_read_only(True)
 
     def set_package_display(self, text: str) -> None:
-        """更新“所属存档”行标题。
+        """更新“所属项目存档”行标题。
 
-        当前实现保持标签文本为统一的“所属存档:”，具体视图上下文（如“<全部资源>”、
+        当前实现保持标签文本为统一的“所属项目存档:”，具体视图上下文（如“<共享资源>”、
         “<未分类资源>”或具体存档名称）由外层页面通过标题、描述等位置展示，不再在
         本行标签后追加括号说明，避免与其它复用该行布局的面板样式不一致。
         """
         _ = text  # 视图上下文目前仅用于外层展示，这里保持统一文案
-        self._package_label.setText("所属存档:")
+        self._package_label.setText("所属项目存档:")
 
     def set_signal_membership(self, packages: list[dict], membership: set[str]) -> None:
         """根据给定包列表与归属集合更新多选下拉状态。

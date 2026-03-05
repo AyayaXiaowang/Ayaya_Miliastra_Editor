@@ -13,4 +13,12 @@ from engine.utils.logging.logger import log_info
 )
 def 提升玩家当前职业经验(game, 目标玩家, 经验值):
     """提升玩家当前职业经验，超出最大等级的部分会无效"""
-    log_info(f"[提升玩家当前职业经验] 执行")
+    profession_id = game.get_custom_variable(目标玩家, "当前职业配置ID", "职业ID_战士")
+    var_name = f"职业经验_{profession_id}"
+
+    old_exp = game.get_custom_variable(目标玩家, var_name, 0)
+    delta = int(经验值)
+    new_exp = int(old_exp) + int(delta)
+
+    game.set_custom_variable(目标玩家, var_name, int(new_exp), trigger_event=True)
+    log_info("[提升玩家当前职业经验] profession_id={}, {} + {} = {}", profession_id, int(old_exp), int(delta), int(new_exp))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-一次性静态扫描：禁止在自动化目录内直接导入 `tools.vision_bridge`。
+一次性静态扫描：禁止在自动化目录内直接导入已废弃的 `vision_bridge` 历史路径（`tools.vision_bridge`）。
 
 说明：
 - 视觉识别能力应统一通过 `app.automation.vision` 访问；
@@ -54,9 +54,9 @@ def main() -> int:
             violations_total += len(findings)
 
     if violations_total > 0:
-        print(f"共发现 {violations_total} 处违反 '禁止直接导入 tools.vision_bridge' 的代码。", file=sys.stderr)
+        print(f"共发现 {violations_total} 处违反 '禁止直接导入 vision_bridge 历史路径（tools.vision_bridge）' 的代码。", file=sys.stderr)
         return 1
-    print("扫描通过：未发现对 tools.vision_bridge 的直接导入。")
+    print("扫描通过：未发现对 vision_bridge 历史路径（tools.vision_bridge） 的直接导入。")
     return 0
 
 

@@ -2,6 +2,7 @@ from typing import Any, Callable, Optional
 
 from PyQt6 import QtCore, QtWidgets
 
+from app.common.selection_restore_policy import compute_selection_restore_decision
 from app.ui.foundation.toolbar_utils import apply_standard_toolbar
 from app.ui.foundation import dialog_utils
 
@@ -203,33 +204,58 @@ def rebuild_list_with_preserved_selection(
     - on_first_selection: 无法恢复但列表非空、默认选中第一条记录时的回调（可为空）。
     - on_cleared_selection: 列表从“有选中项”变为空时的回调（可为空）。
     """
-    list_widget.clear()
-    build_items()
+    previous_updates_enabled = bool(list_widget.updatesEnabled())
+    list_widget.setUpdatesEnabled(False)
+
+    # 列表重建期间禁止发射信号，避免：
+    # - clear() 触发一次“空选中”回调；
+    # - build_items() 逐项 addItem 导致的 UI 反复刷新与级联更新（右侧面板/状态徽章等）。
+    signal_blocker = QtCore.QSignalBlocker(list_widget)
+    try:
+        list_widget.clear()
+        build_items()
+    finally:
+        # 必恢复语义：即使 build_items() 抛错，也不能把列表永久留在“禁用更新/阻塞信号”的状态，
+        # 否则 UI 表现为假死（无法重绘/无法触发选中联动）。
+        del signal_blocker
+        list_widget.setUpdatesEnabled(previous_updates_enabled)
 
     item_count = list_widget.count()
+    keys_by_row: list[Any | None] = []
+    for row_index in range(item_count):
+        list_item = list_widget.item(row_index)
+        keys_by_row.append(key_getter(list_item))
 
-    if previous_key is not None:
-        for row_index in range(item_count):
-            list_item = list_widget.item(row_index)
-            key_value = key_getter(list_item)
-            if key_value is not None and key_value == previous_key:
-                list_widget.setCurrentItem(list_item)
-                if on_restored_selection is not None:
-                    on_restored_selection(previous_key)
-                return
+    decision = compute_selection_restore_decision(
+        keys_by_row=keys_by_row,
+        previous_key=previous_key,
+        had_selection_before_refresh=had_selection_before_refresh,
+    )
 
-    if item_count == 0:
-        if had_selection_before_refresh and on_cleared_selection is not None:
+    if decision.action == "restored":
+        row_index = int(decision.row_index) if decision.row_index is not None else -1
+        if row_index < 0 or row_index >= item_count:
+            return
+        list_item = list_widget.item(row_index)
+        if list_item is None:
+            return
+        list_widget.setCurrentItem(list_item)
+        if on_restored_selection is not None:
+            on_restored_selection(decision.key)
+        return
+
+    if decision.action == "cleared":
+        if on_cleared_selection is not None:
             on_cleared_selection()
+        return
+
+    if decision.action == "none":
         return
 
     # previous_key 为空或无法恢复，但当前列表非空：默认选中第一条。
     list_widget.setCurrentRow(0)
-    first_item = list_widget.item(0)
-    if first_item is None:
-        return
-
-    first_key = key_getter(first_item)
-    if first_key is not None and on_first_selection is not None:
-        on_first_selection(first_key)
+    if on_first_selection is not None:
+        first_key = decision.key
+        if first_key is not None:
+            on_first_selection(first_key)
 

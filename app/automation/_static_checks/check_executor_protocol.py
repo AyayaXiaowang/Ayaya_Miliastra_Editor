@@ -8,7 +8,7 @@
 3. 依赖executor的模块是否使用协议类型注解
 
 使用方式：
-    python app/automation/_static_checks/check_executor_protocol.py
+    python -X utf8 -m app.automation._static_checks.check_executor_protocol
 """
 
 import inspect
@@ -16,22 +16,23 @@ import sys
 from pathlib import Path
 from typing import Protocol, get_type_hints, get_origin
 
-# 添加项目根目录到Python路径
-workspace_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(workspace_root))
+if not __package__:
+    raise SystemExit(
+        "请从项目根目录使用模块方式运行：\n"
+        "  python -X utf8 -m app.automation._static_checks.check_executor_protocol\n"
+        "（不再支持通过脚本内 sys.path.insert 的方式运行）"
+    )
 
-from app.automation.editor.executor_protocol import EditorExecutorProtocol
-from app.automation.editor.editor_executor import EditorExecutor
+from engine.utils.logging.console_encoding import install_utf8_streams_on_windows
+from engine.utils.logging.console_sanitizer import ascii_safe_print as safe_print
+from engine.utils.workspace import resolve_workspace_root
 
+install_utf8_streams_on_windows(errors="replace")
 
-def ascii_safe_print(message: object) -> None:
-    """避免控制台编码炸裂：把不可编码字符转义后输出。"""
-    text = str(message)
-    print(text.encode("ascii", errors="backslashreplace").decode("ascii"))
+workspace_root = resolve_workspace_root(start_paths=[Path(__file__).resolve()])
 
-
-safe_print = ascii_safe_print
-
+from app.automation.editor.executor_protocol import EditorExecutorProtocol  # noqa: E402
+from app.automation.editor.editor_executor import EditorExecutor  # noqa: E402
 
 def check_protocol_implementation():
     """检查 EditorExecutor 是否完整实现了 EditorExecutorProtocol"""

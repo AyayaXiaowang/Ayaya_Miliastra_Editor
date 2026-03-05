@@ -75,7 +75,9 @@ class UIWidgetPreviewItem(QtWidgets.QGraphicsItem):
         painter.drawRoundedRect(rect, 4, 4)
 
         # 绘制控件类型图标和文本
-        painter.setPen(QtGui.QColor(Colors.TEXT_ON_PRIMARY))
+        # 注意：预览项背景使用 BG_CARD/BG_CARD_HOVER（浅色主题下为白色系），
+        # 因此文字应使用随主题变化的 TEXT_PRIMARY，而不是固定白色的 TEXT_ON_PRIMARY。
+        painter.setPen(QtGui.QColor(Colors.TEXT_PRIMARY))
         font = painter.font()
         font.setPixelSize(min(14, int(height * 0.3)))
         painter.setFont(font)

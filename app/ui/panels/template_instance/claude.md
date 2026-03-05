@@ -1,23 +1,16 @@
 ## 目录用途
-`ui/panels/template_instance/` 收纳元件/实体属性面板的标签页子组件，每个标签独立维护 UI 与数据交互逻辑，便于 `TemplateInstancePanel` 仅负责装配与信号协调。
+`ui/panels/template_instance/` 收纳元件模板/实体摆放/关卡实体的属性面板子标签页（tabs）。每个 tab 独立维护 UI 与数据交互逻辑，`TemplateInstancePanel` 负责装配、上下文注入与信号协调。
 
 ## 当前状态
-- `basic_info_tab.py`：基础信息输入区域，管理名称/描述/类型标签/实体坐标与可选 GUID 等字段，描述输入支持自适应高度与去抖信号写回，并提供显式刷新入口以便在保存存档或切换功能包前将缓冲中的基础信息（名称/描述/GUID/模型ID 等）立即写回当前对象；更新逻辑统一通过 `TemplateInstanceService` 应用到当前对象（GUID 统一写入 `metadata["guid"]`，元件与实体/关卡实体共享同一存储约定），继承 `TemplateInstanceTabBase` 以复用上下文与布局构建能力；对于被标记为“掉落物”的元件，会在标签页内额外展示“掉落物名称 / 备注 / 模型ID”三个字段；“所属存档”字段提升到 `TemplateInstancePanel` 的面板级状态区域统一呈现，由面板持有的 `PackageMembershipSelector` 与存档索引联动并通过 `template_package_membership_changed` 信号写入索引，从而在切换标签页时始终保持可见；实体上下文会在类型标签中以“实体 - 实体类型”展示当前摆放实体的类型，并在基础信息页内联展示其世界坐标；关卡实体上下文仍在本标签页中使用同一选择器编辑其“所属存档”，并通过 `PackageIndexManager` 维持“每个存档至多一个关卡实体”的约束。
-- `graphs_tab.py`：节点图列表与暴露变量覆盖编辑，负责对接 `ResourceManager`、`PackageIndexManager` 与 `GraphSelectionDialog`，并向上游发射 `graph_selected` 信号；节点图增删及变量覆写统一委托 `TemplateInstanceService`，上下文列表通过基类 `_collect_context_lists` 汇总元件/实例/关卡实体差异；图数据优先走共享的 `GraphDataService`/`GraphAsyncLoader` 缓存与线程池，错误与确认提示通过 `app.ui.foundation.dialog_utils` 封装的对话框函数展示；在元件/实例属性面板中，处于“掉落物”上下文时整体会隐藏“节点图”标签页，如在其他场景单独复用本标签页，则内部仍以只读提示“掉落物不支持挂节点图”并禁用新增与修改能力；节点图列表支持工具条“+ 添加节点图 / 删除”按钮以及在列表上右键弹出“删除当前行”菜单项，删除操作仅移除当前对象上的引用，不会影响节点图库中的图文件本身；列表前缀使用“🔗 [继承]”标记模板来源节点图，使用“【额外】”标记仅挂在实例或关卡实体上的节点图；下方“节点图暴露变量覆盖”区域复用 `TwoRowFieldTableWidget` 的两行结构表格（序号/变量名/数据类型/覆盖值），展示每个暴露变量的当前生效数值：当实例/模板未设置覆盖时直接读取节点图内的默认值（包括列表/字典等复杂类型，按节点图变量编辑表格相同的展开样式展示），当用户在表格中修改数值时，仅当与默认值不同时才写入 `graph_variable_overrides[graph_id][var_name]`，将覆盖值以原始类型（字符串/列表/字典等）存储，用户将值改回默认值时自动清理对应覆盖条目，保证数据结构简洁。
-- `variables_tab.py`：自定义变量增删与继承/覆写标记展示，基于 `TwoRowFieldTableWidget` 的两行结构表格组件实现内联编辑；点击"+ 添加自定义变量"在表格中插入一条默认字段（名称"新变量"，类型"字符串"），后续在同一行内对名称、类型或默认值的修改都会被视为“编辑当前变量”，而不会额外创建重复变量；继承变量设为只读，并通过**序号列的浅灰底色+灰色前景色**区分来源，覆写变量可编辑并使用**序号列浅蓝底色+蓝色前景色**标记，额外变量（实体与关卡实体上的附加变量）则使用**序号列浅绿色底色**表达“仅在该对象上存在”的含义，其余列保持统一卡片底色，仅通过控件自身的只读样式区分是否可编辑，避免在嵌套文本框/结构体列表编辑器中出现只覆盖一小块的色块；输入框里始终只展示真实变量名而不额外拼接前缀文案。工具条下方提供颜色图例标签，对应浅灰/浅蓝/浅绿三种背景色，帮助首次使用者快速理解不同来源变量的含义；所有增删与覆写操作交由 `TemplateInstanceService` 执行，并依赖 `_collect_context_lists` 组合元件/实体/关卡实体视图。列表/字典类型支持内联子表格编辑和折叠展开，“结构体列表”变量在数据值列使用专用的 `StructListEditorWidget`：上方通过标准化工具条选择基础结构体 ID（来源于管理配置中的结构体定义列表），结构体下拉框与“+ 添加条目 / 删除 / 编辑”按钮复用全局主题按钮/下拉样式，保证嵌入表格单元格时也有清晰的前景/背景对比；下方列表中每一行对应一个结构体条目，双击或点击“编辑”会弹出 `StructListItemEditDialog`，按结构体定义的字段顺序展示“序号 / 字段名 / 类型 / 数据值”表格，仅允许编辑“数据值”列并将结果以 `{字段名: 值}` 形式写回当前条目；针对右键“删除字段”场景，通过比较字段列表长度与名称差集在一次写回中识别被移除的变量，并统一复用变量删除逻辑（包含继承/覆写提示），避免依赖行号映射导致的模型不同步；当 `metadata["custom_variable_file"]` 提供外部关卡变量引用时，本标签页通过 `LevelVariableSchemaView` 从 `assets/资源库/管理配置/关卡变量` 下的代码定义中按“相对路径或文件名（不含扩展名）”解析 `LEVEL_VARIABLES` 列表，并将这些代码级关卡变量以只读形式投射为外部自定义变量视图，保持变量的唯一 ID 与中心化 Schema 一致。
-  - 变量标签页的“结构体列表编辑器 / 表格扩展 / 外部变量解析”已拆分为 `struct_list_editor_widget.py` / `variables_table_widget.py` / `variables_external_loader.py`，标签页本身聚焦于上下文编排与服务调用。
-- `components_tab.py`：通用组件标签页，区分元件继承与实体或关卡实体上的额外组件，内部对模型的写回同样通过 `TemplateInstanceService` 完成，并借助基类提供的集合辅助减少类型分支；组件类型列表在首次弹出时缓存 `get_all_component_types()` 的结果以降低后续弹窗延迟，删除时对继承组件给出统一的只读提示；当上下文为掉落物元件或其实体时，仅允许添加“特效播放 / 碰撞触发源 / 铭牌 / 自定义变量”四种组件类型，其余选项不再出现在下拉列表中；组件类型选择通过 `ContextMenuBuilder` 构建的上下文菜单完成，统一复用主题系统提供的右键菜单样式与语义动作；组件标签页主体采用“工具栏 + 可滚动分组卡片”布局，内容区域按组件类型垂直排列若干 `QGroupBox` 分组，每个分组选用“折叠按钮 + 组件标题 + 删除按钮”的头部行，并在主体区域展示通用组件注册表中的组件描述（统一使用 `engine.configs.components.component_registry` 暴露的定义）以及配置表单；组件表单区域通过 `component_form_factory.create_component_form()` 接入结构化表单：目前支持“背包”的容量编辑、“铭牌”组件的多配置管理（支持配置 ID 从 1 开始递增和“初始生效”开关），以及“选项卡”组件的多选项卡配置（每个选项卡可设置序号、排序等级、初始生效、本地过滤器类型与本地过滤器节点图 ID）；组件删除入口既可以通过工具条“删除”按钮，也可以使用分组内的“删除组件”按钮，所有删除操作在实例上下文中都会忽略继承自模板的组件；在组件卡片标题中，模板继承组件使用“🔗 [继承] ⚙️ 类型名”形式标记来源，实体和关卡实体独有组件统一使用“【额外】 ⚙️ 类型名”的标题前缀以表达“仅在当前对象上存在”的含义而不过度强调“新增”动作。
-  - 组件表单工厂已开始引入 `ui/forms/schema_bound_form.SchemaBoundForm`：`背包/选项卡/铭牌` 组件的主要字段分组已支持通过 `FormFieldSpec` 列表声明并绑定到 settings/config dict，减少重复的控件创建/赋值/写回样板代码，便于后续继续把更多组件表单与复杂字段逐步迁移为 schema 驱动。
-  - `component_form_factory.py` 仅保留“组件类型 -> 表单实现”路由；具体表单实现拆分到 `component_form_backpack.py` / `component_form_nameplate.py` / `component_form_tabs.py`，避免单文件表单职责过载。
-- `tab_base.py`：提供 `TemplateInstanceTabBase`，统一各标签页的上下文注入/清理、依赖注入（服务、资源管理器与索引管理器）以及工具栏和通用布局构建；内置 `_collect_context_lists`、`set_service/resource_manager` 等辅助方法，避免每个标签重复管理状态或重复实现同样的集合聚合逻辑；额外提供 `is_drop_template_config()` 与 `_is_drop_item_context()` 辅助函数，用于判定指定元件或当前上下文是否属于“掉落物”类别，供各标签页按需调整 UI 与行为（例如隐藏节点图相关入口或收窄组件类型）。
-- 所有标签页可按需实现 `set_read_only()`，由 `TemplateInstancePanel` 在任务清单等只读场景下统一切换为只读预览模式：外层仍可切换标签与更新上下文，但内部输入框与增删按钮会被禁用，避免在任务指引视图中误改真实资源。
+- **通用属性**：`basic_info_tab.py` 作为 Common Inspector，展示/编辑基础字段与 `metadata.common_inspector` 下的通用模块；支持装饰物列表编辑，并提供“打散为元件”快捷动作（将 `decorations` 拆分为多个独立元件模板写入 `元件库/`）；折叠状态通过 `JsonCacheService` 记忆。
+- **图与变量覆写**：`graphs_tab.py` 管理挂载节点图与“暴露变量覆盖”；资源读写委托 `TemplateInstanceService`，图数据加载复用 `GraphDataService/GraphAsyncLoader`，并通过 `GraphSelectionDialog` 选图。
+- **变量标签页**：`variables_tab.py` 只做“关卡变量定义预览 + 实例覆写值编辑”；外部引用解析集中在 `variables_external_loader.py`，复杂值编辑复用 `struct_list_editor_widget.py` / `variables_table_widget.py`。
+- **组件标签页**：`components_tab.py` 提供 Inspector 风格组件卡片列表与 `ComponentPickerDialog`；允许组件集合由 `engine.configs.rules.get_entity_allowed_components()` 推导；表单实现由 `component_form_factory.py` 路由并通过 `on_settings_changed` 上抛保存请求。
+- **战斗标签页**：`combat_tab.py` 管理战斗相关字段（写入 `entity_config["battle"]`）。
+- **通用基类/控件**：`tab_base.py` 提供 `TemplateInstanceTabBase`（上下文注入、工具栏、集合聚合、只读切换）；`vector3_editor.py` 提供可复用三维向量编辑控件。
 
 ## 注意事项
-- 所有子组件通过 `set_context()` 注入 `current_object`/`object_type`/`package`，不要直接访问面板实例字段。
-- 如需新增标签，请保持统一信号接口（`data_changed`、可选自定义信号），并在面板中集中转发。
-- Tab 内部修改完数据后立即刷新自身 UI，保持状态与模型同步。
-- 构建含增删操作的工具条时，优先复用 `TemplateInstanceTabBase._build_toolbar`，保持按钮顺序与样式一致。
-- 各标签页中的提示文本、占位说明以及继承/灰显状态的前景色应统一复用 `ThemeManager.Colors` 中的文本/提示色 token（如 `TEXT_SECONDARY`/`TEXT_HINT`/`TEXT_DISABLED`），避免在 `setStyleSheet` 或 `QColor` 中直接写死灰度十六进制颜色，以便在暗色与浅色主题之间切换时保持可读性与对比度。
-- 若需要输入弹窗（例如插入变量占位符等），统一使用 `app.ui.foundation.prompt_text/prompt_item/prompt_int`；消息框提示统一走 `app.ui.foundation.dialog_utils`。
-
+- 所有 tab 必须通过 `set_context()` 接收 `current_object/object_type/package`，不要直接依赖面板内部字段或全局单例。
+- 需要写盘/校验/确认提示时，统一走服务层与 `app.ui.foundation.dialog_utils` / `prompt_*`；主题色与提示文案统一使用 `ThemeManager` token。
+- 变量“定义”不在此处编辑：定义在 `管理配置/关卡变量` 的 Python 文件中维护；本目录只处理预览与覆写值。
 

@@ -1,0 +1,25 @@
+{
+  "instance_id": "level_pkg_20251129_190700_266546__测试基础内容",
+  "name": "关卡实体",
+  "template_id": "level_pkg_20251129_190700_266546__测试基础内容",
+  "position": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "rotation": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "override_variables": [],
+  "additional_graphs": [],
+  "additional_components": [],
+  "metadata": {
+    "is_level_entity": true,
+    "entity_type": "关卡",
+    "custom_variable_file": "auto_custom_vars__level__测试基础内容"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": "2025-12-24T00:00:00.000000"
+}

@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import copy
+import re
+from pathlib import Path
 from typing import Any, Optional, Union
 
 from engine.graph.models.package_model import (
     ComponentConfig,
     InstanceConfig,
     TemplateConfig,
-    VariableConfig,
 )
+from engine.resources.package_view import PackageView
+from engine.resources.resource_manager import ResourceManager, ResourceType
+from engine.utils.resource_library_layout import get_packages_root_dir
 
 ConfigType = Union[TemplateConfig, InstanceConfig]
 
@@ -21,11 +26,6 @@ class TemplateInstanceService:
         "template": "default_components",
         "instance": "additional_components",
         "level_entity": "additional_components",
-    }
-    _VARIABLE_COLLECTIONS = {
-        "template": "default_variables",
-        "instance": "override_variables",
-        "level_entity": "override_variables",
     }
     _GRAPH_COLLECTIONS = {
         "template": "default_graphs",
@@ -92,6 +92,196 @@ class TemplateInstanceService:
             f"previous={previous_guid!r}, current={current_guid!r}"
         )
 
+    # ---------------------------------------------------------------- Decorations
+    @staticmethod
+    def _sanitize_id_token(text: str) -> str:
+        """将任意文本收敛为可读的 ID token（仅用于拼接新资源 ID）。"""
+        raw = str(text or "").strip()
+        if not raw:
+            return "unknown"
+        normalized = raw.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        normalized = re.sub(r"[^0-9a-zA-Z_]+", "_", normalized)
+        normalized = re.sub(r"_+", "_", normalized).strip("_")
+        return normalized or "unknown"
+
+    def split_decorations_to_templates(
+        self,
+        *,
+        source: ConfigType,
+        object_type: str,
+        package: PackageView,
+        resource_manager: ResourceManager,
+        carrier_model_name: str = "空模型",
+    ) -> list[str]:
+        """将 `source.metadata.common_inspector.model.decorations` 打散为多个元件模板。
+
+        约定：
+        - 每个装饰物生成一个“空模型载体模板”，并把该装饰物作为唯一 decorations 写入
+          `metadata.common_inspector.model.decorations`；
+        - 新模板立即写盘到当前 package 的资源根目录（`assets/资源库/项目存档/<package_id>/元件库/`）；
+        - 返回新建 template_id 列表（按 decorations 原始顺序）。
+        """
+        if source is None:
+            return []
+        if not isinstance(package, PackageView):
+            raise TypeError(f"package 必须为 PackageView（got: {type(package).__name__}）")
+        if not isinstance(resource_manager, ResourceManager):
+            raise TypeError(
+                f"resource_manager 必须为 ResourceManager（got: {type(resource_manager).__name__}）"
+            )
+
+        metadata = getattr(source, "metadata", None)
+        if not isinstance(metadata, dict):
+            return []
+        inspector = metadata.get("common_inspector")
+        if not isinstance(inspector, dict):
+            return []
+        model = inspector.get("model")
+        if not isinstance(model, dict):
+            return []
+
+        raw_decorations = model.get("decorations")
+        if not isinstance(raw_decorations, list):
+            return []
+
+        decorations: list[dict[str, object]] = []
+        for entry in raw_decorations:
+            if isinstance(entry, dict):
+                decorations.append(entry)
+            elif isinstance(entry, str) and entry.strip():
+                # 兼容旧的字符串列表：将字符串视为 displayName，生成最小 decoration 形态
+                decorations.append(
+                    {
+                        "instanceId": f"split_{len(decorations) + 1}",
+                        "displayName": entry.strip(),
+                        "isVisible": True,
+                        "assetId": 0,
+                        "parentId": "GI_RootNode",
+                        "transform": {
+                            "pos": {"x": 0.0, "y": 0.0, "z": 0.0},
+                            "rot": {"x": 0.0, "y": 0.0, "z": 0.0},
+                            "scale": {"x": 1.0, "y": 1.0, "z": 1.0},
+                            "isLocked": False,
+                        },
+                        "physics": {
+                            "enableCollision": True,
+                            "isClimbable": True,
+                            "showPreview": False,
+                        },
+                    }
+                )
+
+        if not decorations:
+            return []
+
+        resource_library_dir = getattr(resource_manager, "resource_library_dir", None)
+        if not isinstance(resource_library_dir, Path):
+            raise RuntimeError("ResourceManager.resource_library_dir 缺失，无法解析写入目录")
+
+        package_id_text = str(getattr(package, "package_id", "") or "").strip()
+        if not package_id_text:
+            raise ValueError("package.package_id 为空，无法写入项目存档目录")
+
+        package_root_dir = (get_packages_root_dir(resource_library_dir) / package_id_text).resolve()
+        if not package_root_dir.exists() or not package_root_dir.is_dir():
+            raise FileNotFoundError(f"未找到项目存档目录：{package_root_dir}")
+
+        existing_template_ids = set(resource_manager.list_resources(ResourceType.TEMPLATE))
+
+        source_identifier = ""
+        if hasattr(source, "template_id"):
+            source_identifier = str(getattr(source, "template_id") or "")
+        elif hasattr(source, "instance_id"):
+            source_identifier = str(getattr(source, "instance_id") or "")
+        source_identifier = source_identifier.strip()
+        if not source_identifier:
+            source_identifier = "source"
+
+        source_name = str(getattr(source, "name", "") or "").strip() or source_identifier
+
+        source_ugc = metadata.get("ugc")
+        ugc_base: dict[str, object] = dict(source_ugc) if isinstance(source_ugc, dict) else {}
+
+        base_common_inspector = copy.deepcopy(inspector)
+        created_template_ids: list[str] = []
+
+        filename_bucket = resource_manager.id_to_filename_cache.setdefault(ResourceType.TEMPLATE, {})
+
+        for index, deco in enumerate(decorations):
+            raw_unit_key = str(deco.get("instanceId") or "").strip() or str(index + 1)
+            source_token = self._sanitize_id_token(source_identifier)
+            unit_token = self._sanitize_id_token(raw_unit_key)
+            base_id = f"template_split_deco_{source_token}_{unit_token}"
+
+            template_id = base_id
+            bump = 2
+            while template_id in existing_template_ids:
+                template_id = f"{base_id}_{bump}"
+                bump += 1
+            existing_template_ids.add(template_id)
+            created_template_ids.append(template_id)
+
+            display_name = str(deco.get("displayName") or "").strip() or f"装饰物_{index + 1}"
+            template_name = display_name
+
+            ugc_meta = dict(ugc_base)
+            ugc_meta["source"] = "split_decorations_to_templates"
+            ugc_meta["split_from_object_type"] = str(object_type or "").strip() or "unknown"
+            ugc_meta["split_from_id"] = source_identifier
+            ugc_meta["split_from_name"] = source_name
+            ugc_meta["split_from_decoration_instanceId"] = str(deco.get("instanceId") or "")
+            ugc_meta["split_from_decoration_displayName"] = str(deco.get("displayName") or "")
+
+            inspector_copy = copy.deepcopy(base_common_inspector)
+            model_copy = inspector_copy.get("model")
+            if not isinstance(model_copy, dict):
+                model_copy = {}
+                inspector_copy["model"] = model_copy
+            model_copy["decorations"] = [copy.deepcopy(deco)]
+
+            template_payload: dict[str, object] = {
+                "template_id": str(template_id),
+                "name": str(template_name),
+                "entity_type": "物件",
+                "description": f"由 {source_name} 装饰物打散生成",
+                "default_graphs": [],
+                "default_variables": [],
+                "default_components": [],
+                "entity_config": {
+                    "render": {"model_name": str(carrier_model_name), "visible": True},
+                },
+                "metadata": {
+                    "object_model_name": str(carrier_model_name),
+                    "ugc": ugc_meta,
+                    "common_inspector": inspector_copy,
+                },
+                "graph_variable_overrides": {},
+            }
+
+            safe_stem = resource_manager.sanitize_filename(str(template_name)) or "装饰物"
+            filename_bucket[str(template_id)] = f"{safe_stem}_{template_id}"
+
+            saved = resource_manager.save_resource(
+                ResourceType.TEMPLATE,
+                str(template_id),
+                dict(template_payload),
+                resource_root_dir=package_root_dir,
+            )
+            if not saved:
+                raise RuntimeError(f"保存模板失败：template_id={template_id!r}")
+
+        # 同步到 PackageView 的资源列表（目录即存档：语义等价于“写入了该目录”）
+        resources = getattr(getattr(package, "package_index", None), "resources", None)
+        template_ids_list = getattr(resources, "templates", None) if resources is not None else None
+        if isinstance(template_ids_list, list):
+            for template_id in created_template_ids:
+                if template_id not in template_ids_list:
+                    template_ids_list.append(template_id)
+            template_ids_list.sort(key=lambda text: str(text).casefold())
+            package.clear_cache()
+
+        return created_template_ids
+
     # ------------------------------------------------------------------ Components
     def add_component(
         self,
@@ -129,101 +319,6 @@ class TemplateInstanceService:
         if component in collection:
             collection.remove(component)
             return True
-        return False
-
-    # ------------------------------------------------------------------ Variables
-    def add_variable(
-        self,
-        target: ConfigType,
-        object_type: str,
-        variable: VariableConfig,
-    ) -> bool:
-        if not target or not variable:
-            return False
-        collection = self._ensure_collection(target, object_type, self._VARIABLE_COLLECTIONS, create=True)
-        if collection is None:
-            return False
-        for index, existing in enumerate(collection):
-            if existing.name == variable.name:
-                collection[index] = variable
-                return True
-        collection.append(variable)
-        return True
-
-    def remove_variable(
-        self,
-        target: ConfigType,
-        object_type: str,
-        variable: Optional[VariableConfig],
-        source: str,
-    ) -> bool:
-        if not target or variable is None:
-            return False
-        collection = self._ensure_collection(target, object_type, self._VARIABLE_COLLECTIONS)
-        if collection is None:
-            return False
-        if object_type != "template":
-            if source == "inherited":
-                return False
-            if source == "overridden":
-                updated = [v for v in collection if v.name != variable.name]
-                if len(updated) != len(collection):
-                    setattr(target, self._VARIABLE_COLLECTIONS[object_type], updated)
-                    return True
-                return False
-        if variable in collection:
-            collection.remove(variable)
-            return True
-        return False
-
-    def update_variable(
-        self,
-        target: ConfigType,
-        object_type: str,
-        original_variable: VariableConfig,
-        updated_variable: VariableConfig,
-        source: str,
-    ) -> bool:
-        """在保持变量顺序稳定的前提下更新变量配置。
-
-        设计约定：
-        - 模板上下文：直接在 default_variables 中原位替换记录，避免因“删后再追加”导致序号变化。
-        - 实例/关卡实体上下文：
-          - 继承变量（source == "inherited"）：在 override_variables 中创建或更新覆写记录，不改动模板定义；
-          - 覆写/额外变量：在 override_variables 中按对象身份查找并原位替换，同样不打乱顺序。
-        """
-        if not target or not original_variable or not updated_variable:
-            return False
-        collection = self._ensure_collection(
-            target,
-            object_type,
-            self._VARIABLE_COLLECTIONS,
-            create=True,
-        )
-        if collection is None:
-            return False
-
-        # 实例或关卡实体中编辑“继承变量”：在覆写列表中创建/更新记录，保持模板定义不变。
-        if object_type != "template" and source == "inherited":
-            for index, existing in enumerate(collection):
-                if existing.name == updated_variable.name:
-                    collection[index] = updated_variable
-                    return True
-            collection.append(updated_variable)
-            return True
-
-        # 其余来源：优先按对象身份匹配，在原位置替换记录，保证列表顺序稳定。
-        for index, existing in enumerate(collection):
-            if existing is original_variable:
-                collection[index] = updated_variable
-                return True
-
-        # 回退逻辑：在无法通过对象身份匹配时退回到按旧名称匹配，兼容少量迁移场景。
-        for index, existing in enumerate(collection):
-            if existing.name == original_variable.name:
-                collection[index] = updated_variable
-                return True
-
         return False
 
     # ------------------------------------------------------------------ Graphs
@@ -300,4 +395,5 @@ class TemplateInstanceService:
         if collection is None and create:
             collection = []
             setattr(target, attr, collection)
+        return collection
         return collection

@@ -456,8 +456,29 @@ class ParamUsageTracker:
         queue = self._find_node_queue(func_name, title_to_queue)
         if not queue:
             return
-        
-        dst_node = queue.pop(0)
+
+        # 关键：不要无脑 pop(0)。
+        #
+        # 背景：
+        # - IR 会在“赋值/分支合流/预声明输出变量”等场景自动插入【获取/设置局部变量】等技术性节点，
+        #   这些节点在源码中未必有直接对应的 ast.Call；
+        # - 若仅按创建顺序 pop，会导致“源码里的某个调用”被错误配对到“IR 自动插入的同名节点”，
+        #   从而把入口形参的使用记录错写到错误 node_id，最终虚拟引脚映射对不上结构校验，误报缺线。
+        #
+        # 策略：优先按源码行号范围匹配（call.lineno 落在 node.source_lineno~source_end_lineno 之间），
+        # 找到最早匹配的节点再 pop；找不到再退回 pop(0) 保持兼容。
+        call_lineno = int(getattr(call_expr, "lineno", 0) or 0)
+        matched_index: int | None = None
+        if call_lineno > 0:
+            for idx, candidate in enumerate(list(queue)):
+                node_lo = int(getattr(candidate, "source_lineno", 0) or 0)
+                node_hi = int(getattr(candidate, "source_end_lineno", 0) or node_lo)
+                if node_lo <= 0:
+                    continue
+                if node_lo <= call_lineno <= (node_hi or node_lo):
+                    matched_index = idx
+                    break
+        dst_node = queue.pop(matched_index if matched_index is not None else 0)
         
         # 关键字参数
         for keyword in getattr(call_expr, 'keywords', []):

@@ -1,20 +1,15 @@
-# 目录用途
-- 复合节点（Composite）相关的图解析与格式转换工具：负责将复合节点的类格式解析为统一的 IR，并跟踪参数使用情况。
-- `pin_api.py` 维护 `流程入/流程出/数据入/数据出` 等声明式辅助函数，运行期 no-op，方便节点图代码引用。
-- `pin_marker_collector.py` 负责扫描 AST，提取上述辅助函数与方法签名中蕴含的自动引脚声明。
+## 目录用途
+复合节点（Composite）相关的解析与格式转换工具：将类格式复合节点解析为统一 IR，并构建/维护虚拟引脚（流程入/出、数据入/出）与内部端口映射。
 
-# 当前状态
-- `source_format.py` 作为复合节点源码格式（payload / @composite_class）的单一事实来源：统一提供 payload 提取与复合类查找，供 loader/parser/validate 复用，避免多处重复实现导致支持范围漂移。
-- `class_format_parser.py` 负责类格式语法解析，统一输出复合节点描述；在方法级别复用 IR FactoryContext，并在合并子图前重命名冲突的节点/连线，确保多方法拓扑不会互相覆盖；同时为 `@flow_entry` / `@event_handler` / `@data_method` 方法建立虚拟引脚与内部端口的映射（流程引脚与数据引脚统一通过 `VirtualPinConfig` 表达）。合并完成后会调用 `engine.graph.semantic.GraphSemanticPass` 覆盖式生成 `signal_bindings/struct_bindings`，避免解析过程多源写入导致的不确定行为。
-- `param_usage_tracker.py` 统计复合节点各参数的读取/写入情况，并支持在类格式中识别简单的 `self.xxx` ← 入口形参别名，用于跨方法的虚拟引脚映射。
-- 对基于 `if` / `match` 的控制流，类格式解析会识别 IR 中的双分支/多分支节点：
-  - 若入口形参仅在条件表达式中使用，则优先将对应的数据输入虚拟引脚映射到分支节点的条件输入端口（`条件` / `控制表达式`），否则退回为 `allow_unmapped` 标记，避免误报“未使用引脚”。
-  - 在双分支/多分支节点的所有流程出口未接后续节点时，会按顺序将流程类虚拟输出引脚绑定到这些分支出口（例如：条件为真/条件为假 → 是/否），便于在复合节点画布上看到清晰的一一对应出口。
-- 解析算法依赖 `engine.utils.graph.graph_utils` 等图语义工具，保持与核心图模型一致。
-- 自动引脚推断：当装饰器省略 `inputs`/`outputs` 时，根据 `pin_marker_collector` 的结果与方法签名补全虚拟引脚，并透传数据出变量映射给 IR 层；同时将所有数据出引脚声明的变量注册为“预声明局部变量”，确保即便首次赋值是函数调用也能直接生成“获取/设置局部变量”组合。流程入虚拟引脚映射时，会优先选择图中无入边的流程节点，若存在【双分支/多分支】则优先把流程入连到它，避免首个流程节点被其它无入边节点抢占。
+## 当前状态
+- `source_format.py`：复合节点源码格式（payload / `@composite_class`）的单一事实来源，供 loader/parser/validate 复用，避免支持范围漂移。
+- `pin_api.py`：维护 `流程入/流程出/数据入/数据出` 等声明式辅助函数（运行期 no-op），供 Graph Code 引用。
+- `pin_marker_collector.py`：扫描 AST 提取引脚声明（pin marker + 方法签名），用于自动补全虚拟引脚。
+- `class_format_parser.py`：解析类格式并合并多方法子图；发生节点/连线冲突时会重命名并同步更新虚拟引脚映射；合并时会保留 IR 产出的 `GraphModel.metadata["port_type_overrides"]`（避免预声明数据出变量的局部变量建模在结构校验阶段出现“端口类型仍为泛型”）；合并完成后运行 `engine.graph.semantic.GraphSemanticPass` 覆盖式生成语义绑定；并会从 `__init__` 提取 `self.xxx = <复合类>(...)` 的实例声明，注入到 IR 环境以支持“复合内调用复合”建模。
+- `param_usage_tracker.py`：统计参数读写/别名，用于更稳定的虚拟引脚映射（必要时基于源码行号范围定位对应节点）。
 
-# 注意事项
+## 注意事项
 - 保持纯逻辑实现，不访问磁盘/网络/UI。
-- 避免和 `engine/graph/composite_code_generator.py` 形成循环依赖，必要数据通过参数传入。
-- 解析结构需与当前复合节点格式保持一致，新增语法请同步生成与校验流程。
+- 避免与生成器/导出器形成循环依赖；必要信息通过参数传入。
+- 新增语法/引脚推断规则时，需要同步生成、解析与校验链路，保证口径一致。
 

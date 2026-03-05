@@ -42,6 +42,8 @@ class Colors:
     # 边框
     BORDER_LIGHT = "#E5E7EB"    # 灰 200
     BORDER_NORMAL = "#D1D5DB"   # 灰 300
+    # 兼容旧样式表引用：统一“常用边框色”入口（随主题切换自动保持同步）
+    BORDER = BORDER_NORMAL
     BORDER_DARK = "#9CA3AF"     # 灰 400
     BORDER_FOCUS = "#3B82F6"    # 主色高亮
 
@@ -164,6 +166,7 @@ class Colors:
         """恢复到浅色主题的默认配色。"""
         for name, value in _LIGHT_PALETTE.items():
             setattr(cls, name, value)
+        cls._apply_derived_tokens()
 
     @classmethod
     def _apply_dark_overrides(cls) -> None:
@@ -171,6 +174,12 @@ class Colors:
         cls._reset_to_light()
         for name, value in _DARK_OVERRIDES.items():
             setattr(cls, name, value)
+        cls._apply_derived_tokens()
+
+    @classmethod
+    def _apply_derived_tokens(cls) -> None:
+        """根据基础 token 计算派生 token（避免在调色板中重复维护）。"""
+        cls.BORDER = cls.BORDER_NORMAL
 
 
 # 浅色主题默认调色板快照（用于在浅色/深色之间切换时恢复）

@@ -1,0 +1,29 @@
+{
+  "updated_at": "2025-11-23T10:37:50.726438",
+  "name": "global_view_peripheral_systems",
+  "peripheral_20251123_153358_925621_2d96": {
+    "system_id": "peripheral_20251123_153358_925621_2d96",
+    "system_name": "外围系统4",
+    "name": "外围系统4",
+    "description": "",
+    "leaderboard_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "records": []
+    },
+    "competitive_rank_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "note": "",
+      "score_groups": []
+    },
+    "achievement_settings": {
+      "enabled": false,
+      "allow_room_settle": false,
+      "extreme_enabled": false,
+      "items": []
+    },
+    "last_modified": "2025-11-23 15:33:58"
+  },
+  "system_id": "global_view_peripheral_systems"
+}

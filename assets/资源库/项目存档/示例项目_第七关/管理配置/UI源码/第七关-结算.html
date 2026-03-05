@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ui-builtin-visibility='{"小地图":false,"技能区":false,"队伍信息":false,"角色生命值条":false,"摇杆":false}'>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>春节认亲 - 最终结算</title>
+    <style>
+        /* =========================================
+           全局重置与基础设置 (复用 ceshi_rect.html 风格)
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: min(100%, var(--canvas-width, 100vw));
+            height: min(100%, var(--canvas-height, 100vh));
+            overflow: hidden !important;
+            overscroll-behavior: none;
+            font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+        }
+
+        :root {
+            /* 基础比例 - 增加最小缩放限制，防止在小分辨率下容器过小导致固定字号溢出 */
+            --ui-scale: max(0.75, min(
+                calc(var(--canvas-width, 1920px) / 1920px),
+                calc(var(--canvas-height, 1080px) / 1080px)
+            ));
+
+            --border-width: 4px;
+            /* 阴影规范 */
+            --shadow-color: rgba(14, 14, 14, 0.45);
+            --shadow-mask-25: rgba(14, 14, 14, 0.25);
+            --shadow-depth: 4px 4px 0px var(--shadow-color);
+            --shadow-depth-lg: 8px 8px 0px var(--shadow-color);
+            --shadow-depth-hover: 6px 6px 0px var(--shadow-color);
+            --text-shadow: 2px 2px 0px rgba(255,255,255,0.4);
+
+            /* 间距与圆角 (保持直角风格或微圆角，这里采用微圆角配合粗边框) */
+            --radius-lg: clamp(12px, calc(16px * var(--ui-scale)), 16px);
+            --radius-md: clamp(8px, calc(12px * var(--ui-scale)), 12px);
+            --radius-sm: clamp(6px, calc(8px * var(--ui-scale)), 8px);
+            
+            --gap: clamp(10px, calc(16px * var(--ui-scale)), 16px);
+            --gap-lg: clamp(16px, calc(24px * var(--ui-scale)), 24px);
+            --pad: clamp(16px, calc(20px * var(--ui-scale)), 20px);
+            --pad-lg: clamp(20px, calc(32px * var(--ui-scale)), 32px);
+            --rank-col: clamp(48px, calc(64px * var(--ui-scale)), 64px);
+            --safe-margin: clamp(16px, calc(32px * var(--ui-scale)), 32px);
+
+            /* 顶部悬浮按钮区：与 `ceshi_rect.html` 使用同一套定位变量，确保相对位置关系一致 */
+            --corner-slot-size: clamp(48px, 3.33vw, 60px);
+            /* 左上角按钮整体上移一点点（更贴顶），保持各页面一致 */
+            --corner-slot-top: calc(clamp(16px, 1.5vh, 24px) - 6px);
+            --corner-slot-left: clamp(16px, 1.25vw, 24px);
+            --corner-slot-gap: clamp(10px, 0.9vw, 14px);
+            /* 左上角按钮文字微调：让“退出/关卡选择”等文本更靠上些 */
+            --corner-slot-text-nudge-y: -2px;
+
+            /* 色板 (增强饱和度) */
+            --c-green: #92CD21; --c-green-d: #577718; --c-green-d1: #719D1C; --c-green-d2: #577718;
+            --c-white: #FFFAF0; --c-white-d: #C2Beb6; --c-white-d1: #E6E1D6; --c-white-d2: #C2Beb6;
+            --c-yellow: #FFD700; --c-yellow-d: #B8860B; --c-yellow-d1: #ECC94B; --c-yellow-d2: #B8860B;
+            --c-blue: #36F3F3; --c-blue-d: #248C8C; --c-blue-d1: #2CBABA; --c-blue-d2: #248C8C;
+            --c-red: #FF6B6B; --c-red-d: #C92A2A; --c-red-d1: #FA5252; --c-red-d2: #C92A2A;
+
+            /* “黑色描边/黑块”替代色：避免 #000 在部分链路触发盖色层异常 */
+            --c-ink: #0e0e0e73;      /* 45% shade overlay hex（允许） */
+            --c-ink-soft: #0e0e0e40; /* 25% shade overlay hex（允许） */
+
+            /* 状态语义色：置灰/禁用（全页面统一口径） */
+            --c-disabled: #e0e0e0;
+            --c-disabled-d1: #d0d0d0;
+            --c-disabled-d2: #c0c0c0;
+            --c-disabled-text: #777;
+            --c-disabled-border: var(--c-ink-soft);
+
+            --c-bg: var(--c-white-d);
+            --c-panel: #FFF8E7; /* 暖白底色 */
+            --c-panel-border: var(--c-red-d1); /* 红色边框装饰 */
+            --c-header: var(--c-red);
+
+            /* 文本字号（硬约束：固定 px，不允许随画布尺寸变化）
+               允许容器尺寸随画布自适应，但 font-size 必须恒定，否则 Workbench 会报错并阻断导出。 */
+            --fs-top-btn: 16px;
+            --fs-header-title: 36px;
+            --fs-header-pill: 18px;
+            --fs-panel-title: 24px;
+            --fs-stat-row: 20px;
+            --fs-stat-label: 18px;
+            --fs-progress-text: 14px;
+            --fs-evaluation: 18px;
+            --fs-rank-num: 32px;
+            --fs-rank-name: 20px;
+            --fs-rank-tags: 14px;
+            --fs-rank-score: 20px;
+            --fs-rank-pts: 14px;
+            --fs-action-btn: 26px;
+
+            /* 真实进度条：轨道最大宽度（两条需保持一致，且不受右侧文本长度影响） */
+            --real-progressbar-max-width: clamp(260px, calc(520px * var(--ui-scale)), 520px);
+        }
+
+        button {
+            border: none;
+            background: none;
+            padding: 0;
+            font: inherit;
+            color: inherit;
+        }
+
+        .text-truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+
+        /* 导出约束 */
+        .btn-text {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: 100%;
+            display: block;
+            text-align: center;
+        }
+
+        /* =========================================
+           Tone-3 风格 (复用)
+           ========================================= */
+        .tone-3 {
+            position: relative;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background-color: var(--tone-top, var(--tone-mid));
+            /* 全局取消 tone-3 左上角高光（避免扁平化/导出多余视觉层次） */
+            box-shadow: none;
+        }
+        .tone-3-stripe { position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none; }
+        .tone-3-stripe--top {
+            /* 顶部高光：理论上可用 1px 表达，但视觉收益低且会额外拆出控件。
+               这里保留盒子，统一用 visibility 关闭（不要用 display:none）。 */
+            top: 0;
+            height: 1px;
+            background-color: var(--tone-top);
+        }
+        .tone-3-stripe--top { background-color: transparent !important; visibility: hidden !important; }
+        .tone-3-stripe--bottom {
+            /* 简单按钮皮肤：只保留“底部短唇边”，彻底移除 2/3 分段压暗 */
+            top: auto;
+            bottom: 0;
+            height: 6px;
+            background-color: var(--shadow-mask-25);
+        }
+        .tone-3-stripe--deep {
+            /* 彻底移除“底部二次加深”段：保留节点盒子，但不产生任何可见效果 */
+            bottom: 0;
+            height: 0;
+            background-color: transparent !important;
+            visibility: hidden !important;
+        }
+        .tone-3 > :not(.tone-3-stripe) { position: relative; z-index: 1; }
+
+        /* =========================================
+           布局容器
+           ========================================= */
+        .screen-container {
+            width: var(--canvas-width, 100vw);
+            height: var(--canvas-height, 100vh);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background-color: transparent;
+            overflow: hidden;
+        }
+
+        /* 顶部悬浮按钮区（左上角：退出 + 关卡选择） */
+        .top-actions {
+            /* 扁平化/导出时要求“永远贴顶”：不能受容器布局影响 */
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + var(--corner-slot-top));
+            left: calc(env(safe-area-inset-left, 0px) + var(--corner-slot-left));
+            display: flex;
+            align-items: center;
+            gap: var(--corner-slot-gap);
+            z-index: 1000;
+        }
+
+        .btn-exit-top {
+            width: var(--corner-slot-size);
+            height: var(--corner-slot-size);
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            font-size: var(--fs-top-btn);
+            font-weight: 900;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.25);
+            --tone-top: var(--c-red);
+            --tone-mid: var(--c-red-d1);
+            --tone-bottom: var(--c-red-d2);
+        }
+        .btn-top {
+            height: var(--corner-slot-size);
+            padding: 0 clamp(16px, 1.5vw, 24px);
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--fs-top-btn);
+            font-weight: 900;
+            cursor: pointer;
+            color: #000;
+        }
+
+        .btn-level-select-top {
+            --tone-top: var(--c-yellow);
+            --tone-mid: var(--c-yellow-d1);
+            --tone-bottom: var(--c-yellow-d2);
+        }
+
+        .top-actions button:hover {
+            color: #fff;
+            text-shadow: 2px 2px 0px var(--shadow-color);
+        }
+
+        /* 左上角按钮：文本垂直位置微调（避免视觉上偏下） */
+        .top-actions .btn-exit-top .btn-text,
+        .top-actions .btn-top .btn-text {
+            position: relative;
+            top: var(--corner-slot-text-nudge-y);
+        }
+
+        .main-panel {
+            width: min(
+                clamp(980px, calc(1560px * var(--ui-scale)), 1760px),
+                calc(var(--canvas-width, 100vw) - 2 * var(--safe-margin))
+            );
+            /* 高度自适应，但设置最大高度防止超出屏幕 */
+            max-height: calc(var(--canvas-height, 100vh) - 2 * var(--safe-margin));
+            /* 最小高度保证内容不拥挤 */
+            min-height: clamp(600px, calc(800px * var(--ui-scale)), 800px);
+            
+            background-color: var(--c-panel);
+            border: var(--border-width) solid var(--c-ink);
+            outline: 4px solid var(--c-panel-border);
+            outline-offset: -8px;
+            box-shadow: var(--shadow-depth-lg);
+            border-radius: var(--radius-lg);
+            padding: var(--pad-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap-lg);
+            position: relative;
+            z-index: 1;
+            /* 确保在内容过多时不会溢出屏幕，而是内部滚动（虽然尽量避免） */
+            overflow: hidden; 
+        }
+
+        /* =========================================
+           顶部栏
+           ========================================= */
+        .header-bar {
+            background-color: var(--c-header);
+            border: var(--border-width) solid var(--c-ink);
+            box-shadow: var(--shadow-depth);
+            border-radius: var(--radius-md);
+            padding: clamp(16px, calc(24px * var(--ui-scale)), 24px) var(--pad-lg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--gap);
+        }
+
+        .header-title {
+            font-size: var(--fs-header-title);
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 3px 3px 0px rgba(0,0,0,0.2);
+            line-height: 1.1;
+            letter-spacing: 1px;
+        }
+
+        .header-room-title {
+            font-size: var(--fs-header-pill);
+            font-weight: 900;
+            color: #000;
+            background: rgba(255,255,255,0.85);
+            /* 顶部空间紧张：压缩该 pill 的可见高度，避免占用过多头部垂直空间 */
+            height: 30px;
+            padding: 2px 10px;
+            border: 3px solid var(--c-ink);
+            border-radius: 999px;
+            line-height: 1;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.18);
+            max-width: min(520px, 60vw);
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .header-subtitle {
+            font-size: var(--fs-header-pill);
+            font-weight: 900;
+            color: #000;
+            background: #fff;
+            padding: 6px 16px;
+            border: 3px solid var(--c-ink);
+            border-radius: 999px;
+            line-height: 1.2;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+        }
+
+        /* =========================================
+           内容区
+           ========================================= */
+        .content-area {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr; /* 右侧榜单稍宽 */
+            gap: var(--gap-lg);
+            min-height: 0;
+        }
+
+        .panel {
+            background-color: var(--c-white);
+            border: 3px solid var(--c-ink);
+            box-shadow: var(--shadow-depth);
+            border-radius: var(--radius-md);
+            padding: var(--pad);
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap);
+            min-height: 0;
+            min-width: 0;
+            position: relative;
+        }
+
+        /* 标题样式增强 */
+        .panel-title {
+            font-size: var(--fs-panel-title);
+            font-weight: 900;
+            color: #000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            line-height: 1.1;
+            margin-bottom: 8px;
+            text-shadow: var(--text-shadow);
+            min-width: 0; /* 允许子元素在 flex 内正确收缩（配合省略号） */
+        }
+
+        .panel-title-deco {
+            width: clamp(8px, calc(12px * var(--ui-scale)), 12px);
+            height: clamp(20px, calc(28px * var(--ui-scale)), 28px);
+            background-color: var(--c-red);
+            border: 2px solid var(--c-ink);
+            border-radius: 4px;
+            flex: 0 0 auto;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+        }
+
+        /* 面板标题：中文在窄宽下会按字强制换行 -> 统一单行 + 省略号 */
+        .panel-title-text {
+            flex: 1 1 auto;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+
+        /* =========================================
+           统计块 (升级为 tone-3 风格)
+           ========================================= */
+        .stat-block {
+            /* 作为容器，内部包含 tone-3 结构 */
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-sm);
+            padding: var(--pad);
+            box-shadow: var(--shadow-depth);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0;
+            /* 默认浅色风格 */
+            --tone-top: var(--c-white);
+            --tone-mid: var(--c-white-d1);
+            --tone-bottom: var(--c-white-d2);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 900;
+            color: #000;
+            font-size: var(--fs-stat-row);
+            gap: var(--gap);
+            line-height: 1.15;
+            z-index: 2; /* 确保文字在 stripe 之上 */
+            min-width: 0; /* 允许左侧 label 正确省略，而不是换行挤高 */
+        }
+        
+        .stat-label {
+             font-size: var(--fs-stat-label);
+             color: #444;
+             flex: 1 1 auto;
+             min-width: 0;
+             white-space: nowrap;
+             overflow: hidden;
+             text-overflow: ellipsis;
+        }
+
+        /* 右侧状态文本：保持单行，不参与挤压 */
+        .stat-row > :last-child {
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+
+        /* 进度条：导出到 .gil 时应为“一个进度条控件=一个元素”，避免轨道/边框等装饰层额外导出成控件 */
+        .progressbar-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 2;
+        }
+
+        /* 进度条槽位：统一约束轨道最大宽度，保证同页多条真实进度条“最大宽度一致” */
+        .progressbar-slot {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--real-progressbar-max-width);
+        }
+
+        .progressbar {
+            width: 100%;
+            height: clamp(24px, calc(32px * var(--ui-scale)), 32px);
+            border-radius: 999px;
+        }
+
+        .progress-text {
+            flex: 0 0 auto;
+            /* 固定文案槽宽：避免文案长度差异影响左侧进度条轨道宽度 */
+            width: clamp(72px, calc(96px * var(--ui-scale)), 96px);
+            text-align: right;
+            font-size: var(--fs-progress-text);
+            font-weight: 900;
+            color: #000;
+            line-height: 1;
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.5);
+            white-space: nowrap;
+        }
+
+        .fill-danger { background: var(--c-red); }
+        .fill-blue { background: var(--c-blue); }
+
+        .evaluation-text {
+            font-size: var(--fs-evaluation);
+            color: #000;
+            background-color: #fff;
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-sm);
+            padding: var(--pad);
+            line-height: 1.6;
+            box-shadow: var(--shadow-depth);
+            font-weight: 700;
+            margin-top: auto; /* 推到底部 */
+            /* 评语文本：显式左对齐（避免导出/写回链路按默认对齐口径漂移） */
+            text-align: left;
+        }
+
+        .evaluation-line {
+            display: block;
+            text-align: left;
+        }
+
+        /* =========================================
+           排行榜 (升级为 tone-3 风格)
+           ========================================= */
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap);
+            min-width: 0;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto; /* 允许榜单内部滚动，适应小屏幕 */
+            padding-right: 4px; /* 预留滚动条空间 */
+        }
+
+        .rank-card {
+            display: grid;
+            grid-template-columns: var(--rank-col) minmax(0, 1fr) auto;
+            gap: var(--gap);
+            align-items: center;
+            border: 3px solid var(--c-ink);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-depth);
+            padding: clamp(12px, calc(16px * var(--ui-scale)), 16px);
+            min-width: 0;
+            
+            --tone-top: var(--c-white);
+            --tone-mid: var(--c-white-d1);
+            --tone-bottom: var(--c-white-d2);
+        }
+
+        .rank-card.rank-1 {
+            --tone-top: var(--c-yellow);
+            --tone-mid: var(--c-yellow-d1);
+            --tone-bottom: var(--c-yellow-d2);
+            /* 强调冠军：用更强的硬阴影表达（禁止 transform scale，避免扁平化触发字号补偿） */
+            box-shadow: var(--shadow-depth-lg);
+            z-index: 2;
+            border-width: 4px;
+        }
+
+        .rank-num {
+            font-size: var(--fs-rank-num);
+            font-weight: 900;
+            text-align: center;
+            color: #000;
+            line-height: 1;
+            font-style: italic;
+            text-shadow: 2px 2px 0px rgba(255,255,255,0.3);
+            z-index: 2;
+        }
+
+        .rank-info {
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .rank-name {
+            font-weight: 900;
+            color: #000;
+            font-size: var(--fs-rank-name);
+            line-height: 1.1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .rank-tags {
+            font-size: var(--fs-rank-tags);
+            color: rgba(0,0,0,0.6);
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 700;
+        }
+
+        .rank-score {
+            text-align: right;
+            font-weight: 900;
+            color: #000;
+            font-size: var(--fs-rank-score);
+            line-height: 1.1;
+            z-index: 2;
+        }
+
+        .rank-score .pts {
+            display: block;
+            font-size: var(--fs-rank-pts);
+            color: rgba(0,0,0,0.6);
+            margin-top: 4px;
+        }
+
+        /* =========================================
+           底部操作区
+           ========================================= */
+        .footer-area {
+            display: flex;
+            justify-content: center;
+            gap: clamp(20px, calc(32px * var(--ui-scale)), 32px);
+            padding-top: 10px;
+        }
+
+        .btn {
+            min-width: clamp(180px, calc(240px * var(--ui-scale)), 240px);
+            height: clamp(60px, calc(80px * var(--ui-scale)), 80px);
+            border: 4px solid var(--c-ink);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-depth);
+            font-size: var(--fs-action-btn);
+            font-weight: 900;
+            color: #000;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 0px rgba(255,255,255,0.4);
+        }
+
+        .btn-default {
+            --tone-top: var(--c-white);
+            --tone-mid: var(--c-white-d1);
+            --tone-bottom: var(--c-white-d2);
+        }
+
+        .btn-primary {
+            /* 语义：前进/确认/主操作统一用绿色（与 1.html/2.html/ceshi_rect.html 保持一致） */
+            --tone-top: var(--c-green);
+            --tone-mid: var(--c-green-d1);
+            --tone-bottom: var(--c-green-d2);
+            color: #000; /* 保持黑色文字以符合整体漫画风 */
+            /* 强调主按钮：用更强硬阴影表达（禁止 transform scale，避免扁平化触发字号补偿） */
+            box-shadow: var(--shadow-depth-hover);
+        }
+        
+        .btn:hover {
+            color: #fff;
+            text-shadow: 2px 2px 0px var(--shadow-color);
+        }
+
+        @media (max-width: 1200px) {
+            .content-area {
+                grid-template-columns: 1fr;
+                /* 单列模式下，如果高度不够，允许内容区滚动 */
+                overflow-y: auto;
+            }
+            /* 单列模式下，榜单不需要太高，让它自适应 */
+            .leaderboard-list {
+                overflow-y: visible;
+                flex: 0 0 auto;
+            }
+        }
+
+        /* 针对高度不足的屏幕 (如 1366x768, 1280x720) 进行紧凑化处理 */
+        @media (max-height: 800px) {
+            :root {
+                --gap-lg: 12px;
+                --pad-lg: 16px;
+                --gap: 8px;
+                --pad: 12px;
+            }
+            .header-bar {
+                padding: 12px 20px;
+            }
+            .btn {
+                height: 56px; /* 压缩按钮高度 */
+            }
+            .rank-card {
+                padding: 8px 12px; /* 压缩榜单卡片内边距 */
+            }
+            /* 隐藏部分非核心装饰以节省空间 */
+            .panel-title-deco {
+                height: 20px;
+            }
+            .evaluation-text {
+                margin-top: 8px;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div
+        class="screen-container"
+    >
+        <div class="main-panel">
+            <header class="header-bar">
+                <div>
+                    <div class="header-title" data-ui-key="header_title" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.标题}"
+                         data-ui-text-align="center" data-ui-text-valign="middle">除夕夜结算报告</div>
+                    <div
+                        class="header-room-title text-truncate"
+                        data-ui-key="room_title"
+                        data-ui-role="label"
+                        data-ui-text="{1:lv.UI房间_文本.房名}"
+                        data-ui-text-align="center" data-ui-text-valign="middle"
+                    >伯乐识马 · 新春房间</div>
+                </div>
+                <div
+                    class="header-subtitle"
+                    data-ui-key="room_timer_text"
+                    data-ui-role="label"
+                    data-ui-text="- - -"
+                    data-ui-text-align="center" data-ui-text-valign="middle"
+                >- - -</div>
+            </header>
+
+            <div class="content-area">
+                <!-- 左侧统计 -->
+                <section class="panel">
+                    <div class="panel-title">
+                        <span class="panel-title-deco" aria-hidden="true"></span>
+                        <span class="panel-title-text" data-ui-key="panel_left_title" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.左栏标题}">家庭财产损耗</span>
+                    </div>
+
+                    <div class="stat-block tone-3">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        
+                        <div class="stat-row">
+                            <span class="stat-label" data-ui-key="stat_01_label" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.完整度_标题}">年夜饭完整度</span>
+                            <span style="color: var(--c-red-d)" data-ui-key="stat_01_status" data-ui-role="label" data-ui-text="{1:ps.ui_settle_i_st}">严重受损</span>
+                        </div>
+                        <div class="progressbar-row">
+                            <div class="progressbar-slot">
+                                <div
+                                    class="progressbar fill-danger"
+                                    data-ui-key="stat_01_progressbar"
+                                    data-ui-role="progressbar"
+                                    data-progress-shape="横向"
+                                    data-progress-current-var="ps.ui_battle_integrity"
+                                    data-progress-min-var="ps.ui_battle_i_min"
+                                    data-progress-max-var="ps.ui_battle_i_max"
+                                ></div>
+                            </div>
+                            <span
+                                class="progress-text"
+                                data-ui-key="stat_01_progress_text"
+                                data-ui-role="label"
+                                data-ui-text="{1:ps.ui_battle_integrity}%"
+                            >20%</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-block tone-3">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+
+                        <div class="stat-row">
+                            <span class="stat-label" data-ui-key="stat_02_label" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.手办_标题}">手办存活数</span>
+                            <span style="color: var(--c-blue-d)" data-ui-key="stat_02_status" data-ui-role="label" data-ui-text="{1:ps.ui_settle_s_st}">全军覆没</span>
+                        </div>
+                        <div class="progressbar-row">
+                            <div class="progressbar-slot">
+                                <div
+                                    class="progressbar fill-blue"
+                                    data-ui-key="stat_02_progressbar"
+                                    data-ui-role="progressbar"
+                                    data-progress-shape="横向"
+                                    data-progress-current-var="ps.ui_battle_survival"
+                                    data-progress-min-var="ps.ui_battle_s_min"
+                                    data-progress-max-var="ps.ui_battle_s_max"
+                                ></div>
+                            </div>
+                            <span
+                                class="progress-text"
+                                data-ui-key="stat_02_progress_text"
+                                data-ui-role="label"
+                                data-ui-text="{1:ps.ui_battle_survival} / 10"
+                            >0 / 10</span>
+                        </div>
+                    </div>
+
+                    <div class="evaluation-text">
+                        <span
+                            class="evaluation-line"
+                            data-ui-key="evaluation_line_01"
+                            data-ui-role="label"
+                            data-ui-text="{1:ps.ui_settle_ev1}"
+                            data-ui-text-align="left"
+                            data-ui-text-valign="middle"
+                        >这年过得太惨了，菜被偷吃光，手办全阵亡。</span>
+                        <span
+                            class="evaluation-line"
+                            data-ui-key="evaluation_line_02"
+                            data-ui-role="label"
+                            data-ui-text="{1:ps.ui_settle_ev2}"
+                            data-ui-text-align="left"
+                            data-ui-text-valign="middle"
+                        >妈正拿着鸡毛掸子赶来，预计到达时间：10 秒。</span>
+                    </div>
+                </section>
+
+                <!-- 右侧榜单 -->
+                <section class="panel">
+                    <div class="panel-title">
+                        <span class="panel-title-deco" aria-hidden="true"></span>
+                        <span class="panel-title-text" data-ui-key="panel_right_title" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.右栏标题}">守岁英雄榜</span>
+                    </div>
+                    <div class="leaderboard-list">
+                        <!-- 第一名 -->
+                        <div class="rank-card rank-1 tone-3">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            
+                            <div class="rank-num" data-ui-key="rank_01_num" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜1名次}">1</div>
+                            <div class="rank-info">
+                                <div class="rank-name" data-ui-key="rank_01_name" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜1名}">大表哥（我）</div>
+                                <div class="rank-tags" data-ui-key="rank_01_tags" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜1标签}">识别准确率：92% | MVP</div>
+                            </div>
+                            <div class="rank-score">
+                                <span data-ui-key="rank_01_money" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜1钱前缀}{1:lv.UI结算_文本.榜1钱}">¥ 2400</span>
+                                <span class="pts" data-ui-key="rank_01_points" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜1分}{1:lv.UI结算_文本.榜1分后缀}">150 积分</span>
+                            </div>
+                        </div>
+
+                        <!-- 第二名 -->
+                        <div class="rank-card tone-3">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+
+                            <div class="rank-num" data-ui-key="rank_02_num" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜2名次}">2</div>
+                            <div class="rank-info">
+                                <div class="rank-name" data-ui-key="rank_02_name" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜2名}">彩虹小马</div>
+                                <div class="rank-tags" data-ui-key="rank_02_tags" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜2标签}">误放熊孩子：2 次</div>
+                            </div>
+                            <div class="rank-score">
+                                <span data-ui-key="rank_02_money" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜2钱前缀}{1:lv.UI结算_文本.榜2钱}">¥ 1100</span>
+                                <span class="pts" data-ui-key="rank_02_points" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜2分}{1:lv.UI结算_文本.榜2分后缀}">90 积分</span>
+                            </div>
+                        </div>
+
+                        <!-- 第三名 -->
+                        <div class="rank-card tone-3">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+
+                            <div class="rank-num" data-ui-key="rank_03_num" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜3名次}">3</div>
+                            <div class="rank-info">
+                                <div class="rank-name" data-ui-key="rank_03_name" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜3名}">条纹杀手</div>
+                                <div class="rank-tags" data-ui-key="rank_03_tags" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜3标签}">把二舅赶走了（大不敬）</div>
+                            </div>
+                            <div class="rank-score">
+                                <span data-ui-key="rank_03_money" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜3钱前缀}{1:lv.UI结算_文本.榜3钱}">¥ -200</span>
+                                <span class="pts" data-ui-key="rank_03_points" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜3分}{1:lv.UI结算_文本.榜3分后缀}">40 积分</span>
+                            </div>
+                        </div>
+
+                        <!-- 第四名 -->
+                        <div class="rank-card tone-3">
+                            <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                            <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+
+                            <div class="rank-num" data-ui-key="rank_04_num" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜4名次}">4</div>
+                            <div class="rank-info">
+                                <div class="rank-name" data-ui-key="rank_04_name" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜4名}">眼神不佳</div>
+                                <div class="rank-tags" data-ui-key="rank_04_tags" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜4标签}">全程挂机</div>
+                            </div>
+                            <div class="rank-score">
+                                <span data-ui-key="rank_04_money" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜4钱前缀}{1:lv.UI结算_文本.榜4钱}">¥ -800</span>
+                                <span class="pts" data-ui-key="rank_04_points" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.榜4分}{1:lv.UI结算_文本.榜4分后缀}">0 积分</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <footer class="footer-area">
+                <button class="btn btn-primary tone-3" type="button" data-ui-key="btn_back" data-ui-role="button" data-ui-interact-key="1">
+                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                    <span class="btn-text text-truncate" data-ui-key="btn_back_text" data-ui-role="label" data-ui-text="{1:lv.UI结算_文本.按钮_返回}"
+                          data-ui-text-align="center" data-ui-text-valign="middle">返回大厅</span>
+                </button>
+            </footer>
+        </div>
+
+        <!-- 顶部悬浮按钮必须放在 DOM 末尾：扁平化后层级更稳定（避免被主面板/遮罩压住） -->
+        <div class="top-actions">
+            <button class="btn-exit-top tone-3" type="button"
+                    data-ui-key="btn_exit" data-ui-role="button" data-ui-interact-key="10"
+                    data-ui-export-as="decor"
+                    data-ui-action="exit">
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                <span class="btn-text" data-ui-text-align="center" data-ui-text-valign="middle">退出</span>
+            </button>
+
+            <button class="btn-top btn-level-select-top tone-3" type="button"
+                    data-ui-key="btn_level_select" data-ui-role="button" data-ui-interact-key="11"
+                    data-ui-action="open_level_select">
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                <span class="btn-text" data-ui-text-align="center" data-ui-text-valign="middle">关卡选择</span>
+            </button>
+        </div>
+    </div>
+</body>
+</html>

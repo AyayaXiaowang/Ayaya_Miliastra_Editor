@@ -1,0 +1,25 @@
+{
+  "instance_id": "instance_20251130_190000_000001_signal_all_types_example",
+  "name": "信号全类型_测试台实体摆放",
+  "template_id": "template_20251130_190000_000001_signal_all_types_example",
+  "position": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "rotation": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "override_variables": [],
+  "additional_graphs": [
+    "server_delay_composite_example_01"
+  ],
+  "additional_components": [],
+  "metadata": {
+    "entity_type": "物件"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": "2025-12-06T20:36:27.600478"
+}

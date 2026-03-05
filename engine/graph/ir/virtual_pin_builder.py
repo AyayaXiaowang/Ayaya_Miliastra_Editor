@@ -159,12 +159,24 @@ def _build_flow_entry_inputs(func_def: ast.FunctionDef, markers: PinMarkerSummar
 
 def _merge_data_inputs(func_def: ast.FunctionDef, markers: PinMarkerSummary) -> List[Tuple[str, str]]:
     signature_inputs = infer_data_inputs_from_signature(func_def)
-    overrides: Dict[str, str] = {m.name: m.pin_type for m in markers.data_inputs}
+    # 关键：方法签名的类型标注应作为“强约束/默认值”生效。
+    #
+    # 若用户在方法体中写了 `数据入("参数名")` 但未显式给出 pin_type，
+    # PinMarkerCollector 会把它记为默认的“泛型”。旧逻辑会用这个“泛型”
+    # 覆盖签名标注（例如 `"字符串"`），导致 UI 误显示为“泛型”。
+    #
+    # 新策略：仅当 `数据入` 显式给出非泛型类型时才覆盖签名类型；
+    # 但对于“不在签名里出现”的额外 `数据入(...)` 声明，仍然保留其原始类型（可能为泛型）。
+    explicit_type_overrides: Dict[str, str] = {
+        m.name: m.pin_type
+        for m in markers.data_inputs
+        if str(m.pin_type or "").strip() not in {"", "泛型"}
+    }
     handled: set[str] = set()
     inputs: List[Tuple[str, str]] = []
     
     for sig in signature_inputs:
-        pin_type = overrides.get(sig.name, sig.pin_type)
+        pin_type = explicit_type_overrides.get(sig.name, sig.pin_type)
         inputs.append((sig.name, pin_type))
         handled.add(sig.name)
     

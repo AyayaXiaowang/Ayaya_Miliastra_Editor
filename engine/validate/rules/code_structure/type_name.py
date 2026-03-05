@@ -11,6 +11,9 @@ from engine.type_registry import (
     TYPE_ENUM,
     TYPE_FLOW,
     TYPE_GENERIC,
+    TYPE_GENERIC_DICT,
+    TYPE_GENERIC_LIST,
+    TYPE_LIST_PLACEHOLDER,
     parse_typed_dict_alias,
 )
 
@@ -61,6 +64,40 @@ def _get_allowed_type_names(workspace_path: Path) -> Set[str]:
     return allowed
 
 
+_FORBIDDEN_EXPLICIT_PLACEHOLDER_TYPES: Set[str] = {
+    TYPE_GENERIC,
+    TYPE_LIST_PLACEHOLDER,
+    TYPE_GENERIC_LIST,
+    TYPE_GENERIC_DICT,
+}
+
+
+def _find_forbidden_placeholder_type(type_name: str) -> str:
+    """在显式中文类型注解中查找“占位类型”（泛型家族）。
+
+    规则：
+    - 任何位置出现 `泛型/列表/泛型列表/泛型字典` 都视为违规（显式注解必须收敛为具体类型）。
+    - 支持递归检查别名字典（`键类型-值类型字典` / `键类型_值类型字典`），例如：
+      `字符串-泛型字典` / `字符串-字符串-泛型字典字典`
+    """
+    text = str(type_name or "").strip()
+    if not text:
+        return ""
+    if text in _FORBIDDEN_EXPLICIT_PLACEHOLDER_TYPES:
+        return text
+
+    is_typed_dict, key_type_name, value_type_name = parse_typed_dict_alias(text)
+    if is_typed_dict:
+        forbidden_key = _find_forbidden_placeholder_type(key_type_name)
+        if forbidden_key:
+            return forbidden_key
+        forbidden_value = _find_forbidden_placeholder_type(value_type_name)
+        if forbidden_value:
+            return forbidden_value
+
+    return ""
+
+
 class TypeNameRule(ValidationRule):
     """类型名合法性校验：节点图代码中的中文类型注解与代码级图变量声明必须使用受支持的数据类型。
 
@@ -68,6 +105,10 @@ class TypeNameRule(ValidationRule):
     - 检查文件顶部 GRAPH_VARIABLES 清单中声明的图变量类型名
     - 检查函数体内 AnnAssign 形式的中文字符串类型注解（例如：x: "整数" = ...）
     - 类型集合统一来源于：数据类型规则、结构体支持类型、节点库端口类型
+
+    额外约束：
+    - 显式中文类型注解禁止使用“泛型家族”占位类型（泛型/列表/泛型列表/泛型字典），
+      这类类型仅允许作为端口/编辑期占位存在；在代码中显式标注必须收敛为具体类型。
     """
 
     rule_id = "engine_code_type_name"
@@ -105,6 +146,29 @@ class TypeNameRule(ValidationRule):
                     continue
                 type_name = str(annotation.value).strip()
                 if not type_name:
+                    continue
+
+                forbidden = _find_forbidden_placeholder_type(type_name)
+                if forbidden:
+                    target = getattr(node, "target", None)
+                    var_name = getattr(target, "id", "") if isinstance(target, ast.Name) else ""
+                    var_label = f"变量『{var_name}』" if var_name else "该变量"
+                    message = (
+                        f"{line_span_text(node)}: {var_label}的类型注解『{type_name}』包含被禁止的占位类型『{forbidden}』；"
+                        "显式类型注解必须收敛为具体类型，禁止使用『泛型/列表/泛型列表/泛型字典』。"
+                        "如果你需要字典类型，请使用形如『键类型-值类型字典』或『键类型_值类型字典』的别名字典，"
+                        "并确保键/值类型都是具体类型。"
+                        "例如：映射: \"字符串-整数字典\" = {\"a\": 1, \"b\": 2}"
+                    )
+                    issues.append(
+                        create_rule_issue(
+                            self,
+                            file_path,
+                            node,
+                            "CODE_GENERIC_TYPE_ANNOTATION_FORBIDDEN",
+                            message,
+                        )
+                    )
                     continue
 
                 is_typed_dict, key_type_name, value_type_name = parse_typed_dict_alias(type_name)
@@ -160,6 +224,24 @@ class TypeNameRule(ValidationRule):
             var_name = name_value.strip()
             type_name = type_value.strip()
             if not var_name or not type_name:
+                continue
+
+            forbidden = _find_forbidden_placeholder_type(type_name)
+            if forbidden:
+                message = (
+                    f"节点图变量『{var_name}』在 GRAPH_VARIABLES 声明中使用了类型『{type_name}』，其中包含被禁止的占位类型『{forbidden}』；"
+                    "节点图变量类型必须为具体类型，禁止使用『泛型/列表/泛型列表/泛型字典』。"
+                    "请改为具体基础类型/列表类型/结构体，或改用别名字典并保证键/值类型具体。"
+                )
+                issues.append(
+                    create_rule_issue(
+                        self,
+                        file_path,
+                        anchor_node,
+                        "CODE_GENERIC_TYPE_ANNOTATION_FORBIDDEN",
+                        message,
+                    )
+                )
                 continue
 
             is_typed_dict, key_type_name, value_type_name = parse_typed_dict_alias(

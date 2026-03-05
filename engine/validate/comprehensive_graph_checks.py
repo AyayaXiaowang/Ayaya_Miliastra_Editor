@@ -4,9 +4,11 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from engine.graph import validate_graph as run_graph_validation
-from engine.graph.models.graph_model import EdgeModel, GraphModel, NodeModel, PortModel
+from engine.graph import validate_graph_model as run_graph_model_validation
+from engine.graph.common import FLOW_IN_PORT_NAMES, FLOW_OUT_PORT_NAMES, FLOW_PORT_PLACEHOLDER
+from engine.graph.models.graph_model import EdgeModel, GraphModel, NodeModel, PortModel, NodeDefRef
 from engine.nodes.node_registry import get_node_registry
+from engine.nodes import get_canonical_node_def_key
 from engine.utils.graph.graph_utils import (
     build_node_map,
     extract_port_names,
@@ -93,7 +95,7 @@ def _append_validation_issue(
         raise AttributeError("验证器缺少 report_issue/issues，用于接收验证结果")
 
 
-def validate_graph(
+def validate_graph_cache_data(
     validator: Any,
     graph_data: Dict,
     entity_type: str,
@@ -253,7 +255,7 @@ def _run_structural_validation_errors(
         nodes=normalized_nodes,
         edges=normalized_edges,
     )
-    structural_errors = run_graph_validation(
+    structural_errors = run_graph_model_validation(
         model,
         virtual_pin_mappings,
         workspace_path=workspace_path,
@@ -339,25 +341,51 @@ def validate_node_port_consistency(
         return
     if node.get("is_virtual_pin", False):
         return
-    category_text = str(node_category or "")
-    category_standard = (
-        category_text if category_text.endswith("节点") else f"{category_text}节点"
-    )
-    candidate_key = f"{category_standard}/{node_title}"
     library = node_library or _ensure_node_library(validator)
-    node_def = library.get(candidate_key)
-    node_def_key = candidate_key if node_def is not None else ""
-    if node_def is None:
-        for scope_suffix in ("#client", "#server"):
-            scoped_key = f"{candidate_key}{scope_suffix}"
-            scoped_def = library.get(scoped_key)
-            if scoped_def is not None:
-                node_def = scoped_def
-                node_def_key = scoped_key
-                break
+    node_def_ref_raw = node.get("node_def_ref")
+    if node_def_ref_raw is None:
+        node_detail = detail.copy()
+        node_detail["node_id"] = node_id
+        node_detail["node_name"] = node_title
+        _append_validation_issue(
+            validator,
+            level="error",
+            category="节点端口定义",
+            code="NODE_DEF_REF_MISSING",
+            location=f"{location} > 节点 '{node_title}'",
+            message="节点缺少 node_def_ref：不允许继续使用 title/category 定位 NodeDef。",
+            suggestion="请删除旧 graph_cache 并触发重建（重新解析 Graph Code 产出新 GraphModel）。",
+            detail=node_detail,
+        )
+        return
+
+    node_def_ref = NodeDefRef.from_dict(node_def_ref_raw)
+    if node_def_ref.kind == "composite":
+        return
+    # 事件节点：kind=event 不参与 NodeDef 解析与端口对齐校验
+    if node_def_ref.kind == "event":
+        return
+    if node_def_ref.kind != "builtin":
+        node_detail = detail.copy()
+        node_detail["node_id"] = node_id
+        node_detail["node_name"] = node_title
+        node_detail["node_def_ref"] = node_def_ref.to_dict()
+        _append_validation_issue(
+            validator,
+            level="error",
+            category="节点端口定义",
+            code="NODE_DEF_REF_KIND_INVALID",
+            location=f"{location} > 节点 '{node_title}'",
+            message=f"非法 node_def_ref.kind：{node_def_ref.kind!r}",
+            suggestion="请删除旧 graph_cache 并触发重建（重新解析 Graph Code 产出新 GraphModel）。",
+            detail=node_detail,
+        )
+        return
+
+    node_def = library.get(str(node_def_ref.key))
     if node_def is None:
         if validator.verbose:
-            log_warn("⚠️ 未找到节点定义: {}/{}", node_category, node_title)
+            log_warn("⚠️ 未找到节点定义: node_def_ref={}", str(node_def_ref.key))
         node_detail = detail.copy()
         node_detail["node_id"] = node_id
         node_detail["node_name"] = node_title
@@ -372,6 +400,7 @@ def validate_node_port_consistency(
             detail=node_detail,
         )
         return
+    node_def_key = get_canonical_node_def_key(node_def)
     actual_inputs = node.get("inputs", [])
     actual_outputs = node.get("outputs", [])
     actual_input_names = extract_port_names(actual_inputs)
@@ -475,8 +504,8 @@ def validate_edge_port_references(
     src_output_names = extract_port_names(src_outputs)
     dst_input_names = extract_port_names(dst_inputs)
     if src_port not in src_output_names:
-        if src_port == "flow":
-            flow_ports = {"流程出", "是", "否", "默认", "循环体", "循环完成"}
+        if src_port == FLOW_PORT_PLACEHOLDER:
+            flow_ports = set(FLOW_OUT_PORT_NAMES)
             if not (src_output_names & flow_ports):
                 _emit_missing_port_issue(
                     validator,
@@ -500,8 +529,8 @@ def validate_edge_port_references(
                 True,
             )
     if dst_port not in dst_input_names:
-        if dst_port == "flow":
-            if "流程入" not in dst_input_names and "跳出循环" not in dst_input_names:
+        if dst_port == FLOW_PORT_PLACEHOLDER:
+            if not (dst_input_names & set(FLOW_IN_PORT_NAMES)):
                 _emit_missing_port_issue(
                     validator,
                     edge_id,
@@ -595,11 +624,14 @@ def build_graph_model(
         node_id = node.get("id", "")
         if not node_id:
             continue
+        node_def_ref_raw = node.get("node_def_ref")
         node_model = NodeModel(
             id=node_id,
             title=node.get("title", node.get("name", "")),
             category=node.get("category", ""),
+            node_def_ref=NodeDefRef.from_dict(node_def_ref_raw) if node_def_ref_raw is not None else None,
             pos=node.get("position", node.get("pos", (0, 0))),
+            composite_id=str(node.get("composite_id", "") or ""),
         )
         # 恢复可选的源码行范围（若存在则用于错误定位）
         node_model.source_lineno = int(node.get("source_lineno", 0) or 0)

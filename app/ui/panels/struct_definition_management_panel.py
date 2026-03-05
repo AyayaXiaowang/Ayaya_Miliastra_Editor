@@ -56,7 +56,7 @@ class StructDefinitionManagementPanel(PanelScaffold):
             self.body_layout,
             self,
             self._on_package_membership_changed,
-            label_text="所属存档:",
+            label_text="所属项目存档:",
         )
         self._package_selector.setEnabled(False)
 

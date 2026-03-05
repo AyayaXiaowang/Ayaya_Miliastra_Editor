@@ -12,8 +12,9 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from app.automation import capture as editor_capture
-from app.automation.input.common import build_graph_region_overlay, compute_position_thresholds
+from app.automation.input.common import build_graph_region_overlay, compute_position_thresholds_for_node_view
 from app.automation.vision import invalidate_cache, list_nodes
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 from app.automation.editor.editor_mapping import FIXED_SCALE_RATIO
 from engine.graph.models.graph_model import GraphModel
 
@@ -106,7 +107,12 @@ def _try_origin_translation_voting(
         int(region_height),
     )
 
-    base_tolerance_x, base_tolerance_y = compute_position_thresholds(FIXED_SCALE_RATIO)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    base_tolerance_x, base_tolerance_y = compute_position_thresholds_for_node_view(
+        scale=float(FIXED_SCALE_RATIO),
+        node_view_width_px=float(node_view_w_px),
+        node_view_height_px=float(node_view_h_px),
+    )
     position_tolerance_x = float(base_tolerance_x) * float(ORIGIN_VOTING_POSITION_TOL_MULTIPLIER)
     position_tolerance_y = float(base_tolerance_y) * float(ORIGIN_VOTING_POSITION_TOL_MULTIPLIER)
 

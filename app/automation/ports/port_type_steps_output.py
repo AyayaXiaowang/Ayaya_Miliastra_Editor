@@ -31,7 +31,7 @@ from app.automation.ports.port_type_effective import infer_effective_output_type
 from app.automation.ports.port_type_inference import is_generic_type_name
 from app.automation.ports.port_type_steps_common import apply_type_setting_with_port_center
 from app.automation.ports.port_type_ui_steps import apply_port_type_via_ui
-from engine.nodes.port_index_mapper import map_port_index_to_name
+from app.automation.ports.port_index_name_resolver import map_port_index_to_name_via_node_def
 
 
 def process_output_ports_type_setting(
@@ -90,7 +90,7 @@ def process_output_ports_type_setting(
         port_index = getattr(port_out, "index", None)
         mapped_name: Optional[str] = None
         if isinstance(port_index, int):
-            mapped_name = map_port_index_to_name(node.title, "right", port_index)
+            mapped_name = map_port_index_to_name_via_node_def(node_def, "right", port_index)
 
         if not isinstance(mapped_name, str) or mapped_name == "":
             detected_name_cn = getattr(port_out, "name_cn", None)

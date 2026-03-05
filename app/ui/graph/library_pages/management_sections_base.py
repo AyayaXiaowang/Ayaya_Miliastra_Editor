@@ -4,13 +4,14 @@
 本模块集中承载所有 Section 共享的类型别名、数据结构与基础依赖，
 其他子模块通过 `from .management_sections_base import *` 复用这些定义。
 
-资源语义约定（与 `assets/资源库/管理配置/claude.md` 保持一致）：
-- 管理配置资源的**本体**是一份 JSON 文件，物理位置位于 `assets/资源库/管理配置/*/*.json`。
-- 功能包/存档只在 `PackageIndex.resources.management[...]` 中以“资源 ID 列表”的形式引用这些 JSON，
-  充当“索引/标签”，不会改变资源本身的生命周期。
-- Section 与管理页面通过 `PackageView/GlobalResourceView/UnclassifiedResourceView.management` 访问的是
+资源语义约定（与资源库布局文档保持一致）：
+- 管理配置资源的**本体**是一份 JSON 文件，物理位置位于某个资源根目录下的 `管理配置/**.json`，
+  例如 `assets/资源库/项目存档/<package_id>/管理配置/**.json`（共享根同理）。
+- 存档视图在 `PackageIndex.resources.management[...]` 中以“资源 ID 列表”的形式引用这些 JSON，
+  该列表在目录模式下由“文件物理位置”派生（不再写回任何 pkg_*.json 旧式索引文件）。
+- Section 与管理页面通过 `PackageView/GlobalResourceView.management` 访问的是
   这些 JSON 的视图模型；在具体存档视图下，`PackageController._sync_management_resources_to_index()`
-  负责将视图模型写回对应的 JSON 文件并更新功能包索引；在全局/未分类视图下当前实现主要用于聚合浏览。
+  负责将视图模型写回对应的 JSON 文件并刷新存档索引（PackageIndex）视图；在全局视图下当前实现主要用于聚合浏览。
 """
 
 from __future__ import annotations
@@ -52,7 +53,6 @@ from engine.graph.models.package_model import SignalConfig, SignalParameterConfi
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
 from engine.resources.resource_manager import ResourceManager
-from engine.resources.unclassified_resource_view import UnclassifiedResourceView
 from engine.validate.comprehensive_rules.helpers import iter_all_package_graphs
 from app.ui.dialogs.signal_edit_dialog import SignalEditDialog
 from app.ui.dialogs.struct_definition_dialog import (
@@ -65,7 +65,7 @@ from app.ui.foundation.theme_manager import ThemeManager
 from app.ui.forms.schema_dialog import FormDialogBuilder
 
 
-ManagementPackage = Union[PackageView, GlobalResourceView, UnclassifiedResourceView]
+ManagementPackage = Union[PackageView, GlobalResourceView]
 
 
 @dataclass

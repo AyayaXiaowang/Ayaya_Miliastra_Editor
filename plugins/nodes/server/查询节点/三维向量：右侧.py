@@ -10,6 +10,6 @@ from engine.utils.logging.logger import log_info
     description="返回(1,0,0)",
     doc_reference="服务器节点/查询节点/查询节点.md"
 )
-def 三维向量_右侧():
+def 三维向量_右侧(game):
     """返回(1,0,0)"""
     return [1, 0, 0]

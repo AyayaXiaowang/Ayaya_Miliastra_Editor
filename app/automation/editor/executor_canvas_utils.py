@@ -702,3 +702,118 @@ def snap_screen_point_to_canvas_background(
 
 
 
+def snap_screen_point_to_canvas_background_coarse(
+    executor: EditorExecutorProtocol,
+    screen_x: int,
+    screen_y: int,
+    *,
+    screenshot: Image.Image,
+    region_rect: Optional[Tuple[int, int, int, int]] = None,
+    log_callback: Optional[Callable[[str], None]] = None,
+) -> Optional[Tuple[int, int]]:
+    """粗略版画布吸附：不做节点识别，仅基于像素采样寻找允许背景色点。
+
+    适用场景：
+    - 视口连续拖拽/远距离平移时，为每一步拖拽快速挑选“不会点到节点”的起点；
+    - 仅保证点落在允许背景色(#323237/#35353B)附近，不保证严格避开所有节点 bbox。
+
+    约定：
+    - 调用方需要显式传入当前帧 screenshot，避免本函数重复截图；
+    - 若无法在小范围内找到允许底色点，返回 None，由调用方决定是否回退到严格吸附。
+    """
+    win_rect = editor_capture.get_window_rect(executor.window_title)
+    if win_rect is None:
+        return None
+    win_left, win_top, _win_right, _win_bottom = win_rect
+    editor_x = int(screen_x) - int(win_left)
+    editor_y = int(screen_y) - int(win_top)
+
+    region = region_rect
+    if region is None:
+        rx, ry, rw, rh = editor_capture.get_region_rect(screenshot, "节点图布置区域")
+        region = (int(rx), int(ry), int(rw), int(rh))
+    editor_x, editor_y = _clamp_point_to_region(int(editor_x), int(editor_y), region)
+
+    img_w, img_h = screenshot.size
+    if int(img_w) <= 0 or int(img_h) <= 0:
+        return None
+
+    allowed_rgb: list[Tuple[int, int, int]] = []
+    for color_hex in CANVAS_ALLOWED_COLORS:
+        r = int(str(color_hex)[0:2], 16)
+        g = int(str(color_hex)[2:4], 16)
+        b = int(str(color_hex)[4:6], 16)
+        allowed_rgb.append((int(r), int(g), int(b)))
+    tolerance = int(CANVAS_COLOR_TOLERANCES[0]) if len(CANVAS_COLOR_TOLERANCES) > 0 else 10
+    if tolerance < 0:
+        tolerance = 0
+
+    def _is_allowed_at(point_x: int, point_y: int) -> bool:
+        if point_x < 0 or point_x >= int(img_w) or point_y < 0 or point_y >= int(img_h):
+            return False
+        pixel = screenshot.getpixel((int(point_x), int(point_y)))
+        if isinstance(pixel, int):
+            return False
+        r0 = int(pixel[0])
+        g0 = int(pixel[1])
+        b0 = int(pixel[2])
+        for rr, gg, bb in allowed_rgb:
+            if (
+                abs(int(r0) - int(rr)) <= int(tolerance)
+                and abs(int(g0) - int(gg)) <= int(tolerance)
+                and abs(int(b0) - int(bb)) <= int(tolerance)
+            ):
+                return True
+        return False
+
+    if _is_allowed_at(int(editor_x), int(editor_y)):
+        executor.set_last_context_click_editor_pos(int(editor_x), int(editor_y))
+        return (int(screen_x), int(screen_y))
+
+    max_radius = int(CANVAS_SAFE_POINT_NEAR_MAX_RADIUS)
+    if max_radius < 0:
+        max_radius = 0
+    step = int(CANVAS_SAFE_POINT_NEAR_STEP)
+    if step <= 0:
+        step = 8
+
+    directions = (
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1),
+        (1, 1),
+        (1, -1),
+        (-1, 1),
+        (-1, -1),
+    )
+
+    rx, ry, rw, rh = region
+    for radius in range(int(step), int(max_radius) + 1, int(step)):
+        for dx, dy in directions:
+            candidate_x = int(editor_x) + int(dx) * int(radius)
+            candidate_y = int(editor_y) + int(dy) * int(radius)
+            if int(rw) > 0 and int(rh) > 0:
+                if candidate_x < int(rx) or candidate_x >= int(rx + rw):
+                    continue
+                if candidate_y < int(ry) or candidate_y >= int(ry + rh):
+                    continue
+            if _is_allowed_at(int(candidate_x), int(candidate_y)):
+                snapped_screen_x = int(win_left) + int(candidate_x)
+                snapped_screen_y = int(win_top) + int(candidate_y)
+                executor.set_last_context_click_editor_pos(int(candidate_x), int(candidate_y))
+                if log_callback is not None:
+                    executor.log(
+                        "[颜色约束] 粗略吸附：未命中允许底色，已在邻域找到可用背景点 "
+                        f"editor=({int(candidate_x)},{int(candidate_y)}) r={int(radius)}",
+                        log_callback,
+                    )
+                return (int(snapped_screen_x), int(snapped_screen_y))
+
+    if log_callback is not None:
+        executor.log(
+            "[颜色约束] 粗略吸附失败：在邻域内未找到允许底色点，将由调用方决定是否回退严格吸附",
+            log_callback,
+        )
+    return None
+

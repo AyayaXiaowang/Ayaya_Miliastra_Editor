@@ -114,6 +114,11 @@ class CentralPagesAssemblyFeature(MainWindowFeature):
         package_library_widget = getattr(main_window, "package_library_widget", None)
         if package_library_widget is not None:
             package_library_widget.packages_changed.connect(main_window._refresh_package_list)
+            connect_optional_signal(
+                package_library_widget,
+                "package_load_requested",
+                main_window._on_packages_page_package_load_requested,
+            )
             connect_optional_signal(package_library_widget, "resource_activated", main_window._on_package_resource_activated)
             connect_optional_signal(
                 package_library_widget,

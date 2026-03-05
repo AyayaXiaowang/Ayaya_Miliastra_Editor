@@ -1,0 +1,2079 @@
+{
+  "template_id": "1077936168",
+  "name": "红围巾",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936168,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073751096",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.659999847412109,
+                "y": -1.4442917108535767,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.07200000435113907,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751096,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.07200000435113907,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751097",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.920000076293945,
+                "y": -1.6242916584014893,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.23999999463558197,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751097,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.23999999463558197,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751098",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.300000190734863,
+                "y": -1.6242916584014893,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751098,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751099",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.100000381469727,
+                "y": -1.984291672706604,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751099,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751100",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.480000019073486,
+                "y": -2.1642916202545166,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.47999998927116394,
+                "y": 0.009999999776482582,
+                "z": 0.23999999463558197
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751100,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.47999998927116394,
+                0.009999999776482582,
+                0.23999999463558197
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751101",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.279999732971191,
+                "y": -2.3442916870117188,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.47999998927116394,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751101,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.47999998927116394,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751102",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.100000381469727,
+                "y": -2.704291582107544,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751102,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751103",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.480000019073486,
+                "y": -2.704291582107544,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751103,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751104",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.920000076293945,
+                "y": -3.0642917156219482,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751104,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751105",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.119999885559082,
+                "y": -3.0642917156219482,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751105,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751106",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.559999942779541,
+                "y": -3.4242916107177734,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751106,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751107",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.760000228881836,
+                "y": -3.4242916107177734,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.2000000476837158,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751107,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.2000000476837158,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751108",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": -3.7842917442321777,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.3200000524520874,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751108,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.3200000524520874,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751109",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.039999961853027,
+                "y": -3.7842917442321777,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.6799999475479126,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751109,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.6799999475479126,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751110",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.480000019073486,
+                "y": -4.144291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.6799999475479126,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751110,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.6799999475479126,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751111",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.320000171661377,
+                "y": -4.144291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751111,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751112",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -4.504291534423828,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 5.639999866485596,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751112,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                5.639999866485596,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751113",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": -4.864291667938232,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 5.760000228881836,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751113,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                5.760000228881836,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751114",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -5.224291801452637,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 5.880000114440918,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751114,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                5.880000114440918,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751115",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -5.764291763305664,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 6.119999885559082,
+                "y": 0.009999999776482582,
+                "z": 0.23999999463558197
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751115,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                6.119999885559082,
+                0.009999999776482582,
+                0.23999999463558197
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751116",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": -6.664291858673096,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 6.239999771118164,
+                "y": 0.009999999776482582,
+                "z": 0.36000001430511475
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751116,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                6.239999771118164,
+                0.009999999776482582,
+                0.36000001430511475
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751117",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.9600000381469727,
+                "y": -7.384291648864746,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 4.079999923706055,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751117,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                4.079999923706055,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751118",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20002609,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.3399999141693115,
+                "y": -7.564291477203369,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 0.75,
+                "z": 0.0011999999405816197
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751118,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20002609,
+              "ugc_scale": [
+                0.06960000097751617,
+                0.75,
+                0.0011999999405816197
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751119",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.579999923706055,
+                "y": -7.384291648864746,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.0399999618530273,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751119,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.0399999618530273,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751120",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.039999961853027,
+                "y": -7.74429178237915,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.119999885559082,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751120,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                3.119999885559082,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751121",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20002609,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": -7.924291610717773,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 0.75,
+                "z": 0.0011999999405816197
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751121,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20002609,
+              "ugc_scale": [
+                0.06960000097751617,
+                0.75,
+                0.0011999999405816197
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751122",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": -7.74429178237915,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.759999990463257,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751122,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.759999990463257,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751123",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": -8.104291915893555,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 5.760000228881836,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751123,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                5.760000228881836,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751124",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": -8.4642915725708,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 5.519999980926514,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751124,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                5.519999980926514,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751125",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -8.824291229248047,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 5.159999847412109,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751125,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                5.159999847412109,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751126",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -9.18429183959961,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 4.679999828338623,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751126,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                4.679999828338623,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751127",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": -9.544291496276855,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 4.320000171661377,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751127,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                4.320000171661377,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751128",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.0800000429153442,
+                "y": -9.904292106628418,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 4.079999923706055,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751128,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                4.079999923706055,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751129",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.440000057220459,
+                "y": -10.264291763305664,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.8399999141693115,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751129,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                3.8399999141693115,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751130",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.9800000190734863,
+                "y": -10.62429141998291,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751130,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                3.7200000286102295,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751131",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": -10.984292030334473,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.359999895095825,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751131,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                3.359999895095825,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751132",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.860000133514404,
+                "y": -12.064291954040527,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.7999999523162842,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751132,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.7999999523162842,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751133",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.039999961853027,
+                "y": -13.144291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751133,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751134",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.21999979019165,
+                "y": -14.224291801452637,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.7999999523162842,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751134,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.7999999523162842,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751135",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": -17.104291915893555,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.7999999523162842,
+                "y": 0.009999999776482582,
+                "z": 1.3200000524520874
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751135,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.7999999523162842,
+                0.009999999776482582,
+                1.3200000524520874
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751136",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.380000114440918,
+                "y": -19.444292068481445,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.23999999463558197
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751136,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.23999999463558197
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751137",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.5,
+                "y": -19.264291763305664,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0800000429153442,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751137,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.0800000429153442,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751138",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": -20.164291381835938,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.47999998927116394
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751138,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.47999998927116394
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751139",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.7799999713897705,
+                "y": -19.984291076660156,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.36000001430511475
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751139,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.36000001430511475
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751140",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.100000381469727,
+                "y": -20.164291381835938,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.11999999731779099,
+                "y": 0.009999999776482582,
+                "z": 0.23999999463558197
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751140,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.11999999731779099,
+                0.009999999776482582,
+                0.23999999463558197
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751141",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": -20.164291381835938,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.23999999463558197
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751141,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.23999999463558197
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751142",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.019999980926514,
+                "y": -20.70429229736328,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.11999999731779099,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751142,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.11999999731779099,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751143",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.139999866485596,
+                "y": -20.884292602539062,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.23999999463558197
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751143,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.23999999463558197
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751144",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.059999942779541,
+                "y": -20.70429229736328,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.11999999731779099,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751144,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.11999999731779099,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073751145",
+            "displayName": "红围巾",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": -21.06429100036621,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.11999999731779099,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073751145,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936168,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.11999999731779099,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

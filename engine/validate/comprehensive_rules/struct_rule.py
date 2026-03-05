@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Mapping, Sequence, Set, Tuple
 
-from engine.resources.definition_schema_view import get_default_definition_schema_view
+from engine.nodes.node_definition_loader import NodeDef
+from engine.struct import get_default_struct_repository
 from engine.utils.graph.graph_utils import (
-    build_node_map,
     get_node_display_info,
 )
-from engine.graph.common import (
-    STRUCT_SPLIT_NODE_TITLE,
-    STRUCT_BUILD_NODE_TITLE,
-    STRUCT_MODIFY_NODE_TITLE,
-    STRUCT_NODE_TITLES,
+from engine.graph.common import STRUCT_NAME_PORT_NAME
+from engine.validate.node_semantics import (
+    SEMANTIC_STRUCT_BUILD,
+    SEMANTIC_STRUCT_MODIFY,
+    SEMANTIC_STRUCT_SPLIT,
+    is_semantic_graph_node,
 )
 
 from ..comprehensive_types import ValidationIssue
@@ -21,8 +23,22 @@ from .helpers import GraphAttachment, get_graph_snapshot, iter_all_package_graph
 
 def _extract_struct_fields_from_payload(struct_payload: Mapping[str, Any]) -> Set[str]:
     """从结构体定义 payload 中提取字段名集合。"""
+    # 新结构：{fields: [{field_name, ...}]}
+    fields_value = struct_payload.get("fields")
+    if isinstance(fields_value, Sequence) and not isinstance(fields_value, (str, bytes)):
+        names: Set[str] = set()
+        for entry in fields_value:
+            if not isinstance(entry, Mapping):
+                continue
+            raw_name = entry.get("field_name")
+            field_name = str(raw_name).strip() if isinstance(raw_name, str) else ""
+            if field_name:
+                names.add(field_name)
+        return names
+
+    # 旧结构：{value: [{key, ...}]}
     value_entries = struct_payload.get("value")
-    if not isinstance(value_entries, Sequence):
+    if not isinstance(value_entries, Sequence) or isinstance(value_entries, (str, bytes)):
         return set()
 
     names: Set[str] = set()
@@ -38,16 +54,8 @@ def _extract_struct_fields_from_payload(struct_payload: Mapping[str, Any]) -> Se
 
 def _build_struct_definitions() -> Dict[str, Dict[str, Any]]:
     """构造 {struct_id: payload} 映射，仅包含结构体定义本身。"""
-    schema_view = get_default_definition_schema_view()
-    all_structs = schema_view.get_all_struct_definitions()
-    result: Dict[str, Dict[str, Any]] = {}
-    for struct_id, payload in all_structs.items():
-        if not isinstance(struct_id, str):
-            continue
-        if not isinstance(payload, dict):
-            continue
-        result[struct_id] = dict(payload)
-    return result
+    struct_repo = get_default_struct_repository()
+    return struct_repo.get_all_payloads()
 
 
 class StructUsageRule(BaseComprehensiveRule):
@@ -68,13 +76,17 @@ class StructUsageRule(BaseComprehensiveRule):
 
 
 def validate_package_struct_usage(validator) -> List[ValidationIssue]:
-    """在整个存档包范围内校验结构体定义与结构体节点用法的一致性。"""
+    """在整个项目存档范围内校验结构体定义与结构体节点用法的一致性。"""
     package = getattr(validator, "package", None)
     resource_manager = getattr(validator, "resource_manager", None)
     if package is None or resource_manager is None:
         return []
 
+    workspace_path = Path(getattr(resource_manager, "workspace_path"))
+
     struct_definitions = _build_struct_definitions()
+    struct_repo = get_default_struct_repository()
+    struct_errors_by_id = struct_repo.get_errors()
     field_names_by_struct_id: Dict[str, Set[str]] = {}
     for struct_id, payload in struct_definitions.items():
         field_names_by_struct_id[struct_id] = _extract_struct_fields_from_payload(payload)
@@ -86,7 +98,10 @@ def validate_package_struct_usage(validator) -> List[ValidationIssue]:
         package.templates,
         package.instances,
         package.level_entity,
+        package.combat_presets,
     )
+
+    node_library: Dict[str, NodeDef] = getattr(validator, "node_library", {}) or {}
 
     for attachment in attachments:
         # 仅对服务器节点图执行结构体节点校验
@@ -94,9 +109,12 @@ def validate_package_struct_usage(validator) -> List[ValidationIssue]:
             continue
         issues.extend(
             _validate_structs_in_single_graph(
+                workspace_path,
                 attachment,
                 struct_definitions,
+                struct_errors_by_id,
                 field_names_by_struct_id,
+                node_library,
             )
         )
 
@@ -104,9 +122,12 @@ def validate_package_struct_usage(validator) -> List[ValidationIssue]:
 
 
 def _validate_structs_in_single_graph(
+    workspace_path: Path,
     attachment: GraphAttachment,
     struct_definitions: Dict[str, Dict[str, Any]],
+    struct_errors_by_id: Dict[str, str],
     field_names_by_struct_id: Dict[str, Set[str]],
+    node_library: Dict[str, NodeDef],
 ) -> List[ValidationIssue]:
     graph_config = attachment.graph_config
     graph_data = graph_config.data or {}
@@ -124,8 +145,6 @@ def _validate_structs_in_single_graph(
         struct_bindings_raw if isinstance(struct_bindings_raw, dict) else {}
     )
 
-    nodes_by_id = build_node_map(nodes)
-
     base_location = attachment.location_compact
     base_detail = dict(attachment.detail)
     base_detail["graph_id"] = attachment.graph_id
@@ -134,8 +153,37 @@ def _validate_structs_in_single_graph(
     issues: List[ValidationIssue] = []
 
     for node in nodes:
-        node_id, node_title, _ = get_node_display_info(node)
-        if not node_id or node_title not in STRUCT_NODE_TITLES:
+        node_id, node_title, node_category = get_node_display_info(node)
+        if not node_id:
+            continue
+
+        is_struct_node = (
+            is_semantic_graph_node(
+                workspace_path=workspace_path,
+                node_library=node_library,
+                node_category=str(node_category or ""),
+                node_title=str(node_title or ""),
+                scope_text=str(getattr(graph_config, "graph_type", "") or "server"),
+                semantic_id=SEMANTIC_STRUCT_SPLIT,
+            )
+            or is_semantic_graph_node(
+                workspace_path=workspace_path,
+                node_library=node_library,
+                node_category=str(node_category or ""),
+                node_title=str(node_title or ""),
+                scope_text=str(getattr(graph_config, "graph_type", "") or "server"),
+                semantic_id=SEMANTIC_STRUCT_BUILD,
+            )
+            or is_semantic_graph_node(
+                workspace_path=workspace_path,
+                node_library=node_library,
+                node_category=str(node_category or ""),
+                node_title=str(node_title or ""),
+                scope_text=str(getattr(graph_config, "graph_type", "") or "server"),
+                semantic_id=SEMANTIC_STRUCT_MODIFY,
+            )
+        )
+        if not is_struct_node:
             continue
 
         # 提取“结构体名”常量，要求必须填写
@@ -190,20 +238,28 @@ def _validate_structs_in_single_graph(
 
         struct_payload = struct_definitions.get(struct_id)
         if struct_payload is None:
+            invalid_reason = struct_errors_by_id.get(struct_id, "")
             issues.append(
                 ValidationIssue(
                     level="error",
                     category="结构体系统",
                     location=node_location,
-                    message="结构体节点引用了在当前工程中不存在的结构体定义（可能已被删除或重命名）。",
-                    suggestion="请在“管理配置/结构体定义”中确认该结构体是否仍然存在，必要时在节点上重新选择一个有效的基础结构体。",
+                    message="结构体节点引用的结构体定义不存在或无法加载（可能已被删除、重命名或定义格式不合法）。",
+                    suggestion=(
+                        "请在“管理配置/结构体定义”中确认该结构体是否仍然存在且定义格式正确，"
+                        "必要时在节点上重新选择一个有效的基础结构体。"
+                    ),
                     reference="节点图变量声明设计.md: 结构体定义与节点绑定",
-                    detail={**node_detail, "struct_id": struct_id},
+                    detail={
+                        **node_detail,
+                        "struct_id": struct_id,
+                        "struct_error": invalid_reason,
+                    },
                 )
             )
             continue
 
-        struct_type_value = struct_payload.get("struct_ype")
+        struct_type_value = struct_payload.get("struct_type") or struct_payload.get("struct_ype")
         struct_type = str(struct_type_value).strip() if isinstance(struct_type_value, str) else ""
         if struct_type and struct_type != "basic":
             issues.append(
@@ -212,9 +268,13 @@ def _validate_structs_in_single_graph(
                     category="结构体系统",
                     location=node_location,
                     message="结构体节点绑定的目标不是基础结构体（例如绑定到了局内存档结构体）。",
-                    suggestion="请在结构体定义中确认 struct_ype 字段为 'basic'，并在节点上重新选择一个基础结构体。",
+                    suggestion="请在结构体定义中确认 struct_type 字段为 'basic'，并在节点上重新选择一个基础结构体。",
                     reference="节点图变量声明设计.md: 结构体类型约束",
-                    detail={**node_detail, "struct_id": struct_id, "struct_ype": struct_type or "<empty>"},
+                    detail={
+                        **node_detail,
+                        "struct_id": struct_id,
+                        "struct_type": struct_type or "<empty>",
+                    },
                 )
             )
             continue

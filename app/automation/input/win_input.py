@@ -25,6 +25,8 @@ from .win_input_lowlevel import (
     left_up,
     right_down,
     right_up,
+    mouse_wheel,
+    WHEEL_DELTA,
 )
 from .common import sleep_seconds
 from .window_finder import find_window_handle
@@ -227,6 +229,23 @@ def press_enter() -> None:
     inputs.append(key_down)
     inputs.append(key_up)
     _send_inputs(inputs)
+
+
+def scroll_wheel_notches(notches: int) -> None:
+    """按“滚轮格数”滚动鼠标。
+
+    notches:
+        - 正数：向上滚动
+        - 负数：向下滚动
+    """
+    total = int(notches)
+    if total == 0:
+        return
+    step = 1 if total > 0 else -1
+    for _ in range(abs(total)):
+        ok = mouse_wheel(int(step) * int(WHEEL_DELTA))
+        if not ok:
+            raise RuntimeError("mouse_wheel failed")
 
 
 

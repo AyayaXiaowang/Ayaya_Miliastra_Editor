@@ -10,7 +10,7 @@ from .node_definition_loader import load_all_nodes, NodeDef
 from .port_type_system import BOOLEAN_TYPE_KEYWORDS
 from .pipeline.runner import run_pipeline
 from .pipeline.node_library import NodeLibrary
-from engine.utils.logging.logger import log_info
+from engine.utils.logging.logger import log_debug, log_info
 from engine.utils.graph.node_defs_fingerprint import compute_node_defs_fingerprint
 from engine.utils.cache.cache_paths import get_node_cache_dir
 
@@ -33,6 +33,10 @@ class NodeRegistry:
         self.include_composite: bool = include_composite
 
         self._library: Optional[Dict[str, NodeDef]] = None
+        # 记录当前内存节点库对应的运行期作用域（复合节点集合随 active_package_id 变化）。
+        # 说明：切换项目存档后必须刷新/重载节点库，否则 GraphCodeParser 可能缺少当前项目的复合节点定义，
+        # 导致 `self.<复合实例>.<入口>(...)` 被误判为 Python 原生方法调用并在 strict 模式下拒绝解析。
+        self._loaded_active_package_id: str | None = None
         self._flow_node_names: Optional[Set[str]] = None
         self._boolean_node_names: Optional[Set[str]] = None
         self._data_query_node_names: Optional[Set[str]] = None
@@ -72,23 +76,42 @@ class NodeRegistry:
             # 先尝试从持久化缓存加载
             cached = self._load_persistent_node_library()
             if cached is not None:
-                self._library = cached
+                if self.include_composite:
+                    self._library = cached
+                else:
+                    # include_composite=False 仅影响当前注册表实例的“视图”：
+                    # - 磁盘缓存始终保留全量节点库（含复合节点），避免破坏依赖复合节点解析的调用方；
+                    # - 当前实例按需过滤掉复合节点，满足“只看基础节点”的使用场景。
+                    self._library = {
+                        key: node_def for key, node_def in cached.items() if not getattr(node_def, "is_composite", False)
+                    }
                 # 命中缓存时清理索引视图，按需懒构建
                 self._index_cache = None
                 self._node_library_view = None
+                # 同步当前作用域标记
+                from engine.utils.runtime_scope import get_active_package_id
+                self._loaded_active_package_id = get_active_package_id()
                 return
 
             # 未命中缓存：执行全量加载并写入缓存
-            log_info(
+            log_debug(
                 "[缓存][节点库] 未命中持久化缓存，开始全量扫描与解析"
                 f"（workspace={self.workspace_path}，include_composite={self.include_composite}）..."
             )
             # 以工作区根目录为节点实现库根路径（实现库位于 plugins/nodes）。
             node_defs_root = self.workspace_path
-            loaded_library = load_all_nodes(node_defs_root, include_composite=self.include_composite, verbose=False)
-            log_info(f"[缓存][节点库] 解析完成，共 {len(loaded_library)} 个节点定义，写入持久化缓存中...")
-            self._library = loaded_library
+            loaded_library = load_all_nodes(node_defs_root, include_composite=True, verbose=False)
+            log_debug(f"[缓存][节点库] 解析完成，共 {len(loaded_library)} 个节点定义，写入持久化缓存中...")
+            # 注意：磁盘缓存始终写入“全量节点库（含复合节点）”，避免 include_composite=False 覆盖缓存导致复合节点解析失败。
             self._save_persistent_node_library(loaded_library)
+            if self.include_composite:
+                self._library = loaded_library
+            else:
+                self._library = {
+                    key: node_def for key, node_def in loaded_library.items() if not getattr(node_def, "is_composite", False)
+                }
+            from engine.utils.runtime_scope import get_active_package_id
+            self._loaded_active_package_id = get_active_package_id()
         finally:
             self._is_loading = False
             self._loading_thread_id = None
@@ -123,7 +146,7 @@ class NodeRegistry:
         - 实现库：`plugins/nodes/`
         - 节点定义/加载核心：`engine/nodes/`
         - 图解析/生成核心：`engine/graph/`
-        - 复合节点库：`assets/资源库/复合节点库/`
+        - 复合节点库：位于任一资源根目录下的 `复合节点库/`
         """
         return compute_node_defs_fingerprint(self.workspace_path)
 
@@ -132,24 +155,45 @@ class NodeRegistry:
         cache_dir = self._get_node_cache_dir()
         cache_file = cache_dir / "node_library.json"
         if not cache_file.exists():
-            log_info(f"[缓存][节点库] 未找到持久化缓存文件（{cache_file}），需要重建")
+            log_debug(f"[缓存][节点库] 未找到持久化缓存文件（{cache_file}），需要重建")
             return None
         with open(cache_file, "r", encoding="utf-8") as f:
             data = json.load(f)
         if "node_defs_fp" not in data or "items" not in data:
-            log_info("[缓存][节点库] 缓存结构不完整，跳过使用并准备重建")
+            log_debug("[缓存][节点库] 缓存结构不完整，跳过使用并准备重建")
             return None
         current_fp = self._compute_node_defs_fingerprint()
         if data.get("node_defs_fp") != current_fp:
             old_fp = data.get("node_defs_fp", "<none>")
-            log_info(f"[缓存][节点库] 指纹变更，缓存失效（旧: {old_fp} -> 新: {current_fp}），准备重建")
+            log_debug("[缓存][节点库] 指纹变更，缓存失效（旧: {} -> 新: {}），准备重建", str(old_fp)[:120], str(current_fp)[:120])
             return None
         item_count = len(data.get("items", {}))
-        log_info(f"[缓存][节点库] 命中持久化缓存，共 {item_count} 项，快速恢复中...")
+        log_debug(f"[缓存][节点库] 命中持久化缓存，共 {item_count} 项，快速恢复中...")
         raw_items: Dict[str, dict] = data["items"]
         library: Dict[str, NodeDef] = {}
         for key, item in raw_items.items():
             library[key] = NodeDef(**item)
+            # 兼容：旧缓存/旧 schema 可能缺少 canonical_key（或为空）。
+            # 约定：canonical_key 必须指向“by_key 的标准键”，而不是别名键。
+            # 由于持久化缓存的 items 同时可能包含别名注入键（指向同一 NodeDef 对象的多条记录），
+            # 这里仅在缺失/为空时回填当前 key；若该对象后续通过其 canonical 条目被加载，会保持 canonical 值不被覆盖。
+            node_def = library[key]
+            if not str(getattr(node_def, "canonical_key", "") or "").strip():
+                node_def.canonical_key = str(key)
+
+        # 兜底：防止“基础库（不含复合）”误写入 node_library.json，导致共享复合节点无法被识别。
+        # 说明：GraphCodeParser 依赖节点库中存在复合节点 NodeDef 才能解析 `self.<复合实例>.<入口>(...)`。
+        has_any_composite = any(getattr(nd, "is_composite", False) for nd in library.values())
+        if not has_any_composite:
+            from engine.nodes.composite_file_policy import discover_composite_definition_files
+
+            composite_files = discover_composite_definition_files(self.workspace_path)
+            if composite_files:
+                log_debug(
+                    "[缓存][节点库] 持久化节点库缓存未包含复合节点，但磁盘上存在 {} 个复合节点定义文件；缓存视为无效，将重建全量节点库",
+                    len(composite_files),
+                )
+                return None
         return library
 
     def _save_persistent_node_library(self, library: Dict[str, NodeDef]) -> None:
@@ -158,14 +202,14 @@ class NodeRegistry:
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_file = cache_dir / "node_library.json"
         fp = self._compute_node_defs_fingerprint()
-        log_info(f"[缓存][节点库] 写入持久化缓存：{cache_file}（{len(library)} 项，指纹={fp}）")
+        log_debug(f"[缓存][节点库] 写入持久化缓存：{cache_file}（{len(library)} 项，指纹={fp}）")
         payload = {
             "node_defs_fp": fp,
             "items": {k: asdict(v) for k, v in library.items()},
         }
         with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
-        log_info("[缓存][节点库] 写入完成")
+        log_debug("[缓存][节点库] 写入完成")
 
     # ------------------------ 对外API ------------------------
     def refresh(self) -> None:
@@ -183,6 +227,13 @@ class NodeRegistry:
         self._node_library_view = None
 
     def get_library(self) -> Dict[str, NodeDef]:
+        # 复合节点集合受运行期 active_package_id 影响：切换项目存档后需要刷新节点库，
+        # 否则会复用旧作用域下的复合节点集合并导致图解析失败（strict mode）。
+        if self.include_composite and self._library is not None:
+            from engine.utils.runtime_scope import get_active_package_id
+            current_active_package_id = get_active_package_id()
+            if current_active_package_id != self._loaded_active_package_id:
+                self.refresh()
         self._ensure_library()
         if self._library is None:
             raise RuntimeError("节点库尚未构建完成：get_library 在节点库不可用时被调用")
@@ -290,8 +341,22 @@ class NodeRegistry:
         mapping: Dict[str, Set[str]] = {}
         for _, node_def in node_library.items():
             for port_name, port_type in node_def.input_types.items():
-                if isinstance(port_type, str) and ("实体" in port_type):
+                # UI/布局层的“行内常量控件”判定依赖该集合：
+                # - 实体/结构体属于引用/复合数据，仅允许连线，不提供行内常量输入；
+                # - 这里使用宽松的字符串规则，保持与 NodeDef/类型系统解耦。
+                if (
+                    isinstance(port_type, str)
+                    and (("实体" in port_type) or str(port_type).startswith("结构体"))
+                ):
                     mapping.setdefault(node_def.name, set()).add(port_name)
+                    # 端口别名也视为同类端口（避免旧图出现“额外控件行”）
+                    aliases_map = getattr(node_def, "input_port_aliases", {}) or {}
+                    if isinstance(aliases_map, dict):
+                        aliases = aliases_map.get(port_name) or []
+                        if isinstance(aliases, list):
+                            for alias in aliases:
+                                if isinstance(alias, str) and alias:
+                                    mapping.setdefault(node_def.name, set()).add(alias)
         self._entity_input_params_by_func = mapping
         return mapping
 

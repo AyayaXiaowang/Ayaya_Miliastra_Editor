@@ -367,6 +367,27 @@ class EditorExecutorProtocol(Protocol):
         """
         ...
 
+    def get_view_state_token(self) -> int:
+        """获取当前视口 token，用于判断缓存/识别是否可复用。"""
+        ...
+
+    def prefill_node_ports_snapshot(
+        self,
+        node_id: str,
+        screenshot: Image.Image,
+        node_bbox: Tuple[int, int, int, int],
+        ports: List[Any],
+    ) -> None:
+        """写入“节点快照预热”缓存（用于创建节点后复用 ROI 识别结果）。"""
+        ...
+
+    def consume_prefilled_node_ports_snapshot(
+        self,
+        node_id: str,
+    ) -> Optional[Tuple[Image.Image, Tuple[int, int, int, int], List[Any]]]:
+        """消费并移除“节点快照预热”缓存；若不存在或不可复用则返回 None。"""
+        ...
+
 
 class NodeLibraryProvider(Protocol):
     """节点库提供者协议：隔离节点定义查询逻辑"""

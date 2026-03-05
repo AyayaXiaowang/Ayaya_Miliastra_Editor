@@ -1,4 +1,4 @@
-"""资源容器写回服务（模板/实例/关卡实体）。"""
+"""资源容器写回服务（模板/实体摆放/关卡实体）。"""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ class ResourceContainerSaveService:
         self._resource_manager = resource_manager
 
     def save_container(self, container: object, object_type: str, *, verbose: bool) -> bool:
-        """统一保存资源容器（模板、实例或关卡实体）。"""
+        """统一保存资源容器（模板、实体摆放或关卡实体）。"""
         if not container:
             return False
 
@@ -75,7 +75,7 @@ class ResourceContainerSaveService:
                 )
                 if not save_ok:
                     print(
-                        "[RESOURCE-SAVE] 实例保存被阻止（疑似外部修改冲突）："
+                        "[RESOURCE-SAVE] 实体摆放保存被阻止（疑似外部修改冲突）："
                         f"id={container.instance_id!r}, expected_mtime={expected_mtime!r}"  # type: ignore[attr-defined]
                     )
                     return False
@@ -87,14 +87,14 @@ class ResourceContainerSaveService:
                 if latest_mtime is not None:
                     setattr(container, "_source_mtime", float(latest_mtime))
                 print(
-                    "[RESOURCE-SAVE] 实例已保存："
+                    "[RESOURCE-SAVE] 实体摆放已保存："
                     f"name={getattr(container, 'name', '')!r}, "
                     f"id={container.instance_id!r}, guid={guid_value!r}, "  # type: ignore[attr-defined]
                     f"is_level_entity={object_type == 'level_entity'}"
                 )
                 if verbose:
                     print(
-                        f"已保存实例：{getattr(container, 'name', '')} ({container.instance_id})"  # type: ignore[attr-defined]
+                        f"已保存实体摆放：{getattr(container, 'name', '')} ({container.instance_id})"  # type: ignore[attr-defined]
                     )
                 return True
             return False
@@ -110,7 +110,7 @@ class ResourceContainerSaveService:
         *,
         verbose: bool,
     ) -> bool:
-        """按 ID 集合保存模板/实例/关卡实体。"""
+        """按 ID 集合保存模板/实体摆放/关卡实体。"""
         saved_any = False
 
         if template_ids:

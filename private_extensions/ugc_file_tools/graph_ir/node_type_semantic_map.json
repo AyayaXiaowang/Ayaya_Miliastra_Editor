@@ -1,0 +1,3761 @@
+{
+  "1": {
+    "confidence": "high",
+    "graph_generater_node_name": "打印字符串",
+    "notes": "由 test4 校准图 graph_id_int=1073741825（校准_节点类型映射_v1）解析得到：节点记录中包含待打印的 utf8 字符串常量，且在双分支两侧均出现，符合“打印字符串”节点语义。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "2": {
+    "confidence": "medium",
+    "graph_generater_node_name": "双分支",
+    "notes": "在 1073741829/1073741832 等图中以 2 条流程连线导向不同后续节点，呈现典型二分支结构；当前仍属提示级推断，建议用校准图确认端口索引与条件输入位置。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "3": {
+    "scope": "server",
+    "graph_generater_node_name": "多分支",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Multiple Branches"
+  },
+  "5": {
+    "scope": "server",
+    "graph_generater_node_name": "有限循环",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Finite Loop"
+  },
+  "6": {
+    "scope": "server",
+    "graph_generater_node_name": "跳出循环",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Break Loop"
+  },
+  "7": {
+    "scope": "server",
+    "graph_generater_node_name": "获取随机浮点数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Random Floating Point Number"
+  },
+  "8": {
+    "scope": "server",
+    "graph_generater_node_name": "权重随机",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Weighted Random"
+  },
+  "9": {
+    "scope": "server",
+    "graph_generater_node_name": "拆分三维向量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Split 3D Vector"
+  },
+  "10": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量加法",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Addition"
+  },
+  "11": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量减法",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Subtraction"
+  },
+  "12": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量缩放",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Zoom"
+  },
+  "13": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量夹角",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Angle"
+  },
+  "14": {
+    "confidence": "high",
+    "graph_generater_node_name": "是否相等",
+    "notes": "在校准图 graph_id_int=1073741825（校准_节点类型映射_v1）中呈现典型结构：2 个数据输入（字符串）→ 输出布尔值，并作为【双分支】的条件输入；语义匹配 Graph_Generater 节点【是否相等】。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "18": {
+    "confidence": "high",
+    "graph_generater_node_name": "获取局部变量",
+    "notes": "在 test4 校准图 graph_id_int=1073741826 中作为“设置局部变量(19)”的上游数据源出现：输出(局部变量,值)分别连到设置节点的两个输入，符合“获取局部变量”节点结构。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "19": {
+    "confidence": "high",
+    "graph_generater_node_name": "设置局部变量",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "22": {
+    "confidence": "high",
+    "graph_generater_node_name": "设置自定义变量",
+    "notes": "由 test4 校准图 graph_id_int=1073741825（校准_节点类型映射_v1）解析得到：含流程入/流程出，且包含 utf8=校准_自定义变量_A 作为变量名输入，符合“设置自定义变量”节点语义。",
+    "scope": "server",
+    "semantic_id": "custom_var.set"
+  },
+  "36": {
+    "scope": "server",
+    "graph_generater_node_name": "自定义变量变化时",
+    "semantic_id": "custom_var.changed",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Custom Variable Changes"
+  },
+  "50": {
+    "confidence": "high",
+    "graph_generater_node_name": "获取自定义变量",
+    "notes": "高频出现并稳定伴随 utf8=自定义变量名；在图 1073741832/1835 中反复出现，且与“目标实体输入 + 变量名字符串常量 + 输出变量值”的连接形态一致。",
+    "scope": "server",
+    "semantic_id": "custom_var.get"
+  },
+  "66": {
+    "scope": "server",
+    "graph_generater_node_name": "设置预设状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Preset Status"
+  },
+  "67": {
+    "scope": "server",
+    "graph_generater_node_name": "预设状态变化时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Preset Status Changes"
+  },
+  "68": {
+    "scope": "server",
+    "graph_generater_node_name": "获取预设状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Preset Status"
+  },
+  "69": {
+    "scope": "server",
+    "graph_generater_node_name": "销毁实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Destroy Entity"
+  },
+  "70": {
+    "confidence": "high",
+    "graph_generater_node_name": "创建实体",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "71": {
+    "confidence": "medium",
+    "graph_generater_node_name": "实体创建时",
+    "notes": "在 test2 的多张 server 图中作为疑似入口节点出现（节点类型 71，records 极少）；目前仅作“入口事件节点”标注，后续若确认其它事件再修正。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "72": {
+    "scope": "server",
+    "graph_generater_node_name": "实体移除/销毁时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Entity Is Removed/Destroyed"
+  },
+  "73": {
+    "confidence": "high",
+    "graph_generater_node_name": "获取自身实体",
+    "notes": "在 test4 校准图 graph_id_int=1073741826/1073741825 中以无输入、输出实体句柄的纯数据节点出现，且后续作为多个节点的“目标实体/玩家实体/商店归属者实体”等输入来源，符合“获取自身实体”。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "74": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量归一化",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Normalization"
+  },
+  "75": {
+    "scope": "server",
+    "graph_generater_node_name": "以GUID查询实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Entity by GUID"
+  },
+  "76": {
+    "scope": "server",
+    "graph_generater_node_name": "以实体查询GUID",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query GUID by Entity"
+  },
+  "77": {
+    "scope": "server",
+    "graph_generater_node_name": "结算关卡",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Settle Stage"
+  },
+  "79": {
+    "confidence": "high",
+    "graph_generater_node_name": "启动定时器",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "80": {
+    "scope": "server",
+    "graph_generater_node_name": "暂停定时器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Pause Timer"
+  },
+  "81": {
+    "scope": "server",
+    "graph_generater_node_name": "恢复定时器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Resume Timer"
+  },
+  "82": {
+    "scope": "server",
+    "graph_generater_node_name": "终止定时器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Stop Timer"
+  },
+  "83": {
+    "scope": "server",
+    "graph_generater_node_name": "定时器触发时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Timer Is Triggered"
+  },
+  "84": {
+    "scope": "server",
+    "graph_generater_node_name": "添加匀速直线型基础运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Add Uniform Basic Linear Motion Device"
+  },
+  "85": {
+    "scope": "server",
+    "graph_generater_node_name": "添加匀速旋转型基础运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Add Uniform Basic Rotation-Based Motion Device"
+  },
+  "86": {
+    "scope": "server",
+    "graph_generater_node_name": "停止并删除基础运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Stop and Delete Basic Motion Device"
+  },
+  "87": {
+    "scope": "server",
+    "graph_generater_node_name": "暂停基础运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Pause Basic Motion Device"
+  },
+  "88": {
+    "scope": "server",
+    "graph_generater_node_name": "恢复基础运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Recover Basic Motion Device"
+  },
+  "89": {
+    "scope": "server",
+    "graph_generater_node_name": "基础运动器停止时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Basic Motion Device Stops"
+  },
+  "90": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭碰撞触发器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Collision Trigger"
+  },
+  "91": {
+    "scope": "server",
+    "graph_generater_node_name": "离开碰撞触发器时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Exiting Collision Trigger"
+  },
+  "92": {
+    "scope": "server",
+    "graph_generater_node_name": "进入碰撞触发器时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Entering Collision Trigger"
+  },
+  "93": {
+    "scope": "server",
+    "graph_generater_node_name": "播放限时特效",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Play Timed Effects"
+  },
+  "94": {
+    "scope": "server",
+    "graph_generater_node_name": "挂载循环特效",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Mount Looping Special Effect"
+  },
+  "95": {
+    "scope": "server",
+    "graph_generater_node_name": "清除循环特效",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Clear Looping Special Effect"
+  },
+  "99": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体位置与旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity Location and Rotation"
+  },
+  "100": {
+    "scope": "server",
+    "graph_generater_node_name": "拼接列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Concatenate List"
+  },
+  "107": {
+    "scope": "server",
+    "graph_generater_node_name": "清除列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Clear List"
+  },
+  "114": {
+    "confidence": "high",
+    "graph_generater_node_name": "列表是否包含该值",
+    "notes": "由 test4 校准图 graph_id_int=1073741825（校准_节点类型映射_v1）解析得到：输入来自拼装列表(169)与常量 222，输出布尔用于后续双分支判断，符合“列表是否包含该值”。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "121": {
+    "scope": "server",
+    "graph_generater_node_name": "查找列表并返回值的序号",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Search List and Return Value ID"
+  },
+  "128": {
+    "scope": "server",
+    "graph_generater_node_name": "获取列表对应值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Corresponding Value From List"
+  },
+  "135": {
+    "confidence": "high",
+    "graph_generater_node_name": "对列表插入值",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "142": {
+    "scope": "server",
+    "graph_generater_node_name": "获取列表长度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get List Length"
+  },
+  "149": {
+    "scope": "server",
+    "graph_generater_node_name": "获取列表最大值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Maximum Value from List"
+  },
+  "151": {
+    "scope": "server",
+    "graph_generater_node_name": "获取列表最小值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Minimum Value From List"
+  },
+  "153": {
+    "scope": "server",
+    "graph_generater_node_name": "对列表移除值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Remove Value From List"
+  },
+  "160": {
+    "confidence": "high",
+    "graph_generater_node_name": "对列表修改值",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "167": {
+    "scope": "server",
+    "graph_generater_node_name": "列表排序",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=List Sorting"
+  },
+  "169": {
+    "confidence": "high",
+    "graph_generater_node_name": "拼装列表",
+    "notes": "在 test4 多张图中作为变参数据节点出现：records 数量接近 100，且通过 field_1.message.field_2 表达元素序号，输出为列表；与 Graph_Generater 的“拼装列表(0~99→列表)”一致。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "177": {
+    "scope": "server",
+    "graph_generater_node_name": "路径到达路点时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Path Reaches Waypoint"
+  },
+  "178": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭实体布设组",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Entity Deployment Group"
+  },
+  "179": {
+    "scope": "server",
+    "graph_generater_node_name": "查询当前激活的实体布设组列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Currently Active Entity Deployment Groups"
+  },
+  "180": {
+    "scope": "server",
+    "graph_generater_node_name": "数据类型转换",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Data Type Conversion"
+  },
+  "190": {
+    "scope": "server",
+    "graph_generater_node_name": "转发事件",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Forwarding Event"
+  },
+  "191": {
+    "scope": "server",
+    "graph_generater_node_name": "圆周率",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Pi (π)"
+  },
+  "192": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量：零向量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector: Zero Vector"
+  },
+  "193": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量：上方",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector: Up"
+  },
+  "194": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量：下方",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector: Down"
+  },
+  "195": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量：左侧",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector: Left"
+  },
+  "196": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量：右侧",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector: Right"
+  },
+  "197": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量：前方",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector: Forward"
+  },
+  "198": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量：后方",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector: Backward"
+  },
+  "200": {
+    "scope": "server",
+    "graph_generater_node_name": "加法运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Addition"
+  },
+  "202": {
+    "scope": "server",
+    "graph_generater_node_name": "减法运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Subtraction"
+  },
+  "204": {
+    "scope": "server",
+    "graph_generater_node_name": "乘法运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Multiplication"
+  },
+  "206": {
+    "scope": "server",
+    "graph_generater_node_name": "除法运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Division"
+  },
+  "208": {
+    "scope": "server",
+    "graph_generater_node_name": "模运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modulo Operation"
+  },
+  "209": {
+    "scope": "server",
+    "graph_generater_node_name": "幂运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Exponentiation"
+  },
+  "211": {
+    "scope": "server",
+    "graph_generater_node_name": "取较大值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Take Larger Value"
+  },
+  "213": {
+    "scope": "server",
+    "graph_generater_node_name": "取较小值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Take Smaller Value"
+  },
+  "215": {
+    "scope": "server",
+    "graph_generater_node_name": "对数运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Logarithm Operation"
+  },
+  "216": {
+    "scope": "server",
+    "graph_generater_node_name": "绝对值运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Absolute Value Operation"
+  },
+  "218": {
+    "scope": "server",
+    "graph_generater_node_name": "取符号运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Sign Operation"
+  },
+  "220": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量模运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Modulo Operation"
+  },
+  "221": {
+    "scope": "server",
+    "graph_generater_node_name": "算术平方根运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Arithmetic Square Root Operation"
+  },
+  "222": {
+    "scope": "server",
+    "graph_generater_node_name": "范围限制运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Range Limiting Operation"
+  },
+  "224": {
+    "scope": "server",
+    "graph_generater_node_name": "取整数运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Round to Integer Operation"
+  },
+  "225": {
+    "confidence": "high",
+    "graph_generater_node_name": "创建三维向量",
+    "notes": "在 test4 校准图 graph_id_int=1073741826 中作为纯数据节点出现：3 个浮点常量输入（fixed32_float）→ 输出三维向量，供后续“以GUID/以实体切换跟随运动器的目标”节点使用。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "226": {
+    "scope": "server",
+    "graph_generater_node_name": "逻辑与运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Logical AND Operation"
+  },
+  "227": {
+    "confidence": "medium",
+    "graph_generater_node_name": "逻辑或运算",
+    "notes": "在 1073741835 中出现为多输入汇聚形态：同一端口索引重复连接多个“常量_字符串(14)”节点，符合“拼装列表（0~99 多输入）→ 输出列表”的结构；后续可用校准图进一步确认。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "228": {
+    "scope": "server",
+    "graph_generater_node_name": "逻辑异或运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Logical XOR Operation"
+  },
+  "229": {
+    "scope": "server",
+    "graph_generater_node_name": "逻辑非运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Logical NOT Operation"
+  },
+  "230": {
+    "scope": "server",
+    "graph_generater_node_name": "数值小于",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Less Than"
+  },
+  "231": {
+    "scope": "server",
+    "graph_generater_node_name": "数值小于等于",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Less Than or Equal To"
+  },
+  "232": {
+    "scope": "server",
+    "graph_generater_node_name": "数值大于",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Greater Than"
+  },
+  "233": {
+    "scope": "server",
+    "graph_generater_node_name": "数值大于等于",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Greater Than or Equal To"
+  },
+  "240": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭原生碰撞",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Native Collision"
+  },
+  "241": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭原生碰撞可攀爬性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Native Collision Climbability"
+  },
+  "242": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭额外碰撞",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Extra Collision"
+  },
+  "243": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭额外碰撞可攀爬性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Extra Collision Climbability"
+  },
+  "244": {
+    "scope": "server",
+    "graph_generater_node_name": "两坐标点距离",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Distance Between Two Coordinate Points"
+  },
+  "245": {
+    "confidence": "high",
+    "graph_generater_node_name": "以GUID切换跟随运动器的目标",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "246": {
+    "scope": "server",
+    "graph_generater_node_name": "获取跟随运动器的目标",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Follow Motion Device Target"
+  },
+  "248": {
+    "scope": "server",
+    "graph_generater_node_name": "获取在场玩家实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get List of Player Entities on the Field"
+  },
+  "249": {
+    "scope": "server",
+    "graph_generater_node_name": "查询实体阵营",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Entity Faction"
+  },
+  "250": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改实体阵营",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "251": {
+    "scope": "server",
+    "graph_generater_node_name": "实体阵营变化时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Entity Faction Changes"
+  },
+  "252": {
+    "scope": "server",
+    "graph_generater_node_name": "创建元件",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Create Prefab"
+  },
+  "253": {
+    "scope": "server",
+    "graph_generater_node_name": "命中检测触发时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When On-Hit Detection Is Triggered"
+  },
+  "256": {
+    "confidence": "high",
+    "graph_generater_node_name": "创建投射物",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "257": {
+    "scope": "server",
+    "graph_generater_node_name": "获取随机整数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Random Integer"
+  },
+  "258": {
+    "scope": "server",
+    "graph_generater_node_name": "获取指定玩家所有角色实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get All Character Entities of Specified Player"
+  },
+  "259": {
+    "scope": "server",
+    "graph_generater_node_name": "获取角色归属的玩家实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Entity to Which the Character Belongs"
+  },
+  "260": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体类型",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity Type"
+  },
+  "261": {
+    "scope": "server",
+    "graph_generater_node_name": "切换主镜头模板",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Switch Main Camera Template"
+  },
+  "267": {
+    "scope": "server",
+    "graph_generater_node_name": "激活基础运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate Basic Motion Device"
+  },
+  "270": {
+    "scope": "server",
+    "graph_generater_node_name": "查询预设点位置旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Preset Point Position Rotation"
+  },
+  "271": {
+    "scope": "server",
+    "graph_generater_node_name": "以单位标签获取预设点位列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Preset Point List by Unit Tag"
+  },
+  "272": {
+    "scope": "server",
+    "graph_generater_node_name": "激活复苏点",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate Revive Point"
+  },
+  "273": {
+    "scope": "server",
+    "graph_generater_node_name": "注销复苏点",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Deactivate Revive Point"
+  },
+  "274": {
+    "scope": "server",
+    "graph_generater_node_name": "允许/禁止玩家复苏",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Allow/Forbid Player to Revive"
+  },
+  "275": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家剩余复苏次数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Remaining Revives"
+  },
+  "276": {
+    "scope": "server",
+    "graph_generater_node_name": "设置玩家剩余复苏次数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Player Remaining Revives"
+  },
+  "277": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家复苏耗时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Revive Time"
+  },
+  "278": {
+    "scope": "server",
+    "graph_generater_node_name": "设置玩家复苏耗时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Player Revive Time"
+  },
+  "279": {
+    "confidence": "high",
+    "graph_generater_node_name": "复苏角色",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "280": {
+    "scope": "server",
+    "graph_generater_node_name": "角色倒下时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When the Character Is Down"
+  },
+  "281": {
+    "scope": "server",
+    "graph_generater_node_name": "角色复苏时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Character Revives"
+  },
+  "282": {
+    "scope": "server",
+    "graph_generater_node_name": "击倒玩家所有角色",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Defeat All Player's Characters"
+  },
+  "283": {
+    "confidence": "high",
+    "graph_generater_node_name": "复苏玩家所有角色",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "284": {
+    "scope": "server",
+    "graph_generater_node_name": "玩家所有角色倒下时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When All Player's Characters Are Down"
+  },
+  "285": {
+    "scope": "server",
+    "graph_generater_node_name": "玩家异常倒下并复苏时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Player Is Abnormally Downed and Revives"
+  },
+  "286": {
+    "scope": "server",
+    "graph_generater_node_name": "玩家所有角色复苏时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When All Player's Characters Are Revived"
+  },
+  "287": {
+    "scope": "server",
+    "graph_generater_node_name": "查询玩家角色是否全部倒下",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query If All Player Characters Are Down"
+  },
+  "288": {
+    "confidence": "high",
+    "graph_generater_node_name": "传送玩家",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "289": {
+    "scope": "server",
+    "graph_generater_node_name": "玩家传送完成时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Player Teleport Completes"
+  },
+  "290": {
+    "scope": "server",
+    "graph_generater_node_name": "查询游戏已进行时间",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Game Time Elapsed"
+  },
+  "291": {
+    "scope": "server",
+    "graph_generater_node_name": "正弦函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Sine Function"
+  },
+  "292": {
+    "scope": "server",
+    "graph_generater_node_name": "余弦函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Cosine Function"
+  },
+  "293": {
+    "scope": "server",
+    "graph_generater_node_name": "正切函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Tangent Function"
+  },
+  "294": {
+    "scope": "server",
+    "graph_generater_node_name": "反正弦函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Arcsine Function"
+  },
+  "295": {
+    "scope": "server",
+    "graph_generater_node_name": "反余弦函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Arccosine Function"
+  },
+  "296": {
+    "scope": "server",
+    "graph_generater_node_name": "反正切函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Arctangent Function"
+  },
+  "297": {
+    "scope": "server",
+    "graph_generater_node_name": "添加单位状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Add Unit Status"
+  },
+  "299": {
+    "scope": "server",
+    "graph_generater_node_name": "单位状态结束时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Unit Status Ends"
+  },
+  "300": {
+    "scope": "server",
+    "graph_generater_node_name": "单位状态变更时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Unit Status Changes"
+  },
+  "301": {
+    "scope": "server",
+    "graph_generater_node_name": "移除单位状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Remove Unit Status"
+  },
+  "302": {
+    "scope": "server",
+    "graph_generater_node_name": "修改角色扰动装置",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modifying Character Disruptor Device"
+  },
+  "303": {
+    "confidence": "high",
+    "graph_generater_node_name": "发起攻击",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "304": {
+    "scope": "server",
+    "graph_generater_node_name": "受到攻击时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Attacked"
+  },
+  "305": {
+    "scope": "server",
+    "graph_generater_node_name": "攻击命中时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Attack Hits"
+  },
+  "306": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭选项卡",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Tab"
+  },
+  "307": {
+    "scope": "server",
+    "graph_generater_node_name": "选项卡选中时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Tab Is Selected"
+  },
+  "308": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭模型显示",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Model Display"
+  },
+  "309": {
+    "scope": "server",
+    "graph_generater_node_name": "暂停全局计时器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Pause Global Timer"
+  },
+  "310": {
+    "scope": "server",
+    "graph_generater_node_name": "获取全局计时器当前时间",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Current Global Timer Time"
+  },
+  "311": {
+    "confidence": "high",
+    "graph_generater_node_name": "启动全局计时器",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "312": {
+    "scope": "server",
+    "graph_generater_node_name": "恢复全局计时器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Recover Global Timer"
+  },
+  "313": {
+    "scope": "server",
+    "graph_generater_node_name": "终止全局计时器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Stop Global Timer"
+  },
+  "314": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改全局计时器",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "315": {
+    "scope": "server",
+    "graph_generater_node_name": "全局计时器触发时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Global Timer Is Triggered"
+  },
+  "316": {
+    "confidence": "high",
+    "graph_generater_node_name": "界面控件组触发时",
+    "notes": "在图 1073741837（界面控件组状态控制）中作为入口事件节点出现：其它节点均围绕其触发链路组织，符合事件节点特征。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "317": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家当前界面布局",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player's Current UI Layout"
+  },
+  "318": {
+    "scope": "server",
+    "graph_generater_node_name": "获取场上所有实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get All Entities on the Field"
+  },
+  "319": {
+    "scope": "server",
+    "graph_generater_node_name": "获取场上指定类型实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Specified Type of Entities on the Field"
+  },
+  "320": {
+    "scope": "server",
+    "graph_generater_node_name": "获取场上指定元件ID的实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entities With Specified Prefab on the Field"
+  },
+  "321": {
+    "scope": "server",
+    "graph_generater_node_name": "弧度转角度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Radians to Degrees"
+  },
+  "322": {
+    "scope": "server",
+    "graph_generater_node_name": "角度转弧度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Degrees to Radians"
+  },
+  "323": {
+    "confidence": "high",
+    "graph_generater_node_name": "设置节点图变量",
+    "notes": "在图 1073741837 中与 utf8=预留_调试最近一次触发索引 绑定，且端口形态与 (流程入,变量名,变量值,是否触发事件)->流程出 的“设置节点图变量”高度一致。",
+    "scope": "server",
+    "semantic_id": "graph_var.set"
+  },
+  "337": {
+    "confidence": "high",
+    "graph_generater_node_name": "获取节点图变量",
+    "notes": "在图 1073741832 中出现 utf8=地点到界面GUID字典，作为图变量名输入并输出变量值；与“获取节点图变量(graph_var.get)”语义一致。",
+    "scope": "server",
+    "semantic_id": "graph_var.get"
+  },
+  "351": {
+    "scope": "server",
+    "graph_generater_node_name": "节点图变量变化时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Node Graph Variable Changes"
+  },
+  "365": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭跟随运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Follow Motion Device"
+  },
+  "367": {
+    "scope": "server",
+    "graph_generater_node_name": "激活/关闭碰撞触发源",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate/Disable Collision Trigger Source"
+  },
+  "372": {
+    "scope": "server",
+    "graph_generater_node_name": "移除实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Remove Entity"
+  },
+  "373": {
+    "scope": "server",
+    "graph_generater_node_name": "实体销毁时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Entity Is Destroyed"
+  },
+  "374": {
+    "scope": "server",
+    "graph_generater_node_name": "造物入战时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Creation Enters Combat"
+  },
+  "375": {
+    "scope": "server",
+    "graph_generater_node_name": "造物脱战时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Creation Leaves Combat"
+  },
+  "376": {
+    "scope": "server",
+    "graph_generater_node_name": "获取造物当前目标",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Creation's Current Target"
+  },
+  "377": {
+    "scope": "server",
+    "graph_generater_node_name": "获取指定类型的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity List by Specified Type"
+  },
+  "378": {
+    "scope": "server",
+    "graph_generater_node_name": "获取指定元件ID的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity List by Specified Prefab"
+  },
+  "379": {
+    "scope": "server",
+    "graph_generater_node_name": "获取指定阵营的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity List by Specified Faction"
+  },
+  "380": {
+    "scope": "server",
+    "graph_generater_node_name": "获取指定范围的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity List by Specified Range"
+  },
+  "381": {
+    "scope": "server",
+    "graph_generater_node_name": "获取造物属性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Creation Attribute"
+  },
+  "382": {
+    "scope": "server",
+    "graph_generater_node_name": "切换当前界面布局",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Switch Current Interface Layout"
+  },
+  "383": {
+    "scope": "server",
+    "graph_generater_node_name": "激活控件组库内界面控件组",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate UI Control Group in Control Group Library"
+  },
+  "384": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改界面布局内界面控件状态",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "385": {
+    "scope": "server",
+    "graph_generater_node_name": "玩家职业更改时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Player Class Changes"
+  },
+  "386": {
+    "scope": "server",
+    "graph_generater_node_name": "玩家职业等级变化时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Player Class Level Changes"
+  },
+  "387": {
+    "scope": "server",
+    "graph_generater_node_name": "查询玩家职业",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Player Class"
+  },
+  "388": {
+    "scope": "server",
+    "graph_generater_node_name": "查询玩家职业的等级",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Player Class Level"
+  },
+  "389": {
+    "scope": "server",
+    "graph_generater_node_name": "更改玩家职业",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Change Player Class"
+  },
+  "390": {
+    "scope": "server",
+    "graph_generater_node_name": "提升玩家当前职业经验",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Increase Player's Current Class EXP"
+  },
+  "391": {
+    "scope": "server",
+    "graph_generater_node_name": "更改玩家当前职业等级",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Change Player's Current Class Level"
+  },
+  "392": {
+    "scope": "server",
+    "graph_generater_node_name": "技能节点调用时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Skill Node Is Called"
+  },
+  "393": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改技能资源量",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "394": {
+    "scope": "server",
+    "graph_generater_node_name": "设置技能资源量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Skill Resource Amount"
+  },
+  "395": {
+    "scope": "server",
+    "graph_generater_node_name": "添加角色技能",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Add Character Skill"
+  },
+  "396": {
+    "confidence": "high",
+    "graph_generater_node_name": "以ID删除角色技能",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "397": {
+    "confidence": "high",
+    "graph_generater_node_name": "初始化角色技能",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "398": {
+    "scope": "server",
+    "graph_generater_node_name": "查询角色技能",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Character Skill"
+  },
+  "399": {
+    "confidence": "high",
+    "graph_generater_node_name": "以槽位删除角色技能",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "473": {
+    "scope": "server",
+    "graph_generater_node_name": "根据特效资产清除特效",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Clear Special Effects Based on Special Effect Assets"
+  },
+  "474": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Rotation"
+  },
+  "475": {
+    "scope": "server",
+    "graph_generater_node_name": "枚举是否相等",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Enumerations Equal"
+  },
+  "505": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量内积",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Dot Product"
+  },
+  "506": {
+    "scope": "server",
+    "graph_generater_node_name": "三维向量外积",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=3D Vector Cross Product"
+  },
+  "507": {
+    "scope": "server",
+    "graph_generater_node_name": "查询实体是否在场",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query If Entity Is on the Field"
+  },
+  "508": {
+    "scope": "server",
+    "graph_generater_node_name": "查询实体是否具有单位状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query If Entity Has Unit Status"
+  },
+  "509": {
+    "scope": "server",
+    "graph_generater_node_name": "列表迭代循环",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=List Iteration Loop"
+  },
+  "516": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体向前向量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity Forward Vector"
+  },
+  "517": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体向右向量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity Right Vector"
+  },
+  "518": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体向上向量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity Upward Vector"
+  },
+  "519": {
+    "scope": "server",
+    "graph_generater_node_name": "方向向量转旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Direction Vector to Rotation"
+  },
+  "520": {
+    "scope": "server",
+    "graph_generater_node_name": "添加朝向目标旋转型基础运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Add Target-Oriented Rotation-Based Motion Device"
+  },
+  "521": {
+    "scope": "server",
+    "graph_generater_node_name": "移除控件组库内界面控件组",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Remove Interface Control Group From Control Group Library"
+  },
+  "580": {
+    "scope": "server",
+    "graph_generater_node_name": "获取物件属性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Object Attribute"
+  },
+  "583": {
+    "scope": "server",
+    "graph_generater_node_name": "恢复生命",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Recover HP"
+  },
+  "584": {
+    "scope": "server",
+    "graph_generater_node_name": "被恢复生命值时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When HP Is Recovered"
+  },
+  "585": {
+    "scope": "server",
+    "graph_generater_node_name": "发起恢复生命值时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Initiating HP Recovery"
+  },
+  "586": {
+    "confidence": "high",
+    "graph_generater_node_name": "实体添加单位标签",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "587": {
+    "confidence": "high",
+    "graph_generater_node_name": "实体移除单位标签",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "588": {
+    "confidence": "high",
+    "graph_generater_node_name": "实体清空单位标签",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "589": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体单位标签列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity Unit Tag List"
+  },
+  "590": {
+    "scope": "server",
+    "graph_generater_node_name": "获取单位标签的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity List by Unit Tag"
+  },
+  "591": {
+    "scope": "server",
+    "graph_generater_node_name": "关闭指定音效播放器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Close Specified Sound Effect Player"
+  },
+  "592": {
+    "confidence": "high",
+    "graph_generater_node_name": "启动/暂停指定音效播放器",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "593": {
+    "scope": "server",
+    "graph_generater_node_name": "调整指定音效播放器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Adjust Specified Sound Effect Player"
+  },
+  "594": {
+    "scope": "server",
+    "graph_generater_node_name": "添加音效播放器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Add Sound Effect Player"
+  },
+  "595": {
+    "confidence": "high",
+    "graph_generater_node_name": "启动/暂停玩家背景音乐",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "596": {
+    "scope": "server",
+    "graph_generater_node_name": "调整玩家背景音乐音量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Adjust Player Background Music Volume"
+  },
+  "597": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改玩家背景音乐",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "598": {
+    "scope": "server",
+    "graph_generater_node_name": "玩家播放单次2D音效",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Player Plays One-Shot 2D Sound Effect"
+  },
+  "599": {
+    "scope": "server",
+    "graph_generater_node_name": "设置指定实体的仇恨值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set the Aggro Value of Specified Entity"
+  },
+  "600": {
+    "scope": "server",
+    "graph_generater_node_name": "将目标实体移除出仇恨列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Remove Target Entity From Aggro List"
+  },
+  "601": {
+    "scope": "server",
+    "graph_generater_node_name": "清空指定目标的仇恨列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Clear Specified Target's Aggro List"
+  },
+  "602": {
+    "confidence": "high",
+    "graph_generater_node_name": "嘲讽目标",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "603": {
+    "scope": "server",
+    "graph_generater_node_name": "查询指定实体的仇恨值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query the Aggro Value of the Specified Entity"
+  },
+  "604": {
+    "scope": "server",
+    "graph_generater_node_name": "查询指定实体的仇恨倍率",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query the Aggro Multiplier of the Specified Entity"
+  },
+  "605": {
+    "scope": "server",
+    "graph_generater_node_name": "查询全局仇恨转移倍率",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Global Aggro Transfer Multiplier"
+  },
+  "606": {
+    "scope": "server",
+    "graph_generater_node_name": "获取指定实体的仇恨目标",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get the Aggro Target of the Specified Entity"
+  },
+  "607": {
+    "scope": "server",
+    "graph_generater_node_name": "获取以目标为仇恨目标的拥有者列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get List of Owners Who Have the Target in Their Aggro List"
+  },
+  "608": {
+    "scope": "server",
+    "graph_generater_node_name": "获取目标所在仇恨列表的拥有者列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get List of Owners That Have the Target As Their Aggro Target"
+  },
+  "609": {
+    "scope": "server",
+    "graph_generater_node_name": "获取指定实体的仇恨列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get the Aggro List of the Specified Entity"
+  },
+  "610": {
+    "scope": "server",
+    "graph_generater_node_name": "查询指定实体是否已入战",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query if Specified Entity Is in Combat"
+  },
+  "611": {
+    "scope": "server",
+    "graph_generater_node_name": "仇恨目标变化时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Aggro Target Changes"
+  },
+  "612": {
+    "scope": "server",
+    "graph_generater_node_name": "自身入战时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Self Enters Combat"
+  },
+  "613": {
+    "scope": "server",
+    "graph_generater_node_name": "自身脱战时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Self Leaves Combat"
+  },
+  "614": {
+    "scope": "server",
+    "graph_generater_node_name": "查询阵营是否敌对",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query If Faction Is Hostile"
+  },
+  "617": {
+    "scope": "server",
+    "graph_generater_node_name": "设置实体生效铭牌",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Entity Active Nameplate"
+  },
+  "618": {
+    "scope": "server",
+    "graph_generater_node_name": "切换造物巡逻模板",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Switch Creation Patrol Template"
+  },
+  "619": {
+    "scope": "server",
+    "graph_generater_node_name": "获取当前造物的巡逻模板",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Current Creation's Patrol Template"
+  },
+  "620": {
+    "scope": "server",
+    "graph_generater_node_name": "造物抵达巡逻路点时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Creation Reaches Patrol Waypoint"
+  },
+  "621": {
+    "scope": "server",
+    "graph_generater_node_name": "获取指定路径点信息",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Specified Waypoint Info"
+  },
+  "631": {
+    "scope": "server",
+    "graph_generater_node_name": "切换生效的文本气泡",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Switch Active Text Bubble"
+  },
+  "632": {
+    "confidence": "high",
+    "graph_generater_node_name": "唤起卡牌选择器",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "633": {
+    "scope": "server",
+    "graph_generater_node_name": "卡牌选择器完成时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Deck Selector Is Complete"
+  },
+  "634": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改小地图缩放",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "635": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改小地图标识生效状态",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "636": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改可见小地图标识的玩家列表",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "637": {
+    "scope": "server",
+    "graph_generater_node_name": "修改追踪小地图标识的玩家列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modify Player List for Tracking Mini-Map Markers"
+  },
+  "638": {
+    "scope": "server",
+    "graph_generater_node_name": "查询指定小地图标识信息",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Specified Mini-Map Marker Information"
+  },
+  "639": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体的小地图标识状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity's Mini-Map Marker Status"
+  },
+  "640": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改小地图标识的玩家标记",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "641": {
+    "scope": "server",
+    "graph_generater_node_name": "关闭卡牌选择器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Close Deck Selector"
+  },
+  "642": {
+    "scope": "server",
+    "graph_generater_node_name": "发生元素反应事件时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Elemental Reaction Event Occurs"
+  },
+  "643": {
+    "scope": "server",
+    "graph_generater_node_name": "护盾受到攻击时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Shield Is Attacked"
+  },
+  "644": {
+    "scope": "server",
+    "graph_generater_node_name": "查询成就是否完成",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query If Achievement Is Completed"
+  },
+  "645": {
+    "scope": "server",
+    "graph_generater_node_name": "设置成就进度计数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Achievement Progress Tally"
+  },
+  "646": {
+    "confidence": "high",
+    "graph_generater_node_name": "变更成就进度计数",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "647": {
+    "scope": "server",
+    "graph_generater_node_name": "设置玩家结算计分板展示数据",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Player Settlement Scoreboard Data Display"
+  },
+  "650": {
+    "scope": "server",
+    "graph_generater_node_name": "设置玩家结算排名数值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Player Settlement Ranking Value"
+  },
+  "651": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家结算排名数值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Settlement Ranking Value"
+  },
+  "652": {
+    "scope": "server",
+    "graph_generater_node_name": "设置玩家结算成功状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Player Settlement Success Status"
+  },
+  "653": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家结算成功状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Settlement Success Status"
+  },
+  "654": {
+    "scope": "server",
+    "graph_generater_node_name": "设置阵营结算排名数值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Faction Settlement Ranking Value"
+  },
+  "655": {
+    "scope": "server",
+    "graph_generater_node_name": "获取阵营结算排名数值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Faction Settlement Ranking Value"
+  },
+  "656": {
+    "scope": "server",
+    "graph_generater_node_name": "设置阵营结算成功状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Faction Settlement Success Status"
+  },
+  "657": {
+    "scope": "server",
+    "graph_generater_node_name": "获取阵营结算成功状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Faction Settlement Success Status"
+  },
+  "658": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家段位信息",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Ranking Info"
+  },
+  "659": {
+    "scope": "server",
+    "graph_generater_node_name": "设置玩家段位变化分数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Player Rank Score Change"
+  },
+  "660": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家段位变化分数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Rank Score Change"
+  },
+  "661": {
+    "scope": "server",
+    "graph_generater_node_name": "设置玩家逃跑合法性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Player Escape Validity"
+  },
+  "662": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家逃跑合法性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Escape Validity"
+  },
+  "663": {
+    "scope": "server",
+    "graph_generater_node_name": "切换玩家竞技段位生效的计分组",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Switch the scoring group that affects player's competitive rank"
+  },
+  "664": {
+    "scope": "server",
+    "graph_generater_node_name": "查询当前环境时间",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Current Environment Time"
+  },
+  "665": {
+    "scope": "server",
+    "graph_generater_node_name": "设置当前环境时间",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Current Environment Time"
+  },
+  "666": {
+    "scope": "server",
+    "graph_generater_node_name": "设置环境时间流逝速度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Environment Time Passage Speed"
+  },
+  "667": {
+    "scope": "server",
+    "graph_generater_node_name": "开关实体光源",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Toggle Entity Light Source"
+  },
+  "668": {
+    "confidence": "high",
+    "graph_generater_node_name": "以实体切换跟随运动器的目标",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "669": {
+    "scope": "server",
+    "graph_generater_node_name": "获取碰撞触发器内所有实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get All Entities Within the Collision Trigger"
+  },
+  "670": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体进阶属性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity Advanced Attribute"
+  },
+  "671": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体元素属性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Entity Elemental Attribute"
+  },
+  "672": {
+    "scope": "server",
+    "graph_generater_node_name": "装备添加词条",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Add Affix to Equipment"
+  },
+  "673": {
+    "scope": "server",
+    "graph_generater_node_name": "移除装备词条",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Remove Equipment Affix"
+  },
+  "674": {
+    "scope": "server",
+    "graph_generater_node_name": "修改装备词条值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modify Equipment Affix Value"
+  },
+  "675": {
+    "scope": "server",
+    "graph_generater_node_name": "获取装备词条列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Equipment Affix List"
+  },
+  "676": {
+    "scope": "server",
+    "graph_generater_node_name": "获取装备词条配置ID",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Equipment Affix Config ID"
+  },
+  "677": {
+    "scope": "server",
+    "graph_generater_node_name": "获取装备词条数值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Equipment Affix Value"
+  },
+  "678": {
+    "scope": "server",
+    "graph_generater_node_name": "",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "未在 Graph_Generater/plugins/nodes 的实现节点库中找到对应节点（可能为隐藏/下线节点），暂不映射；en=Update Player Leaderboard Score"
+  },
+  "679": {
+    "scope": "server",
+    "graph_generater_node_name": "文本气泡完成时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Text Bubble Is Completed"
+  },
+  "680": {
+    "scope": "server",
+    "graph_generater_node_name": "装备的词条数值改变时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Equipment Affix Value Changes"
+  },
+  "681": {
+    "scope": "server",
+    "graph_generater_node_name": "背包道具新增时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Item Is Added to Inventory"
+  },
+  "682": {
+    "scope": "server",
+    "graph_generater_node_name": "背包道具失去时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Item Is Lost From Inventory"
+  },
+  "683": {
+    "scope": "server",
+    "graph_generater_node_name": "背包道具数量变化时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When the Quantity of Inventory Item Changes"
+  },
+  "684": {
+    "scope": "server",
+    "graph_generater_node_name": "背包货币数量变化时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When the Quantity of Inventory Currency Changes"
+  },
+  "685": {
+    "confidence": "high",
+    "graph_generater_node_name": "增加背包最大容量",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "686": {
+    "scope": "server",
+    "graph_generater_node_name": "修改背包道具数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modify Inventory Item Quantity"
+  },
+  "687": {
+    "scope": "server",
+    "graph_generater_node_name": "设置背包掉落道具/货币数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Inventory Drop Items/Currency Amount"
+  },
+  "688": {
+    "scope": "server",
+    "graph_generater_node_name": "修改背包货币数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modify Inventory Currency Quantity"
+  },
+  "689": {
+    "scope": "server",
+    "graph_generater_node_name": "获取背包容量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Inventory Capacity"
+  },
+  "690": {
+    "scope": "server",
+    "graph_generater_node_name": "获取背包道具数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Inventory Item Quantity"
+  },
+  "691": {
+    "scope": "server",
+    "graph_generater_node_name": "获取背包货币数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Inventory Currency Quantity"
+  },
+  "694": {
+    "scope": "server",
+    "graph_generater_node_name": "装备初始化时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Equipment Is Initialized"
+  },
+  "695": {
+    "scope": "server",
+    "graph_generater_node_name": "装备被穿戴时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Equipment Is Equipped"
+  },
+  "696": {
+    "scope": "server",
+    "graph_generater_node_name": "装备被卸下时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Equipment Is Unequipped"
+  },
+  "697": {
+    "scope": "server",
+    "graph_generater_node_name": "损失生命",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=HP Loss"
+  },
+  "698": {
+    "scope": "server",
+    "graph_generater_node_name": "直接恢复生命",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Recover HP Directly"
+  },
+  "700": {
+    "scope": "server",
+    "graph_generater_node_name": "商店出售自定义商品时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Custom Shop Item Is Sold"
+  },
+  "701": {
+    "scope": "server",
+    "graph_generater_node_name": "商店出售背包物品时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Selling Inventory Items in the Shop"
+  },
+  "702": {
+    "scope": "server",
+    "graph_generater_node_name": "打开商店",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Open Shop"
+  },
+  "703": {
+    "scope": "server",
+    "graph_generater_node_name": "关闭商店",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Close Shop"
+  },
+  "704": {
+    "scope": "server",
+    "graph_generater_node_name": "修改自定义商店商品出售信息",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modify Custom Shop Item Sales Info"
+  },
+  "705": {
+    "scope": "server",
+    "graph_generater_node_name": "商店收购道具时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When selling items to the shop"
+  },
+  "706": {
+    "scope": "server",
+    "graph_generater_node_name": "修改背包商店商品出售信息",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modify Inventory Shop Item Sales Info"
+  },
+  "707": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改物品收购表中道具收购信息",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "708": {
+    "confidence": "high",
+    "graph_generater_node_name": "向自定义商店出售表中新增商品",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "709": {
+    "confidence": "high",
+    "graph_generater_node_name": "向背包商店出售表中新增商品",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "710": {
+    "confidence": "high",
+    "graph_generater_node_name": "向物品收购表中新增物品",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "711": {
+    "confidence": "high",
+    "graph_generater_node_name": "从自定义商店出售表中移除商品",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "712": {
+    "confidence": "high",
+    "graph_generater_node_name": "从背包商店出售表中移除商品",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "713": {
+    "confidence": "high",
+    "graph_generater_node_name": "从物品收购表中移除物品",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "714": {
+    "scope": "server",
+    "graph_generater_node_name": "查询自定义商店商品出售列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Custom Shop Item Sales List"
+  },
+  "715": {
+    "scope": "server",
+    "graph_generater_node_name": "查询背包商店物品出售列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Inventory Shop Item Sales List"
+  },
+  "716": {
+    "scope": "server",
+    "graph_generater_node_name": "查询商店收购物品列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Shop Purchase Item List"
+  },
+  "717": {
+    "scope": "server",
+    "graph_generater_node_name": "查询自定义商店商品出售信息",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Custom Shop Item Sales Info"
+  },
+  "718": {
+    "scope": "server",
+    "graph_generater_node_name": "查询背包商店商品出售信息",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Inventory Shop Item Sales Info"
+  },
+  "719": {
+    "scope": "server",
+    "graph_generater_node_name": "查询商店物品收购信息",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Shop Item Purchase Info"
+  },
+  "720": {
+    "scope": "server",
+    "graph_generater_node_name": "设置背包道具掉落内容",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Inventory Item Drop Contents"
+  },
+  "721": {
+    "scope": "server",
+    "graph_generater_node_name": "获取背包所有基础道具",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get all basic items from Inventory"
+  },
+  "722": {
+    "scope": "server",
+    "graph_generater_node_name": "获取背包所有货币",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get All Currency From Inventory"
+  },
+  "723": {
+    "scope": "server",
+    "graph_generater_node_name": "获取背包所有装备",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get all equipment from Inventory"
+  },
+  "724": {
+    "scope": "server",
+    "graph_generater_node_name": "触发战利品掉落",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Trigger Loot Drop"
+  },
+  "725": {
+    "scope": "server",
+    "graph_generater_node_name": "设置战利品掉落内容",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Loot Drop Content"
+  },
+  "726": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改掉落物组件道具数量",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "727": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改掉落物组件货币数量",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "728": {
+    "scope": "server",
+    "graph_generater_node_name": "获取掉落物组件道具数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Loot Component Item Quantity"
+  },
+  "729": {
+    "scope": "server",
+    "graph_generater_node_name": "获取掉落物组件货币数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Loot Component Currency Quantity"
+  },
+  "730": {
+    "scope": "server",
+    "graph_generater_node_name": "获取掉落物组件所有道具",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get All Trophy Items"
+  },
+  "731": {
+    "scope": "server",
+    "graph_generater_node_name": "获取掉落物组件所有货币",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get All Trophy Currency"
+  },
+  "732": {
+    "scope": "server",
+    "graph_generater_node_name": "获取掉落物组件所有装备",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get All Equipment from Loot Component"
+  },
+  "733": {
+    "scope": "server",
+    "graph_generater_node_name": "背包内道具被使用时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Items in the Inventory Are Used"
+  },
+  "734": {
+    "scope": "server",
+    "graph_generater_node_name": "查询装备标签列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Equipment Tag List"
+  },
+  "735": {
+    "scope": "server",
+    "graph_generater_node_name": "设置扫描标签的规则",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Scan Tag Rules"
+  },
+  "736": {
+    "scope": "server",
+    "graph_generater_node_name": "设置扫描组件的生效扫描标签序号",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Scan Component's Active Scan Tag ID"
+  },
+  "737": {
+    "scope": "server",
+    "graph_generater_node_name": "获取当前生效的扫描标签配置ID",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get the Currently Active Scan Tag Config ID"
+  },
+  "738": {
+    "scope": "server",
+    "graph_generater_node_name": "获取角色属性",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Character Attribute"
+  },
+  "739": {
+    "scope": "server",
+    "graph_generater_node_name": "设置角色技能冷却",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Character Skill CD"
+  },
+  "740": {
+    "scope": "server",
+    "graph_generater_node_name": "修改角色技能冷却",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modify Character Skill CD"
+  },
+  "741": {
+    "scope": "server",
+    "graph_generater_node_name": "按最大冷却时间修改技能冷却百分比",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Modify Skill CD Percentage Based on Max CD"
+  },
+  "742": {
+    "scope": "server",
+    "graph_generater_node_name": "装备指定序号添加词条",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Add Affix to Equipment at Specified ID"
+  },
+  "743": {
+    "scope": "server",
+    "graph_generater_node_name": "随机卡牌选择器选择列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Random Deck Selector Selection List"
+  },
+  "744": {
+    "scope": "server",
+    "graph_generater_node_name": "获取拥有者实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Owner Entity"
+  },
+  "745": {
+    "scope": "server",
+    "graph_generater_node_name": "获取实体拥有的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get List of Entities Owned by the Entity"
+  },
+  "746": {
+    "scope": "server",
+    "graph_generater_node_name": "根据槽位序号查询单位状态层数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Unit Status Stacks by Slot ID"
+  },
+  "747": {
+    "scope": "server",
+    "graph_generater_node_name": "根据槽位序号查询单位状态施加者",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Unit Status Applier by Slot ID"
+  },
+  "748": {
+    "scope": "server",
+    "graph_generater_node_name": "查询单位状态的槽位序号列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=List of Slot IDs Querying Unit Status"
+  },
+  "749": {
+    "scope": "server",
+    "graph_generater_node_name": "根据装备索引查询装备配置ID",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Equipment Config ID by Equipment ID"
+  },
+  "750": {
+    "scope": "server",
+    "graph_generater_node_name": "根据玩家序号获取玩家GUID",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player GUID by Player ID"
+  },
+  "751": {
+    "scope": "server",
+    "graph_generater_node_name": "根据玩家GUID获取玩家序号",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player ID by Player GUID"
+  },
+  "752": {
+    "scope": "server",
+    "graph_generater_node_name": "根据时间戳计算格式化时间",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Calculate formatted time from timestamp"
+  },
+  "753": {
+    "scope": "server",
+    "graph_generater_node_name": "根据格式化时间计算时间戳",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Calculate Timestamp From Formatted Time"
+  },
+  "754": {
+    "scope": "server",
+    "graph_generater_node_name": "根据时间戳计算星期几",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Calculate day of the week from timestamp"
+  },
+  "755": {
+    "scope": "server",
+    "graph_generater_node_name": "查询时间戳（UTC+0时区）",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Timestamp (UTC+0)"
+  },
+  "756": {
+    "scope": "server",
+    "graph_generater_node_name": "查询服务器时区",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Server Time Zone"
+  },
+  "757": {
+    "scope": "server",
+    "graph_generater_node_name": "创建元件组",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Create Prefab Group"
+  },
+  "758": {
+    "scope": "server",
+    "graph_generater_node_name": "获取造物的经典模式仇恨列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Aggro List of Creation in Default Mode"
+  },
+  "761": {
+    "confidence": "high",
+    "graph_generater_node_name": "以整数设置玩家排行榜分数",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "762": {
+    "confidence": "high",
+    "graph_generater_node_name": "以浮点数设置玩家排行榜分数",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "763": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改环境配置",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "764": {
+    "scope": "server",
+    "graph_generater_node_name": "玩家职业解除时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Player Class Is Removed"
+  },
+  "765": {
+    "scope": "server",
+    "graph_generater_node_name": "进入易受打断状态时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Entering an Interruptible State"
+  },
+  "766": {
+    "scope": "server",
+    "graph_generater_node_name": "查询对局游玩方式及人数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Game Mode and Player Number"
+  },
+  "767": {
+    "scope": "server",
+    "graph_generater_node_name": "获取玩家昵称",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Nickname"
+  },
+  "768": {
+    "scope": "server",
+    "graph_generater_node_name": "获得玩家客户端输入设备类型",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get Player Client Input Device Type"
+  },
+  "769": {
+    "scope": "server",
+    "graph_generater_node_name": "设置聊天频道开关",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Chat Channel Switch"
+  },
+  "770": {
+    "confidence": "high",
+    "graph_generater_node_name": "修改玩家频道权限",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "771": {
+    "scope": "server",
+    "graph_generater_node_name": "设置玩家当前频道",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set Player's Current Channel"
+  },
+  "772": {
+    "scope": "server",
+    "graph_generater_node_name": "消耗礼盒",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Consume Gift Box"
+  },
+  "773": {
+    "scope": "server",
+    "graph_generater_node_name": "查询对应礼盒数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Corresponding Gift Box Quantity"
+  },
+  "774": {
+    "scope": "server",
+    "graph_generater_node_name": "查询对应礼盒消耗数量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Corresponding Gift Box Consumption"
+  },
+  "775": {
+    "scope": "server",
+    "graph_generater_node_name": "开启定点运动器",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Activate Fixed-Point Motion Device"
+  },
+  "778": {
+    "scope": "server",
+    "graph_generater_node_name": "左移运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Left Shift Operation"
+  },
+  "779": {
+    "scope": "server",
+    "graph_generater_node_name": "右移运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Right Shift Operation"
+  },
+  "780": {
+    "scope": "server",
+    "graph_generater_node_name": "按位与",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Bitwise AND"
+  },
+  "781": {
+    "scope": "server",
+    "graph_generater_node_name": "按位或",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Bitwise OR"
+  },
+  "782": {
+    "scope": "server",
+    "graph_generater_node_name": "按位异或",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=XOR (Exclusive OR)"
+  },
+  "783": {
+    "scope": "server",
+    "graph_generater_node_name": "按位取补运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Bitwise Complement"
+  },
+  "784": {
+    "scope": "server",
+    "graph_generater_node_name": "按位写入",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Write by bit"
+  },
+  "785": {
+    "scope": "server",
+    "graph_generater_node_name": "按位读出",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Read by bit"
+  },
+  "946": {
+    "scope": "server",
+    "graph_generater_node_name": "角色移动速度达到条件时",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=When Character Movement SPD Meets Condition"
+  },
+  "947": {
+    "scope": "server",
+    "graph_generater_node_name": "查询角色当前移动速度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Character's Current Movement SPD"
+  },
+  "948": {
+    "scope": "server",
+    "graph_generater_node_name": "对字典设置或新增键值对",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Set or Add Key Value Pairs to Dictionary"
+  },
+  "1088": {
+    "scope": "server",
+    "graph_generater_node_name": "建立字典",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Create Dictionary"
+  },
+  "1158": {
+    "scope": "server",
+    "graph_generater_node_name": "以键查询字典值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Dictionary Value by Key"
+  },
+  "1298": {
+    "confidence": "high",
+    "graph_generater_node_name": "以键对字典移除键值对",
+    "notes": "由 test4 校准图 graph_id_int=1073741826 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "1368": {
+    "scope": "server",
+    "graph_generater_node_name": "查询字典是否包含特定键",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query If Dictionary Contains Specific Key"
+  },
+  "1438": {
+    "scope": "server",
+    "graph_generater_node_name": "查询字典是否包含特定值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query If Dictionary Contains Specific Value"
+  },
+  "1508": {
+    "scope": "server",
+    "graph_generater_node_name": "获取字典中键组成的列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get List of Keys from Dictionary"
+  },
+  "1578": {
+    "scope": "server",
+    "graph_generater_node_name": "获取字典中值组成的列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Get List of Values from Dictionary"
+  },
+  "1648": {
+    "scope": "server",
+    "graph_generater_node_name": "查询字典长度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Dictionary's Length"
+  },
+  "1718": {
+    "scope": "server",
+    "graph_generater_node_name": "清空字典",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Clear Dictionary"
+  },
+  "1788": {
+    "confidence": "high",
+    "graph_generater_node_name": "拼装字典",
+    "notes": "在 test4 校准图 graph_id_int=1073741826 中出现两次：输出“字典”类型并作为多个节点的字典入参来源；其 records 呈现成对键/值输入（键0/值0 …）的结构特征，符合“拼装字典”。",
+    "scope": "server",
+    "semantic_id": ""
+  },
+  "1928": {
+    "scope": "server",
+    "graph_generater_node_name": "对字典按键排序",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Sort Dictionary by Key"
+  },
+  "1938": {
+    "scope": "server",
+    "graph_generater_node_name": "对字典按值排序",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Sort Dictionary by Value"
+  },
+  "3360": {
+    "scope": "server",
+    "graph_generater_node_name": "查询自定义变量快照",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：en=Query Custom Variable Snapshot"
+  },
+  "200000": {
+    "scope": "client",
+    "graph_generater_node_name": "节点图结束（布尔型）",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Node_Graph_End_Boolean, category=其他节点"
+  },
+  "200001": {
+    "scope": "client",
+    "graph_generater_node_name": "逻辑与运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Logical_AND_Operation, category=运算节点"
+  },
+  "200002": {
+    "scope": "client",
+    "graph_generater_node_name": "逻辑或运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Logical_OR_Operation, category=运算节点"
+  },
+  "200003": {
+    "scope": "client",
+    "graph_generater_node_name": "逻辑非运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Logical_NOT_Operation, category=运算节点"
+  },
+  "200004": {
+    "scope": "client",
+    "graph_generater_node_name": "逻辑异或运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Logical_XOR_Operation, category=运算节点"
+  },
+  "200005": {
+    "scope": "client",
+    "graph_generater_node_name": "枚举匹配",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Enumeration_Match, category=运算节点"
+  },
+  "200006": {
+    "scope": "client",
+    "graph_generater_node_name": "是否相等",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Equal, category=运算节点"
+  },
+  "200007": {
+    "scope": "client",
+    "graph_generater_node_name": "是否大于",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Greater_Than, category=运算节点"
+  },
+  "200008": {
+    "scope": "client",
+    "graph_generater_node_name": "是否小于",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Less_Than, category=运算节点"
+  },
+  "200009": {
+    "scope": "client",
+    "graph_generater_node_name": "是否小于等于",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Less_Than_or_Equal_To, category=运算节点"
+  },
+  "200010": {
+    "scope": "client",
+    "graph_generater_node_name": "是否大于等于",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Greater_Than_or_Equal_To, category=运算节点"
+  },
+  "200011": {
+    "scope": "client",
+    "graph_generater_node_name": "加法运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Addition, category=运算节点"
+  },
+  "200012": {
+    "scope": "client",
+    "graph_generater_node_name": "减法运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Subtraction, category=运算节点"
+  },
+  "200013": {
+    "scope": "client",
+    "graph_generater_node_name": "乘法运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Multiplication, category=运算节点"
+  },
+  "200014": {
+    "scope": "client",
+    "graph_generater_node_name": "除法运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Division, category=运算节点"
+  },
+  "200015": {
+    "scope": "client",
+    "graph_generater_node_name": "绝对值运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Absolute_Value_Operation, category=运算节点"
+  },
+  "200016": {
+    "scope": "client",
+    "graph_generater_node_name": "获取自定义变量",
+    "semantic_id": "custom_var.get",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Custom_Variable, category=查询节点"
+  },
+  "200017": {
+    "scope": "client",
+    "graph_generater_node_name": "获取列表对应值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Corresponding_Value_From_List, category=查询节点"
+  },
+  "200018": {
+    "scope": "client",
+    "graph_generater_node_name": "获取列表长度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_List_Length, category=查询节点"
+  },
+  "200019": {
+    "scope": "client",
+    "graph_generater_node_name": "列表是否包含该值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=List_Includes_This_Value, category=查询节点"
+  },
+  "200020": {
+    "scope": "client",
+    "graph_generater_node_name": "获取列表最大值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Maximum_Value_From_List, category=查询节点"
+  },
+  "200021": {
+    "scope": "client",
+    "graph_generater_node_name": "获取列表最小值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Minimum_Value_From_List, category=查询节点"
+  },
+  "200022": {
+    "scope": "client",
+    "graph_generater_node_name": "数据类型转换",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Data_Type_Conversion, category=运算节点"
+  },
+  "200023": {
+    "scope": "client",
+    "graph_generater_node_name": "以GUID查询实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Query_Entity_by_GUID, category=查询节点"
+  },
+  "200024": {
+    "scope": "client",
+    "graph_generater_node_name": "获取指定玩家的角色实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Character_Entity_of_Specified_Player, category=查询节点"
+  },
+  "200025": {
+    "scope": "client",
+    "graph_generater_node_name": "获取角色归属的玩家实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Player_Entity_to_Which_the_Character_Belongs, category=查询节点"
+  },
+  "200026": {
+    "scope": "client",
+    "graph_generater_node_name": "获取在场玩家实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_List_of_Player_Entities_on_the_Field, category=查询节点"
+  },
+  "200027": {
+    "scope": "client",
+    "graph_generater_node_name": "以实体查询GUID",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Query_GUID_by_Entity, category=查询节点"
+  },
+  "200028": {
+    "scope": "client",
+    "graph_generater_node_name": "获取预设状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Preset_Status, category=查询节点"
+  },
+  "200029": {
+    "scope": "client",
+    "graph_generater_node_name": "查询实体阵营",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Query_Entity_Faction, category=查询节点"
+  },
+  "200030": {
+    "scope": "client",
+    "graph_generater_node_name": "获取实体位置",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_Location, category=查询节点"
+  },
+  "200031": {
+    "scope": "client",
+    "graph_generater_node_name": "获取实体旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_Rotation, category=查询节点"
+  },
+  "200032": {
+    "scope": "client",
+    "graph_generater_node_name": "获取随机数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Random_Number, category=运算节点"
+  },
+  "200033": {
+    "scope": "client",
+    "graph_generater_node_name": "获取自身实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Self_Entity, category=查询节点"
+  },
+  "200034": {
+    "scope": "client",
+    "graph_generater_node_name": "获取目标实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Target_Entity, category=查询节点"
+  },
+  "200035": {
+    "scope": "client",
+    "graph_generater_node_name": "获取单位攻击目标",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Unit_Attack_Target, category=查询节点"
+  },
+  "200037": {
+    "scope": "client",
+    "graph_generater_node_name": "查询自身是否已入战",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Query_If_Self_Is_in_Combat, category=查询节点"
+  },
+  "200038": {
+    "scope": "client",
+    "graph_generater_node_name": "播放限时特效",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Play_Timed_Effects, category=执行节点"
+  },
+  "200039": {
+    "scope": "client",
+    "graph_generater_node_name": "通知服务器节点图",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Notify_Server_Node_Graph, category=执行节点"
+  },
+  "200040": {
+    "scope": "client",
+    "graph_generater_node_name": "玩家转向",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Player_Turning, category=执行节点"
+  },
+  "200041": {
+    "scope": "client",
+    "graph_generater_node_name": "设置自身攻击目标",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Set_Own_Attack_Target, category=执行节点"
+  },
+  "200042": {
+    "confidence": "high",
+    "graph_generater_node_name": "节点图开始",
+    "notes": "在 client 图 1082130433/0439/0440/0441 中作为唯一入口节点出现，直接连到“向服务器节点图发送信号”节点，符合客户端节点【节点图开始】的语义。",
+    "scope": "client",
+    "semantic_id": ""
+  },
+  "200043": {
+    "scope": "client",
+    "graph_generater_node_name": "筛选球体范围内的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Filter_Entity_List_Within_Spherical_Range, category=查询节点"
+  },
+  "200044": {
+    "scope": "client",
+    "graph_generater_node_name": "筛选方形范围内的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Filter_Entity_List_Within_Square_Range, category=查询节点"
+  },
+  "200045": {
+    "scope": "client",
+    "graph_generater_node_name": "获取实体的类型",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_s_Type, category=查询节点"
+  },
+  "200047": {
+    "scope": "client",
+    "graph_generater_node_name": "获取目标挂接点位置",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Target_Attachment_Point_Location, category=查询节点"
+  },
+  "200048": {
+    "scope": "client",
+    "graph_generater_node_name": "获取目标挂接点旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Target_Attachment_Point_Rotation, category=查询节点"
+  },
+  "200049": {
+    "scope": "client",
+    "graph_generater_node_name": "拼装列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Assembly_List, category=运算节点"
+  },
+  "200050": {
+    "scope": "client",
+    "graph_generater_node_name": "获取实体类型列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_Type_List, category=查询节点"
+  },
+  "200051": {
+    "scope": "client",
+    "graph_generater_node_name": "特定位置打攻击盒",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Trigger_Hitbox_at_Specific_Location, category=执行节点"
+  },
+  "200052": {
+    "scope": "client",
+    "graph_generater_node_name": "定点发射投射物",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Fixed_Point_Projectile_Launch, category=执行节点"
+  },
+  "200053": {
+    "scope": "client",
+    "graph_generater_node_name": "定点位移",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Fixed_Point_Displacement, category=执行节点"
+  },
+  "200055": {
+    "scope": "client",
+    "graph_generater_node_name": "遍历实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Traverse_Entity_List, category=执行节点"
+  },
+  "200056": {
+    "scope": "client",
+    "graph_generater_node_name": "双分支",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Double_Branch, category=流程控制节点"
+  },
+  "200057": {
+    "scope": "client",
+    "graph_generater_node_name": "添加单位状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Add_Unit_Status, category=执行节点"
+  },
+  "200058": {
+    "scope": "client",
+    "graph_generater_node_name": "移除单位状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Remove_Unit_Status, category=执行节点"
+  },
+  "200059": {
+    "scope": "client",
+    "graph_generater_node_name": "指定挂接点打攻击盒",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Trigger_Hitbox_at_Specified_Attachment_Point, category=执行节点"
+  },
+  "200060": {
+    "scope": "client",
+    "graph_generater_node_name": "移除指定角色扰动装置",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Remove_Specified_Character_Disruptor_Device, category=执行节点"
+  },
+  "200061": {
+    "scope": "client",
+    "graph_generater_node_name": "修改攻击权重",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Modify_Attack_Weight, category=执行节点"
+  },
+  "200062": {
+    "scope": "client",
+    "graph_generater_node_name": "镜头朝向检测数据",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Camera_Orientation_Detection_Data, category=执行节点"
+  },
+  "200063": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量内积",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Dot_Product, category=运算节点"
+  },
+  "200064": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量外积",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Cross_Product, category=运算节点"
+  },
+  "200065": {
+    "scope": "client",
+    "graph_generater_node_name": "拆分三维向量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Split_3D_Vector, category=运算节点"
+  },
+  "200066": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量缩放",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Zoom, category=运算节点"
+  },
+  "200067": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量夹角",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Angle, category=运算节点"
+  },
+  "200068": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Rotation, category=运算节点"
+  },
+  "200069": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量模运算",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Modulo_Operation, category=运算节点"
+  },
+  "200070": {
+    "scope": "client",
+    "graph_generater_node_name": "创建三维向量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Create_3D_Vector, category=运算节点"
+  },
+  "200071": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量加法",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Addition, category=运算节点"
+  },
+  "200072": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量减法",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Subtraction, category=运算节点"
+  },
+  "200073": {
+    "scope": "client",
+    "graph_generater_node_name": "方向向量转旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Direction_Vector_to_Rotation, category=运算节点"
+  },
+  "200074": {
+    "scope": "client",
+    "graph_generater_node_name": "朝向转旋转",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Orientation_to_Rotation, category=运算节点"
+  },
+  "200075": {
+    "scope": "client",
+    "graph_generater_node_name": "恢复生命值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Recover_HP, category=执行节点"
+  },
+  "200076": {
+    "scope": "client",
+    "graph_generater_node_name": "获取当前角色",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Current_Character, category=查询节点"
+  },
+  "200077": {
+    "scope": "client",
+    "graph_generater_node_name": "获取实体的单位标签列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_s_Unit_Tag_List, category=查询节点"
+  },
+  "200078": {
+    "scope": "client",
+    "graph_generater_node_name": "获取单位标签的实体列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_List_by_Unit_Tag, category=查询节点"
+  },
+  "200079": {
+    "scope": "client",
+    "graph_generater_node_name": "有限循环",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Finite_Loop, category=执行节点"
+  },
+  "200080": {
+    "scope": "client",
+    "graph_generater_node_name": "跳出循环",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Break_Loop, category=执行节点"
+  },
+  "200081": {
+    "scope": "client",
+    "graph_generater_node_name": "设置局部变量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Set_Local_Variable, category=执行节点"
+  },
+  "200082": {
+    "scope": "client",
+    "graph_generater_node_name": "获取局部变量",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Local_Variable, category=查询节点"
+  },
+  "200083": {
+    "scope": "client",
+    "graph_generater_node_name": "设置指定实体的仇恨值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Set_the_Aggro_Value_of_the_Specified_Entity, category=执行节点"
+  },
+  "200084": {
+    "scope": "client",
+    "graph_generater_node_name": "修改指定实体的仇恨值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Modify_the_Aggro_Value_of_the_Specified_Entity, category=执行节点"
+  },
+  "200085": {
+    "scope": "client",
+    "graph_generater_node_name": "按比例修改指定实体的仇恨值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Modify_the_Aggro_Value_of_the_Specified_Entity_Proportionally, category=执行节点"
+  },
+  "200086": {
+    "scope": "client",
+    "graph_generater_node_name": "按比例转移指定实体的仇恨值",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Transfer_the_Aggro_Value_of_the_Specified_Entity_Proportionally, category=执行节点"
+  },
+  "200087": {
+    "scope": "client",
+    "graph_generater_node_name": "清空指定实体的仇恨列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Clear_the_Aggro_List_of_the_Specified_Entity, category=执行节点"
+  },
+  "200088": {
+    "scope": "client",
+    "graph_generater_node_name": "将目标实体移除出仇恨列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Remove_Target_Entity_From_Aggro_List, category=执行节点"
+  },
+  "200089": {
+    "scope": "client",
+    "graph_generater_node_name": "嘲讽目标",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Taunt_Target, category=执行节点"
+  },
+  "200090": {
+    "scope": "client",
+    "graph_generater_node_name": "获取指定实体的仇恨目标",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_the_Aggro_Target_of_the_Specified_Entity, category=查询节点"
+  },
+  "200091": {
+    "scope": "client",
+    "graph_generater_node_name": "获取指定实体的仇恨列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_the_Aggro_List_of_the_Specified_Entity, category=查询节点"
+  },
+  "200092": {
+    "scope": "client",
+    "graph_generater_node_name": "查询指定实体是否入战",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Query_if_Specified_Entity_is_in_Combat, category=查询节点"
+  },
+  "200093": {
+    "scope": "client",
+    "graph_generater_node_name": "查询阵营是否敌对",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Query_If_Faction_Is_Hostile, category=查询节点"
+  },
+  "200094": {
+    "scope": "client",
+    "graph_generater_node_name": "正弦函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Sine_Function, category=运算节点"
+  },
+  "200095": {
+    "scope": "client",
+    "graph_generater_node_name": "余弦函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Cosine_Function, category=运算节点"
+  },
+  "200096": {
+    "scope": "client",
+    "graph_generater_node_name": "正切函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Tangent_Function, category=运算节点"
+  },
+  "200097": {
+    "scope": "client",
+    "graph_generater_node_name": "反正弦函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Arcsine_Function, category=运算节点"
+  },
+  "200098": {
+    "scope": "client",
+    "graph_generater_node_name": "反余弦函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Arccosine_Function, category=运算节点"
+  },
+  "200099": {
+    "scope": "client",
+    "graph_generater_node_name": "反正切函数",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Arctangent_Function, category=运算节点"
+  },
+  "200100": {
+    "scope": "client",
+    "graph_generater_node_name": "三维向量归一化",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=_3D_Vector_Normalization, category=运算节点"
+  },
+  "200101": {
+    "scope": "client",
+    "graph_generater_node_name": "弧度转角度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Radians_to_Degrees, category=运算节点"
+  },
+  "200102": {
+    "scope": "client",
+    "graph_generater_node_name": "角度转弧度",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Degrees_to_Radians, category=运算节点"
+  },
+  "200103": {
+    "scope": "client",
+    "graph_generater_node_name": "查询实体是否在场",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Query_If_Entity_Is_on_the_Field, category=查询节点"
+  },
+  "200104": {
+    "scope": "client",
+    "graph_generater_node_name": "",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "internal_or_en=Node_Graph_Ends（node_data）；与 200122(节点图结束（整数）) 歧义，暂不参与 title→type_id 映射。"
+  },
+  "200105": {
+    "scope": "client",
+    "graph_generater_node_name": "玩家转向指定朝向",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Player_Turns_to_Face_Set_Direction, category=执行节点"
+  },
+  "200106": {
+    "scope": "client",
+    "graph_generater_node_name": "重置技能目标",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Reset_Skill_Target, category=执行节点"
+  },
+  "200107": {
+    "scope": "client",
+    "graph_generater_node_name": "获取碰撞触发器内所有实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_All_Entities_Within_the_Collision_Trigger, category=查询节点"
+  },
+  "200108": {
+    "scope": "client",
+    "graph_generater_node_name": "强制退出瞄准状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Force_Exit_Aiming_State, category=执行节点"
+  },
+  "200109": {
+    "scope": "client",
+    "graph_generater_node_name": "获取射线检测结果",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Ray_Detection_Result, category=查询节点"
+  },
+  "200110": {
+    "scope": "client",
+    "graph_generater_node_name": "获取射线筛选类型列表",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Ray_Filter_Type_List, category=查询节点"
+  },
+  "200118": {
+    "scope": "client",
+    "graph_generater_node_name": "获取扫描组件当前扫描到的实体",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_Currently_Scanned_by_Scan_Component, category=查询节点"
+  },
+  "200119": {
+    "scope": "client",
+    "graph_generater_node_name": "获取扫描组件可扫描的所有合法对象",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_All_Valid_Entities_That_Are_Scannable_by_Scan_Component, category=查询节点"
+  },
+  "200120": {
+    "scope": "client",
+    "graph_generater_node_name": "获取实体扫描状态",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_s_Scan_Status, category=查询节点"
+  },
+  "200121": {
+    "scope": "client",
+    "graph_generater_node_name": "获取实体当前生效的扫描标签",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Entity_s_Current_Active_Scan_Tags, category=查询节点"
+  },
+  "200122": {
+    "scope": "client",
+    "graph_generater_node_name": "节点图结束（整数）",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Node_Graph_End_Integer, category=其他节点"
+  },
+  "200123": {
+    "scope": "client",
+    "graph_generater_node_name": "获得玩家客户端输入设备类型",
+    "semantic_id": "",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Get_Player_Client_Input_Device_Type, category=查询节点"
+  },
+  "300000": {
+    "confidence": "high",
+    "graph_generater_node_name": "发送信号",
+    "notes": "由校准图 graph_id_int=1073741825 与参考 Graph Code 对齐自动生成（线性 flow 链）；用于后续 Graph Code 生成。",
+    "scope": "server",
+    "semantic_id": "signal.send"
+  },
+  "300001": {
+    "scope": "server",
+    "graph_generater_node_name": "监听信号",
+    "semantic_id": "signal.listen",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Monitor_Signal, category=事件节点"
+  },
+  "300002": {
+    "scope": "server",
+    "graph_generater_node_name": "拼装结构体",
+    "semantic_id": "struct.build",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Assemble_Structure, category=运算节点"
+  },
+  "300003": {
+    "scope": "server",
+    "graph_generater_node_name": "拆分结构体",
+    "semantic_id": "struct.split",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Split_Structure, category=运算节点"
+  },
+  "300004": {
+    "scope": "server",
+    "graph_generater_node_name": "修改结构体",
+    "semantic_id": "struct.modify",
+    "confidence": "manual",
+    "notes": "人工映射：internal_or_en=Modify_Structure, category=执行节点"
+  },
+  "1610612739": {
+    "confidence": "high",
+    "graph_generater_node_name": "",
+    "notes": "该 type_id 在部分样本中出现，但与 node_data(200039=Notify_Server_Node_Graph) 歧义；为保证 title→type_id 唯一性，暂不参与映射。",
+    "scope": "client",
+    "semantic_id": ""
+  }
+}

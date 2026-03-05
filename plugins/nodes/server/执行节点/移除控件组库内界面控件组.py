@@ -13,4 +13,8 @@ from engine.utils.logging.logger import log_info
 )
 def 移除控件组库内界面控件组(game, 目标玩家, 界面控件组索引):
     """可以在目标玩家的界面布局上移除已通过节点【激活控件组库内界面控件组】激活的界面控件组"""
-    log_info(f"[移除控件组库内界面控件组] 执行")
+    idx = int(界面控件组索引)
+    log_info("[移除控件组库内界面控件组] group_index={}", idx)
+    ui_remove = getattr(game, "ui_remove_widget_group", None)
+    if callable(ui_remove):
+        ui_remove(目标玩家, idx)

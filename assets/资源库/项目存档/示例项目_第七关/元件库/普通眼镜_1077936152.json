@@ -1,0 +1,1956 @@
+{
+  "template_id": "1077936152",
+  "name": "普通眼镜",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936152,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073746606",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.039999961853027,
+                "y": 13.563962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 10.800000190734863
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746606,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                10.800000190734863
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746607",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999046325684,
+                "y": 13.563962936401367,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 10.800000190734863
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746607,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                10.800000190734863
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746608",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.039999961853027,
+                "y": 13.203963279724121,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 12.239999771118164
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746608,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                12.239999771118164
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746609",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999046325684,
+                "y": 13.203963279724121,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 12.239999771118164
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746609,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                12.239999771118164
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746610",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.279999732971191,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 3.5999999046325684
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746610,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                3.5999999046325684
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746611",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.039999961853027,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 3.9000000953674316
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746611,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                3.9000000953674316
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746612",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.9800000190734863,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746612,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746613",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746613,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746614",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999046325684,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 3.9000000953674316
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746614,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                3.9000000953674316
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746615",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.840000152587891,
+                "y": 12.843963623046875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 3.5999999046325684
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746615,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                3.5999999046325684
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746616",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -9.0,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746616,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746617",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.100000381469727,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746617,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746618",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.039999961853027,
+                "y": 11.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 2.0999999046325684,
+                "y": 0.009999999776482582,
+                "z": 4.5
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746618,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                2.0999999046325684,
+                0.009999999776482582,
+                4.5
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746619",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 6.480000019073486
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746619,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                6.480000019073486
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746620",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999046325684,
+                "y": 11.403963088989258,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 2.0999999046325684,
+                "y": 0.009999999776482582,
+                "z": 4.5
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746620,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                2.0999999046325684,
+                0.009999999776482582,
+                4.5
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746621",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.659999847412109,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746621,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746622",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.559999942779541,
+                "y": 12.483963012695312,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.7200000286102295
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746622,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.7200000286102295
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746623",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.460000038146973,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746623,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746624",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.019999980926514,
+                "y": 12.123963356018066,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746624,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746625",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.279999732971191,
+                "y": 11.76396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746625,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746626",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.840000152587891,
+                "y": 11.76396369934082,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746626,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746627",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.100000381469727,
+                "y": 10.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 4.320000171661377,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746627,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                4.320000171661377,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746628",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.6200000047683716,
+                "y": 11.223962783813477,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.880000114440918
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746628,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.880000114440918
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746629",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.36000001430511475,
+                "y": 11.223962783813477,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746629,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746630",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.659999847412109,
+                "y": 10.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 4.320000171661377,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746630,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                4.320000171661377,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746631",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": 10.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746631,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746632",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.5400000214576721,
+                "y": 10.503963470458984,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746632,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746633",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.21999979019165,
+                "y": 9.783963203430176,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 4.199999809265137
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746633,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                4.199999809265137
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746634",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.3399999141693115,
+                "y": 9.783963203430176,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746634,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746635",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.8999999761581421,
+                "y": 9.783963203430176,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746635,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746636",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.7799999713897705,
+                "y": 9.783963203430176,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 4.199999809265137
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746636,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                4.199999809265137
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746637",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.739999771118164,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746637,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746638",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.400000095367432,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 3.299999952316284
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746638,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                3.299999952316284
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746639",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.880000114440918,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746639,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746640",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.440000057220459,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746640,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746641",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.9600000381469727,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 3.299999952316284
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746641,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                3.299999952316284
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746642",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.300000190734863,
+                "y": 9.243963241577148,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 1.440000057220459
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746642,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                1.440000057220459
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746643",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.559999942779541,
+                "y": 8.883963584899902,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746643,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746644",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.400000095367432,
+                "y": 8.883963584899902,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 2.700000047683716
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746644,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                2.700000047683716
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746645",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.240000009536743,
+                "y": 8.883963584899902,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746645,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746646",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.7999999523162842,
+                "y": 8.883963584899902,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746646,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746647",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.9600000381469727,
+                "y": 8.883963584899902,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 2.700000047683716
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746647,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                2.700000047683716
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746648",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.119999885559082,
+                "y": 8.883963584899902,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 2.1600000858306885
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746648,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                2.1600000858306885
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746649",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.400000095367432,
+                "y": 8.52396297454834,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 9.359999656677246
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746649,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                9.359999656677246
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746650",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.9600000381469727,
+                "y": 8.52396297454834,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 9.359999656677246
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746650,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                9.359999656677246
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746651",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": 8.163963317871094,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.760000228881836
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746651,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.760000228881836
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073746652",
+            "displayName": "普通眼镜",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": 8.163963317871094,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": 90.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 5.760000228881836
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073746652,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936152,
+              "asset_id_int": 20002129,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                5.760000228881836
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

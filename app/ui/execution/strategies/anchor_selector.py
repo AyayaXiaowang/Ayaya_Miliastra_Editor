@@ -8,6 +8,12 @@
     - 返回锚点信息与跳过标记
 """
 
+from __future__ import annotations
+
+from engine.graph.common import (
+    get_builtin_anchor_titles_for_client_graph,
+)
+
 
 class AnchorInfo:
     """锚点信息封装"""
@@ -39,6 +45,11 @@ class AnchorSelector:
         Returns:
             AnchorInfo: 锚点信息（可能为空）
         """
+        # 策略0: client 图的“模板锚点节点”优先（这些节点在新建时由编辑器自动生成）
+        anchor_info = self._select_from_builtin_client_graph_anchor()
+        if anchor_info.is_valid:
+            return anchor_info
+
         # 策略1: 优先取创建类步骤节点
         anchor_info = self._select_from_create_steps(steps)
         if anchor_info.is_valid:
@@ -57,6 +68,52 @@ class AnchorSelector:
         # 策略4: 三次退化到参数配置/动态端口步骤
         anchor_info = self._select_from_config_steps(steps)
         return anchor_info
+
+    def _select_from_builtin_client_graph_anchor(self) -> AnchorInfo:
+        """策略0：优先使用 client 图在“新建时默认存在”的锚点节点。
+
+        约定：
+        - 技能节点图：节点图开始
+        - 整数过滤器节点图：节点图结束（整数）
+        - 布尔过滤器节点图：节点图结束（布尔型）
+        """
+        model = self.graph_model
+        meta = getattr(model, "metadata", None) or {}
+        graph_type = str(meta.get("graph_type", "") or "").strip().lower()
+        if graph_type != "client":
+            return AnchorInfo()
+        folder_path = str(meta.get("folder_path", "") or "")
+        anchor_titles = get_builtin_anchor_titles_for_client_graph(folder_path=folder_path)
+        if not anchor_titles:
+            return AnchorInfo()
+
+        best_node_id: str | None = None
+        best_node = None
+        for expected_title in anchor_titles:
+            candidates: list[tuple[str, object]] = []
+            for node_id, node in (getattr(model, "nodes", {}) or {}).items():
+                if getattr(node, "title", "") == expected_title:
+                    candidates.append((str(node_id), node))
+            if not candidates:
+                continue
+
+            def _pos_key(pair: tuple[str, object]) -> tuple[float, float, str]:
+                nid, node_obj = pair
+                pos = getattr(node_obj, "pos", (0.0, 0.0))
+                x_val = float(pos[0]) if isinstance(pos, (list, tuple)) and len(pos) >= 2 else 0.0
+                y_val = float(pos[1]) if isinstance(pos, (list, tuple)) and len(pos) >= 2 else 0.0
+                return (y_val, x_val, nid)
+
+            best_node_id, best_node = sorted(candidates, key=_pos_key)[0]
+            break
+
+        if not best_node_id or best_node is None:
+            return AnchorInfo()
+        return AnchorInfo(
+            title=str(getattr(best_node, "title", "") or ""),
+            prog_pos=getattr(best_node, "pos", None),
+            node_id=str(best_node_id),
+        )
 
     def _select_from_create_steps(self, steps: list) -> AnchorInfo:
         """策略1: 从创建类步骤选择锚点"""

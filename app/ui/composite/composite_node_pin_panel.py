@@ -4,12 +4,13 @@ from __future__ import annotations
 from PyQt6 import QtCore, QtWidgets
 from typing import Optional
 
-from app.ui.foundation.theme_manager import ThemeManager, Colors
+from app.ui.foundation.style_mixins import StyleMixin
+from app.ui.foundation.theme_manager import ThemeManager
 from engine.nodes.advanced_node_features import CompositeNodeConfig
 from app.ui.composite.composite_node_preview_widget import CompositeNodePreviewWidget
 
 
-class CompositeNodePinPanel(QtWidgets.QWidget):
+class CompositeNodePinPanel(QtWidgets.QWidget, StyleMixin):
     """复合节点虚拟引脚面板
     
     显示虚拟引脚的预览图和详细列表
@@ -33,14 +34,13 @@ class CompositeNodePinPanel(QtWidgets.QWidget):
         
         # 标题
         title_label = QtWidgets.QLabel("虚拟引脚管理")
-        title_label.setStyleSheet(
-            f"{ThemeManager.heading(level=2)} color: {Colors.TEXT_PRIMARY}; padding: 5px;"
-        )
+        title_label.setStyleSheet(ThemeManager.heading(level=2))
+        title_label.setContentsMargins(5, 5, 5, 5)
         layout.addWidget(title_label)
         
         # 提示标签
         hint_label = QtWidgets.QLabel("💡 右键内部节点端口可暴露为虚拟引脚 | 右键引脚可合并或删除")
-        hint_label.setStyleSheet(f"color: {Colors.TEXT_PLACEHOLDER}; font-size: 11px; padding: 4px;")
+        hint_label.setStyleSheet(ThemeManager.hint_text_style())
         hint_label.setWordWrap(True)
         layout.addWidget(hint_label)
         
@@ -48,21 +48,9 @@ class CompositeNodePinPanel(QtWidgets.QWidget):
         self.preview_widget = CompositeNodePreviewWidget()
         self.preview_widget.pin_updated.connect(self._on_pin_updated)
         layout.addWidget(self.preview_widget)
-        
-        # 应用主题样式
-        self._apply_styles()
-    
-    def _apply_styles(self) -> None:
-        """应用主题样式"""
-        self.setStyleSheet(f"""
-            CompositeNodePinPanel {{
-                background-color: {Colors.BG_CARD};
-            }}
-            {ThemeManager.button_style()}
-            {ThemeManager.input_style()}
-            {ThemeManager.table_style()}
-            {ThemeManager.scrollbar_style()}
-        """)
+
+        # 应用统一面板样式（主题 token + 基础控件一致性）
+        self.apply_panel_style()
     
     def set_composite_widget(self, widget) -> None:
         """设置关联的复合节点管理器"""

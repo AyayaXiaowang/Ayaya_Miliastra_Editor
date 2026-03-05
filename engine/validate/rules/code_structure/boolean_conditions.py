@@ -47,14 +47,6 @@ def _is_boolean_expr(
     return False
 
 
-def _contains_inline_compare(expr: ast.expr) -> bool:
-    """判断表达式内是否存在 Python 比较（==, !=, is, in 等）。"""
-    for inner in ast.walk(expr):
-        if isinstance(inner, ast.Compare):
-            return True
-    return False
-
-
 class IfBooleanRule(ValidationRule):
     """if 条件必须为布尔表达式。"""
 
@@ -146,16 +138,13 @@ class IfBooleanRule(ValidationRule):
                         )
                     )
                     continue
-                if _contains_inline_compare(node.test):
-                    issues.append(
-                        create_rule_issue(
-                            self,
-                            file_path,
-                            node.test,
-                            "CODE_IF_INLINE_COMPARISON",
-                            f"{line_span_text(node.test)}: 禁止在 if 条件中直接书写 Python 比较（如 'A == B' 或 'X is None'）；请改用比较类节点输出，或先将布尔结果赋值给变量后再分支",
-                        )
-                    )
+                # 受控放开：if 条件允许使用“可归一化的语法糖表达式”。
+                #
+                # 说明：
+                # - 校验流水线在本规则之前会先执行 SyntaxSugarRewriteRule，
+                #   将 Compare/BoolOp 等语法糖改写为等价的节点调用（例如 是否相等/逻辑或运算）。
+                # - 不支持/禁止的比较形态（链式比较、is/is not、部分 in 写法等）会在改写阶段产生明确 issue，
+                #   并作为错误返回；因此这里不再额外禁止“if 内联比较”。
 
         return issues
 

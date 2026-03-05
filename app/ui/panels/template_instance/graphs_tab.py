@@ -27,7 +27,7 @@ from app.ui.foundation.theme_manager import Colors, Sizes
 from app.ui.panels.template_instance.tab_base import TemplateInstanceTabBase
 from app.ui.panels.template_instance_service import TemplateInstanceService
 from app.runtime.services.graph_data_service import GraphDataService, GraphLoadPayload
-from app.ui.panels.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
+from app.ui.panels.graph.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
 from app.ui.widgets.two_row_field_table_widget import TwoRowFieldTableWidget
 
 
@@ -211,7 +211,7 @@ class GraphsTab(TemplateInstanceTabBase):
             show_warning_dialog(
                 self,
                 "无法移除",
-                "继承自模板的节点图无法直接从实例面板移除。\n请前往模板面板进行修改。",
+                "继承自模板的节点图无法直接从实体摆放面板移除。\n请前往模板面板进行修改。",
             )
             return
         graph_id = current_item.data(QtCore.Qt.ItemDataRole.UserRole)

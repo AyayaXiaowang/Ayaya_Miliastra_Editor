@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 
 from engine.configs.resource_types import ResourceType
 
 
 class ResourceCacheService:
     """资源数据的内存缓存服务（LRU 样式，负责命中统计与失效策略）。"""
+
+    CopyMode = Literal["deep", "shallow", "none"]
 
     def __init__(self, max_cache_size: int = 500) -> None:
         # 缓存已加载的资源数据：{(resource_type, resource_id): (data, mtime)}
@@ -18,8 +20,25 @@ class ResourceCacheService:
         self._cache_misses = 0
         self._max_cache_size = max_cache_size
 
-    def get(self, key: tuple[ResourceType, str], current_mtime: float) -> Optional[dict]:
-        """按 key 读取缓存，如果 mtime 匹配则返回深拷贝后的数据。"""
+    @staticmethod
+    def _copy_payload(data: dict, copy_mode: CopyMode) -> dict:
+        mode = str(copy_mode or "deep").strip().lower()
+        if mode == "none":
+            return data
+        if mode == "shallow":
+            return dict(data)
+        import copy
+
+        return copy.deepcopy(data)
+
+    def get(
+        self,
+        key: tuple[ResourceType, str],
+        current_mtime: float,
+        *,
+        copy_mode: CopyMode = "deep",
+    ) -> Optional[dict]:
+        """按 key 读取缓存，如果 mtime 匹配则返回数据副本（默认 deep copy）。"""
         if key not in self._resource_cache:
             self._cache_misses += 1
             return None
@@ -31,10 +50,7 @@ class ResourceCacheService:
             return None
 
         self._cache_hits += 1
-
-        import copy
-
-        return copy.deepcopy(cached_data)
+        return self._copy_payload(cached_data, copy_mode)
 
     def add(self, key: tuple[ResourceType, str], data: dict, mtime: float) -> None:
         """向缓存写入一条记录，必要时进行淘汰。"""

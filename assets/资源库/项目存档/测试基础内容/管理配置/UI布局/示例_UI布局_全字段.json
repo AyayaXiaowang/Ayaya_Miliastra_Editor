@@ -1,0 +1,29 @@
+{
+  "layout_id": "layout_sample_all_fields_01__测试基础内容",
+  "layout_name": "示例_UI布局_全字段",
+  "builtin_widgets": [
+    "builtin_小地图__测试基础内容",
+    "builtin_技能区__测试基础内容",
+    "builtin_队伍信息__测试基础内容",
+    "builtin_角色生命值条__测试基础内容",
+    "builtin_摇杆__测试基础内容",
+    "builtin_造物生命值条__测试基础内容",
+    "builtin_退出按钮__测试基础内容",
+    "builtin_语音__测试基础内容",
+    "builtin_选项卡__测试基础内容",
+    "builtin_聊天按钮__测试基础内容",
+    "builtin_网络状态__测试基础内容",
+    "builtin_挣扎按钮__测试基础内容"
+  ],
+  "custom_groups": [
+    "ui_widget_template_sample_all_fields_01__测试基础内容"
+  ],
+  "default_for_player": "所有玩家",
+  "description": "示例 UI 布局：展示 builtin_widgets、custom_groups 与 visibility_overrides 的典型结构。",
+  "created_at": "2025-12-18T12:10:00.000000",
+  "updated_at": "2025-12-18T12:10:00.000000",
+  "visibility_overrides": {
+    "builtin_小地图__测试基础内容": false
+  },
+  "name": "示例_UI布局_全字段"
+}

@@ -98,10 +98,14 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
             name_text = str(raw.name or "").strip()
             category_text = str(raw.category or "").strip()
             file_path = raw.file_path
+            function_name_text = str(raw.function_name or "").strip()
+            semantic_id_text = str(getattr(raw, "semantic_id", "") or "").strip()
             inputs_pairs = list(raw.inputs or [])
             outputs_pairs = list(raw.outputs or [])
             aliases_list = list(raw.aliases or [])
             scopes_list = list(raw.scopes or [])
+            input_port_aliases = dict(getattr(raw, "input_port_aliases", {}) or {})
+            output_port_aliases = dict(getattr(raw, "output_port_aliases", {}) or {})
             description_text = str(raw.description or "")
             mount_restrictions_list = list(raw.mount_restrictions or [])
             doc_reference_text = str(raw.doc_reference or "")
@@ -110,14 +114,19 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
             output_generic_constraints = dict(raw.output_generic_constraints or {})
             input_enum_options = dict(raw.input_enum_options or {})
             output_enum_options = dict(raw.output_enum_options or {})
+            input_defaults = dict(getattr(raw, "input_defaults", {}) or {})
         elif isinstance(raw, dict):
             name_text = str(raw.get("name", "") or "").strip()
             category_text = str(raw.get("category", "") or "").strip()
             file_path = raw.get("file_path")
+            function_name_text = str(raw.get("function_name") or "").strip()
+            semantic_id_text = str(raw.get("semantic_id") or "").strip()
             inputs_pairs = list(raw.get("inputs") or [])
             outputs_pairs = list(raw.get("outputs") or [])
             aliases_list = list(raw.get("aliases") or [])
             scopes_list = list(raw.get("scopes") or [])
+            input_port_aliases = dict(raw.get("input_port_aliases") or {})
+            output_port_aliases = dict(raw.get("output_port_aliases") or {})
             description_text = str(raw.get("description") or "")
             mount_restrictions_list = list(raw.get("mount_restrictions") or [])
             doc_reference_text = str(raw.get("doc_reference") or "")
@@ -126,6 +135,7 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
             output_generic_constraints = dict(raw.get("output_generic_constraints") or {})
             input_enum_options = dict(raw.get("input_enum_options") or {})
             output_enum_options = dict(raw.get("output_enum_options") or {})
+            input_defaults = dict(raw.get("input_defaults") or {})
         else:
             # 跳过未知项类型，保持稳健
             continue
@@ -136,9 +146,11 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
             normalized_scopes = _normalize_scopes(scopes_list, file_path)
             normalized_list.append(NormalizedSpec(
                 file_path=file_path,
+                function_name=function_name_text,
                 standard_key=standard_key,
                 category_standard=category_standard,
                 name=name_text,
+                semantic_id=semantic_id_text,
                 input_types={},
                 output_types={},
                 aliases=aliases_list,
@@ -149,10 +161,13 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
                 dynamic_port_type=dynamic_port_type_text,
                 inputs=[],
                 outputs=[],
+                input_port_aliases=input_port_aliases,
+                output_port_aliases=output_port_aliases,
                 input_generic_constraints={},
                 output_generic_constraints={},
                 input_enum_options=input_enum_options,
                 output_enum_options=output_enum_options,
+                input_defaults=input_defaults,
             ))
             continue
 
@@ -165,9 +180,11 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
 
         normalized_list.append(NormalizedSpec(
             file_path=file_path,
+            function_name=function_name_text,
             standard_key=standard_key,
             category_standard=category_standard,
             name=name_text,
+            semantic_id=semantic_id_text,
             input_types=input_types,
             output_types=output_types,
             aliases=aliases_list,
@@ -178,10 +195,13 @@ def normalize_specs(extracted_items: List[Union[ExtractedSpec, Dict[str, Any]]])
             dynamic_port_type=dynamic_port_type_text,
             inputs=inputs_pairs,
             outputs=outputs_pairs,
+            input_port_aliases=input_port_aliases,
+            output_port_aliases=output_port_aliases,
             input_generic_constraints=input_generic_constraints,
             output_generic_constraints=output_generic_constraints,
             input_enum_options=input_enum_options,
             output_enum_options=output_enum_options,
+            input_defaults=input_defaults,
         ))
 
     return normalized_list

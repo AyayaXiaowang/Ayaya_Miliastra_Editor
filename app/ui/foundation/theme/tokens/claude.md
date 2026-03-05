@@ -2,7 +2,7 @@
 `ui/foundation/theme/tokens/` 收纳所有主题 token（颜色、尺寸、图标、渐变等），用于在 UI 层获得一致的视觉基准。每个文件聚焦单一类型，导出纯 Python 常量或静态方法。
 
 ## 当前状态
-- `colors.py`：主题配色 token，默认提供浅色主题（偏现代、低饱和），并支持通过 `Colors.apply_theme_palette(theme_mode)` 在浅色/深色之间切换；区分主色/次色/强调色与语义色，并集中声明节点类别色（含默认/复合节点与深色变体）、画布标尺配色、任务清单步骤类型色，供 `todo_config.StepTypeColors` 与 GraphView 叠层等场景统一复用。
+- `colors.py`：主题配色 token，默认提供浅色主题（偏现代、低饱和），并支持通过 `Colors.apply_theme_palette(theme_mode)` 在浅色/深色之间切换；区分主色/次色/强调色与语义色，并集中声明边框/分隔线/阴影、节点类别色（含默认/复合节点与深色变体）、画布标尺配色、任务清单步骤类型色等；同时提供 `Colors.BORDER` 作为常用边框色入口（派生自 `BORDER_NORMAL`，兼容旧 QSS 引用）。
 - `sizes.py`：圆角、间距、字号、控件尺寸、分割器宽度等尺寸配置。
 - `icons.py`：Unicode 图标符号集合，供按钮/标签/树节点直接复用。
 - `gradients.py`：以单色系为主的标准渐变组合（主题、卡片、按钮、徽章等），避免高饱和撞色，并统一输出 qlineargradient 字符串以便 QSS 直接引用。

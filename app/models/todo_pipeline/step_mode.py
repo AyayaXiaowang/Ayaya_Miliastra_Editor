@@ -10,6 +10,7 @@ from engine.configs.settings import settings
 class GraphStepMode(str, Enum):
     HUMAN = "human"
     AI = "ai"
+    AI_NODE_BY_NODE = "ai_node_by_node"
 
     @classmethod
     def current(cls) -> "GraphStepMode":
@@ -24,11 +25,17 @@ class GraphStepMode(str, Enum):
 
     @property
     def is_ai(self) -> bool:
-        return self is GraphStepMode.AI
+        return self in {GraphStepMode.AI, GraphStepMode.AI_NODE_BY_NODE}
+
+    @property
+    def is_ai_node_by_node(self) -> bool:
+        return self is GraphStepMode.AI_NODE_BY_NODE
 
     def flow_description(self) -> str:
         if self.is_human:
             return "按流程顺序创建并连接节点"
-        return "先创建所有节点，配置参数，再逐个连接"
+        if self.is_ai_node_by_node:
+            return "逐个节点：创建→类型→参数；最后统一连线"
+        return "先配置后连线：创建/类型/参数完成后，最后统一连线"
 
 

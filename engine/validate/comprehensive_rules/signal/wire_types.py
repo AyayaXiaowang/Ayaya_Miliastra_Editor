@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
-from engine.graph.common import SIGNAL_NAME_PORT_NAME
+from engine.graph.common import SIGNAL_LISTEN_STATIC_OUTPUTS, SIGNAL_SEND_STATIC_INPUTS
 from engine.nodes.node_definition_loader import NodeDef
 from engine.utils.graph.graph_utils import (
     extract_port_names,
@@ -24,7 +24,7 @@ def validate_signal_wire_types_for_send_node(
     """3.4 连线类型兼容性（发送信号节点参数输入）。"""
     issues: List[ValidationIssue] = []
     node_id, _, _ = get_node_display_info(node)
-    static_inputs = {"流程入", SIGNAL_NAME_PORT_NAME, "目标实体"}
+    static_inputs = set(SIGNAL_SEND_STATIC_INPUTS)
     input_names = extract_port_names(node.get("inputs", []) or [])
 
     for param_name, expected_type in param_type_map.items():
@@ -77,7 +77,7 @@ def validate_signal_wire_types_for_listen_node(
     """3.4 连线类型兼容性（监听信号节点参数输出）。"""
     issues: List[ValidationIssue] = []
     node_id, _, _ = get_node_display_info(node)
-    static_outputs = {"流程出", "事件源实体", "事件源GUID", "信号来源实体"}
+    static_outputs = set(SIGNAL_LISTEN_STATIC_OUTPUTS)
     output_names = extract_port_names(node.get("outputs", []) or [])
 
     for param_name, expected_type in param_type_map.items():

@@ -9,6 +9,7 @@ from engine.graph.common import (
     STRUCT_MODIFY_NODE_TITLE,
     STRUCT_MODIFY_STATIC_INPUTS,
     STRUCT_NAME_PORT_NAME,
+    STRUCT_PORT_NAME,
     STRUCT_NODE_TITLES,
     STRUCT_SPLIT_NODE_TITLE,
     STRUCT_SPLIT_STATIC_INPUTS,
@@ -140,19 +141,32 @@ def build_struct_node_def_proxy(
     input_types: Dict[str, str] = dict(getattr(base_def, "input_types", {}) or {})
     output_types: Dict[str, str] = dict(getattr(base_def, "output_types", {}) or {})
 
+    # 结构体端口“具体类型”表示：
+    # - 未绑定时：节点库声明通常为 "结构体"（泛型结构体家族）
+    # - 已绑定时：用 "结构体<结构体名>" 表示具体结构体类型，用于连线类型匹配与端口类型展示
+    #
+    # 注意：这里的“结构体名”取自绑定上下文（通常等于 STRUCT_PAYLOAD.struct_name），保证同型结构体口可互连。
+    bound_struct_type = f"结构体<{context.struct_name}>"
+
     if node_title == STRUCT_SPLIT_NODE_TITLE:
+        # 拆分结构体：唯一结构体输入口
+        input_types[STRUCT_PORT_NAME] = bound_struct_type
         static_outputs = set(STRUCT_SPLIT_STATIC_OUTPUTS)
         for field_name, field_type in context.selected_fields:
             if field_name in static_outputs:
                 continue
             output_types.setdefault(field_name, field_type)
     elif node_title == STRUCT_BUILD_NODE_TITLE:
+        # 拼装结构体：唯一结构体输出口
+        output_types[STRUCT_PORT_NAME] = bound_struct_type
         static_inputs = set(STRUCT_BUILD_STATIC_INPUTS)
         for field_name, field_type in context.selected_fields:
             if field_name in static_inputs:
                 continue
             input_types.setdefault(field_name, field_type)
     elif node_title == STRUCT_MODIFY_NODE_TITLE:
+        # 修改结构体：唯一结构体输入口
+        input_types[STRUCT_PORT_NAME] = bound_struct_type
         static_inputs = set(STRUCT_MODIFY_STATIC_INPUTS)
         for field_name, field_type in context.selected_fields:
             if field_name in static_inputs:
@@ -172,11 +186,16 @@ def build_struct_node_def_proxy(
         doc_reference=base_def.doc_reference,
         input_types=input_types,
         output_types=output_types,
+        input_defaults=dict(getattr(base_def, "input_defaults", {}) or {}),
         input_generic_constraints=dict(base_def.input_generic_constraints),
         output_generic_constraints=dict(base_def.output_generic_constraints),
+        input_enum_options=dict(getattr(base_def, "input_enum_options", {}) or {}),
+        output_enum_options=dict(getattr(base_def, "output_enum_options", {}) or {}),
         dynamic_port_type=base_def.dynamic_port_type,
         is_composite=base_def.is_composite,
         composite_id=base_def.composite_id,
+        input_port_aliases=dict(getattr(base_def, "input_port_aliases", {}) or {}),
+        output_port_aliases=dict(getattr(base_def, "output_port_aliases", {}) or {}),
     )
 
 

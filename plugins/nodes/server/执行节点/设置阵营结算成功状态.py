@@ -9,7 +9,14 @@ from engine.utils.logging.logger import log_info
     inputs=[("流程入", "流程"), ("阵营", "阵营"), ("结算状态", "枚举")],
     outputs=[("流程出", "流程")],
     description="设置阵营结算成功状态",
-    doc_reference="服务器节点/执行节点/执行节点.md"
+    doc_reference="服务器节点/执行节点/执行节点.md",
+    input_enum_options={
+        "结算状态": [
+            "未定",
+            "胜利",
+            "失败",
+        ],
+    },
 )
 def 设置阵营结算成功状态(game, 阵营, 结算状态):
     """设置阵营结算成功状态"""

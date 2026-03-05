@@ -1,10 +1,12 @@
 {
   "include": ["."],
   "exclude": [
-    "assets/资源库/节点图"
+    "assets/资源库/**/节点图",
+    "assets/资源库/**/复合节点库"
   ],
   "ignore": [
-    "assets/资源库/节点图"
+    "assets/资源库/**/节点图",
+    "assets/资源库/**/复合节点库"
   ],
   "executionEnvironments": [
     {

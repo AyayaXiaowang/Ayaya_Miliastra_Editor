@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from engine.graph.models.graph_model import GraphModel
+from engine.graph.models.deprecated_metadata_writes import raise_deprecated_signal_bindings_write
 from engine.graph.common import (
     SIGNAL_SEND_NODE_TITLE,
     SIGNAL_LISTEN_NODE_TITLE,
@@ -41,7 +42,7 @@ class SignalBindingService:
         然后触发一次 GraphSemanticPass。
         """
         _ = (model, node_id, signal_id)
-        raise ValueError("禁止直接写入 metadata['signal_bindings']，请使用 GraphSemanticPass")
+        raise_deprecated_signal_bindings_write()
 
     def collect_graph_usage(
         self,

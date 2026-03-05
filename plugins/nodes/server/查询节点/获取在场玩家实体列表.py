@@ -12,4 +12,4 @@ from engine.utils.logging.logger import log_info
 )
 def 获取在场玩家实体列表(game):
     """获取在场所有玩家实体组成的列表"""
-    return [game.create_mock_entity("玩家1"), game.create_mock_entity("玩家2")]
+    return game.get_present_player_entities()

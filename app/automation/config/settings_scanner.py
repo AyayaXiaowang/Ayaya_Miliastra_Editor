@@ -14,7 +14,6 @@ from PIL import Image
 
 from engine.graph.models.graph_model import GraphModel
 from app.automation.editor.node_snapshot import capture_node_ports_snapshot
-from engine.nodes.port_index_mapper import map_port_index_to_name
 from app.automation.ports.settings_locator import collect_settings_rows
 
 
@@ -79,8 +78,9 @@ def execute_scan_settings(
             side_text = snapshot.side or "unknown"
             index_value = snapshot.index
             mapped_name = None
-            if isinstance(index_value, int):
-                mapped_name = map_port_index_to_name(node.title, side_text, int(index_value))
+            snapshot_name_cn = getattr(snapshot, "name_cn", None)
+            if isinstance(snapshot_name_cn, str) and snapshot_name_cn.strip():
+                mapped_name = snapshot_name_cn.strip()
             center_x, center_y = int(snapshot.center[0]), int(snapshot.center[1])
             item_payload: Dict[str, object] = {
                 "side": side_text,

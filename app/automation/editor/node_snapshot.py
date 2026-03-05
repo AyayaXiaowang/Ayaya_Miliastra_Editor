@@ -12,6 +12,7 @@ from app.automation.editor.ui_constants import (
 )
 from app.automation.vision import list_ports as list_ports_for_bbox, list_nodes
 from engine.graph.models.graph_model import NodeModel
+from app.automation.ports.port_index_name_resolver import map_port_index_to_name_via_node_def
 
 
 class GraphSceneSnapshot:
@@ -152,6 +153,37 @@ class NodePortsSnapshotCache:
         self._bbox: Tuple[int, int, int, int] | None = None
         self._ports: List[Any] | None = None
         self._frame_token: int | None = None
+        self._view_state_token: int = -1
+        # 当节点刚创建完成时，可通过 ROI 识别预热直接写入 bbox+ports；
+        # 此标记用于在视口未变化时避免在同一节点上重复触发整屏识别。
+        self._prefilled_snapshot_active: bool = False
+
+    def _fill_port_names_from_node_def(self, ports: List[Any]) -> None:
+        """将端口 (side,index) 映射为端口名（写入 PortDetected.name_cn）。
+
+        约定：
+        - 仅使用已解析的 node_def（唯一）做映射，禁止按节点中文名/标题全库反查；
+        - 仅在 name_cn 为空时填充，避免覆盖 OCR/上层已写入的更可信名称。
+        """
+        if not isinstance(ports, list) or len(ports) == 0:
+            return
+        get_node_def = getattr(self._executor, "get_node_def_for_model", None)
+        if not callable(get_node_def):
+            return
+        node_def = get_node_def(self._node)
+        if node_def is None:
+            return
+        for port in ports:
+            current_name = getattr(port, "name_cn", "")
+            if isinstance(current_name, str) and current_name.strip():
+                continue
+            port_index = getattr(port, "index", None)
+            port_side = getattr(port, "side", None)
+            if not isinstance(port_index, int) or not isinstance(port_side, str):
+                continue
+            mapped = map_port_index_to_name_via_node_def(node_def, port_side, int(port_index))
+            if isinstance(mapped, str) and mapped:
+                setattr(port, "name_cn", mapped)
 
     def _log(self, message: str) -> None:
         self._executor.log(message, self._log_callback)
@@ -167,6 +199,42 @@ class NodePortsSnapshotCache:
     ) -> bool:
         frame = screenshot
         detections: Optional[list] = detected_nodes
+        strict_for_connect = isinstance(reason, str) and reason.startswith("连接/")
+
+        # 0) 优先尝试消费“创建节点后 ROI 识别预热”的节点快照（bbox+ports+截图）
+        # 仅在调用方未显式提供截图/检测时使用，避免与连接等严格模式冲突。
+        if frame is None and detections is None and (not strict_for_connect):
+            current_view_token = int(self._executor.get_view_state_token())
+            if (
+                self._prefilled_snapshot_active
+                and self._screenshot is not None
+                and self._bbox is not None
+                and self._ports is not None
+                and int(self._view_state_token) == int(current_view_token)
+            ):
+                return True
+
+            node_identifier = getattr(self._node, "id", "")
+            if isinstance(node_identifier, str) and node_identifier != "":
+                prefilled = self._executor.consume_prefilled_node_ports_snapshot(node_identifier)
+                if prefilled is not None:
+                    prefilled_frame, prefilled_bbox, prefilled_ports = prefilled
+                    bbox_x, bbox_y, bbox_w, bbox_h = prefilled_bbox
+                    if int(bbox_w) > 0 and int(bbox_h) > 0:
+                        self._screenshot = prefilled_frame
+                        self._frame_token = id(prefilled_frame)
+                        self._bbox = (
+                            int(bbox_x),
+                            int(bbox_y),
+                            int(bbox_w),
+                            int(bbox_h),
+                        )
+                        self._ports = list(prefilled_ports)
+                        self._fill_port_names_from_node_def(self._ports)
+                        self._view_state_token = int(current_view_token)
+                        self._prefilled_snapshot_active = True
+                        self._maybe_update_program_position(self._bbox, reason)
+                        return True
 
         # 优先：在未显式提供 screenshot/detections 时尝试复用场景级快照
         if frame is None:
@@ -197,8 +265,9 @@ class NodePortsSnapshotCache:
             return False
         self._screenshot = frame
         self._frame_token = id(frame)
+        self._view_state_token = int(self._executor.get_view_state_token())
+        self._prefilled_snapshot_active = False
         if self._bbox is None or refresh_bbox:
-            strict_for_connect = isinstance(reason, str) and reason.startswith("连接/")
             debug_dict: Dict[str, Any] = debug if debug is not None else {}
             bbox = self._executor.find_best_node_bbox(
                 frame,
@@ -227,6 +296,7 @@ class NodePortsSnapshotCache:
             self._bbox = bbox
             self._maybe_update_program_position(bbox, reason)
         self._ports = list_ports_for_bbox(frame, self._bbox)
+        self._fill_port_names_from_node_def(self._ports)
         return True
 
     def ensure(
@@ -248,6 +318,7 @@ class NodePortsSnapshotCache:
             )
         if self._ports is None:
             self._ports = list_ports_for_bbox(self._screenshot, self._bbox)
+            self._fill_port_names_from_node_def(self._ports)
         return True
 
     def mark_dirty(self, *, require_bbox: bool, keep_cached_frame: bool = False) -> None:
@@ -268,11 +339,13 @@ class NodePortsSnapshotCache:
             self._screenshot = None
             self._ports = None
             self._frame_token = None
+            self._prefilled_snapshot_active = False
             if require_bbox:
                 self._bbox = None
         else:
             if require_bbox:
                 self._bbox = None
+            self._prefilled_snapshot_active = False
 
         # 同步更新场景级快照中的脏节点标记（若存在）
         get_scene_snapshot = getattr(self._executor, "get_scene_snapshot", None)
@@ -303,6 +376,7 @@ class NodePortsSnapshotCache:
             if self._screenshot is None or self._bbox is None:
                 raise RuntimeError("snapshot cache未初始化，请先调用 ensure()")
             self._ports = list_ports_for_bbox(self._screenshot, self._bbox)
+            self._fill_port_names_from_node_def(self._ports)
         return self._ports
 
     @property

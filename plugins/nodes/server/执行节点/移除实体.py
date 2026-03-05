@@ -18,4 +18,5 @@ def 移除实体(game, 目标实体):
         entity_name = game.entities[entity_id].name
         del game.entities[entity_id]
         log_info(f"[移除实体] {entity_name} (无销毁表现)")
-        game.trigger_event("实体移除/销毁时", entity_id)
+        # 事件节点「实体移除/销毁时」端口：事件源GUID
+        game.trigger_event("实体移除/销毁时", 事件源GUID=entity_id)

@@ -44,6 +44,23 @@ def _parse_int_to_str_dict(value: Any, *, field_name: str) -> Dict[int, str]:
     return result
 
 
+def _parse_str_to_str_dict(value: Any, *, field_name: str) -> Dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise TypeError(f"节点图序列化格式错误：字段 '{field_name}' 必须为 dict[str, str]")
+    result: Dict[str, str] = {}
+    for raw_key, raw_value in value.items():
+        if not isinstance(raw_key, str):
+            raise TypeError(f"节点图序列化格式错误：字段 '{field_name}' 的 key 必须为 str")
+        key = raw_key
+        if isinstance(raw_value, str):
+            result[key] = raw_value
+        else:
+            result[key] = str(raw_value)
+    return result
+
+
 def _parse_port_list(ports_data: Any, is_input: bool) -> List["PortModel"]:
     """解析端口列表（唯一格式：list[str]）。"""
     from engine.graph.models.graph_model import PortModel
@@ -77,10 +94,15 @@ def serialize_graph(graph: "GraphModel") -> dict:
                 "id": node.id,
                 "title": node.title,
                 "category": node.category,
+                # 稳定 NodeDef 引用（新契约）：存在时落盘；缺失视为旧数据（由上层缓存门禁强制失效重建）。
+                "node_def_ref": node.node_def_ref.to_dict() if getattr(node, "node_def_ref", None) is not None else None,
                 "composite_id": node.composite_id,  # 复合节点ID（用于精确引用）
                 "pos": list(node.pos),
                 "inputs": [port.name for port in node.inputs],
                 "outputs": [port.name for port in node.outputs],
+                # 端口类型快照（可选，cache/工具链使用；推导失败应在构建缓存阶段抛错）
+                "effective_input_types": dict(getattr(node, "effective_input_types", {}) or {}),
+                "effective_output_types": dict(getattr(node, "effective_output_types", {}) or {}),
                 "input_constants": node.input_constants,
                 # 源代码行范围（用于UI错误定位与布局稳定排序；可选字段）
                 "source_lineno": node.source_lineno,
@@ -137,7 +159,7 @@ def deserialize_graph(data: dict) -> "GraphModel":
     Returns:
         节点图模型实例
     """
-    from engine.graph.models.graph_model import GraphModel, NodeModel, EdgeModel, BasicBlock
+    from engine.graph.models.graph_model import GraphModel, NodeModel, EdgeModel, BasicBlock, NodeDefRef
     
     graph = GraphModel(
         graph_id=data.get("graph_id", ""),
@@ -178,8 +200,21 @@ def deserialize_graph(data: dict) -> "GraphModel":
             id=node_data["id"],
             title=node_data.get("title", ""),
             category=node_data.get("category", ""),
+            node_def_ref=(
+                NodeDefRef.from_dict(node_data.get("node_def_ref"))
+                if node_data.get("node_def_ref") is not None
+                else None
+            ),
             composite_id=node_data.get("composite_id", ""),  # 加载复合节点ID
             pos=tuple(node_data.get("pos", [0.0, 0.0])),
+            effective_input_types=_parse_str_to_str_dict(
+                node_data.get("effective_input_types", {}),
+                field_name="effective_input_types",
+            ),
+            effective_output_types=_parse_str_to_str_dict(
+                node_data.get("effective_output_types", {}),
+                field_name="effective_output_types",
+            ),
         )
         
         # 使用辅助函数解析端口列表，支持三种格式
@@ -259,6 +294,43 @@ def deserialize_graph(data: dict) -> "GraphModel":
             alpha_value = float(block_data.get("alpha", 0.2))
             parsed_blocks.append(BasicBlock(nodes=nodes_list, color=color_value, alpha=alpha_value))
         graph.basic_blocks = parsed_blocks
+
+    # ----------------------------------------------------------------------
+    # 反序列化防御：剔除“孤立的跨块数据副本”
+    #
+    # 背景：
+    # - 历史版本的布局/跨块复制在极端情况下可能生成 `is_data_node_copy=True` 但完全无连线的副本节点；
+    # - 这类节点在 UI 中会表现为“未被任何数据链引用”，且无任何语义价值；
+    # - 旧缓存/旧序列化结果仍可能包含这些节点，因此在反序列化阶段做一次安全清理。
+    #
+    # 约束：
+    # - 仅处理“数据副本”节点（is_data_node_copy=True）；
+    # - 仅删除“完全无连线”的副本节点（既无入边也无出边，即不在任何 edge.src/dst 中出现）。
+    # ----------------------------------------------------------------------
+    connected_node_ids: set[str] = set()
+    for edge_obj in graph.edges.values():
+        src_id = getattr(edge_obj, "src_node", "") or ""
+        dst_id = getattr(edge_obj, "dst_node", "") or ""
+        if src_id:
+            connected_node_ids.add(str(src_id))
+        if dst_id:
+            connected_node_ids.add(str(dst_id))
+
+    removed_copy_node_ids: set[str] = set()
+    for node_id, node_obj in list(graph.nodes.items()):
+        if not bool(getattr(node_obj, "is_data_node_copy", False)):
+            continue
+        if str(node_id) not in connected_node_ids:
+            removed_copy_node_ids.add(str(node_id))
+            graph.nodes.pop(node_id, None)
+
+    if removed_copy_node_ids and getattr(graph, "basic_blocks", None):
+        for basic_block in graph.basic_blocks:
+            basic_block.nodes = [
+                node_id
+                for node_id in (basic_block.nodes or [])
+                if str(node_id) not in removed_copy_node_ids
+            ]
     
     # 🔧 修复：更新_next_id以避免ID冲突
     max_id = 0

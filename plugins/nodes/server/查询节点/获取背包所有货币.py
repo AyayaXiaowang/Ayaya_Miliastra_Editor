@@ -7,10 +7,10 @@ from engine.utils.logging.logger import log_info
     name="获取背包所有货币",
     category="查询节点",
     inputs=[("背包持有者实体", "实体")],
-    outputs=[("货币字典", "字典")],
+    outputs=[("货币字典", "配置ID-整数字典")],
     description="获取背包所有货币，包括货币类型和对应的数量",
     doc_reference="服务器节点/查询节点/查询节点.md"
 )
 def 获取背包所有货币(game, 背包持有者实体):
     """获取背包所有货币，包括货币类型和对应的数量"""
-    return {"金币": 10000, "钻石": 500}
+    return {"货币ID_金币": 10000, "货币ID_钻石": 500}

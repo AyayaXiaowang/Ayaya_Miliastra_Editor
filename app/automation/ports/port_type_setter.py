@@ -13,7 +13,8 @@ from PIL import Image
 from app.automation.editor.executor_protocol import EditorExecutorWithViewport
 from app.automation.editor.node_snapshot import NodePortsSnapshotCache
 from engine.graph.models.graph_model import GraphModel, NodeModel
-from app.automation.input.common import compute_position_thresholds
+from app.automation.input.common import compute_position_thresholds_for_node_view
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 
 from app.automation.ports.port_type_inference import build_edge_lookup
 from app.automation.ports._add_ports_common import ensure_node_visible_for_automation
@@ -54,7 +55,12 @@ def _emit_expected_position_overlay(
         return
 
     scale = float(executor.scale_ratio or 1.0)
-    threshold_x, threshold_y = compute_position_thresholds(scale)
+    node_view_w_px, node_view_h_px = get_node_view_size_px()
+    threshold_x, threshold_y = compute_position_thresholds_for_node_view(
+        scale=scale,
+        node_view_width_px=float(node_view_w_px),
+        node_view_height_px=float(node_view_h_px),
+    )
     roi_half_w = int(threshold_x * 2.0)
     roi_half_h = int(threshold_y * 2.0)
 

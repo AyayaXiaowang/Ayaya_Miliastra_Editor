@@ -49,8 +49,7 @@ class VariablesTwoRowFieldTableWidget(TwoRowFieldTableWidget):
                 value=value,
                 parent=self.table,
             )
-            if readonly:
-                editor.setEnabled(False)
+            editor.set_read_only(bool(readonly))
             editor.value_changed.connect(self._on_content_changed)
             return editor
 

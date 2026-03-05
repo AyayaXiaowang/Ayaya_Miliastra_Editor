@@ -13,7 +13,7 @@ from typing import Any, Protocol
 from app.models.view_modes import ViewMode
 from app.models.edit_session_capabilities import EditSessionCapabilities
 from app.ui.main_window.mode_presenters import ModeEnterRequest
-from engine.utils.logging.logger import log_info
+from engine.utils.logging.logger import log_debug
 
 
 @dataclass(slots=True)
@@ -46,6 +46,7 @@ class _ModeTransitionHost(Protocol):
     def refresh_save_status_label_for_mode(self, view_mode: ViewMode) -> None: ...
     def schedule_ui_session_state_save(self) -> None: ...
     def save_current_composite_if_needed(self) -> None: ...
+    def on_mode_transition_completed(self, view_mode: ViewMode) -> None: ...
 
 
 class ModeTransitionService:
@@ -55,7 +56,7 @@ class ModeTransitionService:
         mode_string = request.mode_string
         current_mode = ViewMode.from_index(main_window.central_stack.currentIndex())
 
-        log_info(
+        log_debug(
             "[MODE] transition start: from={} to={} graph_id={} dirty={}",
             current_mode,
             mode_string,
@@ -70,7 +71,7 @@ class ModeTransitionService:
         # 2) 离开节点图编辑：如有脏则保存
         current_graph_identifier = getattr(main_window.graph_controller, "current_graph_id", "")
         if current_graph_identifier and getattr(main_window.graph_controller, "is_dirty", False):
-            log_info("[MODE] saving dirty graph before leaving: {}", current_graph_identifier)
+            log_debug("[MODE] saving dirty graph before leaving: {}", current_graph_identifier)
             main_window.graph_controller.save_current_graph()
 
         # 3) 解析目标模式（非法输入直接抛错更利于定位）
@@ -157,7 +158,7 @@ class ModeTransitionService:
             side_titles = []
             current_side_title = "<none>"
 
-        log_info(
+        log_debug(
             "[MODE-STATE] nav={} | central={{index:{}, mode:{}, is_graph_view:{}}} | side={{count:{}, current:'{}', tabs:{}}}",
             nav_current,
             central_index,
@@ -171,5 +172,6 @@ class ModeTransitionService:
         # 13) 保存状态提示与会话快照（稳定公开钩子）
         main_window.refresh_save_status_label_for_mode(target_view_mode)
         main_window.schedule_ui_session_state_save()
+        main_window.on_mode_transition_completed(target_view_mode)
 
 

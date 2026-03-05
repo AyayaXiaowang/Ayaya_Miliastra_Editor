@@ -7,16 +7,21 @@
 
 说明：
 - 校验规则与管线由 `engine.validate.api.validate_files` 提供；
-- 本模块仅负责：运行期开关、按文件缓存、错误/警告聚合与便捷 API。
+- 本模块仅负责：运行期开关、按文件缓存、错误/警告聚合与便捷 API；
+  收集/格式化等复杂逻辑拆分至 `engine.validate.node_graph_validation_utils`。
 """
 
 from __future__ import annotations
 
 import inspect
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import List, Set, Tuple
 
-from engine.configs.settings import settings
+from .node_graph_validation_utils import (
+    collect_issue_messages_for_files as _collect_issues_for_files,
+    format_validate_file_report,
+    strict_parse_file,
+)
 
 
 class NodeGraphValidationError(Exception):
@@ -35,10 +40,6 @@ class NodeGraphValidator:
 
     def validate_class(self, node_graph_class) -> None:
         """基于所属文件调用引擎校验并在严格模式下抛错。"""
-        # 运行时节点图校验可通过全局设置开关控制（默认关闭，仅在调试模式下启用）
-        if not getattr(settings, "RUNTIME_NODE_GRAPH_VALIDATION_ENABLED", False):
-            return
-
         source_file = inspect.getsourcefile(node_graph_class)
         if not isinstance(source_file, str) or len(source_file) == 0:
             return
@@ -111,77 +112,5 @@ def validate_file(file_path: Path) -> Tuple[bool, List[str], List[str]]:
     errors = file_issues["errors"]
     warnings = file_issues["warnings"]
     return (len(errors) == 0), errors, warnings
-
-
-_DEFAULT_FALLBACK_ROOT = Path(__file__).resolve().parents[2]
-
-
-def _looks_like_workspace_root(candidate: Path) -> bool:
-    """判断 candidate 是否像是“仓库工作区根目录”。
-
-    约定（本仓库）：
-    - 根目录下存在 `constraints.txt`
-    - 根目录下存在 `engine/` 目录
-    """
-
-    if not isinstance(candidate, Path):
-        return False
-    return (candidate / "constraints.txt").is_file() and (candidate / "engine").is_dir()
-
-
-def _infer_workspace_root_for_validate_file(target_files: List[Path]) -> Path:
-    """为 validate_file 的“直接运行节点图脚本”场景推断 workspace_root。
-
-    优先从被校验文件路径向上寻找仓库根目录；找不到时再从当前模块路径向上寻找；
-    最终兜底为引擎子目录（保持旧行为，确保最少不崩）。
-    """
-
-    search_roots: List[Path] = []
-    for file_path in target_files:
-        if isinstance(file_path, Path):
-            search_roots.append(file_path.resolve())
-    search_roots.append(Path(__file__).resolve())
-
-    for start in search_roots:
-        cursor = start if start.is_dir() else start.parent
-        for candidate in (cursor, *cursor.parents):
-            if _looks_like_workspace_root(candidate):
-                return candidate
-
-    return _DEFAULT_FALLBACK_ROOT
-
-
-def _collect_issues_for_files(target_files: List[Path]) -> Dict[str, Dict[str, List[str]]]:
-    """运行底层验证并聚合成“文件 → (错误/警告列表)”的映射。"""
-    resolved_target_files: List[Path] = [path.resolve() for path in target_files]
-    absolute_targets = {str(path) for path in resolved_target_files}
-    issues: Dict[str, Dict[str, List[str]]] = {
-        target: {"errors": [], "warnings": []} for target in absolute_targets
-    }
-    if not absolute_targets:
-        return issues
-
-    # 兼容“直接运行节点图文件”的自检场景：
-    # 节点图校验会触发布局计算，而布局层需要从 settings 读取 workspace_root。
-    # CLI/GUI 启动入口会提前调用 settings.set_config_path(workspace_root)，但直接 python xxx.py 时不会。
-    # 这里会尽量从被校验文件向上推断仓库根目录，并在必要时注入到 settings。
-    current_workspace = getattr(settings.__class__, "_workspace_root", None)
-    workspace_root = current_workspace if isinstance(current_workspace, Path) else None
-    if workspace_root is None or (not _looks_like_workspace_root(workspace_root)):
-        workspace_root = _infer_workspace_root_for_validate_file(resolved_target_files)
-        settings.set_config_path(workspace_root)
-
-    from engine.validate.api import validate_files
-
-    report = validate_files(resolved_target_files, workspace_root, strict_entity_wire_only=False)
-    for issue in report.issues:
-        issue_file = issue.file or ""
-        if issue_file in issues:
-            bucket = issues[issue_file]
-            if issue.level == "error":
-                bucket["errors"].append(issue.message)
-            elif issue.level == "warning":
-                bucket["warnings"].append(issue.message)
-    return issues
 
 

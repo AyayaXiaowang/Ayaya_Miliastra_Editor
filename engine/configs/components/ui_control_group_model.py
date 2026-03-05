@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 
+from engine.configs.specialized.ui_widget_configs import PROGRESSBAR_COLOR_GREEN_HEX
+
 
 # ============================================================================
 # 固有控件类型定义
@@ -21,6 +23,7 @@ BUILTIN_WIDGET_TYPES = [
     "摇杆",
     "造物生命值条",
     "退出按钮",
+    "语音",
     "选项卡",
     "聊天按钮",
     "网络状态",
@@ -59,10 +62,13 @@ class UIWidgetConfig:
     layer_index: int = 0  # 显示层级
     is_builtin: bool = False  # 是否为固有控件
     settings: Dict[str, Any] = field(default_factory=dict)  # 类型特定的配置
+    # 额外字段：用于“只接纳并展示”外部生成的干净 JSON（保留未知字段，避免无意保存时丢信息）
+    extra: Dict[str, Any] = field(default_factory=dict)
     
     def serialize(self) -> dict:
         """序列化为字典"""
-        return {
+        payload = dict(self.extra or {})
+        payload.update({
             "widget_id": self.widget_id,
             "widget_type": self.widget_type,
             "widget_name": self.widget_name,
@@ -72,11 +78,24 @@ class UIWidgetConfig:
             "layer_index": self.layer_index,
             "is_builtin": self.is_builtin,
             "settings": self.settings
-        }
+        })
+        return payload
     
     @staticmethod
     def deserialize(data: dict) -> UIWidgetConfig:
         """从字典反序列化"""
+        known_keys = {
+            "widget_id",
+            "widget_type",
+            "widget_name",
+            "position",
+            "size",
+            "initial_visible",
+            "layer_index",
+            "is_builtin",
+            "settings",
+        }
+        extra = {k: v for k, v in (data or {}).items() if k not in known_keys} if isinstance(data, dict) else {}
         return UIWidgetConfig(
             widget_id=data["widget_id"],
             widget_type=data["widget_type"],
@@ -86,7 +105,8 @@ class UIWidgetConfig:
             initial_visible=data.get("initial_visible", True),
             layer_index=data.get("layer_index", 0),
             is_builtin=data.get("is_builtin", False),
-            settings=data.get("settings", {})
+            settings=data.get("settings", {}),
+            extra=extra,
         )
 
 
@@ -103,34 +123,54 @@ class UIControlGroupTemplate:
     widgets: List[UIWidgetConfig] = field(default_factory=list)  # 包含的控件列表
     group_position: Tuple[float, float] = (0.0, 0.0)  # 组整体位置（相对于画布）
     group_size: Tuple[float, float] = (100.0, 100.0)  # 组整体尺寸
+    # 是否支持在“界面布局”层做局部显隐覆盖（某些固有内容在编辑器中不支持被隐藏）
+    supports_layout_visibility_override: bool = True
     description: str = ""  # 描述
     created_at: str = ""  # 创建时间
     updated_at: str = ""  # 更新时间
+    # 额外字段：保留未知字段（例如更完整的布局/控件结构数据）
+    extra: Dict[str, Any] = field(default_factory=dict)
     
     def serialize(self) -> dict:
         """序列化为字典"""
-        return {
+        payload = dict(self.extra or {})
+        payload.update({
             "template_id": self.template_id,
             "template_name": self.template_name,
             "is_combination": self.is_combination,
             "widgets": [w.serialize() for w in self.widgets],
             "group_position": list(self.group_position),
             "group_size": list(self.group_size),
+            "supports_layout_visibility_override": self.supports_layout_visibility_override,
             "description": self.description,
             "created_at": self.created_at,
             "updated_at": self.updated_at
-        }
+        })
+        return payload
     
     @staticmethod
-    def deserialize(data: dict) -> UIControlGroupTemplate:
+    def deserialize(data: dict) -> Optional["UIControlGroupTemplate"]:
         """从字典反序列化"""
-        # 容错处理：如果缺少必需字段，返回None或抛出更友好的错误
+        # 容错处理：如果缺少必需字段，返回 None 并交由上层跳过该条目
         if "template_id" not in data:
-            # 如果数据格式错误，生成一个临时ID（通常不应该发生）
             import warnings
             warnings.warn(f"UI控件模板数据缺少template_id字段，数据将被跳过: {data.get('name', 'unknown')}")
             return None
         
+        known_keys = {
+            "template_id",
+            "template_name",
+            "is_combination",
+            "widgets",
+            "group_position",
+            "group_size",
+            "supports_layout_visibility_override",
+            "description",
+            "created_at",
+            "updated_at",
+        }
+        extra = {k: v for k, v in (data or {}).items() if k not in known_keys} if isinstance(data, dict) else {}
+
         return UIControlGroupTemplate(
             template_id=data["template_id"],
             template_name=data["template_name"],
@@ -138,9 +178,11 @@ class UIControlGroupTemplate:
             widgets=[UIWidgetConfig.deserialize(w) for w in data.get("widgets", [])],
             group_position=tuple(data.get("group_position", [0.0, 0.0])),
             group_size=tuple(data.get("group_size", [100.0, 100.0])),
+            supports_layout_visibility_override=bool(data.get("supports_layout_visibility_override", True)),
             description=data.get("description", ""),
             created_at=data.get("created_at", ""),
-            updated_at=data.get("updated_at", "")
+            updated_at=data.get("updated_at", ""),
+            extra=extra,
         )
 
 
@@ -160,10 +202,13 @@ class UILayout:
     created_at: str = ""  # 创建时间
     updated_at: str = ""  # 更新时间
     visibility_overrides: Dict[str, bool] = field(default_factory=dict)  # 布局局部显隐覆盖
+    # 额外字段：保留未知字段（例如更完整的布局结构数据）
+    extra: Dict[str, Any] = field(default_factory=dict)
     
     def serialize(self) -> dict:
         """序列化为字典"""
-        return {
+        payload = dict(self.extra or {})
+        payload.update({
             "layout_id": self.layout_id,
             "layout_name": self.layout_name,
             "builtin_widgets": self.builtin_widgets,
@@ -173,11 +218,24 @@ class UILayout:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "visibility_overrides": self.visibility_overrides,
-        }
+        })
+        return payload
     
     @staticmethod
     def deserialize(data: dict) -> UILayout:
         """从字典反序列化"""
+        known_keys = {
+            "layout_id",
+            "layout_name",
+            "builtin_widgets",
+            "custom_groups",
+            "default_for_player",
+            "description",
+            "created_at",
+            "updated_at",
+            "visibility_overrides",
+        }
+        extra = {k: v for k, v in (data or {}).items() if k not in known_keys} if isinstance(data, dict) else {}
         return UILayout(
             layout_id=data["layout_id"],
             layout_name=data["layout_name"],
@@ -188,6 +246,7 @@ class UILayout:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),
             visibility_overrides=data.get("visibility_overrides", {}),
+            extra=extra,
         )
 
 
@@ -264,10 +323,20 @@ def create_builtin_widget_templates() -> Dict[str, UIControlGroupTemplate]:
         "摇杆": {"position": (150, 800), "size": (180, 180)},
         "造物生命值条": {"position": (860, 850), "size": (200, 50)},
         "退出按钮": {"position": (1820, 20), "size": (80, 80)},
+        "语音": {"position": (1480, 20), "size": (100, 40)},
         "选项卡": {"position": (1820, 120), "size": (80, 300)},
         "聊天按钮": {"position": (1700, 20), "size": (80, 80)},
         "网络状态": {"position": (1580, 20), "size": (100, 40)},
         "挣扎按钮": {"position": (860, 540), "size": (200, 80)}
+    }
+
+    # 固有内容中“支持布局显隐覆盖”的类型集合：其余固有内容在编辑器中不支持被隐藏。
+    builtin_visibility_override_supported_types = {
+        "小地图",
+        "技能区",
+        "队伍信息",
+        "角色生命值条",
+        "摇杆",
     }
     
     for idx, widget_type in enumerate(BUILTIN_WIDGET_TYPES):
@@ -295,6 +364,7 @@ def create_builtin_widget_templates() -> Dict[str, UIControlGroupTemplate]:
             widgets=[widget],
             group_position=config["position"],
             group_size=config["size"],
+            supports_layout_visibility_override=widget_type in builtin_visibility_override_supported_types,
             description=f"固有内容：{widget_type}",
             created_at=now,
             updated_at=now
@@ -350,7 +420,7 @@ def create_template_widget_preset(widget_type: str) -> UIControlGroupTemplate:
         default_settings = {
             "shape": "横向",
             "style": "百分比",
-            "color": "#00FF00",
+            "color": PROGRESSBAR_COLOR_GREEN_HEX,
             "current_var": None,
             "min_var": None,
             "max_var": None
@@ -435,6 +505,8 @@ if __name__ == "__main__":
     print(f"   序列化成功，字段数: {len(serialized)}")
     
     deserialized = UIControlGroupTemplate.deserialize(serialized)
+    if deserialized is None:
+        raise RuntimeError("反序列化失败：缺少 template_id")
     print(f"   反序列化成功: {deserialized.template_name}")
     
     # 测试设备预设

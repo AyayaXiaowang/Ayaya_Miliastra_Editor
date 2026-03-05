@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from PyQt6 import QtWidgets
 
@@ -30,11 +30,13 @@ class TabConfigForm(QtWidgets.QWidget):
         settings: Dict[str, object],
         parent: QtWidgets.QWidget,
         *,
+        on_settings_changed: Optional[Callable[[], None]] = None,
         resource_manager: Optional[object] = None,
         package_index_manager: Optional[object] = None,
     ) -> None:
         super().__init__(parent)
         self._settings: Dict[str, object] = settings
+        self._on_settings_changed = on_settings_changed
         self._resource_manager = resource_manager
         self._package_index_manager = package_index_manager
         self._tab_dicts: List[Dict[str, Any]] = []
@@ -165,6 +167,10 @@ class TabConfigForm(QtWidgets.QWidget):
                 active_indices.append(index_raw)
         self._settings["初始生效选项卡"] = active_indices
 
+    def _notify_settings_changed(self) -> None:
+        if self._on_settings_changed is not None:
+            self._on_settings_changed()
+
     # ------------------------------------------------------------------ 卡片与字段绑定
 
     def _create_card_widget(self, index: int, tab_dict: Dict[str, Any]) -> QtWidgets.QGroupBox:
@@ -192,8 +198,12 @@ class TabConfigForm(QtWidgets.QWidget):
         index_label = QtWidgets.QLabel(str(index), group)
         form_layout.addRow("选项序号:", index_label)
 
-        def _sync_initial_active(_: Any) -> None:
+        def _on_any_field_changed(_: Any) -> None:
+            self._notify_settings_changed()
+
+        def _on_initial_active_changed(_: Any) -> None:
             self._sync_initial_active_indices()
+            self._notify_settings_changed()
 
         field_specs = [
             FormFieldSpec(
@@ -202,6 +212,7 @@ class TabConfigForm(QtWidgets.QWidget):
                 kind="line_edit",
                 default="",
                 placeholder="可选：图标资源 ID 或名称",
+                on_changed=_on_any_field_changed,
             ),
             FormFieldSpec(
                 key="排序等级",
@@ -210,6 +221,7 @@ class TabConfigForm(QtWidgets.QWidget):
                 default=1,
                 minimum_int=-9999,
                 maximum_int=9999,
+                on_changed=_on_any_field_changed,
             ),
             FormFieldSpec(
                 key="初始生效",
@@ -217,7 +229,7 @@ class TabConfigForm(QtWidgets.QWidget):
                 kind="bool",
                 default=False,
                 use_toggle_switch=True,
-                on_changed=_sync_initial_active,
+                on_changed=_on_initial_active_changed,
             ),
             FormFieldSpec(
                 key="本地过滤器",
@@ -228,6 +240,7 @@ class TabConfigForm(QtWidgets.QWidget):
                     FormComboOption("无", ""),
                     FormComboOption("布尔过滤器", "布尔过滤器"),
                 ],
+                on_changed=_on_any_field_changed,
             ),
         ]
 
@@ -274,6 +287,7 @@ class TabConfigForm(QtWidgets.QWidget):
         self._tab_dicts.append(new_tab)
         self._renumber_tabs()
         self._rebuild_cards()
+        self._notify_settings_changed()
 
     def _on_remove_tab_clicked(self, tab_dict: Dict[str, Any]) -> None:
         if not self._tab_dicts:
@@ -286,9 +300,11 @@ class TabConfigForm(QtWidgets.QWidget):
         self._tab_dicts.remove(tab_dict)
         self._renumber_tabs()
         self._rebuild_cards()
+        self._notify_settings_changed()
 
     def _on_filter_graph_changed(self, tab_dict: Dict[str, Any], text: str) -> None:
         tab_dict["过滤器节点图"] = text.strip()
+        self._notify_settings_changed()
 
     def _on_select_filter_graph_clicked(
         self,

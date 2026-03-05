@@ -157,11 +157,20 @@ class ControllerSetupMixin:
         self.nav_coordinator.open_graph.connect(self._on_open_graph_request)
         self.nav_coordinator.focus_node.connect(self._focus_node)
         self.nav_coordinator.focus_edge.connect(self._focus_edge)
-        self.nav_coordinator.load_package.connect(self.package_controller.load_package)
+        # 切包统一走主窗口的保护入口（未保存提示 + 保存/不保存/取消），避免旁路直切导致数据丢失。
+        request_load_package = getattr(self, "_request_load_package", None)
+        if callable(request_load_package):
+            self.nav_coordinator.load_package.connect(request_load_package)
+        else:
+            self.nav_coordinator.load_package.connect(self.package_controller.load_package)
         self.nav_coordinator.switch_to_editor.connect(
             lambda: self._navigate_to_mode("graph_editor")
         )
         self.nav_coordinator.open_player_editor.connect(self._open_player_editor)
+        # 战斗预设条目跳转（来自节点图引用列表/存档库等）：复用已有选中处理逻辑
+        self.nav_coordinator.select_player_template.connect(self._on_player_template_selected)
+        self.nav_coordinator.select_player_class.connect(self._on_player_class_selected)
+        self.nav_coordinator.select_skill.connect(self._on_skill_selected)
         # 复合节点选择
         self.nav_coordinator.select_composite_name.connect(self._on_select_composite_name)
         management_widget = getattr(self, "management_widget", None)
@@ -175,4 +184,15 @@ class ControllerSetupMixin:
         self.file_watcher_manager.force_save_requested.connect(
             self.graph_controller.save_current_graph
         )
+
+        # === 图属性面板信号（用于图库统计同步） ===
+        #
+        # 背景：节点图库列表页使用 `load_graph_metadata()` 的轻量缓存展示 node/edge 统计；
+        # 当右侧图属性面板触发真实解析并生成持久化 graph_cache 后，旧的轻量统计需要被失效，
+        # 否则会出现“左侧卡片与右侧基本信息不一致”的体验。
+        graph_property_panel = getattr(self, "graph_property_panel", None)
+        payload_loaded_handler = getattr(self, "_on_graph_property_panel_payload_loaded", None)
+        if graph_property_panel is not None and callable(payload_loaded_handler):
+            # 使用 UISetupMixin 提供的可选信号连接器，避免散落 hasattr 判断
+            self._connect_optional_signal(graph_property_panel, "graph_data_loaded", payload_loaded_handler)
 

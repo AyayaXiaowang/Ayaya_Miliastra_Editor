@@ -32,7 +32,7 @@ class GraphVariableDialog(ManagementDialogBase):
         )
 
         self.variable_widget = GraphVariableTableWidget(self)
-        struct_ids = list_struct_ids()
+        struct_ids = list_struct_ids(self._resource_manager)
         self.variable_widget.set_struct_id_options(struct_ids)
         self.variable_widget.set_graph_model(self.graph_model)
         self.variable_widget.variables_changed.connect(self.variables_updated.emit)

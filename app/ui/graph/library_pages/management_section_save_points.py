@@ -6,9 +6,6 @@ from engine.configs.ingame_save_data_cost import (
     calculate_template_total_cost,
 )
 from engine.configs.specialized.node_graph_configs import STRUCT_TYPE_INGAME_SAVE
-from engine.resources.definition_schema_view import (
-    get_default_definition_schema_view,
-)
 from engine.resources.global_resource_view import GlobalResourceView
 from engine.resources.package_view import PackageView
 from PyQt6 import QtGui, QtWidgets
@@ -55,9 +52,9 @@ class SavePointsSection(BaseManagementSection):
       `IngameSaveTemplateSchemaView` 聚合为 `{template_id: payload}` 视图；
       当模板 payload 中的 `is_default_template` 字段为 True 时，视图层会将其视为
       “当前工程默认/主模板”；
-    - 功能包/存档只通过 `PackageIndex.resources.management["save_points"]` 里的 ID 列表
+    - 项目存档只通过 `PackageIndex.resources.management["save_points"]` 里的 ID 列表
       引用这些模板 ID，充当“索引/标签”，不会改变模板本身的生命周期；
-    - 在 `<全部资源>` (`GlobalResourceView`) 与 `<未分类资源>` (`UnclassifiedResourceView`) 中，
+    - 在 `<共享资源>` (`GlobalResourceView`) 中，
       `management.save_points` 提供的是“全局聚合视图”：组合所有代码级模板与
       模板内的 `is_default_template` 状态；
     - 在具体存档视图 (`PackageView`) 下，本 Section 仅使用上述全局聚合配置按
@@ -74,7 +71,7 @@ class SavePointsSection(BaseManagementSection):
     def _ensure_config(package: ManagementPackage) -> Dict[str, Any]:
         """确保 package.management.save_points 具备标准结构（聚合视图语义）。
 
-        仅用于 `<全部资源>` / `<未分类资源>` 等聚合视图下的 `management.save_points`，
+        仅用于 `<共享资源>` 等聚合视图下的 `management.save_points`，
         在具体存档视图 (`PackageView`) 中不会直接修改底层 SAVE_POINT 资源。
         """
         raw_value: Any = package.management.save_points
@@ -95,7 +92,7 @@ class SavePointsSection(BaseManagementSection):
     def _build_config_for_package_view(package: ManagementPackage) -> Dict[str, Any]:
         """基于全局聚合配置构造“按所属存档过滤”的局内存档视图。
 
-        - 在 `<全部资源>` / `<未分类资源>` 视图下，直接返回聚合配置；
+        - 在 `<共享资源>` 视图下，直接返回聚合配置；
         - 在具体存档视图 (`PackageView`) 下，仅保留
           `PackageIndex.resources.management["save_points"]` 中引用的模板。
         """
@@ -155,13 +152,26 @@ class SavePointsSection(BaseManagementSection):
     def _load_ingame_struct_choices(package: ManagementPackage) -> Dict[str, str]:
         """加载所有 struct_ype == \"ingame_save\" 的结构体定义，返回 {struct_id: name}。"""
         result: Dict[str, str] = {}
-        schema_view = get_default_definition_schema_view()
-        all_structs = schema_view.get_all_struct_definitions()
+        resource_manager_candidate = getattr(package, "resource_manager", None)
+        if not isinstance(resource_manager_candidate, ResourceManager):
+            return result
 
-        for struct_id, payload in all_structs.items():
+        struct_ids = resource_manager_candidate.list_resources(ResourceType.STRUCT_DEFINITION)
+        normalized_ids = [
+            str(value).strip()
+            for value in struct_ids
+            if isinstance(value, str) and str(value).strip()
+        ]
+        normalized_ids.sort(key=lambda text: text.casefold())
+
+        for struct_id in normalized_ids:
+            payload = resource_manager_candidate.load_resource(
+                ResourceType.STRUCT_DEFINITION,
+                struct_id,
+            )
             if not isinstance(payload, Mapping):
                 continue
-            struct_type_value = payload.get("struct_ype")
+            struct_type_value = payload.get("struct_ype") or payload.get("struct_type")
             if not isinstance(struct_type_value, str):
                 continue
             if struct_type_value.strip() != STRUCT_TYPE_INGAME_SAVE:
@@ -171,16 +181,29 @@ class SavePointsSection(BaseManagementSection):
         return result
 
     @staticmethod
-    def _load_ingame_struct_definitions() -> Dict[str, Dict[str, Any]]:
+    def _load_ingame_struct_definitions(package: ManagementPackage) -> Dict[str, Dict[str, Any]]:
         """加载所有局内存档结构体定义，返回 {struct_id: payload}。"""
         result: Dict[str, Dict[str, Any]] = {}
-        schema_view = get_default_definition_schema_view()
-        all_structs = schema_view.get_all_struct_definitions()
+        resource_manager_candidate = getattr(package, "resource_manager", None)
+        if not isinstance(resource_manager_candidate, ResourceManager):
+            return result
 
-        for struct_id, payload in all_structs.items():
+        struct_ids = resource_manager_candidate.list_resources(ResourceType.STRUCT_DEFINITION)
+        normalized_ids = [
+            str(value).strip()
+            for value in struct_ids
+            if isinstance(value, str) and str(value).strip()
+        ]
+        normalized_ids.sort(key=lambda text: text.casefold())
+
+        for struct_id in normalized_ids:
+            payload = resource_manager_candidate.load_resource(
+                ResourceType.STRUCT_DEFINITION,
+                struct_id,
+            )
             if not isinstance(payload, Mapping):
                 continue
-            struct_type_value = payload.get("struct_ype")
+            struct_type_value = payload.get("struct_ype") or payload.get("struct_type")
             if not isinstance(struct_type_value, str):
                 continue
             if struct_type_value.strip() != STRUCT_TYPE_INGAME_SAVE:
@@ -204,7 +227,7 @@ class SavePointsSection(BaseManagementSection):
     def iter_rows(self, package: ManagementPackage) -> Iterable[ManagementRowData]:
         """枚举当前视图下的所有局内存档模板。
 
-        - 在 `<全部资源>` / `<未分类资源>` 视图下：列出聚合视图中的所有局内存档模板；
+        - 在 `<共享资源>` 视图下：列出聚合视图中的所有局内存档模板；
         - 在具体存档视图 (`PackageView`) 下：仅列出当前存档
           `resources.management["save_points"]` 中引用的模板，实现按“所属存档”过滤后的展示。
         """
@@ -306,7 +329,7 @@ class SavePointsSection(BaseManagementSection):
     def delete_item(self, package: ManagementPackage, item_id: str) -> bool:
         """删除指定局内存档模板。
 
-        在具体存档视图下，删除模板应通过全局/未分类视图完成，这里仅支持在聚合视图中
+        在具体存档视图下，删除模板应通过全局视图完成，这里仅支持在聚合视图中
         删除模板本体；对单个存档移除某模板的引用应通过“所属存档”多选行完成。
         """
         from app.ui.foundation import dialog_utils
@@ -335,7 +358,7 @@ class SavePointsSection(BaseManagementSection):
 
         设计目标：
         - 模板结构与条目列表由代码资源中的 `SAVE_POINT_PAYLOAD` 维护，此处仅做只读展示；
-        - 在 `<全部资源>` / `<未分类资源>` 视图中允许切换“当前启用模板”，
+        - 在 `<共享资源>` 视图中允许切换“当前启用模板”，
           即维护全局元配置中的 enabled/active_template_id；
         - 在具体存档视图 (`PackageView`) 下，同样展示模板的完整概要与条目列表，
           但不在本面板中修改启用状态，仅通过“所属存档”多选行维护本存档对模板的引用关系。
@@ -350,7 +373,7 @@ class SavePointsSection(BaseManagementSection):
         struct_choices = self._load_ingame_struct_choices(package)
 
         # 加载所有局内存档结构体定义，用于数据量计算。
-        struct_definitions = self._load_ingame_struct_definitions()
+        struct_definitions = self._load_ingame_struct_definitions(package)
 
         # 计算模板总数据量
         entries_for_cost = template_payload.get("entries", [])
@@ -384,7 +407,7 @@ class SavePointsSection(BaseManagementSection):
             enabled_checkbox.setChecked(is_active_template)
             if not can_toggle_enabled:
                 enabled_checkbox.setEnabled(False)
-                enabled_checkbox.setToolTip("仅在“全部资源”或“未分类资源”视图下可切换当前启用模板。")
+                enabled_checkbox.setToolTip("仅在“共享资源”视图下可切换当前启用模板。")
 
             summary_label = QtWidgets.QLabel("")
             summary_label.setWordWrap(True)
@@ -661,7 +684,7 @@ class SavePointsSection(BaseManagementSection):
         if isinstance(package, PackageView):
             description = (
                 "局内存档模板的结构与条目配置由代码资源维护，本面板以只读方式展示模板概要与条目列表；"
-                "启用状态与模板结构仍需在“全部资源/未分类资源”视图或代码模块中调整。"
+                "启用状态与模板结构仍需在“共享资源”视图或代码模块中调整。"
             )
         else:
             description = (

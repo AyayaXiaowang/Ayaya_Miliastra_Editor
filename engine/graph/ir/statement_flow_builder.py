@@ -26,7 +26,6 @@ from .branch_builder import (
     create_multi_branch_node,
     extract_case_value,
     find_first_flow_node,
-    find_last_flow_node,
     block_has_return,
 )
 from .loop_builder import (
@@ -257,6 +256,7 @@ def handle_match_over_composite_call(
         subject_expr,
         ctx.node_library,
         env,
+        graph_model=graph_model,
     )
     if not composite_node or not is_flow_node(composite_node):
         # 非复合节点调用：回退到默认 match → 多分支 逻辑（由调用方决定是否兜底）。
@@ -293,6 +293,7 @@ def handle_match_over_composite_call(
         ctx.node_library,
         ctx.node_name_index,
         env,
+        graph_model=graph_model,
     )
     edges.extend(data_edges)
 
@@ -310,7 +311,7 @@ def handle_match_over_composite_call(
                 continue
             if label_text not in flow_output_names:
                 line_no = getattr(case, "lineno", getattr(stmt, "lineno", "?"))
-                validators.warn(
+                validators.error(
                     f"行{line_no}: match 复合节点调用的 case \"{label_text}\" 未找到同名流程出口，"
                     f"可用的流程出口包括：{', '.join(flow_output_names)}"
                 )
@@ -322,7 +323,7 @@ def handle_match_over_composite_call(
         elif raw_value == "_" or raw_value is None:
             if "默认" not in flow_output_names:
                 line_no = getattr(case, "lineno", getattr(stmt, "lineno", "?"))
-                validators.warn(
+                validators.error(
                     f"行{line_no}: case _ 用于 match 复合节点调用时，仅当复合节点存在名为“默认”的流程出口时才生效；"
                     f"当前可用的流程出口包括：{', '.join(flow_output_names)}"
                 )
@@ -332,7 +333,7 @@ def handle_match_over_composite_call(
 
         else:
             line_no = getattr(case, "lineno", getattr(stmt, "lineno", "?"))
-            validators.warn(
+            validators.error(
                 "行"
                 + str(line_no)
                 + ": match 复合节点调用仅支持字符串字面量或 '_' 作为分支标签；当前分支将被忽略。"
@@ -340,17 +341,50 @@ def handle_match_over_composite_call(
 
     if not has_any_valid_case:
         # 所有 case 要么未能解析，要么标签与任何流程出口都不匹配，回退默认逻辑
+        line_no = getattr(stmt, "lineno", "?")
+        validators.error(f"行{line_no}: match 复合节点调用未能匹配到任何有效分支标签；该语句无法可靠解析为节点图语义")
         return False, [], [], prev_flow_node
 
-    branch_last_nodes: List[NodeModel] = []
+    # 计算“多分支都赋值”的变量交集，用于跨分支合流（局部变量建模提示）。
+    # 说明：
+    # - 仅统计已成功映射到流程出口的分支；未映射的分支在语义上不可达/无效，不应污染交集；
+    # - 使用与 branch_builder 同等语义的“Store 名称收集”，避免引入额外的赋值分析依赖。
+    def _collect_assigned_names_in_case(case_body: List[ast.stmt]) -> set[str]:
+        assigned: set[str] = set()
+        for stmt in list(case_body or []):
+            for sub in ast.walk(stmt):
+                if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+                    name_text = str(getattr(sub, "id", "") or "").strip()
+                    if name_text:
+                        assigned.add(name_text)
+        return assigned
+
+    mapped_case_assigned: List[set[str]] = []
+    for index, case in enumerate(stmt.cases):
+        if index not in case_index_to_port:
+            continue
+        mapped_case_assigned.append(_collect_assigned_names_in_case(case.body))
+
+    if len(mapped_case_assigned) > 1:
+        combined_assigned = set(mapped_case_assigned[0])
+        for other in mapped_case_assigned[1:]:
+            combined_assigned &= set(other)
+    else:
+        combined_assigned = set()
+
+    branch_last_nodes: List[Union[NodeModel, Tuple[NodeModel, str]]] = []
 
     # 逐个 case 构建分支体，并从对应流程出口连接到分支体的第一个流程节点
     for index, case in enumerate(stmt.cases):
         port_name = case_index_to_port.get(index)
         if not port_name:
             # 未能映射到流程出口的分支：其内部节点仍会被解析，但没有来自复合节点的流程边
+            line_no = getattr(case, "lineno", getattr(stmt, "lineno", "?"))
+            validators.error(
+                f"行{line_no}: 该 case 未能映射到复合节点流程出口，分支体将变为不可达；请修正分支标签"
+            )
             snapshot_unmapped = env.snapshot()
-            case_nodes, case_edges = parse_method_body_func(
+            _unmapped_nodes, _unmapped_edges, _ = parse_method_body_func(
                 case.body,
                 None,
                 graph_model,
@@ -359,38 +393,45 @@ def handle_match_over_composite_call(
                 ctx,
                 validators,
             )
-            nodes.extend(case_nodes)
-            edges.extend(case_edges)
+            nodes.extend(_unmapped_nodes)
+            edges.extend(_unmapped_edges)
             env.restore(snapshot_unmapped)
             continue
 
         snapshot = env.snapshot()
-        case_nodes, case_edges = parse_method_body_func(
+        env.push_multi_assign(combined_assigned)
+        case_nodes, case_edges, case_final_prev = parse_method_body_func(
             case.body,
-            None,
+            (composite_node, port_name),
             graph_model,
             False,
             env,
             ctx,
             validators,
         )
+        env.pop_multi_assign()
         nodes.extend(case_nodes)
         edges.extend(case_edges)
 
-        if case_nodes:
-            first_flow = find_first_flow_node(case_nodes)
-            if first_flow and (not is_event_node(first_flow)):
-                # 从指定的流程出口连接到分支体的第一个流程节点
-                connect_sources_to_target(
-                    (composite_node, port_name),
-                    first_flow,
-                    edges,
-                )
+        # 检测该分支是否包含 break（仅当处于循环体内时才有意义）
+        has_break_case: bool = False
+        if getattr(env, "loop_stack", None):
+            loop_node_obj = env.loop_stack[-1] if env.loop_stack else None
+            if loop_node_obj is not None:
+                loop_id = getattr(loop_node_obj, "id", "")
+                for edge in case_edges:
+                    if edge.dst_node == loop_id and edge.dst_port == "跳出循环":
+                        has_break_case = True
+                        break
 
-            last_flow = find_last_flow_node(case_nodes)
-            has_ret = block_has_return(case.body)
-            if last_flow and (not has_ret):
-                branch_last_nodes.append(last_flow)
+        # 利用 parse_method_body 返回的精确续接信息（与双分支/多分支逻辑一致）
+        has_ret = block_has_return(case.body)
+        if (not has_ret) and (not has_break_case):
+            if case_final_prev is not None:
+                if isinstance(case_final_prev, list):
+                    branch_last_nodes.extend(case_final_prev)
+                else:
+                    branch_last_nodes.append(case_final_prev)
 
         env.restore(snapshot)
 

@@ -1,0 +1,4363 @@
+{
+  "bundle_type": "ui_workbench_ui_layout_bundle",
+  "bundle_version": 1,
+  "layout": {
+    "layout_id": "layout_html_import_1772550110999",
+    "layout_name": "HTML导入_界面布局",
+    "builtin_widgets": [],
+    "custom_groups": [
+      "template_html_import_1772550110999_part_000",
+      "template_html_import_1772550110999_part_001",
+      "template_html_import_1772550110999_part_002",
+      "template_html_import_1772550110999_part_003",
+      "template_html_import_1772550110999_part_004",
+      "template_html_import_1772550110999_part_005",
+      "template_html_import_1772550110999_part_006",
+      "template_html_import_1772550110999_part_007",
+      "template_html_import_1772550110999_part_008",
+      "template_html_import_1772550110999_part_009",
+      "template_html_import_1772550110999_part_010",
+      "template_html_import_1772550110999_part_011",
+      "template_html_import_1772550110999_part_012",
+      "template_html_import_1772550110999_part_013",
+      "template_html_import_1772550110999_part_014",
+      "template_html_import_1772550110999_part_015",
+      "template_html_import_1772550110999_part_016",
+      "template_html_import_1772550110999_part_017",
+      "template_html_import_1772550110999_part_018",
+      "template_html_import_1772550110999_part_019",
+      "template_html_import_1772550110999_part_020",
+      "template_html_import_1772550110999_part_021",
+      "template_html_import_1772550110999_part_022",
+      "template_html_import_1772550110999_part_023",
+      "template_html_import_1772550110999_part_024",
+      "template_html_import_1772550110999_part_025",
+      "template_html_import_1772550110999_part_026",
+      "template_html_import_1772550110999_part_027",
+      "template_html_import_1772550110999_part_028",
+      "template_html_import_1772550110999_part_029",
+      "template_html_import_1772550110999_part_030",
+      "template_html_import_1772550110999_part_031",
+      "template_html_import_1772550110999_part_032",
+      "template_html_import_1772550110999_part_033",
+      "template_html_import_1772550110999_part_034",
+      "template_html_import_1772550110999_part_035",
+      "template_html_import_1772550110999_part_036",
+      "template_html_import_1772550110999_part_037",
+      "template_html_import_1772550110999_part_038",
+      "template_html_import_1772550110999_part_039",
+      "template_html_import_1772550110999_part_040",
+      "template_html_import_1772550110999_part_041",
+      "template_html_import_1772550110999_part_042",
+      "template_html_import_1772550110999_part_043",
+      "template_html_import_1772550110999_part_044",
+      "template_html_import_1772550110999_part_045",
+      "template_html_import_1772550110999_part_046",
+      "template_html_import_1772550110999_part_047",
+      "template_html_import_1772550110999_part_048",
+      "template_html_import_1772550110999_part_049",
+      "template_html_import_1772550110999_part_050",
+      "template_html_import_1772550110999_part_051",
+      "template_html_import_1772550110999_part_052",
+      "template_html_import_1772550110999_part_053",
+      "template_html_import_1772550110999_part_054",
+      "template_html_import_1772550110999_part_055",
+      "template_html_import_1772550110999_part_056",
+      "template_html_import_1772550110999_part_057",
+      "template_html_import_1772550110999_part_058",
+      "template_html_import_1772550110999_part_059",
+      "template_html_import_1772550110999_part_060",
+      "template_html_import_1772550110999_part_061",
+      "template_html_import_1772550110999_part_062",
+      "template_html_import_1772550110999_part_063",
+      "template_html_import_1772550110999_part_064",
+      "template_html_import_1772550110999_part_065",
+      "template_html_import_1772550110999_part_066",
+      "template_html_import_1772550110999_part_067",
+      "template_html_import_1772550110999_part_068",
+      "template_html_import_1772550110999_part_069",
+      "template_html_import_1772550110999_part_070",
+      "template_html_import_1772550110999_part_071",
+      "template_html_import_1772550110999_part_072",
+      "template_html_import_1772550110999_part_073",
+      "template_html_import_1772550110999_part_074",
+      "template_html_import_1772550110999_part_075",
+      "template_html_import_1772550110999_part_076",
+      "template_html_import_1772550110999_part_077",
+      "template_html_import_1772550110999_btn_e75",
+      "template_html_import_1772550110999_part_078",
+      "template_html_import_1772550110999_part_079",
+      "template_html_import_1772550110999_part_080",
+      "template_html_import_1772550110999_part_081",
+      "template_html_import_1772550110999_btn_e82",
+      "template_html_import_1772550110999_part_082"
+    ],
+    "default_for_player": "所有玩家",
+    "description": "由 ui_html_workbench 导出。尺寸: 1920 x 1080",
+    "created_at": "2026-03-03T15:01:50.999Z",
+    "updated_at": "2026-03-03T15:01:50.999Z",
+    "visibility_overrides": {}
+  },
+  "templates": [
+    {
+      "template_id": "template_html_import_1772550110999_btn_e75",
+      "template_name": "HTML导入_界面布局_按钮_e75",
+      "is_combination": true,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__btn_back__shadow",
+          "__html_component_key": "HTML导入_界面布局__btn_back",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_btn_back_z750",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-75",
+          "position": [
+            846,
+            833.390625
+          ],
+          "size": [
+            240,
+            80
+          ],
+          "initial_visible": true,
+          "layer_index": 78,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__846.00__833.39__240.00__80.00__750"
+        },
+        {
+          "ui_key": "HTML导入_界面布局__btn_back__btn_fill",
+          "__html_component_key": "HTML导入_界面布局__btn_back",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_btn_fill_btn_back_z755",
+          "widget_type": "进度条",
+          "widget_name": "按钮_底色_e75",
+          "position": [
+            844,
+            831.390625
+          ],
+          "size": [
+            232,
+            72
+          ],
+          "initial_visible": true,
+          "layer_index": 79,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#92CD21",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#92cd21",
+          "__flat_layer_key": "element__844.00__831.39__232.00__72.00__755"
+        },
+        {
+          "ui_key": "HTML导入_界面布局__btn_back_text__text",
+          "__html_component_key": "HTML导入_界面布局__btn_back",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_btn_back_text_z777",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-shadow-btn_back_text-0",
+          "position": [
+            818,
+            841.390625
+          ],
+          "size": [
+            284,
+            52
+          ],
+          "initial_visible": true,
+          "layer_index": 81,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 26,
+            "text_content": "<size=26><color=#00000000>{1:lv.UI结算_文本.按钮_返回}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__818.00__841.39__284.00__52.00__777"
+        },
+        {
+          "ui_key": "HTML导入_界面布局__btn_back_text__text__r818_841_284_52",
+          "__html_component_key": "HTML导入_界面布局__btn_back",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_btn_back_text_z778",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-btn_back_text",
+          "position": [
+            818,
+            841.390625
+          ],
+          "size": [
+            284,
+            52
+          ],
+          "initial_visible": true,
+          "layer_index": 82,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 26,
+            "text_content": "<size=26><color=#000000>{1:lv.UI结算_文本.按钮_返回}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__818.00__841.39__284.00__52.00__778"
+        },
+        {
+          "ui_key": "HTML导入_界面布局__btn_back__btn_item",
+          "__html_component_key": "HTML导入_界面布局__btn_back",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_btn_item_btn_back_z751",
+          "widget_type": "道具展示",
+          "widget_name": "按钮_道具展示_e75",
+          "position": [
+            844,
+            831.390625
+          ],
+          "size": [
+            232,
+            72
+          ],
+          "initial_visible": true,
+          "layer_index": 83,
+          "is_builtin": false,
+          "settings": {
+            "can_interact": true,
+            "display_type": "模板道具",
+            "config_id_variable": "关卡.UI_交互按钮_道具配置ID",
+            "quantity_variable": "关卡.UI_交互按钮_道具数量",
+            "cooldown_seconds_variable": "关卡.UI_交互按钮_栏位冷却时间",
+            "keybind_kbm_code": 1,
+            "keybind_gamepad_code": 1
+          },
+          "_html_button_aria_label": null,
+          "_html_button_onclick": null,
+          "_html_data_debug_label": null,
+          "_html_data_inventory_item_id": null,
+          "ui_action_key": "",
+          "ui_action_args": "",
+          "__flat_layer_key": "element__844.00__831.39__232.00__72.00__755"
+        }
+      ],
+      "group_position": [
+        818,
+        831.390625
+      ],
+      "group_size": [
+        284,
+        82
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：按钮已打组（道具展示+底色/阴影/文本等）。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "button"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_btn_e82",
+      "template_name": "HTML导入_界面布局_按钮_e82",
+      "is_combination": true,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__btn_level_select__btn_fill",
+          "__html_component_key": "HTML导入_界面布局__btn_level_select",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_btn_fill_btn_level_select_z825",
+          "widget_type": "进度条",
+          "widget_name": "按钮_底色_e82",
+          "position": [
+            101,
+            13.1875
+          ],
+          "size": [
+            112,
+            54
+          ],
+          "initial_visible": true,
+          "layer_index": 87,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#F3C330",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#f3c330",
+          "__flat_layer_key": "element__101.00__13.19__112.00__54.00__825"
+        },
+        {
+          "ui_key": "HTML导入_界面布局__btn-text__text__r109_7_96_62",
+          "__html_component_key": "HTML导入_界面布局__btn_level_select",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_btn-text_z848",
+          "widget_type": "文本框",
+          "widget_name": "文本_btn_level_select:关卡选择",
+          "position": [
+            109,
+            7.407499999999999
+          ],
+          "size": [
+            96,
+            61.56
+          ],
+          "initial_visible": true,
+          "layer_index": 89,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 16,
+            "text_content": "<size=16><color=#000000>关卡选择</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__109.00__7.41__96.00__61.56__848"
+        },
+        {
+          "ui_key": "HTML导入_界面布局__btn_level_select__btn_item",
+          "__html_component_key": "HTML导入_界面布局__btn_level_select",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_btn_item_btn_level_select_z821",
+          "widget_type": "道具展示",
+          "widget_name": "按钮_道具展示_e82",
+          "position": [
+            101,
+            13.1875
+          ],
+          "size": [
+            112,
+            54
+          ],
+          "initial_visible": true,
+          "layer_index": 90,
+          "is_builtin": false,
+          "settings": {
+            "can_interact": true,
+            "display_type": "模板道具",
+            "config_id_variable": "关卡.UI_交互按钮_道具配置ID",
+            "quantity_variable": "关卡.UI_交互按钮_道具数量",
+            "cooldown_seconds_variable": "关卡.UI_交互按钮_栏位冷却时间",
+            "keybind_kbm_code": 11,
+            "keybind_gamepad_code": 11
+          },
+          "_html_button_aria_label": null,
+          "_html_button_onclick": null,
+          "_html_data_debug_label": null,
+          "_html_data_inventory_item_id": null,
+          "ui_action_key": "open_level_select",
+          "ui_action_args": "",
+          "__flat_layer_key": "element__101.00__13.19__112.00__54.00__825"
+        }
+      ],
+      "group_position": [
+        101,
+        7.407499999999999
+      ],
+      "group_size": [
+        112,
+        61.56
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：按钮已打组（道具展示+底色/阴影/文本等）。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "button"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_000",
+      "template_name": "HTML导入_界面布局_阴影_shadow-1",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__main-panel__shadow",
+          "__html_component_key": "HTML导入_界面布局__e1",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_main-panel_z10",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-1",
+          "position": [
+            188,
+            144.609375
+          ],
+          "size": [
+            1560,
+            806.78125
+          ],
+          "initial_visible": true,
+          "layer_index": 0,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__188.00__144.61__1560.00__806.78__10"
+        }
+      ],
+      "group_position": [
+        188,
+        144.609375
+      ],
+      "group_size": [
+        1560,
+        806.78125
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_001",
+      "template_name": "HTML导入_界面布局_色块_main-panel",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__main-panel__rect",
+          "__html_component_key": "HTML导入_界面布局__e1",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_main-panel_z15",
+          "widget_type": "进度条",
+          "widget_name": "色块_main-panel",
+          "position": [
+            184,
+            140.609375
+          ],
+          "size": [
+            1552,
+            798.78125
+          ],
+          "initial_visible": true,
+          "layer_index": 1,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__184.00__140.61__1552.00__798.78__15"
+        }
+      ],
+      "group_position": [
+        184,
+        140.609375
+      ],
+      "group_size": [
+        1552,
+        798.78125
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_002",
+      "template_name": "HTML导入_界面布局_阴影_shadow-2",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__header-bar__shadow",
+          "__html_component_key": "HTML导入_界面布局__e2",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_header-bar_z20",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-2",
+          "position": [
+            220,
+            176.609375
+          ],
+          "size": [
+            1488,
+            125.59375
+          ],
+          "initial_visible": true,
+          "layer_index": 2,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__220.00__176.61__1488.00__125.59__20"
+        }
+      ],
+      "group_position": [
+        220,
+        176.609375
+      ],
+      "group_size": [
+        1488,
+        125.59375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_003",
+      "template_name": "HTML导入_界面布局_色块_header-bar",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__header-bar__rect",
+          "__html_component_key": "HTML导入_界面布局__e2",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_header-bar_z25",
+          "widget_type": "进度条",
+          "widget_name": "色块_header-bar",
+          "position": [
+            220,
+            176.609375
+          ],
+          "size": [
+            1480,
+            117.59375
+          ],
+          "initial_visible": true,
+          "layer_index": 3,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#F47B7B",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#f47b7b",
+          "__flat_layer_key": "element__220.00__176.61__1480.00__117.59__25"
+        }
+      ],
+      "group_position": [
+        220,
+        176.609375
+      ],
+      "group_size": [
+        1480,
+        117.59375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_004",
+      "template_name": "HTML导入_界面布局_文本_text-shadow-header_title-0",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__header_title__text",
+          "__html_component_key": "HTML导入_界面布局__header_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_header_title_z47",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-shadow-header_title-0",
+          "position": [
+            216,
+            180.809375
+          ],
+          "size": [
+            331,
+            79.19375
+          ],
+          "initial_visible": true,
+          "layer_index": 4,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 36,
+            "text_content": "<size=36><color=#00000000>{1:lv.UI结算_文本.标题}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__216.00__180.81__331.00__79.19__47"
+        }
+      ],
+      "group_position": [
+        216,
+        180.809375
+      ],
+      "group_size": [
+        331,
+        79.19375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_005",
+      "template_name": "HTML导入_界面布局_文本_text-header_title",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__header_title__text__r216_181_331_79",
+          "__html_component_key": "HTML导入_界面布局__header_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_header_title_z48",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-header_title",
+          "position": [
+            216,
+            180.809375
+          ],
+          "size": [
+            331,
+            79.19375
+          ],
+          "initial_visible": true,
+          "layer_index": 5,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 36,
+            "text_content": "<size=36><color=#ffffff>{1:lv.UI结算_文本.标题}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__216.00__180.81__331.00__79.19__48"
+        }
+      ],
+      "group_position": [
+        216,
+        180.809375
+      ],
+      "group_size": [
+        331,
+        79.19375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_006",
+      "template_name": "HTML导入_界面布局_阴影_shadow-5",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__room_title__shadow",
+          "__html_component_key": "HTML导入_界面布局__room_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_room_title_z50",
+          "widget_type": "文本框",
+          "widget_name": "阴影_shadow-5",
+          "position": [
+            254,
+            242.203125
+          ],
+          "size": [
+            188.640625,
+            30
+          ],
+          "initial_visible": true,
+          "layer_index": 6,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 18,
+            "text_content": "<size=18>{1:lv.UI房间_文本.房名}</size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "shadow__254.00__242.20__188.64__30.00__50",
+          "_html_color_source": "rgba(14, 14, 14, 0.25)"
+        }
+      ],
+      "group_position": [
+        254,
+        242.203125
+      ],
+      "group_size": [
+        188.640625,
+        30
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_007",
+      "template_name": "HTML导入_界面布局_色块_room_title",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__room_title__rect",
+          "__html_component_key": "HTML导入_界面布局__room_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_room_title_z55",
+          "widget_type": "进度条",
+          "widget_name": "色块_room_title",
+          "position": [
+            255,
+            243.203125
+          ],
+          "size": [
+            182.640625,
+            24
+          ],
+          "initial_visible": true,
+          "layer_index": 7,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__255.00__243.20__182.64__24.00__55"
+        }
+      ],
+      "group_position": [
+        255,
+        243.203125
+      ],
+      "group_size": [
+        182.640625,
+        24
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_008",
+      "template_name": "HTML导入_界面布局_文本_text-room_title",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__room_title__text",
+          "__html_component_key": "HTML导入_界面布局__room_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_room_title_z58",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-room_title",
+          "position": [
+            237,
+            234.203125
+          ],
+          "size": [
+            218.640625,
+            42
+          ],
+          "initial_visible": true,
+          "layer_index": 8,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 18,
+            "text_content": "<size=18><color=#000000>{1:lv.UI房间_文本.房名}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__237.00__234.20__218.64__42.00__58"
+        }
+      ],
+      "group_position": [
+        237,
+        234.203125
+      ],
+      "group_size": [
+        218.640625,
+        42
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_009",
+      "template_name": "HTML导入_界面布局_阴影_shadow-6",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__room_timer_text__shadow",
+          "__html_component_key": "HTML导入_界面布局__room_timer_text",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_room_timer_text_z60",
+          "widget_type": "文本框",
+          "widget_name": "阴影_shadow-6",
+          "position": [
+            1597.703125,
+            217.609375
+          ],
+          "size": [
+            72.296875,
+            39.59375
+          ],
+          "initial_visible": true,
+          "layer_index": 9,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 18,
+            "text_content": "<size=18>- - -</size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "shadow__1597.70__217.61__72.30__39.59__60",
+          "_html_color_source": "rgba(14, 14, 14, 0.25)"
+        }
+      ],
+      "group_position": [
+        1597.703125,
+        217.609375
+      ],
+      "group_size": [
+        72.296875,
+        39.59375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_010",
+      "template_name": "HTML导入_界面布局_色块_room_timer_text",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__room_timer_text__rect",
+          "__html_component_key": "HTML导入_界面布局__room_timer_text",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_room_timer_text_z65",
+          "widget_type": "进度条",
+          "widget_name": "色块_room_timer_text",
+          "position": [
+            1598.703125,
+            218.609375
+          ],
+          "size": [
+            66.296875,
+            33.59375
+          ],
+          "initial_visible": true,
+          "layer_index": 10,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__1598.70__218.61__66.30__33.59__65"
+        }
+      ],
+      "group_position": [
+        1598.703125,
+        218.609375
+      ],
+      "group_size": [
+        66.296875,
+        33.59375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_011",
+      "template_name": "HTML导入_界面布局_文本_text-room_timer_text",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__room_timer_text__text",
+          "__html_component_key": "HTML导入_界面布局__room_timer_text",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_room_timer_text_z68",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-room_timer_text",
+          "position": [
+            1580.703125,
+            207.809375
+          ],
+          "size": [
+            102.296875,
+            55.19375
+          ],
+          "initial_visible": true,
+          "layer_index": 11,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 18,
+            "text_content": "<size=18><color=#000000>- - -</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1580.70__207.81__102.30__55.19__68"
+        }
+      ],
+      "group_position": [
+        1580.703125,
+        207.809375
+      ],
+      "group_size": [
+        102.296875,
+        55.19375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_012",
+      "template_name": "HTML导入_界面布局_阴影_shadow-8",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel__shadow",
+          "__html_component_key": "HTML导入_界面布局__e8",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_panel_z80",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-8",
+          "position": [
+            220,
+            326.203125
+          ],
+          "size": [
+            665.453125,
+            471.1875
+          ],
+          "initial_visible": true,
+          "layer_index": 12,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__220.00__326.20__665.45__471.19__80"
+        }
+      ],
+      "group_position": [
+        220,
+        326.203125
+      ],
+      "group_size": [
+        665.453125,
+        471.1875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_013",
+      "template_name": "HTML导入_界面布局_色块_panel",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel__rect",
+          "__html_component_key": "HTML导入_界面布局__e8",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_panel_z85",
+          "widget_type": "进度条",
+          "widget_name": "色块_panel",
+          "position": [
+            219,
+            325.203125
+          ],
+          "size": [
+            659.453125,
+            465.1875
+          ],
+          "initial_visible": true,
+          "layer_index": 13,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__219.00__325.20__659.45__465.19__85"
+        }
+      ],
+      "group_position": [
+        219,
+        325.203125
+      ],
+      "group_size": [
+        659.453125,
+        465.1875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_014",
+      "template_name": "HTML导入_界面布局_阴影_shadow-10",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel-title-deco__shadow",
+          "__html_component_key": "HTML导入_界面布局__e10",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_panel-title-deco_z100",
+          "widget_type": "文本框",
+          "widget_name": "阴影_shadow-10",
+          "position": [
+            241,
+            347.203125
+          ],
+          "size": [
+            12,
+            28
+          ],
+          "initial_visible": true,
+          "layer_index": 14,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "shadow__241.00__347.20__12.00__28.00__100",
+          "_html_color_source": "rgba(14, 14, 14, 0.25)"
+        }
+      ],
+      "group_position": [
+        241,
+        347.203125
+      ],
+      "group_size": [
+        12,
+        28
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_015",
+      "template_name": "HTML导入_界面布局_色块_panel-title-deco",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel-title-deco__rect",
+          "__html_component_key": "HTML导入_界面布局__e10",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_panel-title-deco_z105",
+          "widget_type": "进度条",
+          "widget_name": "色块_panel-title-deco",
+          "position": [
+            241,
+            347.203125
+          ],
+          "size": [
+            8,
+            24
+          ],
+          "initial_visible": true,
+          "layer_index": 15,
+          "is_builtin": false,
+          "settings": {
+            "shape": "纵向",
+            "style": "不显示",
+            "color": "#F47B7B",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#f47b7b",
+          "__flat_layer_key": "element__241.00__347.20__8.00__24.00__105"
+        }
+      ],
+      "group_position": [
+        241,
+        347.203125
+      ],
+      "group_size": [
+        8,
+        24
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_016",
+      "template_name": "HTML导入_界面布局_文本_text-shadow-panel_left_title-0",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel_left_title__text",
+          "__html_component_key": "HTML导入_界面布局__panel_left_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_panel_left_title_z117",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-shadow-panel_left_title-0",
+          "position": [
+            237,
+            332.8
+          ],
+          "size": [
+            645.453125,
+            52.790625
+          ],
+          "initial_visible": true,
+          "layer_index": 16,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 24,
+            "text_content": "<size=24><color=#00000000>{1:lv.UI结算_文本.左栏标题}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__237.00__332.80__645.45__52.79__117"
+        }
+      ],
+      "group_position": [
+        237,
+        332.8
+      ],
+      "group_size": [
+        645.453125,
+        52.790625
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_017",
+      "template_name": "HTML导入_界面布局_文本_text-panel_left_title",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel_left_title__text__r237_333_645_53",
+          "__html_component_key": "HTML导入_界面布局__panel_left_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_panel_left_title_z118",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-panel_left_title",
+          "position": [
+            237,
+            332.8
+          ],
+          "size": [
+            645.453125,
+            52.790625
+          ],
+          "initial_visible": true,
+          "layer_index": 17,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 24,
+            "text_content": "<size=24><color=#000000>{1:lv.UI结算_文本.左栏标题}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__237.00__332.80__645.45__52.79__118"
+        }
+      ],
+      "group_position": [
+        237,
+        332.8
+      ],
+      "group_size": [
+        645.453125,
+        52.790625
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_018",
+      "template_name": "HTML导入_界面布局_阴影_shadow-12",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat-block__shadow",
+          "__html_component_key": "HTML导入_界面布局__e12",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_stat-block_z120",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-12",
+          "position": [
+            243,
+            401.203125
+          ],
+          "size": [
+            619.453125,
+            113
+          ],
+          "initial_visible": true,
+          "layer_index": 18,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__243.00__401.20__619.45__113.00__120"
+        }
+      ],
+      "group_position": [
+        243,
+        401.203125
+      ],
+      "group_size": [
+        619.453125,
+        113
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_019",
+      "template_name": "HTML导入_界面布局_色块_stat-block",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat-block__rect",
+          "__html_component_key": "HTML导入_界面布局__e12",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_stat-block_z125",
+          "widget_type": "进度条",
+          "widget_name": "色块_stat-block",
+          "position": [
+            242,
+            400.203125
+          ],
+          "size": [
+            613.453125,
+            107
+          ],
+          "initial_visible": true,
+          "layer_index": 19,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__242.00__400.20__613.45__107.00__125"
+        }
+      ],
+      "group_position": [
+        242,
+        400.203125
+      ],
+      "group_size": [
+        613.453125,
+        107
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_020",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow",
+          "__html_component_key": "HTML导入_界面布局__e13",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z135",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            242,
+            501.203125
+          ],
+          "size": [
+            613.453125,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 20,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__242.00__501.20__613.45__6.00__135",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        242,
+        501.203125
+      ],
+      "group_size": [
+        613.453125,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_021",
+      "template_name": "HTML导入_界面布局_文本_text-stat_01_label",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat_01_label__text",
+          "__html_component_key": "HTML导入_界面布局__stat_01_label",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_stat_01_label_z158",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-stat_01_label",
+          "position": [
+            244,
+            411.009375
+          ],
+          "size": [
+            513.453125,
+            41.3875
+          ],
+          "initial_visible": true,
+          "layer_index": 21,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 18,
+            "text_content": "<size=18><color=#444444>{1:lv.UI结算_文本.完整度_标题}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__244.00__411.01__513.45__41.39__158"
+        }
+      ],
+      "group_position": [
+        244,
+        411.009375
+      ],
+      "group_size": [
+        513.453125,
+        41.3875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_022",
+      "template_name": "HTML导入_界面布局_文本_text-stat_01_status",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat_01_status__text",
+          "__html_component_key": "HTML导入_界面布局__stat_01_status",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_stat_01_status_z168",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-stat_01_status",
+          "position": [
+            735.453125,
+            408.703125
+          ],
+          "size": [
+            120,
+            46
+          ],
+          "initial_visible": true,
+          "layer_index": 22,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#c92a2a>{1:ps.ui_settle_i_st}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__735.45__408.70__120.00__46.00__168"
+        }
+      ],
+      "group_position": [
+        735.453125,
+        408.703125
+      ],
+      "group_size": [
+        120,
+        46
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_023",
+      "template_name": "HTML导入_界面布局_色块_stat_01_progressbar",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat_01_progressbar__rect",
+          "__html_component_key": "HTML导入_界面布局__stat_01_progressbar",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_stat_01_progressbar_z195",
+          "widget_type": "进度条",
+          "widget_name": "色块_stat_01_progressbar",
+          "position": [
+            262,
+            455.203125
+          ],
+          "size": [
+            465.453125,
+            32
+          ],
+          "initial_visible": true,
+          "layer_index": 23,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#F47B7B",
+            "current_var": "ps.ui_battle_integrity",
+            "min_var": "ps.ui_battle_i_min",
+            "max_var": "ps.ui_battle_i_max"
+          },
+          "_html_color_source": "#f47b7b",
+          "__flat_layer_key": "element__262.00__455.20__465.45__32.00__195"
+        }
+      ],
+      "group_position": [
+        262,
+        455.203125
+      ],
+      "group_size": [
+        465.453125,
+        32
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_024",
+      "template_name": "HTML导入_界面布局_文本_text-stat_01_progress_text",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat_01_progress_text__text",
+          "__html_component_key": "HTML导入_界面布局__stat_01_progress_text",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_stat_01_progress_text_z208",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-stat_01_progress_text",
+          "position": [
+            725.453125,
+            443.803125
+          ],
+          "size": [
+            124,
+            54.800000000000004
+          ],
+          "initial_visible": true,
+          "layer_index": 24,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#000000>{1:ps.ui_battle_integrity}%</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__725.45__443.80__124.00__54.80__208"
+        }
+      ],
+      "group_position": [
+        725.453125,
+        443.803125
+      ],
+      "group_size": [
+        124,
+        54.800000000000004
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_025",
+      "template_name": "HTML导入_界面布局_阴影_shadow-21",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat-block__shadow__r243_530_619_113",
+          "__html_component_key": "HTML导入_界面布局__e21",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_stat-block_z210",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-21",
+          "position": [
+            243,
+            530.203125
+          ],
+          "size": [
+            619.453125,
+            113
+          ],
+          "initial_visible": true,
+          "layer_index": 25,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__243.00__530.20__619.45__113.00__210"
+        }
+      ],
+      "group_position": [
+        243,
+        530.203125
+      ],
+      "group_size": [
+        619.453125,
+        113
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_026",
+      "template_name": "HTML导入_界面布局_色块_stat-block",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat-block__rect__r242_529_613_107",
+          "__html_component_key": "HTML导入_界面布局__e21",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_stat-block_z215",
+          "widget_type": "进度条",
+          "widget_name": "色块_stat-block",
+          "position": [
+            242,
+            529.203125
+          ],
+          "size": [
+            613.453125,
+            107
+          ],
+          "initial_visible": true,
+          "layer_index": 26,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__242.00__529.20__613.45__107.00__215"
+        }
+      ],
+      "group_position": [
+        242,
+        529.203125
+      ],
+      "group_size": [
+        613.453125,
+        107
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_027",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow__r242_630_613_6",
+          "__html_component_key": "HTML导入_界面布局__e22",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z225",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            242,
+            630.203125
+          ],
+          "size": [
+            613.453125,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 27,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__242.00__630.20__613.45__6.00__225",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        242,
+        630.203125
+      ],
+      "group_size": [
+        613.453125,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_028",
+      "template_name": "HTML导入_界面布局_文本_text-stat_02_label",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat_02_label__text",
+          "__html_component_key": "HTML导入_界面布局__stat_02_label",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_stat_02_label_z248",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-stat_02_label",
+          "position": [
+            244,
+            540.009375
+          ],
+          "size": [
+            513.453125,
+            41.3875
+          ],
+          "initial_visible": true,
+          "layer_index": 28,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 18,
+            "text_content": "<size=18><color=#444444>{1:lv.UI结算_文本.手办_标题}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__244.00__540.01__513.45__41.39__248"
+        }
+      ],
+      "group_position": [
+        244,
+        540.009375
+      ],
+      "group_size": [
+        513.453125,
+        41.3875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_029",
+      "template_name": "HTML导入_界面布局_文本_text-stat_02_status",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat_02_status__text",
+          "__html_component_key": "HTML导入_界面布局__stat_02_status",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_stat_02_status_z258",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-stat_02_status",
+          "position": [
+            735.453125,
+            537.703125
+          ],
+          "size": [
+            120,
+            46
+          ],
+          "initial_visible": true,
+          "layer_index": 29,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#248c8c>{1:ps.ui_settle_s_st}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__735.45__537.70__120.00__46.00__258"
+        }
+      ],
+      "group_position": [
+        735.453125,
+        537.703125
+      ],
+      "group_size": [
+        120,
+        46
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_030",
+      "template_name": "HTML导入_界面布局_色块_stat_02_progressbar",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat_02_progressbar__rect",
+          "__html_component_key": "HTML导入_界面布局__stat_02_progressbar",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_stat_02_progressbar_z285",
+          "widget_type": "进度条",
+          "widget_name": "色块_stat_02_progressbar",
+          "position": [
+            262,
+            584.203125
+          ],
+          "size": [
+            465.453125,
+            32
+          ],
+          "initial_visible": true,
+          "layer_index": 30,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#36F3F3",
+            "current_var": "ps.ui_battle_survival",
+            "min_var": "ps.ui_battle_s_min",
+            "max_var": "ps.ui_battle_s_max"
+          },
+          "_html_color_source": "#36f3f3",
+          "__flat_layer_key": "element__262.00__584.20__465.45__32.00__285"
+        }
+      ],
+      "group_position": [
+        262,
+        584.203125
+      ],
+      "group_size": [
+        465.453125,
+        32
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_031",
+      "template_name": "HTML导入_界面布局_文本_text-stat_02_progress_text",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__stat_02_progress_text__text",
+          "__html_component_key": "HTML导入_界面布局__stat_02_progress_text",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_stat_02_progress_text_z298",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-stat_02_progress_text",
+          "position": [
+            725.453125,
+            572.803125
+          ],
+          "size": [
+            124,
+            54.800000000000004
+          ],
+          "initial_visible": true,
+          "layer_index": 31,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#000000>{1:ps.ui_battle_survival} / 10</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__725.45__572.80__124.00__54.80__298"
+        }
+      ],
+      "group_position": [
+        725.453125,
+        572.803125
+      ],
+      "group_size": [
+        124,
+        54.800000000000004
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_032",
+      "template_name": "HTML导入_界面布局_阴影_shadow-30",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__evaluation-text__shadow",
+          "__html_component_key": "HTML导入_界面布局__e30",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_evaluation-text_z300",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-30",
+          "position": [
+            243,
+            670.796875
+          ],
+          "size": [
+            619.453125,
+            103.59375
+          ],
+          "initial_visible": true,
+          "layer_index": 32,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__243.00__670.80__619.45__103.59__300"
+        }
+      ],
+      "group_position": [
+        243,
+        670.796875
+      ],
+      "group_size": [
+        619.453125,
+        103.59375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_033",
+      "template_name": "HTML导入_界面布局_色块_evaluation-text",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__evaluation-text__rect",
+          "__html_component_key": "HTML导入_界面布局__e30",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_evaluation-text_z305",
+          "widget_type": "进度条",
+          "widget_name": "色块_evaluation-text",
+          "position": [
+            242,
+            669.796875
+          ],
+          "size": [
+            613.453125,
+            97.59375
+          ],
+          "initial_visible": true,
+          "layer_index": 33,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__242.00__669.80__613.45__97.59__305"
+        }
+      ],
+      "group_position": [
+        242,
+        669.796875
+      ],
+      "group_size": [
+        613.453125,
+        97.59375
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_034",
+      "template_name": "HTML导入_界面布局_文本_text-evaluation_line_01",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__evaluation_line_01__text",
+          "__html_component_key": "HTML导入_界面布局__evaluation_line_01",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_evaluation_line_01_z318",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-evaluation_line_01",
+          "position": [
+            262,
+            675.396875
+          ],
+          "size": [
+            609.453125,
+            57.596875
+          ],
+          "initial_visible": true,
+          "layer_index": 34,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 18,
+            "text_content": "<size=18><color=#000000>{1:ps.ui_settle_ev1}</color></size>",
+            "alignment_h": "左侧对齐",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__262.00__675.40__609.45__57.60__318"
+        }
+      ],
+      "group_position": [
+        262,
+        675.396875
+      ],
+      "group_size": [
+        609.453125,
+        57.596875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_035",
+      "template_name": "HTML导入_界面布局_文本_text-evaluation_line_02",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__evaluation_line_02__text",
+          "__html_component_key": "HTML导入_界面布局__evaluation_line_02",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_evaluation_line_02_z328",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-evaluation_line_02",
+          "position": [
+            262,
+            704.19375
+          ],
+          "size": [
+            609.453125,
+            57.596875
+          ],
+          "initial_visible": true,
+          "layer_index": 35,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 18,
+            "text_content": "<size=18><color=#000000>{1:ps.ui_settle_ev2}</color></size>",
+            "alignment_h": "左侧对齐",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__262.00__704.19__609.45__57.60__328"
+        }
+      ],
+      "group_position": [
+        262,
+        704.19375
+      ],
+      "group_size": [
+        609.453125,
+        57.596875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_036",
+      "template_name": "HTML导入_界面布局_阴影_shadow-33",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel__shadow__r909_326_799_471",
+          "__html_component_key": "HTML导入_界面布局__e33",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_panel_z330",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-33",
+          "position": [
+            909.453125,
+            326.203125
+          ],
+          "size": [
+            798.546875,
+            471.1875
+          ],
+          "initial_visible": true,
+          "layer_index": 36,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__909.45__326.20__798.55__471.19__330"
+        }
+      ],
+      "group_position": [
+        909.453125,
+        326.203125
+      ],
+      "group_size": [
+        798.546875,
+        471.1875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_037",
+      "template_name": "HTML导入_界面布局_色块_panel",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel__rect__r908_325_793_465",
+          "__html_component_key": "HTML导入_界面布局__e33",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_panel_z335",
+          "widget_type": "进度条",
+          "widget_name": "色块_panel",
+          "position": [
+            908.453125,
+            325.203125
+          ],
+          "size": [
+            792.546875,
+            465.1875
+          ],
+          "initial_visible": true,
+          "layer_index": 37,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__908.45__325.20__792.55__465.19__335"
+        }
+      ],
+      "group_position": [
+        908.453125,
+        325.203125
+      ],
+      "group_size": [
+        792.546875,
+        465.1875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_038",
+      "template_name": "HTML导入_界面布局_阴影_shadow-35",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel-title-deco__shadow__r930_347_12_28",
+          "__html_component_key": "HTML导入_界面布局__e35",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_panel-title-deco_z350",
+          "widget_type": "文本框",
+          "widget_name": "阴影_shadow-35",
+          "position": [
+            930.453125,
+            347.203125
+          ],
+          "size": [
+            12,
+            28
+          ],
+          "initial_visible": true,
+          "layer_index": 38,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "shadow__930.45__347.20__12.00__28.00__350",
+          "_html_color_source": "rgba(14, 14, 14, 0.25)"
+        }
+      ],
+      "group_position": [
+        930.453125,
+        347.203125
+      ],
+      "group_size": [
+        12,
+        28
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_039",
+      "template_name": "HTML导入_界面布局_色块_panel-title-deco",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel-title-deco__rect__r930_347_8_24",
+          "__html_component_key": "HTML导入_界面布局__e35",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_panel-title-deco_z355",
+          "widget_type": "进度条",
+          "widget_name": "色块_panel-title-deco",
+          "position": [
+            930.453125,
+            347.203125
+          ],
+          "size": [
+            8,
+            24
+          ],
+          "initial_visible": true,
+          "layer_index": 39,
+          "is_builtin": false,
+          "settings": {
+            "shape": "纵向",
+            "style": "不显示",
+            "color": "#F47B7B",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#f47b7b",
+          "__flat_layer_key": "element__930.45__347.20__8.00__24.00__355"
+        }
+      ],
+      "group_position": [
+        930.453125,
+        347.203125
+      ],
+      "group_size": [
+        8,
+        24
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_040",
+      "template_name": "HTML导入_界面布局_文本_text-shadow-panel_right_title-0",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel_right_title__text",
+          "__html_component_key": "HTML导入_界面布局__panel_right_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_panel_right_title_z367",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-shadow-panel_right_title-0",
+          "position": [
+            926.453125,
+            332.8
+          ],
+          "size": [
+            778.546875,
+            52.790625
+          ],
+          "initial_visible": true,
+          "layer_index": 40,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 24,
+            "text_content": "<size=24><color=#00000000>{1:lv.UI结算_文本.右栏标题}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__926.45__332.80__778.55__52.79__367"
+        }
+      ],
+      "group_position": [
+        926.453125,
+        332.8
+      ],
+      "group_size": [
+        778.546875,
+        52.790625
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_041",
+      "template_name": "HTML导入_界面布局_文本_text-panel_right_title",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__panel_right_title__text__r926_333_779_53",
+          "__html_component_key": "HTML导入_界面布局__panel_right_title",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_panel_right_title_z368",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-panel_right_title",
+          "position": [
+            926.453125,
+            332.8
+          ],
+          "size": [
+            778.546875,
+            52.790625
+          ],
+          "initial_visible": true,
+          "layer_index": 41,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 24,
+            "text_content": "<size=24><color=#000000>{1:lv.UI结算_文本.右栏标题}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__926.45__332.80__778.55__52.79__368"
+        }
+      ],
+      "group_position": [
+        926.453125,
+        332.8
+      ],
+      "group_size": [
+        778.546875,
+        52.790625
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_042",
+      "template_name": "HTML导入_界面布局_阴影_shadow-38",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank-card__shadow",
+          "__html_component_key": "HTML导入_界面布局__e38",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_rank-card_z380",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-38",
+          "position": [
+            936.453125,
+            405.203125
+          ],
+          "size": [
+            748.546875,
+            82.796875
+          ],
+          "initial_visible": true,
+          "layer_index": 42,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__936.45__405.20__748.55__82.80__380"
+        }
+      ],
+      "group_position": [
+        936.453125,
+        405.203125
+      ],
+      "group_size": [
+        748.546875,
+        82.796875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_043",
+      "template_name": "HTML导入_界面布局_色块_rank-card",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank-card__rect",
+          "__html_component_key": "HTML导入_界面布局__e38",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_rank-card_z385",
+          "widget_type": "进度条",
+          "widget_name": "色块_rank-card",
+          "position": [
+            932.453125,
+            401.203125
+          ],
+          "size": [
+            740.546875,
+            74.796875
+          ],
+          "initial_visible": true,
+          "layer_index": 43,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#F3C330",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#f3c330",
+          "__flat_layer_key": "element__932.45__401.20__740.55__74.80__385"
+        }
+      ],
+      "group_position": [
+        932.453125,
+        401.203125
+      ],
+      "group_size": [
+        740.546875,
+        74.796875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_044",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow__r932_470_741_6",
+          "__html_component_key": "HTML导入_界面布局__e39",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z395",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            932.453125,
+            470
+          ],
+          "size": [
+            740.546875,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 44,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__932.45__470.00__740.55__6.00__395",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        932.453125,
+        470
+      ],
+      "group_size": [
+        740.546875,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_045",
+      "template_name": "HTML导入_界面布局_文本_text-shadow-rank_01_num-0",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_01_num__text",
+          "__html_component_key": "HTML导入_界面布局__rank_01_num",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_01_num_z407",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-shadow-rank_01_num-0",
+          "position": [
+            916.453125,
+            406.59375
+          ],
+          "size": [
+            128,
+            64
+          ],
+          "initial_visible": true,
+          "layer_index": 45,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 32,
+            "text_content": "<size=32><color=#00000000>{1:lv.UI结算_文本.榜1名次}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__916.45__406.59__128.00__64.00__407"
+        }
+      ],
+      "group_position": [
+        916.453125,
+        406.59375
+      ],
+      "group_size": [
+        128,
+        64
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_046",
+      "template_name": "HTML导入_界面布局_文本_text-rank_01_num",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_01_num__text__r916_407_128_64",
+          "__html_component_key": "HTML导入_界面布局__rank_01_num",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_01_num_z408",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_01_num",
+          "position": [
+            916.453125,
+            406.59375
+          ],
+          "size": [
+            128,
+            64
+          ],
+          "initial_visible": true,
+          "layer_index": 46,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 32,
+            "text_content": "<size=32><color=#000000>{1:lv.UI结算_文本.榜1名次}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__916.45__406.59__128.00__64.00__408"
+        }
+      ],
+      "group_position": [
+        916.453125,
+        406.59375
+      ],
+      "group_size": [
+        128,
+        64
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_047",
+      "template_name": "HTML导入_界面布局_文本_text-rank_01_name",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_01_name__text",
+          "__html_component_key": "HTML导入_界面布局__rank_01_name",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_01_name_z428",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_01_name",
+          "position": [
+            1008.453125,
+            406.203125
+          ],
+          "size": [
+            584.90625,
+            44
+          ],
+          "initial_visible": true,
+          "layer_index": 47,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#000000>{1:lv.UI结算_文本.榜1名}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1008.45__406.20__584.91__44.00__428"
+        }
+      ],
+      "group_position": [
+        1008.453125,
+        406.203125
+      ],
+      "group_size": [
+        584.90625,
+        44
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_048",
+      "template_name": "HTML导入_界面布局_文本_text-rank_01_tags",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_01_tags__text",
+          "__html_component_key": "HTML导入_界面布局__rank_01_tags",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_01_tags_z438",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_01_tags",
+          "position": [
+            1014.453125,
+            419.723125
+          ],
+          "size": [
+            572.90625,
+            63.75687500000001
+          ],
+          "initial_visible": true,
+          "layer_index": 48,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#00000099>{1:lv.UI结算_文本.榜1标签}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1014.45__419.72__572.91__63.76__438"
+        }
+      ],
+      "group_position": [
+        1014.453125,
+        419.723125
+      ],
+      "group_size": [
+        572.90625,
+        63.75687500000001
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_049",
+      "template_name": "HTML导入_界面布局_文本_text-rank_01_money",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_01_money__text",
+          "__html_component_key": "HTML导入_界面布局__rank_01_money",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_01_money_z458",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_01_money",
+          "position": [
+            1569.359375,
+            404.90625
+          ],
+          "size": [
+            107.640625,
+            48
+          ],
+          "initial_visible": true,
+          "layer_index": 49,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#000000>{1:lv.UI结算_文本.榜1钱前缀}{1:lv.UI结算_文本.榜1钱}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1569.36__404.91__107.64__48.00__458"
+        }
+      ],
+      "group_position": [
+        1569.359375,
+        404.90625
+      ],
+      "group_size": [
+        107.640625,
+        48
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_050",
+      "template_name": "HTML导入_界面布局_文本_text-rank_01_points",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_01_points__text",
+          "__html_component_key": "HTML导入_界面布局__rank_01_points",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_01_points_z468",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_01_points",
+          "position": [
+            1575.359375,
+            421.96625
+          ],
+          "size": [
+            95.640625,
+            59.270625
+          ],
+          "initial_visible": true,
+          "layer_index": 50,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#00000099>{1:lv.UI结算_文本.榜1分}{1:lv.UI结算_文本.榜1分后缀}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1575.36__421.97__95.64__59.27__468"
+        }
+      ],
+      "group_position": [
+        1575.359375,
+        421.96625
+      ],
+      "group_size": [
+        95.640625,
+        59.270625
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_051",
+      "template_name": "HTML导入_界面布局_阴影_shadow-47",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank-card__shadow__r932_500_749_81",
+          "__html_component_key": "HTML导入_界面布局__e47",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_rank-card_z470",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-47",
+          "position": [
+            932.453125,
+            500
+          ],
+          "size": [
+            748.546875,
+            80.796875
+          ],
+          "initial_visible": true,
+          "layer_index": 51,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__932.45__500.00__748.55__80.80__470"
+        }
+      ],
+      "group_position": [
+        932.453125,
+        500
+      ],
+      "group_size": [
+        748.546875,
+        80.796875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_052",
+      "template_name": "HTML导入_界面布局_色块_rank-card",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank-card__rect__r931_499_743_75",
+          "__html_component_key": "HTML导入_界面布局__e47",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_rank-card_z475",
+          "widget_type": "进度条",
+          "widget_name": "色块_rank-card",
+          "position": [
+            931.453125,
+            499
+          ],
+          "size": [
+            742.546875,
+            74.796875
+          ],
+          "initial_visible": true,
+          "layer_index": 52,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__931.45__499.00__742.55__74.80__475"
+        }
+      ],
+      "group_position": [
+        931.453125,
+        499
+      ],
+      "group_size": [
+        742.546875,
+        74.796875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_053",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow__r931_568_743_6",
+          "__html_component_key": "HTML导入_界面布局__e48",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z485",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            931.453125,
+            567.796875
+          ],
+          "size": [
+            742.546875,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 53,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__931.45__567.80__742.55__6.00__485",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        931.453125,
+        567.796875
+      ],
+      "group_size": [
+        742.546875,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_054",
+      "template_name": "HTML导入_界面布局_文本_text-shadow-rank_02_num-0",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_02_num__text",
+          "__html_component_key": "HTML导入_界面布局__rank_02_num",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_02_num_z497",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-shadow-rank_02_num-0",
+          "position": [
+            915.453125,
+            504.390625
+          ],
+          "size": [
+            128,
+            64
+          ],
+          "initial_visible": true,
+          "layer_index": 54,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 32,
+            "text_content": "<size=32><color=#00000000>{1:lv.UI结算_文本.榜2名次}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__915.45__504.39__128.00__64.00__497"
+        }
+      ],
+      "group_position": [
+        915.453125,
+        504.390625
+      ],
+      "group_size": [
+        128,
+        64
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_055",
+      "template_name": "HTML导入_界面布局_文本_text-rank_02_num",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_02_num__text__r915_504_128_64",
+          "__html_component_key": "HTML导入_界面布局__rank_02_num",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_02_num_z498",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_02_num",
+          "position": [
+            915.453125,
+            504.390625
+          ],
+          "size": [
+            128,
+            64
+          ],
+          "initial_visible": true,
+          "layer_index": 55,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 32,
+            "text_content": "<size=32><color=#000000>{1:lv.UI结算_文本.榜2名次}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__915.45__504.39__128.00__64.00__498"
+        }
+      ],
+      "group_position": [
+        915.453125,
+        504.390625
+      ],
+      "group_size": [
+        128,
+        64
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_056",
+      "template_name": "HTML导入_界面布局_文本_text-rank_02_name",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_02_name__text",
+          "__html_component_key": "HTML导入_界面布局__rank_02_name",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_02_name_z518",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_02_name",
+          "position": [
+            1007.453125,
+            504
+          ],
+          "size": [
+            586.90625,
+            44
+          ],
+          "initial_visible": true,
+          "layer_index": 56,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#000000>{1:lv.UI结算_文本.榜2名}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1007.45__504.00__586.91__44.00__518"
+        }
+      ],
+      "group_position": [
+        1007.453125,
+        504
+      ],
+      "group_size": [
+        586.90625,
+        44
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_057",
+      "template_name": "HTML导入_界面布局_文本_text-rank_02_tags",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_02_tags__text",
+          "__html_component_key": "HTML导入_界面布局__rank_02_tags",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_02_tags_z528",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_02_tags",
+          "position": [
+            1013.453125,
+            517.52
+          ],
+          "size": [
+            574.90625,
+            63.75687500000001
+          ],
+          "initial_visible": true,
+          "layer_index": 57,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#00000099>{1:lv.UI结算_文本.榜2标签}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1013.45__517.52__574.91__63.76__528"
+        }
+      ],
+      "group_position": [
+        1013.453125,
+        517.52
+      ],
+      "group_size": [
+        574.90625,
+        63.75687500000001
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_058",
+      "template_name": "HTML导入_界面布局_文本_text-rank_02_money",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_02_money__text",
+          "__html_component_key": "HTML导入_界面布局__rank_02_money",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_02_money_z548",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_02_money",
+          "position": [
+            1570.359375,
+            502.703125
+          ],
+          "size": [
+            107.640625,
+            48
+          ],
+          "initial_visible": true,
+          "layer_index": 58,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#000000>{1:lv.UI结算_文本.榜2钱前缀}{1:lv.UI结算_文本.榜2钱}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1570.36__502.70__107.64__48.00__548"
+        }
+      ],
+      "group_position": [
+        1570.359375,
+        502.703125
+      ],
+      "group_size": [
+        107.640625,
+        48
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_059",
+      "template_name": "HTML导入_界面布局_文本_text-rank_02_points",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_02_points__text",
+          "__html_component_key": "HTML导入_界面布局__rank_02_points",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_02_points_z558",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_02_points",
+          "position": [
+            1576.359375,
+            519.763125
+          ],
+          "size": [
+            95.640625,
+            59.270625
+          ],
+          "initial_visible": true,
+          "layer_index": 59,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#00000099>{1:lv.UI结算_文本.榜2分}{1:lv.UI结算_文本.榜2分后缀}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1576.36__519.76__95.64__59.27__558"
+        }
+      ],
+      "group_position": [
+        1576.359375,
+        519.763125
+      ],
+      "group_size": [
+        95.640625,
+        59.270625
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_060",
+      "template_name": "HTML导入_界面布局_阴影_shadow-56",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank-card__shadow__r932_597_749_81",
+          "__html_component_key": "HTML导入_界面布局__e56",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_rank-card_z560",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-56",
+          "position": [
+            932.453125,
+            596.796875
+          ],
+          "size": [
+            748.546875,
+            80.796875
+          ],
+          "initial_visible": true,
+          "layer_index": 60,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__932.45__596.80__748.55__80.80__560"
+        }
+      ],
+      "group_position": [
+        932.453125,
+        596.796875
+      ],
+      "group_size": [
+        748.546875,
+        80.796875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_061",
+      "template_name": "HTML导入_界面布局_色块_rank-card",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank-card__rect__r931_596_743_75",
+          "__html_component_key": "HTML导入_界面布局__e56",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_rank-card_z565",
+          "widget_type": "进度条",
+          "widget_name": "色块_rank-card",
+          "position": [
+            931.453125,
+            595.796875
+          ],
+          "size": [
+            742.546875,
+            74.796875
+          ],
+          "initial_visible": true,
+          "layer_index": 61,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__931.45__595.80__742.55__74.80__565"
+        }
+      ],
+      "group_position": [
+        931.453125,
+        595.796875
+      ],
+      "group_size": [
+        742.546875,
+        74.796875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_062",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow__r931_665_743_6",
+          "__html_component_key": "HTML导入_界面布局__e57",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z575",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            931.453125,
+            664.59375
+          ],
+          "size": [
+            742.546875,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 62,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__931.45__664.59__742.55__6.00__575",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        931.453125,
+        664.59375
+      ],
+      "group_size": [
+        742.546875,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_063",
+      "template_name": "HTML导入_界面布局_文本_text-shadow-rank_03_num-0",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_03_num__text",
+          "__html_component_key": "HTML导入_界面布局__rank_03_num",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_03_num_z587",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-shadow-rank_03_num-0",
+          "position": [
+            915.453125,
+            601.1875
+          ],
+          "size": [
+            128,
+            64
+          ],
+          "initial_visible": true,
+          "layer_index": 63,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 32,
+            "text_content": "<size=32><color=#00000000>{1:lv.UI结算_文本.榜3名次}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__915.45__601.19__128.00__64.00__587"
+        }
+      ],
+      "group_position": [
+        915.453125,
+        601.1875
+      ],
+      "group_size": [
+        128,
+        64
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_064",
+      "template_name": "HTML导入_界面布局_文本_text-rank_03_num",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_03_num__text__r915_601_128_64",
+          "__html_component_key": "HTML导入_界面布局__rank_03_num",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_03_num_z588",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_03_num",
+          "position": [
+            915.453125,
+            601.1875
+          ],
+          "size": [
+            128,
+            64
+          ],
+          "initial_visible": true,
+          "layer_index": 64,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 32,
+            "text_content": "<size=32><color=#000000>{1:lv.UI结算_文本.榜3名次}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__915.45__601.19__128.00__64.00__588"
+        }
+      ],
+      "group_position": [
+        915.453125,
+        601.1875
+      ],
+      "group_size": [
+        128,
+        64
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_065",
+      "template_name": "HTML导入_界面布局_文本_text-rank_03_name",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_03_name__text",
+          "__html_component_key": "HTML导入_界面布局__rank_03_name",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_03_name_z608",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_03_name",
+          "position": [
+            1007.453125,
+            600.796875
+          ],
+          "size": [
+            590.515625,
+            44
+          ],
+          "initial_visible": true,
+          "layer_index": 65,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#000000>{1:lv.UI结算_文本.榜3名}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1007.45__600.80__590.52__44.00__608"
+        }
+      ],
+      "group_position": [
+        1007.453125,
+        600.796875
+      ],
+      "group_size": [
+        590.515625,
+        44
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_066",
+      "template_name": "HTML导入_界面布局_文本_text-rank_03_tags",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_03_tags__text",
+          "__html_component_key": "HTML导入_界面布局__rank_03_tags",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_03_tags_z618",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_03_tags",
+          "position": [
+            1013.453125,
+            614.316875
+          ],
+          "size": [
+            578.515625,
+            63.75687500000001
+          ],
+          "initial_visible": true,
+          "layer_index": 66,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#00000099>{1:lv.UI结算_文本.榜3标签}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1013.45__614.32__578.52__63.76__618"
+        }
+      ],
+      "group_position": [
+        1013.453125,
+        614.316875
+      ],
+      "group_size": [
+        578.515625,
+        63.75687500000001
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_067",
+      "template_name": "HTML导入_界面布局_文本_text-rank_03_money",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_03_money__text",
+          "__html_component_key": "HTML导入_界面布局__rank_03_money",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_03_money_z638",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_03_money",
+          "position": [
+            1573.96875,
+            599.5
+          ],
+          "size": [
+            104.03125,
+            48
+          ],
+          "initial_visible": true,
+          "layer_index": 67,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#000000>{1:lv.UI结算_文本.榜3钱前缀}{1:lv.UI结算_文本.榜3钱}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1573.97__599.50__104.03__48.00__638"
+        }
+      ],
+      "group_position": [
+        1573.96875,
+        599.5
+      ],
+      "group_size": [
+        104.03125,
+        48
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_068",
+      "template_name": "HTML导入_界面布局_文本_text-rank_03_points",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_03_points__text",
+          "__html_component_key": "HTML导入_界面布局__rank_03_points",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_03_points_z648",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_03_points",
+          "position": [
+            1579.96875,
+            616.56
+          ],
+          "size": [
+            92.03125,
+            59.270625
+          ],
+          "initial_visible": true,
+          "layer_index": 68,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#00000099>{1:lv.UI结算_文本.榜3分}{1:lv.UI结算_文本.榜3分后缀}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1579.97__616.56__92.03__59.27__648"
+        }
+      ],
+      "group_position": [
+        1579.96875,
+        616.56
+      ],
+      "group_size": [
+        92.03125,
+        59.270625
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_069",
+      "template_name": "HTML导入_界面布局_阴影_shadow-65",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank-card__shadow__r932_694_749_81",
+          "__html_component_key": "HTML导入_界面布局__e65",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_shadow_rank-card_z650",
+          "widget_type": "进度条",
+          "widget_name": "阴影_shadow-65",
+          "position": [
+            932.453125,
+            693.59375
+          ],
+          "size": [
+            748.546875,
+            80.796875
+          ],
+          "initial_visible": true,
+          "layer_index": 69,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_最小值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "rgba(14, 14, 14, 0.45)",
+          "__flat_layer_key": "shadow__932.45__693.59__748.55__80.80__650"
+        }
+      ],
+      "group_position": [
+        932.453125,
+        693.59375
+      ],
+      "group_size": [
+        748.546875,
+        80.796875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_070",
+      "template_name": "HTML导入_界面布局_色块_rank-card",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank-card__rect__r931_693_743_75",
+          "__html_component_key": "HTML导入_界面布局__e65",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_rank-card_z655",
+          "widget_type": "进度条",
+          "widget_name": "色块_rank-card",
+          "position": [
+            931.453125,
+            692.59375
+          ],
+          "size": [
+            742.546875,
+            74.796875
+          ],
+          "initial_visible": true,
+          "layer_index": 70,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#E2DBCE",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#e2dbce",
+          "__flat_layer_key": "element__931.45__692.59__742.55__74.80__655"
+        }
+      ],
+      "group_position": [
+        931.453125,
+        692.59375
+      ],
+      "group_size": [
+        742.546875,
+        74.796875
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_071",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow__r931_761_743_6",
+          "__html_component_key": "HTML导入_界面布局__e66",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z665",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            931.453125,
+            761.390625
+          ],
+          "size": [
+            742.546875,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 71,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__931.45__761.39__742.55__6.00__665",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        931.453125,
+        761.390625
+      ],
+      "group_size": [
+        742.546875,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_072",
+      "template_name": "HTML导入_界面布局_文本_text-shadow-rank_04_num-0",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_04_num__text",
+          "__html_component_key": "HTML导入_界面布局__rank_04_num",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_04_num_z677",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-shadow-rank_04_num-0",
+          "position": [
+            915.453125,
+            697.984375
+          ],
+          "size": [
+            128,
+            64
+          ],
+          "initial_visible": true,
+          "layer_index": 72,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 32,
+            "text_content": "<size=32><color=#00000000>{1:lv.UI结算_文本.榜4名次}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__915.45__697.98__128.00__64.00__677"
+        }
+      ],
+      "group_position": [
+        915.453125,
+        697.984375
+      ],
+      "group_size": [
+        128,
+        64
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_073",
+      "template_name": "HTML导入_界面布局_文本_text-rank_04_num",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_04_num__text__r915_698_128_64",
+          "__html_component_key": "HTML导入_界面布局__rank_04_num",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_04_num_z678",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_04_num",
+          "position": [
+            915.453125,
+            697.984375
+          ],
+          "size": [
+            128,
+            64
+          ],
+          "initial_visible": true,
+          "layer_index": 73,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 32,
+            "text_content": "<size=32><color=#000000>{1:lv.UI结算_文本.榜4名次}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__915.45__697.98__128.00__64.00__678"
+        }
+      ],
+      "group_position": [
+        915.453125,
+        697.984375
+      ],
+      "group_size": [
+        128,
+        64
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_074",
+      "template_name": "HTML导入_界面布局_文本_text-rank_04_name",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_04_name__text",
+          "__html_component_key": "HTML导入_界面布局__rank_04_name",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_04_name_z698",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_04_name",
+          "position": [
+            1007.453125,
+            697.59375
+          ],
+          "size": [
+            590.515625,
+            44
+          ],
+          "initial_visible": true,
+          "layer_index": 74,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#000000>{1:lv.UI结算_文本.榜4名}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1007.45__697.59__590.52__44.00__698"
+        }
+      ],
+      "group_position": [
+        1007.453125,
+        697.59375
+      ],
+      "group_size": [
+        590.515625,
+        44
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_075",
+      "template_name": "HTML导入_界面布局_文本_text-rank_04_tags",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_04_tags__text",
+          "__html_component_key": "HTML导入_界面布局__rank_04_tags",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_04_tags_z708",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_04_tags",
+          "position": [
+            1013.453125,
+            711.11375
+          ],
+          "size": [
+            578.515625,
+            63.75687500000001
+          ],
+          "initial_visible": true,
+          "layer_index": 75,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#00000099>{1:lv.UI结算_文本.榜4标签}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1013.45__711.11__578.52__63.76__708"
+        }
+      ],
+      "group_position": [
+        1013.453125,
+        711.11375
+      ],
+      "group_size": [
+        578.515625,
+        63.75687500000001
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_076",
+      "template_name": "HTML导入_界面布局_文本_text-rank_04_money",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_04_money__text",
+          "__html_component_key": "HTML导入_界面布局__rank_04_money",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_04_money_z728",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_04_money",
+          "position": [
+            1573.96875,
+            696.296875
+          ],
+          "size": [
+            104.03125,
+            48
+          ],
+          "initial_visible": true,
+          "layer_index": 76,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 20,
+            "text_content": "<size=20><color=#000000>{1:lv.UI结算_文本.榜4钱前缀}{1:lv.UI结算_文本.榜4钱}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1573.97__696.30__104.03__48.00__728"
+        }
+      ],
+      "group_position": [
+        1573.96875,
+        696.296875
+      ],
+      "group_size": [
+        104.03125,
+        48
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_077",
+      "template_name": "HTML导入_界面布局_文本_text-rank_04_points",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__rank_04_points__text",
+          "__html_component_key": "HTML导入_界面布局__rank_04_points",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_rank_04_points_z738",
+          "widget_type": "文本框",
+          "widget_name": "文本_text-rank_04_points",
+          "position": [
+            1579.96875,
+            713.356875
+          ],
+          "size": [
+            92.03125,
+            59.270625
+          ],
+          "initial_visible": true,
+          "layer_index": 77,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 14,
+            "text_content": "<size=14><color=#00000099>{1:lv.UI结算_文本.榜4分}{1:lv.UI结算_文本.榜4分后缀}</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__1579.97__713.36__92.03__59.27__738"
+        }
+      ],
+      "group_position": [
+        1579.96875,
+        713.356875
+      ],
+      "group_size": [
+        92.03125,
+        59.270625
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_078",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow__r844_897_232_6",
+          "__html_component_key": "HTML导入_界面布局__btn_back",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z765",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            844,
+            897.390625
+          ],
+          "size": [
+            232,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 80,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__844.00__897.39__232.00__6.00__765",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        844,
+        897.390625
+      ],
+      "group_size": [
+        232,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_079",
+      "template_name": "HTML导入_界面布局_色块_btn_exit",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__btn_exit__rect",
+          "__html_component_key": "HTML导入_界面布局__btn_exit",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_btn_exit_z795",
+          "widget_type": "进度条",
+          "widget_name": "色块_btn_exit",
+          "position": [
+            27,
+            13.1875
+          ],
+          "size": [
+            54,
+            54
+          ],
+          "initial_visible": true,
+          "layer_index": 84,
+          "is_builtin": false,
+          "settings": {
+            "shape": "横向",
+            "style": "不显示",
+            "color": "#F47B7B",
+            "current_var": "关卡.UI_装饰进度条_当前值",
+            "min_var": "关卡.UI_装饰进度条_最小值",
+            "max_var": "关卡.UI_装饰进度条_最大值"
+          },
+          "_html_color_source": "#f47b7b",
+          "__flat_layer_key": "element__27.00__13.19__54.00__54.00__795"
+        }
+      ],
+      "group_position": [
+        27,
+        13.1875
+      ],
+      "group_size": [
+        54,
+        54
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_080",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow__r27_61_54_6",
+          "__html_component_key": "HTML导入_界面布局__btn_exit",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z805",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            27,
+            61.1875
+          ],
+          "size": [
+            54,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 85,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__27.00__61.19__54.00__6.00__805",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        27,
+        61.1875
+      ],
+      "group_size": [
+        54,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_081",
+      "template_name": "HTML导入_界面布局_文本_btn_exit:退出",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__btn-text__text",
+          "__html_component_key": "HTML导入_界面布局__btn_exit",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_text_btn-text_z818",
+          "widget_type": "文本框",
+          "widget_name": "文本_btn_exit:退出",
+          "position": [
+            11,
+            7.407499999999999
+          ],
+          "size": [
+            86,
+            61.56
+          ],
+          "initial_visible": true,
+          "layer_index": 86,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "透明",
+            "font_size": 16,
+            "text_content": "<size=16><color=#ffffff>退出</color></size>",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "text__11.00__7.41__86.00__61.56__818"
+        }
+      ],
+      "group_position": [
+        11,
+        7.407499999999999
+      ],
+      "group_size": [
+        86,
+        61.56
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    },
+    {
+      "template_id": "template_html_import_1772550110999_part_082",
+      "template_name": "HTML导入_界面布局_色块_tone-3-stripe",
+      "is_combination": false,
+      "widgets": [
+        {
+          "ui_key": "HTML导入_界面布局__tone-3-stripe__rect_shadow__r101_61_112_6",
+          "__html_component_key": "HTML导入_界面布局__btn_level_select",
+          "__ui_custom_template_name": "",
+          "widget_id": "template_html_import_1772550110999_rect_tone-3-stripe_z835",
+          "widget_type": "文本框",
+          "widget_name": "色块_tone-3-stripe",
+          "position": [
+            101,
+            61.1875
+          ],
+          "size": [
+            112,
+            6
+          ],
+          "initial_visible": true,
+          "layer_index": 88,
+          "is_builtin": false,
+          "settings": {
+            "background_color": "#0E0E0E40",
+            "font_size": 16,
+            "text_content": "",
+            "alignment_h": "水平居中",
+            "alignment_v": "垂直居中"
+          },
+          "__flat_layer_key": "element__101.00__61.19__112.00__6.00__835",
+          "_html_color_source": "#0e0e0e40"
+        }
+      ],
+      "group_position": [
+        101,
+        61.1875
+      ],
+      "group_size": [
+        112,
+        6
+      ],
+      "supports_layout_visibility_override": true,
+      "description": "由 ui_html_workbench 导出：单控件模板。",
+      "created_at": "2026-03-03T15:01:50.999Z",
+      "updated_at": "2026-03-03T15:01:50.999Z",
+      "__html_group_kind": "single"
+    }
+  ],
+  "canvas_size_key": "1920x1080",
+  "canvas_size_label": "1920 x 1080",
+  "created_at": "2026-03-03T15:01:50.999Z",
+  "updated_at": "2026-03-03T15:01:50.999Z",
+  "_ui_state_consolidation_mode": "full_state_groups",
+  "_ui_state_full_groups_report": {
+    "enabled": true,
+    "flattened_groups_total": 0
+  },
+  "_ui_key_dedup_fixed_total": 0
+}

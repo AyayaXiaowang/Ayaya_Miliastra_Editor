@@ -9,7 +9,14 @@ from engine.utils.logging.logger import log_info
     inputs=[("流程入", "流程"), ("玩家实体", "实体"), ("结算状态", "枚举"), ("变化分数", "整数")],
     outputs=[("流程出", "流程")],
     description="根据结算状态设置玩家的段位变化分数",
-    doc_reference="服务器节点/执行节点/执行节点.md"
+    doc_reference="服务器节点/执行节点/执行节点.md",
+    input_enum_options={
+        "结算状态": [
+            "未定",
+            "胜利",
+            "失败",
+        ],
+    },
 )
 def 设置玩家段位变化分数(game, 玩家实体, 结算状态, 变化分数):
     """根据结算状态设置玩家的段位变化分数"""

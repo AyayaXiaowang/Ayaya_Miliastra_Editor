@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional, Literal
+from typing import Any, List, Dict, Tuple, Optional, Literal
 
 from engine.utils.graph.graph_utils import is_flow_port_name
 from engine.nodes.port_type_system import FLOW_PORT_TYPE
@@ -14,6 +14,15 @@ from .constants import NodeCategory, ALLOWED_SCOPES
 class NodeDef:
     name: str
     category: NodeCategory
+    # canonical_key：节点定义在节点库中的稳定主键（唯一真源）。
+    # 约定：
+    # - builtin 节点：等于节点库的标准 key（通常为 `类别/名称#scope` 或 `类别/名称`）
+    # - 复合节点：同样保存其在节点库中的标准 key（例如 `复合节点/<name>#server`），
+    #   但**稳定引用**应优先使用 composite_id（见 docs/节点稳定标识.md 终局约定）。
+    #
+    # 注意：同一个 NodeDef 可能同时出现在“别名键注入”的多个 key 下（共享同一对象实例），
+    # 此字段必须指向其 canonical key，而不是别名 key。
+    canonical_key: str = ""
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
     
@@ -22,10 +31,14 @@ class NodeDef:
     scopes: List[str] = field(default_factory=list)  # ["server"] 或 ["client"] 或 ["server", "client"]
     mount_restrictions: List[str] = field(default_factory=list)
     doc_reference: str = ""
+    # 语义标识符（稳定 ID，用于校验/工具链识别语义节点，避免依赖显示名字符串）
+    semantic_id: str = ""
     
     # ⚠️ 核心：显式端口类型（从知识库提取）
     input_types: Dict[str, str] = field(default_factory=dict)   # {端口名: 数据类型}
     output_types: Dict[str, str] = field(default_factory=dict)  # {端口名: 数据类型}
+    # 输入端口默认值：{端口名: 默认值}。用于表达“该输入允许不提供来源（连线/常量/参数），缺省时使用默认值”。
+    input_defaults: Dict[str, Any] = field(default_factory=dict)
     
     # 泛型约束：限定声明为泛型的端口实际允许的具体类型集合
     input_generic_constraints: Dict[str, List[str]] = field(default_factory=dict)
@@ -40,6 +53,11 @@ class NodeDef:
     # 复合节点特殊标记
     is_composite: bool = False  # 是否是复合节点
     composite_id: str = ""  # 复合节点ID（仅当is_composite=True时有效）
+    
+    # 端口别名：用于兼容“端口改名”（Graph Code 关键字参数名 / 图连线端口名迁移）
+    # 约定：key 为当前规范端口名，value 为历史端口名列表（禁止与当前端口名冲突）
+    input_port_aliases: Dict[str, List[str]] = field(default_factory=dict)
+    output_port_aliases: Dict[str, List[str]] = field(default_factory=dict)
     
     def is_available_in_scope(self, scope: str) -> bool:
         """检查节点是否在指定作用域可用。
@@ -57,16 +75,32 @@ class NodeDef:
     def get_port_type(self, port_name: str, is_input: bool) -> str:
         """获取端口类型（必须有显式类型定义）"""
         type_dict = self.input_types if is_input else self.output_types
-        if port_name in type_dict:
-            return type_dict[port_name]
+        port_text = str(port_name or "")
 
-        inferred = get_dynamic_port_type(str(port_name), type_dict, self.dynamic_port_type)
+        # 端口别名兼容：允许使用历史端口名查询类型（用于旧图/旧 Graph Code）
+        if port_text not in type_dict:
+            alias_map = self.input_port_aliases if is_input else self.output_port_aliases
+            if isinstance(alias_map, dict) and alias_map:
+                resolved = ""
+                for canonical, aliases in alias_map.items():
+                    if not isinstance(canonical, str) or not isinstance(aliases, list):
+                        continue
+                    if port_text in aliases:
+                        resolved = canonical
+                        break
+                if resolved:
+                    port_text = resolved
+
+        if port_text in type_dict:
+            return type_dict[port_text]
+
+        inferred = get_dynamic_port_type(str(port_text), type_dict, self.dynamic_port_type)
         if inferred:
             return inferred
 
         # 流程端口统一视为“流程”类型（不强制要求显式声明）
         # 兼容错误方向查询（例如对目标节点右侧端口误用 is_input=True）
-        if is_flow_port_name(str(port_name)):
+        if is_flow_port_name(str(port_text)):
             return FLOW_PORT_TYPE
         
         # 强约束：必须存在类型
@@ -79,7 +113,23 @@ class NodeDef:
         返回复制后的列表，避免外部修改内部缓存。
         """
         source = self.input_generic_constraints if is_input else self.output_generic_constraints
-        allowed = source.get(port_name, [])
+        port_text = str(port_name or "")
+
+        # 端口别名兼容：允许通过历史端口名读取约束
+        if port_text not in source:
+            alias_map = self.input_port_aliases if is_input else self.output_port_aliases
+            if isinstance(alias_map, dict) and alias_map:
+                resolved = ""
+                for canonical, aliases in alias_map.items():
+                    if not isinstance(canonical, str) or not isinstance(aliases, list):
+                        continue
+                    if port_text in aliases:
+                        resolved = canonical
+                        break
+                if resolved:
+                    port_text = resolved
+
+        allowed = source.get(port_text, [])
         return list(allowed) if isinstance(allowed, list) else list(allowed or [])
 
 
@@ -107,6 +157,15 @@ def load_all_nodes(root: Path, include_composite: bool = True, verbose: bool = F
         if verbose:
             from engine.utils.logging.logger import log_info
             log_info(f"加载了 {len(composite_defs)} 个复合节点")
+
+    # 3) 统一补齐 canonical_key（无论来源：实现库/复合节点/别名注入）
+    # - 仅补齐缺失字段，避免别名注入键覆盖 canonical key；
+    # - 对同一对象（被多个 key 引用）重复赋值不会改变语义，但保持“首次设置即 canonical”的约束更直观。
+    for node_key, node_def in lib.items():
+        if not isinstance(node_def, NodeDef):
+            continue
+        if not str(getattr(node_def, "canonical_key", "") or "").strip():
+            node_def.canonical_key = str(node_key)
 
     return lib
 

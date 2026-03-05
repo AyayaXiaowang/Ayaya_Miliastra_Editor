@@ -1,0 +1,4867 @@
+{
+  "template_id": "1077936136",
+  "name": "铃铛",
+  "entity_type": "物件",
+  "description": "由 .gia 导入",
+  "default_graphs": [],
+  "default_variables": [],
+  "default_components": [],
+  "entity_config": {},
+  "metadata": {
+    "ugc": {
+      "source": "imported_from_gia",
+      "source_gia_file": "E:\\千星奇域\\接力\\最终成品\\真的最终了\\超级大打包.gia",
+      "source_gia_bundle_file_path": "341416358-1770947072-1073742274-\\超级大打包.gia",
+      "source_gia_game_version": "6.3.0",
+      "source_template_root_id_int": 1077936136,
+      "source_template_type_code_int": 10005018
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "gia_1073742813",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.119999885559082,
+                "y": -3.0642917156219482,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742813,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742814",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.559999942779541,
+                "y": -3.4242916107177734,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742814,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742815",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.940000057220459,
+                "y": -3.4242916107177734,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.47999998927116394,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742815,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.47999998927116394,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742816",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.559999942779541,
+                "y": -3.7842917442321777,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742816,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742817",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.940000057220459,
+                "y": -3.7842917442321777,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742817,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742818",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.380000114440918,
+                "y": -4.144291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.7200000286102295,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742818,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.7200000286102295,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742819",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.579999923706055,
+                "y": -4.144291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742819,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742820",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.199999809265137,
+                "y": -4.504291534423828,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0800000429153442,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742820,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.0800000429153442,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742821",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.400000095367432,
+                "y": -4.504291534423828,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.3200000524520874,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742821,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.3200000524520874,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742822",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.840000152587891,
+                "y": -4.864291667938232,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.3200000524520874,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742822,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.3200000524520874,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742823",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.21999979019165,
+                "y": -4.864291667938232,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742823,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742824",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.659999847412109,
+                "y": -5.224291801452637,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742824,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742825",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.039999961853027,
+                "y": -5.224291801452637,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.7999999523162842,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742825,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.7999999523162842,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742826",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.480000019073486,
+                "y": -5.584291458129883,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.7999999523162842,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742826,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.7999999523162842,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742827",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 5.039999961853027,
+                "y": -5.584291458129883,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.0399999618530273,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742827,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.0399999618530273,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742828",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.300000190734863,
+                "y": -5.944291591644287,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742828,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742829",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.860000133514404,
+                "y": -5.944291591644287,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.4000000953674316,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742829,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.4000000953674316,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742830",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.119999885559082,
+                "y": -6.304291725158691,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.5199999809265137,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742830,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.5199999809265137,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742831",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.679999828338623,
+                "y": -6.304291725158691,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.5199999809265137,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742831,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.5199999809265137,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742832",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.760000228881836,
+                "y": -6.664291858673096,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.759999990463257,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742832,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.759999990463257,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742833",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.5,
+                "y": -6.664291858673096,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.640000104904175,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742833,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.640000104904175,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742834",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": -7.024291515350342,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742834,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.880000114440918,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742835",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -7.204291820526123,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.8399999141693115,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742835,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                3.8399999141693115,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742836",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.320000171661377,
+                "y": -7.024291515350342,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.759999990463257,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742836,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.759999990463257,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742837",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.760000228881836,
+                "y": -7.384291648864746,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.759999990463257,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742837,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.759999990463257,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742838",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.440000057220459,
+                "y": -7.564291477203369,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742838,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742839",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.8999999761581421,
+                "y": -7.564291477203369,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.14400000870227814,
+                "y": 0.07200000435113907,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742839,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.14400000870227814,
+                0.07200000435113907,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742840",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": -7.564291477203369,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742840,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                2.880000114440918,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742841",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.5,
+                "y": -7.384291648864746,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.640000104904175,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742841,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.640000104904175,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742842",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -6.659999847412109,
+                "y": -7.74429178237915,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.1600000858306885,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742842,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.1600000858306885,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742843",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.059999942779541,
+                "y": -7.924291610717773,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742843,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742844",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": -7.924291610717773,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742844,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.06960000097751617,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742845",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": -7.74429178237915,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.11999999731779099,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742845,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.11999999731779099,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742846",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -7.924291610717773,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 7.679999828338623,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742846,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                7.679999828338623,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742847",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.0800000429153442,
+                "y": -7.74429178237915,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.11999999731779099,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742847,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.11999999731779099,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742848",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.7999999523162842,
+                "y": -8.28429126739502,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.6360000371932983,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742848,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                2.880000114440918,
+                0.6360000371932983,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742849",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.679999828338623,
+                "y": -7.74429178237915,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.559999942779541,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742849,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.559999942779541,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742850",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.920000076293945,
+                "y": -7.74429178237915,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742850,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742851",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.579999923706055,
+                "y": -8.104291915893555,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742851,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742852",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.240000009536743,
+                "y": -8.644291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 3.5999999046325684,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742852,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.06960000097751617,
+                3.5999999046325684,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742853",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.880000114440918,
+                "y": -8.28429126739502,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742853,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742854",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001831,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": -8.28429126739502,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.07200000435113907,
+                "y": 0.07200000435113907,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742854,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001831,
+              "ugc_scale": [
+                0.07200000435113907,
+                0.07200000435113907,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742855",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": -8.28429126739502,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.20879998803138733,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742855,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.20879998803138733,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742856",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -8.28429126739502,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.8399999141693115,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742856,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                3.8399999141693115,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742857",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": -8.28429126739502,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.20879998803138733,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742857,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.20879998803138733,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742858",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.139999866485596,
+                "y": -8.104291915893555,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.2000000476837158,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742858,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.2000000476837158,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742859",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -4.860000133514404,
+                "y": -8.4642915725708,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742859,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742860",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.700000047683716,
+                "y": -8.644291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742860,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742861",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": -8.4642915725708,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742861,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742862",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": -8.644291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742862,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742863",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -8.644291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.41759997606277466,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742863,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.41759997606277466,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742864",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.440000057220459,
+                "y": -8.644291877746582,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 4.800000190734863,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742864,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                4.800000190734863,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742865",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.059999942779541,
+                "y": -8.4642915725708,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.47999998927116394,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742865,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.47999998927116394,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742866",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.5999999046325684,
+                "y": -8.824291229248047,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742866,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742867",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.880000114440918,
+                "y": -9.004291534423828,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742867,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.06960000097751617,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742868",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": -9.004291534423828,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742868,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                2.880000114440918,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742869",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": -8.824291229248047,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 1.5
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742869,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                1.5
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742870",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.2599999904632568,
+                "y": -9.004291534423828,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 5.760000228881836,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742870,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                5.760000228881836,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742871",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.700000047683716,
+                "y": -9.364291191101074,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.13920000195503235,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742871,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.13920000195503235,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742872",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": -9.364291191101074,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 11.520000457763672,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742872,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                11.520000457763672,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742873",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.3399999141693115,
+                "y": -9.724291801452637,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.13920000195503235,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742873,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.13920000195503235,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742874",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": -9.724291801452637,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 9.600000381469727,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742874,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                9.600000381469727,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742875",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.9800000190734863,
+                "y": -10.084291458129883,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.13920000195503235,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742875,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.13920000195503235,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742876",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": -10.084291458129883,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 7.679999828338623,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742876,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                7.679999828338623,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742877",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": -10.264291763305664,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742877,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742878",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": -10.444292068481445,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742878,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742879",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.0800000429153442,
+                "y": -10.444292068481445,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.20879998803138733,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742879,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.20879998803138733,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742880",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": -10.444292068481445,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742880,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742881",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.36000001430511475,
+                "y": -10.444292068481445,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742881,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.06960000097751617,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742882",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": -10.444292068481445,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742882,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742883",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.7999999523162842,
+                "y": -10.264291763305664,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742883,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742884",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": -10.62429141998291,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.0399999618530273,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742884,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                2.0399999618530273,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742885",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.3399999141693115,
+                "y": -10.984292030334473,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742885,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742886",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": -11.164291381835938,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.20879998803138733,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742886,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.20879998803138733,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742887",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.6200000047683716,
+                "y": -10.984292030334473,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742887,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742888",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.240000009536743,
+                "y": -11.344291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742888,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742889",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": -11.344291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742889,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742890",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.6200000047683716,
+                "y": -11.344291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.47999998927116394,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742890,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.47999998927116394,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742891",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -11.5242919921875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742891,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742892",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": -11.5242919921875,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742892,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.06960000097751617,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742893",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": -11.344291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.36000001430511475,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742893,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.36000001430511475,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742894",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.440000057220459,
+                "y": -11.344291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.30000001192092896,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742894,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.30000001192092896,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742895",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.3399999141693115,
+                "y": -11.344291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.47999998927116394,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742895,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.47999998927116394,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742896",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.3399999141693115,
+                "y": -11.704291343688965,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742896,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742897",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": -11.884291648864746,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742897,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742898",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": -11.884291648864746,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.13920000195503235,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742898,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.13920000195503235,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742899",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.6200000047683716,
+                "y": -11.704291343688965,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742899,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742900",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": -12.064291954040527,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0800000429153442,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742900,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.0800000429153442,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742901",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": -12.244291305541992,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742901,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.06960000097751617,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742902",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.2599999904632568,
+                "y": -12.064291954040527,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742902,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742903",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -12.424291610717773,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742903,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742904",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": -13.504291534423828,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.3200000524520874,
+                "y": 0.009999999776482582,
+                "z": 0.6000000238418579
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742904,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.3200000524520874,
+                0.009999999776482582,
+                0.6000000238418579
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742905",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.5400000214576721,
+                "y": -14.584291458129883,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.440000057220459,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742905,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                1.440000057220459,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742906",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.3399999141693115,
+                "y": -14.944292068481445,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.23999999463558197,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742906,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.23999999463558197,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742907",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.6200000047683716,
+                "y": -15.12429141998291,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742907,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742908",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": -14.944292068481445,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742908,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742909",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.2599999904632568,
+                "y": -15.12429141998291,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.8399999141693115,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742909,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                3.8399999141693115,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742910",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.5199999809265137,
+                "y": -15.844291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.6360000371932983,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742910,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.6360000371932983,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742911",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.1600000858306885,
+                "y": -15.484292030334473,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742911,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742912",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.2599999904632568,
+                "y": -15.844291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.8399999141693115,
+                "y": 0.6360000371932983,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742912,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                3.8399999141693115,
+                0.6360000371932983,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742913",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001870,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.18000000715255737,
+                "y": -15.304291725158691,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 90.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.23999999463558197,
+                "y": 0.009999999776482582,
+                "z": 0.11999999731779099
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742913,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001870,
+              "ugc_scale": [
+                0.23999999463558197,
+                0.009999999776482582,
+                0.11999999731779099
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742914",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": -15.484292030334473,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 2.880000114440918,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742914,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                2.880000114440918,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742915",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.440000057220459,
+                "y": -15.484292030334473,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 90.0,
+                "z": -90.0
+              },
+              "scale": {
+                "x": 0.6000000238418579,
+                "y": 0.009999999776482582,
+                "z": 0.30000001192092896
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742915,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002159,
+              "ugc_scale": [
+                0.6000000238418579,
+                0.009999999776482582,
+                0.30000001192092896
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742916",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.7999999523162842,
+                "y": -15.844291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.6360000371932983,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742916,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.6360000371932983,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742917",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.36000001430511475,
+                "y": -15.844291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.06960000097751617,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742917,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.06960000097751617,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742918",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.5400000214576721,
+                "y": -15.844291687011719,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 3.8399999141693115,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742918,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                3.8399999141693115,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742919",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999523162842,
+                "y": -16.20429229736328,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 6.71999979019165,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742919,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                6.71999979019165,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742920",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.0800000429153442,
+                "y": -16.20429229736328,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 6.71999979019165,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742920,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                6.71999979019165,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742921",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.880000114440918,
+                "y": -16.56429100036621,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742921,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742922",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.9800000190734863,
+                "y": -16.56429100036621,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2784000039100647,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742922,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.2784000039100647,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742923",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.8999999761581421,
+                "y": -16.56429100036621,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742923,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742924",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.18000000715255737,
+                "y": -16.56429100036621,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.9199999570846558,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742924,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                1.9199999570846558,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742925",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.2599999904632568,
+                "y": -16.56429100036621,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.2784000039100647,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742925,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.2784000039100647,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742926",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 2.1600000858306885,
+                "y": -16.56429100036621,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742926,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742927",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.440000057220459,
+                "y": -16.924291610717773,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.20879998803138733,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742927,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.20879998803138733,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742928",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.7200000286102295,
+                "y": -17.284292221069336,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.6360000371932983,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742928,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.6360000371932983,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742929",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20001383,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.0,
+                "y": -16.924291610717773,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.9599999785423279,
+                "y": 0.31800001859664917,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742929,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20001383,
+              "ugc_scale": [
+                0.9599999785423279,
+                0.31800001859664917,
+                0.009999999776482582
+              ]
+            }
+          },
+          {
+            "instanceId": "gia_1073742930",
+            "displayName": "铃铛",
+            "isVisible": true,
+            "assetId": 20002607,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.7200000286102295,
+                "y": -16.924291610717773,
+                "z": 0.0
+              },
+              "rot": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 0.20879998803138733,
+                "y": 1.7999999523162842,
+                "z": 0.009999999776482582
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            },
+            "source_gia": {
+              "unit_id_int": 1073742930,
+              "unit_name": "装饰物_1",
+              "template_root_id_int": 1077936136,
+              "asset_id_int": 20002607,
+              "ugc_scale": [
+                0.20879998803138733,
+                1.7999999523162842,
+                0.009999999776482582
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ugc_decorations_source": "gia_bundle.field_2"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": ""
+}

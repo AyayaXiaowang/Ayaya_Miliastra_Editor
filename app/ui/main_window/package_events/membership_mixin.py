@@ -11,7 +11,10 @@ class MembershipMixin:
     """集中处理多种资源的归属集合计算与写回。"""
 
     def _build_signal_membership_index(self) -> Dict[str, set[str]]:
-        """扫描所有存档索引，构建 {signal_id: {package_id,...}} 归属索引。"""
+        """兼容入口：返回 {signal_id: {owner_root_id}}。
+
+        说明：目录即存档模式下，信号归属由其物理文件所在根目录决定（共享/某存档）。
+        """
         membership: Dict[str, set[str]] = {}
         manager = self.app_state.package_index_manager
         packages = manager.list_packages()
@@ -29,12 +32,11 @@ class MembershipMixin:
             for signal_id in signals_field.keys():
                 if not isinstance(signal_id, str) or not signal_id:
                     continue
-                bucket = membership.setdefault(signal_id, set())
-                bucket.add(package_id)
+                membership.setdefault(signal_id, set()).add(package_id)
         return membership
 
     def _build_struct_membership_index(self) -> Dict[str, set[str]]:
-        """扫描所有存档索引，构建 {struct_id: {package_id,...}} 归属索引。"""
+        """兼容入口：返回 {struct_id: {owner_root_id}}（单选归属根目录）。"""
         membership: Dict[str, set[str]] = {}
         manager = self.app_state.package_index_manager
         packages = manager.list_packages()
@@ -52,8 +54,7 @@ class MembershipMixin:
             for struct_id in struct_ids_value:
                 if not isinstance(struct_id, str) or not struct_id:
                     continue
-                bucket = membership.setdefault(struct_id, set())
-                bucket.add(package_id)
+                membership.setdefault(struct_id, set()).add(package_id)
         return membership
 
     def _apply_signal_membership_for_property_panel(
@@ -61,106 +62,18 @@ class MembershipMixin:
         signal_id: str,
         desired_members: set[str],
     ) -> None:
-        """将指定信号的归属写回到各存档索引中（不再写入聚合信号资源）。"""
-        from engine.graph.models.package_model import SignalConfig
-        from engine.resources.global_resource_view import GlobalResourceView
-        from engine.resources.package_index_manager import PackageIndexManager
-        from engine.resources.resource_manager import ResourceManager
-        from engine.validate.comprehensive_rules.helpers import iter_all_package_graphs  # noqa: F401
-        from engine.resources.signal_index_helpers import (
-            sync_package_signals_to_index_and_aggregate,
-        )
-
-        manager = self.app_state.package_index_manager
-        resource_manager = self.app_state.resource_manager
-        if not isinstance(manager, PackageIndexManager) or not isinstance(resource_manager, ResourceManager):
-            return
-
-        config: "Optional[SignalConfig]" = None
-        current_package = getattr(self.package_controller, "current_package", None)
-        if current_package is not None:
-            value = getattr(current_package, "signals", None)
-            if isinstance(value, dict):
-                candidate = value.get(signal_id)
-                if isinstance(candidate, SignalConfig):
-                    config = candidate
-        if config is None:
-            global_view = GlobalResourceView(resource_manager)
-            global_signals = getattr(global_view, "signals", {})
-            candidate = global_signals.get(signal_id)
-            if isinstance(candidate, SignalConfig):
-                config = candidate
-        if config is None:
-            return
-
-        packages = manager.list_packages()
-        for pkg in packages:
-            package_id_value = pkg.get("package_id")
-            if not isinstance(package_id_value, str) or not package_id_value:
-                continue
-            package_id = package_id_value
-            package_index = manager.load_package_index(package_id)
-            if not package_index:
-                continue
-
-            should_have = package_id in desired_members
-
-            existing_signals: Dict[str, Dict] = {}
-            if isinstance(package_index.signals, dict):
-                for existing_signal_id, existing_payload in package_index.signals.items():
-                    if not isinstance(existing_signal_id, str) or not existing_signal_id:
-                        continue
-                    if not isinstance(existing_payload, dict):
-                        continue
-                    existing_signals[existing_signal_id] = dict(existing_payload)
-
-            if should_have:
-                existing_signals[signal_id] = {}
-            else:
-                existing_signals.pop(signal_id, None)
-
-            sync_package_signals_to_index_and_aggregate(
-                resource_manager,
-                package_index,
-                existing_signals,
-            )
-            manager.save_package_index(package_index)
+        """兼容入口：信号归属已收敛为“单选归属根目录”，此处不再支持多对多写回。"""
+        _ = signal_id, desired_members
+        return
 
     def _sync_struct_membership_for_property_panel(
         self,
         struct_id: str,
         desired_members: set[str],
     ) -> None:
-        """同步结构体与各存档之间的归属关系。"""
-        from engine.resources.package_index_manager import PackageIndexManager
-        from engine.resources.resource_manager import ResourceManager
-
-        manager = self.app_state.package_index_manager
-        resource_manager = self.app_state.resource_manager
-        if not isinstance(manager, PackageIndexManager) or not isinstance(resource_manager, ResourceManager):
-            return
-
-        current_membership_index = self._build_struct_membership_index()
-        current_members = current_membership_index.get(struct_id, set())
-
-        to_add = desired_members - current_members
-        to_remove = current_members - desired_members
-
-        for package_id in to_add:
-            manager.add_resource_to_package(
-                package_id,
-                "management_struct_definitions",
-                struct_id,
-            )
-            resource_manager.add_reference(struct_id, package_id)
-
-        for package_id in to_remove:
-            manager.remove_resource_from_package(
-                package_id,
-                "management_struct_definitions",
-                struct_id,
-            )
-            resource_manager.remove_reference(struct_id, package_id)
+        """兼容入口：结构体归属已收敛为“单选归属根目录”，此处不再支持多对多写回。"""
+        _ = struct_id, desired_members
+        return
 
     def _on_signal_property_panel_changed(self) -> None:
         """右侧信号编辑面板内容变化时的响应。
@@ -177,7 +90,7 @@ class MembershipMixin:
         package_id: str,
         is_checked: bool,
     ) -> None:
-        """右侧信号面板中“所属存档”勾选变化时更新归属。"""
+        """右侧信号面板中“所属存档”选择变化：移动信号定义文件到目标根目录。"""
         log_info(
             "[SIGNAL-MEMBERSHIP] changed: signal_id={} package_id={} is_checked={}",
             signal_id,
@@ -186,19 +99,34 @@ class MembershipMixin:
         )
         if not signal_id or not package_id:
             return
-        membership_index = self._build_signal_membership_index()
-        current_members = membership_index.get(signal_id, set())
-        if is_checked:
-            current_members.add(package_id)
-        else:
-            current_members.discard(package_id)
+        if not bool(is_checked):
+            return
 
-        self._apply_signal_membership_for_property_panel(signal_id, current_members)
+        manager = self.app_state.package_index_manager
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="management_signals",
+            resource_id=signal_id,
+        )
+        moved = manager.move_resource_to_root(package_id, "management_signals", signal_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                "management_signals",
+                signal_id,
+                False,
+            )
+        if moved:
+            self._sync_current_package_index_for_membership(
+                package_id,
+                "management_signals",
+                signal_id,
+                True,
+            )
 
-        # 在全局视图/未分类视图下，仅通过 PackageIndexManager 即时写回各存档索引，
+        # 在全局视图下，仅通过 PackageIndexManager 即时写回各存档索引，
         # 不再触发当前视图的整包保存逻辑。
         current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id in ("global_view", "unclassified_view"):
+        if current_package_id == "global_view":
             return
         self._on_immediate_persist_requested(index_dirty=True, signals_dirty=True)
 
@@ -289,7 +217,7 @@ class MembershipMixin:
         package_id: str,
         is_checked: bool,
     ) -> None:
-        """右侧结构体面板中“所属存档”勾选变化时更新归属。"""
+        """右侧结构体面板中“所属存档”选择变化：移动结构体定义文件到目标根目录。"""
         log_info(
             "[STRUCT-MEMBERSHIP] changed: struct_id={} package_id={} is_checked={}",
             struct_id,
@@ -299,18 +227,34 @@ class MembershipMixin:
         if not struct_id or not package_id:
             return
 
-        membership_index = self._build_struct_membership_index()
-        current_members = membership_index.get(struct_id, set())
-        if is_checked:
-            current_members.add(package_id)
-        else:
-            current_members.discard(package_id)
-        self._sync_struct_membership_for_property_panel(struct_id, current_members)
+        if not bool(is_checked):
+            return
 
-        # 在全局视图/未分类视图下，仅通过 PackageIndexManager 即时写回各存档索引，
+        manager = self.app_state.package_index_manager
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="management_struct_definitions",
+            resource_id=struct_id,
+        )
+        moved = manager.move_resource_to_root(package_id, "management_struct_definitions", struct_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                "management_struct_definitions",
+                struct_id,
+                False,
+            )
+        if moved:
+            self._sync_current_package_index_for_membership(
+                package_id,
+                "management_struct_definitions",
+                struct_id,
+                True,
+            )
+
+        # 在全局视图下，仅通过 PackageIndexManager 即时写回各存档索引，
         # 不再触发当前视图的整包保存逻辑。
         current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id in ("global_view", "unclassified_view"):
+        if current_package_id == "global_view":
             return
         self._on_immediate_persist_requested(index_dirty=True)
 
@@ -319,69 +263,98 @@ class MembershipMixin:
         resource_key: str,
         resource_id: str,
     ) -> tuple[list[dict], set[str]]:
-        """返回给定管理资源在各存档中的归属集合以及完整包列表。"""
+        """返回给定管理资源的“归属根目录”集合（单选）以及完整包列表。"""
         manager = self.app_state.package_index_manager
         packages = manager.list_packages()
-        membership: set[str] = set()
-        for package_info in packages:
-            package_id_value = package_info.get("package_id")
-            if not isinstance(package_id_value, str) or not package_id_value:
-                continue
-            package_id = package_id_value
-            package_index = manager.load_package_index(package_id)
-            if not package_index:
-                continue
-            management_lists = package_index.resources.management
-            if not isinstance(management_lists, dict):
-                continue
-            ids_value = management_lists.get(resource_key, [])
-            if not isinstance(ids_value, list):
-                continue
-            if resource_id in ids_value:
-                membership.add(package_id)
+        owner_id = manager.get_resource_owner_root_id(
+            resource_type=f"management_{resource_key}",
+            resource_id=resource_id,
+        )
+        membership: set[str] = {owner_id} if owner_id else set()
         return packages, membership
 
-    def _get_level_variable_ids_for_source(self, source_key: str) -> list[str]:
+    def _get_level_variable_reference_ids_for_source(self, source_key: str) -> tuple[list[str], list[str]]:
+        """按源文件 key 收敛出“变量文件 ID”与“变量 ID”两套引用键。
+
+        约定：
+        - 现行语义：PackageIndex.resources.management.level_variables 存储 VARIABLE_FILE_ID（变量文件 ID）。
+        - 兼容旧语义：该列表也可能存储 variable_id（逐条变量 ID）。
+        """
         from engine.resources.level_variable_schema_view import get_default_level_variable_schema_view
         from app.ui.graph.library_pages.management_section_variable import VariableSection
 
         schema_view = get_default_level_variable_schema_view()
         all_variables = schema_view.get_all_variables()
-        matched: list[str] = []
+        matched_variable_ids: list[str] = []
+        matched_file_id_set: set[str] = set()
+
         for variable_id, payload in all_variables.items():
             if not isinstance(payload, dict):
                 continue
             resolved_source = VariableSection._get_source_key(payload)
-            if resolved_source == source_key:
-                matched.append(variable_id)
-        return matched
+            if resolved_source != source_key:
+                continue
+
+            matched_variable_ids.append(variable_id)
+            file_id_value = payload.get("variable_file_id")
+            if isinstance(file_id_value, str) and file_id_value.strip():
+                matched_file_id_set.add(file_id_value.strip())
+
+        return sorted(matched_file_id_set), matched_variable_ids
+
+    def _get_level_variable_reference_ids_for_group_id(
+        self, group_id: str
+    ) -> tuple[list[str], list[str]]:
+        """按关卡变量分组 ID 获取引用键集合。
+
+        兼容两种分组键：
+        - 现行 UI：group_id = VARIABLE_FILE_ID（变量文件 ID）
+        - 兼容旧 UI：group_id = source_path / source_file 等“源文件 key”
+        """
+        from engine.resources.level_variable_schema_view import get_default_level_variable_schema_view
+
+        group_id_text = str(group_id or "").strip()
+        if not group_id_text:
+            return [], []
+
+        schema_view = get_default_level_variable_schema_view()
+        file_info = schema_view.get_variable_file(group_id_text)
+        if file_info is not None:
+            variable_ids: list[str] = []
+            for payload in file_info.variables:
+                if not isinstance(payload, dict):
+                    continue
+                variable_id_value = payload.get("variable_id")
+                if isinstance(variable_id_value, str) and variable_id_value.strip():
+                    variable_ids.append(variable_id_value.strip())
+            return [group_id_text], variable_ids
+
+        return self._get_level_variable_reference_ids_for_source(group_id_text)
 
     def _get_packages_and_membership_for_level_variable_group(
         self,
         source_key: str,
     ) -> tuple[list[dict], set[str], list[str]]:
         manager = self.app_state.package_index_manager
-        variable_ids = self._get_level_variable_ids_for_source(source_key)
+        file_ids, variable_ids = self._get_level_variable_reference_ids_for_group_id(source_key)
         packages = manager.list_packages()
-        membership: set[str] = set()
-        for package_info in packages:
-            package_id_value = package_info.get("package_id")
-            if not isinstance(package_id_value, str) or not package_id_value:
-                continue
-            package_id = package_id_value
-            package_index = manager.load_package_index(package_id)
-            if not package_index:
-                continue
-            ids_value = package_index.resources.management.get("level_variables", [])
-            if not isinstance(ids_value, list):
-                continue
-            if variable_ids and all(var_id in ids_value for var_id in variable_ids):
-                membership.add(package_id)
-        return packages, membership, variable_ids
+        reference_ids = file_ids or variable_ids
+        if not reference_ids:
+            return packages, set(), []
+
+        reference_id = str(reference_ids[0] or "").strip()
+        owner_id = ""
+        if reference_id:
+            owner_id = manager.get_resource_owner_root_id(
+                resource_type="management_level_variables",
+                resource_id=reference_id,
+            )
+        membership: set[str] = {owner_id} if owner_id else set()
+        return packages, membership, reference_ids
 
     def _apply_level_variable_membership_change(
         self,
-        variable_ids: list[str],
+        reference_ids: list[str],
         package_id: str,
         is_checked: bool,
     ) -> None:
@@ -391,25 +364,38 @@ class MembershipMixin:
         if not isinstance(manager, PackageIndexManager):
             return
 
-        for variable_id in variable_ids:
-            if is_checked:
-                manager.add_resource_to_package(
-                    package_id,
-                    "management_level_variables",
-                    variable_id,
-                )
-            else:
-                manager.remove_resource_from_package(
-                    package_id,
-                    "management_level_variables",
-                    variable_id,
-                )
+        _ = is_checked
+        target_root_id = str(package_id or "").strip()
+        if not target_root_id:
+            return
+        if not reference_ids:
+            return
 
-        current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id == package_id:
-            current_package = getattr(self.package_controller, "current_package", None)
-            if current_package is not None:
-                current_package.clear_cache()
+        # 单选语义：变量文件（VARIABLE_FILE_ID）应只归属一个根目录。
+        # 对于旧数据（variable_id）不再支持“跨包归属”，这里仍尝试移动其所属文件（若可解析）。
+        reference_id = str(reference_ids[0] or "").strip()
+        if not reference_id:
+            return
+
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="management_level_variables",
+            resource_id=reference_id,
+        )
+        moved = manager.move_resource_to_root(target_root_id, "management_level_variables", reference_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                "management_level_variables",
+                reference_id,
+                False,
+            )
+        if moved:
+            self._sync_current_package_index_for_membership(
+                target_root_id,
+                "management_level_variables",
+                reference_id,
+                True,
+            )
 
     def _apply_management_membership_for_property_panel(
         self,
@@ -417,31 +403,9 @@ class MembershipMixin:
         resource_id: str,
         desired_members: set[str],
     ) -> None:
-        """同步通用管理资源与各存档之间的归属关系。"""
-        from engine.resources.package_index_manager import PackageIndexManager
-
-        manager = self.app_state.package_index_manager
-        if not isinstance(manager, PackageIndexManager):
-            return
-
-        _, current_members = self._get_management_packages_and_membership(resource_key, resource_id)
-
-        to_add = desired_members - current_members
-        to_remove = current_members - desired_members
-
-        for package_id in to_add:
-            manager.add_resource_to_package(
-                package_id,
-                f"management_{resource_key}",
-                resource_id,
-            )
-
-        for package_id in to_remove:
-            manager.remove_resource_from_package(
-                package_id,
-                f"management_{resource_key}",
-                resource_id,
-            )
+        """兼容入口：管理资源归属已收敛为“单选归属根目录”，此处不再支持多对多写回。"""
+        _ = resource_key, resource_id, desired_members
+        return
 
     def _on_main_camera_panel_package_membership_changed(
         self,
@@ -458,20 +422,33 @@ class MembershipMixin:
         )
         if not camera_id or not package_id:
             return
+        if not bool(is_checked):
+            return
+        manager = self.app_state.package_index_manager
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="management_main_cameras",
+            resource_id=camera_id,
+        )
+        moved = manager.move_resource_to_root(package_id, "management_main_cameras", camera_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                "management_main_cameras",
+                camera_id,
+                False,
+            )
+        if moved:
+            self._sync_current_package_index_for_membership(
+                package_id,
+                "management_main_cameras",
+                camera_id,
+                True,
+            )
 
-        packages, membership = self._get_management_packages_and_membership("main_cameras", camera_id)
-        _ = packages  # 包列表在此处仅用于保持接口一致性
-        if is_checked:
-            membership.add(package_id)
-        else:
-            membership.discard(package_id)
-
-        self._apply_management_membership_for_property_panel("main_cameras", camera_id, membership)
-
-        # 在全局视图/未分类视图下，仅通过 PackageIndexManager 即时写回各存档索引，
+        # 在全局视图下，仅通过 PackageIndexManager 即时写回各存档索引，
         # 不再触发当前视图的整包保存逻辑。
         current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id in ("global_view", "unclassified_view"):
+        if current_package_id == "global_view":
             return
         self._on_immediate_persist_requested(index_dirty=True)
 
@@ -484,18 +461,31 @@ class MembershipMixin:
         """外围系统编辑面板中“所属存档”勾选变化时更新归属。"""
         if not system_id or not package_id:
             return
-
-        packages, membership = self._get_management_packages_and_membership("peripheral_systems", system_id)
-        _ = packages
-        if is_checked:
-            membership.add(package_id)
-        else:
-            membership.discard(package_id)
-
-        self._apply_management_membership_for_property_panel("peripheral_systems", system_id, membership)
+        if not bool(is_checked):
+            return
+        manager = self.app_state.package_index_manager
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="management_peripheral_systems",
+            resource_id=system_id,
+        )
+        moved = manager.move_resource_to_root(package_id, "management_peripheral_systems", system_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                "management_peripheral_systems",
+                system_id,
+                False,
+            )
+        if moved:
+            self._sync_current_package_index_for_membership(
+                package_id,
+                "management_peripheral_systems",
+                system_id,
+                True,
+            )
 
         current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id in ("global_view", "unclassified_view"):
+        if current_package_id == "global_view":
             return
         self._on_immediate_persist_requested(index_dirty=True)
 
@@ -507,15 +497,30 @@ class MembershipMixin:
     ) -> None:
         if not storage_id or not package_id:
             return
-        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
-        _ = packages
-        if is_checked:
-            membership.add(package_id)
-        else:
-            membership.discard(package_id)
-        self._apply_management_membership_for_property_panel("equipment_data", storage_id, membership)
+        if not bool(is_checked):
+            return
+        manager = self.app_state.package_index_manager
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="management_equipment_data",
+            resource_id=storage_id,
+        )
+        moved = manager.move_resource_to_root(package_id, "management_equipment_data", storage_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                "management_equipment_data",
+                storage_id,
+                False,
+            )
+        if moved:
+            self._sync_current_package_index_for_membership(
+                package_id,
+                "management_equipment_data",
+                storage_id,
+                True,
+            )
         current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id in ("global_view", "unclassified_view"):
+        if current_package_id == "global_view":
             return
         self._on_immediate_persist_requested(index_dirty=True)
 
@@ -527,15 +532,30 @@ class MembershipMixin:
     ) -> None:
         if not storage_id or not package_id:
             return
-        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
-        _ = packages
-        if is_checked:
-            membership.add(package_id)
-        else:
-            membership.discard(package_id)
-        self._apply_management_membership_for_property_panel("equipment_data", storage_id, membership)
+        if not bool(is_checked):
+            return
+        manager = self.app_state.package_index_manager
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="management_equipment_data",
+            resource_id=storage_id,
+        )
+        moved = manager.move_resource_to_root(package_id, "management_equipment_data", storage_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                "management_equipment_data",
+                storage_id,
+                False,
+            )
+        if moved:
+            self._sync_current_package_index_for_membership(
+                package_id,
+                "management_equipment_data",
+                storage_id,
+                True,
+            )
         current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id in ("global_view", "unclassified_view"):
+        if current_package_id == "global_view":
             return
         self._on_immediate_persist_requested(index_dirty=True)
 
@@ -547,15 +567,30 @@ class MembershipMixin:
     ) -> None:
         if not storage_id or not package_id:
             return
-        packages, membership = self._get_management_packages_and_membership("equipment_data", storage_id)
-        _ = packages
-        if is_checked:
-            membership.add(package_id)
-        else:
-            membership.discard(package_id)
-        self._apply_management_membership_for_property_panel("equipment_data", storage_id, membership)
+        if not bool(is_checked):
+            return
+        manager = self.app_state.package_index_manager
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type="management_equipment_data",
+            resource_id=storage_id,
+        )
+        moved = manager.move_resource_to_root(package_id, "management_equipment_data", storage_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                "management_equipment_data",
+                storage_id,
+                False,
+            )
+        if moved:
+            self._sync_current_package_index_for_membership(
+                package_id,
+                "management_equipment_data",
+                storage_id,
+                True,
+            )
         current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id in ("global_view", "unclassified_view"):
+        if current_package_id == "global_view":
             return
         self._on_immediate_persist_requested(index_dirty=True)
 
@@ -576,30 +611,33 @@ class MembershipMixin:
         )
         if not resource_key or not resource_id or not package_id:
             return
+        if not bool(is_checked):
+            return
 
-        if resource_key == "level_variables":
-            variable_ids = self._get_level_variable_ids_for_source(resource_id)
-            target_ids = variable_ids if variable_ids else [resource_id]
-            self._apply_level_variable_membership_change(target_ids, package_id, is_checked)
-        else:
-            packages, membership = self._get_management_packages_and_membership(resource_key, resource_id)
-            _ = packages
-            if is_checked:
-                membership.add(package_id)
-            else:
-                membership.discard(package_id)
-
-            self._apply_management_membership_for_property_panel(resource_key, resource_id, membership)
-
+        manager = self.app_state.package_index_manager
+        resource_type = f"management_{resource_key}"
+        previous_owner = manager.get_resource_owner_root_id(
+            resource_type=resource_type,
+            resource_id=resource_id,
+        )
+        moved = manager.move_resource_to_root(package_id, resource_type, resource_id)
+        if moved and previous_owner:
+            self._sync_current_package_index_for_membership(
+                previous_owner,
+                resource_type,
+                resource_id,
+                False,
+            )
+        if moved:
             self._sync_current_package_index_for_membership(
                 package_id,
-                f"management_{resource_key}",
+                resource_type,
                 resource_id,
-                is_checked,
+                True,
             )
 
         current_package_id = getattr(self.package_controller, "current_package_id", None)
-        if current_package_id in ("global_view", "unclassified_view"):
+        if current_package_id == "global_view":
             return
         self._on_immediate_persist_requested(index_dirty=True)
 

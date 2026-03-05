@@ -20,6 +20,7 @@ from app.ui.dialogs.table_edit_helpers import (
     wrap_click_to_edit_line_edit_for_table_cell,
 )
 from app.ui.foundation.theme_manager import Sizes, ThemeManager
+from engine.type_registry import parse_typed_dict_alias
 
 
 class TwoRowFieldValueCellFactory:
@@ -240,7 +241,15 @@ class TwoRowFieldValueCellFactory:
         value_type_name = "字符串"
         entries: List[Tuple[str, str]] = []
 
-        if isinstance(value, Mapping):
+        # 1) 优先识别别名字典类型（键类型-值类型字典 / 键类型_值类型字典）
+        is_typed_dict, alias_key_type, alias_value_type = parse_typed_dict_alias(type_name)
+        if is_typed_dict:
+            if alias_key_type:
+                key_type_name = alias_key_type
+            if alias_value_type:
+                value_type_name = alias_value_type
+        # 2) 其次允许调用方提供 resolver（例如节点图变量的 dict_key_type/dict_value_type 元数据）
+        elif isinstance(value, Mapping):
             dict_type_resolver = self._get_dict_type_resolver()
             if dict_type_resolver is not None:
                 resolved = dict_type_resolver(type_name, value)
@@ -257,6 +266,7 @@ class TwoRowFieldValueCellFactory:
                     if resolved_value_type:
                         value_type_name = resolved_value_type
 
+        if isinstance(value, Mapping):
             for key, val in value.items():
                 entries.append((str(key), str(val)))
 

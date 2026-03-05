@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>UI预览</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-app: #121212;
+      --bg-panel: #1e1e1e;
+      --bg-header: #252526;
+      --bg-input: #2d2d2d;
+      --border: #333;
+      --border-active: #555;
+      --text: #e0e0e0;
+      --muted: #888;
+      --accent: #3794ff;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    body { background: var(--bg-app); color: var(--text); font-family: var(--font); font-size: 13px; }
+
+    .app { height: 100vh; display: flex; flex-direction: column; }
+    .header {
+      height: 48px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+    }
+    .title { font-weight: 700; font-size: 14px; display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+    .subtitle { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .spacer { flex: 1; }
+    .btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+    }
+    .btn:hover { border-color: var(--border-active); background: #3a3a3a; }
+    .btn.primary { border-color: rgba(55,148,255,0.55); background: rgba(55,148,255,0.18); }
+    .btn.primary:hover { background: rgba(55,148,255,0.26); }
+
+    .main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+    .col-left {
+      width: 460px;
+      flex-shrink: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+    }
+    .col-center { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #0f0f0f; }
+    .col-right {
+      width: 360px;
+      flex-shrink: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+    }
+
+    .section-header {
+      height: 36px;
+      flex-shrink: 0;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      user-select: none;
+    }
+    .section-body { flex: 1; min-height: 0; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    .input {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      outline: none;
+    }
+    .input:focus { border-color: rgba(55,148,255,0.85); box-shadow: 0 0 0 2px rgba(55,148,255,0.15); }
+
+    .select {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      outline: none;
+      font-size: 12px;
+    }
+    .select:focus { border-color: rgba(55,148,255,0.85); box-shadow: 0 0 0 2px rgba(55,148,255,0.15); }
+    .select.select-sm { height: 22px; padding: 0 8px; font-size: 12px; }
+    .input.input-sm { height: 22px; padding: 0 8px; font-size: 11px; border-radius: 7px; }
+
+    .row { display: flex; align-items: center; gap: 8px; }
+    .checkbox { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; user-select: none; cursor: pointer; white-space: nowrap; }
+    .checkbox input { accent-color: var(--accent); }
+
+    .list { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      cursor: pointer;
+      user-select: none;
+    }
+    button.item {
+      width: 100%;
+      text-align: left;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    button.item::-moz-focus-inner { border: 0; padding: 0; }
+    button.item:focus {
+      outline: none;
+      border-color: rgba(55,148,255,0.85);
+      box-shadow: 0 0 0 2px rgba(55,148,255,0.15);
+    }
+    .item:hover { border-color: var(--border-active); background: rgba(255,255,255,0.04); }
+    .item.selected { border-color: rgba(55,148,255,0.85); background: rgba(55,148,255,0.14); }
+    .badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .badge.shared { border-color: rgba(241,250,140,0.35); color: #f1fa8c; background: rgba(241,250,140,0.06); }
+    .item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-meta { color: var(--muted); font-size: 11px; flex-shrink: 0; white-space: nowrap; }
+
+    /* ---------------- preview toolbar (borrow workbench behavior) */
+    .toolbar {
+      /* 允许换行：窗口窄时避免把右侧开关“挤出可视区” */
+      min-height: 50px;
+      height: auto;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 12px;
+      flex-wrap: wrap;
+    }
+    .toolbar-group { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+    .btn-group { display: flex; gap: 2px; background: var(--bg-input); padding: 3px; border-radius: 7px; }
+    .btn-group .btn { height: 22px; padding: 0 10px; border: none; background: transparent; color: var(--muted); border-radius: 5px; }
+    .btn-group .btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+    .btn-group .btn.active { background: var(--bg-panel); color: var(--accent); font-weight: 700; }
+    .divider { width: 1px; height: 24px; background: var(--border); }
+    .status { color: var(--muted); font-size: 12px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+    /* ---------------- preview canvas (ids must match dom_refs.js) */
+    #previewFrameContainer {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #0d0d0d;
+      background-image: radial-gradient(#2a2a2a 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    #previewStage {
+      position: relative;
+      background: #000;
+      border: 1px solid #333;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+    #previewIframe {
+      border: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    /* overlay ids for preview selection (optional but useful) */
+    #previewSelectionOverlay { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+    #previewSelectionBox { position: absolute; border: 1px solid var(--accent); background: rgba(55,148,255,0.10); display: none; }
+    #previewSelectionLabel { position: absolute; background: var(--accent); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 3px; display: none; }
+    #previewDragSelectBox { position: absolute; border: 1px dashed var(--accent); background: rgba(55,148,255,0.10); display: none; }
+    #previewReverseTop, #previewReverseBottom, #previewReverseLeft, #previewReverseRight {
+      position: absolute;
+      border: 1px dashed #ff00ff;
+      background: rgba(255,0,255,0.05);
+      display: none;
+    }
+
+    /* right inspector */
+    textarea.wb-textarea {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+      color: rgba(255,255,255,0.88);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 10px;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+    }
+    textarea.wb-textarea.readonly { border-color: rgba(255,255,255,0.10); }
+
+    .wb-inspector-block {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.02);
+      padding: 10px;
+    }
+    .wb-inspector-block-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+      user-select: none;
+    }
+    .wb-align-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      width: 100%;
+      max-width: 220px;
+    }
+    .wb-align-grid button {
+      height: 30px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      cursor: default;
+      user-select: none;
+      font-size: 12px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .wb-align-grid button:hover {
+      border-color: var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+    }
+    .wb-align-grid button.active {
+      border-color: rgba(55,148,255,0.85);
+      background: rgba(55,148,255,0.18);
+      color: var(--text);
+      font-weight: 700;
+    }
+    .wb-align-grid-hint {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+      user-select: none;
+    }
+
+    /* hide workbench-only controls if present */
+    #togglePreviewOnlyModeButton { display: none; }
+
+    /* ---------------- group tree (flatten split preview) */
+    .wb-tree {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 10px 12px;
+    }
+    .wb-tree details {
+      padding: 6px 8px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03);
+    }
+    .wb-tree details.wb-tree-group-selected > summary {
+      background: rgba(55, 148, 255, 0.12);
+      border-radius: 8px;
+      padding: 4px 4px;
+      margin: -2px -2px 0 -2px;
+    }
+    .wb-tree details[open] { background: rgba(255,255,255,0.035); }
+    .wb-tree summary {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.90);
+    }
+    .wb-tree summary::-webkit-details-marker { display: none; }
+    .wb-tree summary::marker { content: ""; }
+    .wb-tree .wb-tree-row { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+    .wb-tree .wb-tree-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wb-tree .wb-tree-meta { color: var(--muted); font-size: 11px; }
+    .wb-tree .wb-tree-children {
+      padding-left: 18px;
+      margin-top: 4px;
+      border-left: 1px dashed rgba(255,255,255,0.12);
+    }
+    .wb-tree .wb-tree-item {
+      padding: 4px 6px;
+      color: rgba(255,255,255,0.86);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      text-align: left;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      font-size: inherit;
+      position: relative;
+      border-radius: 8px;
+    }
+    .wb-tree .wb-tree-item .wb-tree-item-main {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
+    }
+    .wb-tree .wb-tree-toggle {
+      appearance: none;
+      -webkit-appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      min-width: 22px;
+      height: 18px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.86);
+      user-select: none;
+      cursor: pointer;
+    }
+    .wb-tree .wb-tree-eye { padding: 0; }
+    .wb-tree .wb-eye-icon { display: inline-flex; align-items: center; justify-content: center; }
+    .wb-tree .wb-eye-icon svg { display: block; }
+    .wb-tree .wb-eye-icon[data-hidden="1"] .wb-eye-shape { opacity: 0.45; }
+    .wb-tree .wb-eye-icon:not([data-hidden="1"]) .wb-eye-slash { display: none; }
+    .wb-tree .wb-tree-trash { padding: 0; }
+    .wb-tree .wb-trash-icon { display: inline-flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.62); }
+    .wb-tree .wb-trash-icon svg { display: block; }
+    .wb-tree .wb-trash-icon[data-excluded="1"] { color: #ff4d4f; }
+    .wb-tree .wb-tree-toggle:hover {
+      border-color: rgba(55,148,255,0.65);
+      background: rgba(55,148,255,0.16);
+      color: rgba(55,148,255,0.95);
+    }
+    .wb-tree .wb-tree-expander {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 18px;
+      min-width: 18px;
+      height: 18px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+    }
+    .wb-tree .wb-tree-expander::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 5px;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 4px 0 4px 6px;
+      border-color: transparent transparent transparent rgba(255,255,255,0.72);
+      transform-origin: 2px 4px;
+      transform: rotate(0deg);
+    }
+    .wb-tree details[open] > summary .wb-tree-expander::before { transform: rotate(90deg); }
+    .wb-tree .wb-tree-expander:hover {
+      border-color: rgba(55,148,255,0.65);
+      background: rgba(55,148,255,0.10);
+    }
+    .wb-tree .wb-tree-item:hover {
+      background: rgba(255,255,255,0.06);
+    }
+    /* 初始隐藏（非默认态）提示：淡红底纹（仅提示初始态，不代表“眼睛隐藏”） */
+    .wb-tree .wb-tree-item.wb-tree-initial-hidden:not(.selected) {
+      background: rgba(255, 77, 79, 0.08);
+    }
+    .wb-tree .wb-tree-item.wb-tree-initial-hidden:not(.selected):hover {
+      background: rgba(255, 77, 79, 0.12);
+    }
+    .wb-tree .wb-tree-item.selected {
+      background: rgba(55, 148, 255, 0.16);
+    }
+    .wb-tree .wb-tree-item[role="button"]:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(55,148,255,0.20);
+    }
+    .wb-tree .wb-tree-item .muted { color: rgba(255,255,255,0.55); }
+    .wb-tree .wb-tree-item .tag {
+      display: inline-block;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: rgba(55, 148, 255, 0.12);
+      border: 1px solid rgba(55, 148, 255, 0.25);
+      color: rgba(55, 148, 255, 0.9);
+      margin-right: 6px;
+      font-size: 11px;
+      line-height: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .wb-tree .wb-tree-item .tag.warn {
+      background: rgba(241, 250, 140, 0.12);
+      border-color: rgba(241, 250, 140, 0.25);
+      color: rgba(241, 250, 140, 0.9);
+    }
+    /* multi-state tags */
+    .wb-tree .wb-tree-item .tag.state {
+      background: rgba(189, 147, 249, 0.14);
+      border-color: rgba(189, 147, 249, 0.30);
+      color: rgba(189, 147, 249, 0.95);
+    }
+    .wb-tree .wb-tree-item .tag.state-default {
+      background: rgba(80, 250, 123, 0.12);
+      border-color: rgba(80, 250, 123, 0.28);
+      color: rgba(80, 250, 123, 0.95);
+    }
+    .wb-tree .wb-tree-item .tag.state-nondefault {
+      background: rgba(255, 184, 108, 0.12);
+      border-color: rgba(255, 184, 108, 0.28);
+      color: rgba(255, 184, 108, 0.95);
+    }
+    /* export widget list: right-side state control (acts like eye/trash: standalone control) */
+    .wb-tree .wb-tree-state {
+      margin-left: auto;
+      height: 18px;
+      min-width: 44px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(189, 147, 249, 0.30);
+      background: rgba(189, 147, 249, 0.14);
+      color: rgba(189, 147, 249, 0.95);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 18px;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .wb-tree .wb-tree-state:hover {
+      border-color: rgba(189, 147, 249, 0.55);
+      background: rgba(189, 147, 249, 0.20);
+      color: rgba(255,255,255,0.92);
+    }
+    .wb-tree .wb-tree-state-placeholder {
+      margin-left: auto;
+      width: 44px;
+      min-width: 44px;
+      height: 18px;
+      flex: 0 0 44px;
+      display: inline-block;
+    }
+    .wb-tree .wb-tree-state-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.35);
+      border: 1px solid rgba(255,255,255,0.20);
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+    .wb-tree .wb-tree-state[data-ui-state-default="1"] .wb-tree-state-dot {
+      background: rgba(80, 250, 123, 0.95);
+      border-color: rgba(80, 250, 123, 0.35);
+    }
+    .wb-tree .wb-tree-state[data-ui-state-default="0"] .wb-tree-state-dot {
+      background: rgba(255, 184, 108, 0.95);
+      border-color: rgba(255, 184, 108, 0.35);
+    }
+    .wb-tree-empty {
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="title">
+        <span>UI预览</span>
+        <span class="subtitle" id="appSubtitle">（未连接主程序）</span>
+      </div>
+      <div class="spacer"></div>
+      <input id="baseGilFileInput" type="file" accept=".gil" style="display:none" />
+      <button id="selectBaseGilButton" class="btn" type="button" title="仅选择“基底文件”（.gil）。不会开始导出。导出时会在该存档基础上写回 UI 并输出新文件。">选择基底文件</button>
+      <button id="useCurrentBaseGilButton" class="btn" type="button" title="仅设置“基底路径”为当前沙箱存档（.gil）。不会开始导出。会从 BeyondLocal 本地目录中自动选择“最新保存”的那份 .gil（无需上传文件）。">设为基底：当前沙箱</button>
+      <span id="selectedBaseGilFileText" class="subtitle" style="max-width: 260px;" title="">基底文件：<未选择></span>
+      <span id="selectedBaseGilPathText" class="subtitle" style="max-width: 420px;" title="">基底路径：<未设置></span>
+      <button id="exportGiaButton" class="btn primary" type="button" disabled>直接导出 GIA</button>
+      <button id="exportGilButton" class="btn" type="button" disabled title="完整导出：写回 UI 记录 + 自动补齐变量。需要先选择基底 GIL。">导出 GIL</button>
+      <button id="importVariableDefaultsButton" class="btn" type="button" disabled title="将当前页面 HTML 的 data-ui-variable-defaults（默认值映射）导入到当前项目的 lv/ps 变量库（写入管理配置/关卡变量）。">导入变量默认值</button>
+      <label class="checkbox" title="可选：将识别到的“按钮组件组”（道具展示 can_interact=true）同步保存为【自定义模板】（控件组库内模板 root）。默认关闭。
+
+注意：若你要“用户自定义控件组”存模板（例如：选关 + 退出 两个按钮作为同一个控件组），请在 HTML 上：
+1) 给这批控件写同一个 data-ui-component-key（让它们进入同一个组件组/组容器）
+2) 再用 data-ui-save-template 标注模板名（会按该组件组整体沉淀为自定义模板）">
+        <input id="exportGilSaveCustomTemplatesCheckbox" type="checkbox" />
+        <span>按钮组存模板</span>
+      </label>
+      <button id="refreshButton" class="btn">刷新</button>
+    </div>
+
+    <div class="main">
+      <!-- LEFT -->
+      <div class="col-left">
+        <!-- TOP: file list -->
+        <div style="flex: 1.15; min-height: 0; display: flex; flex-direction: column;">
+          <div class="section-header">
+            <span>UI源码</span>
+            <span id="fileCountText" style="font-weight:500;letter-spacing:0;text-transform:none;">0</span>
+          </div>
+          <div class="section-body">
+            <input id="searchInput" class="input" type="text" placeholder="搜索文件名（.html/.htm）..." />
+            <div id="fileList" class="list" style="flex:1;overflow:auto;"></div>
+          </div>
+        </div>
+
+        <!-- BOTTOM: flattened groups / export widgets -->
+        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--border);">
+          <div class="section-header">
+            <div class="btn-group" style="gap:6px;">
+              <button id="leftBottomTabExportWidgetsButton" class="btn active" type="button" style="height: 22px; padding: 0 8px; font-size: 11px;" title="显示“如果导出 GIL”将会生成的控件（由 bundle 推导）。">导出控件</button>
+              <button id="leftBottomTabFlattenGroupsButton" class="btn" type="button" style="height: 22px; padding: 0 8px; font-size: 11px;" title="显示扁平化分组树（调试：层级/遮挡/可见性）。">扁平分组</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; letter-spacing:0; text-transform:none;">
+              <span id="exportWidgetListStatusText" style="font-weight:500;">未生成</span>
+              <span id="flattenGroupTreeStatusText" style="font-weight:500; display:none;">未生成</span>
+              <button id="refreshExportWidgetListButton" class="btn" type="button" style="height: 22px; padding: 0 8px; font-size: 11px;">刷新</button>
+      <button id="resetFlattenGroupTreeVisibilityButton" class="btn" type="button" title="恢复显示：清空所有“隐藏”开关（两种视图共用）" style="height: 22px; padding: 0 8px; font-size: 11px; display:none;">显示全部</button>
+              <button id="refreshFlattenGroupTreeButton" class="btn" type="button" style="height: 22px; padding: 0 8px; font-size: 11px; display:none;">刷新</button>
+            </div>
+          </div>
+          <div class="section-body" style="padding:0; gap:0;">
+            <div class="row" style="padding:8px 10px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);">
+              <input id="leftBottomSearchInput" class="input input-sm" type="text" placeholder="搜索控件/分组..." title="过滤当前列表（导出控件/扁平分组）。按 Enter 或点“搜索”应用。" style="flex: 1; min-width: 0;" />
+              <button id="leftBottomSearchButton" class="btn" type="button" style="height: 22px; padding: 0 10px; font-size: 11px; flex: 0 0 auto;">搜索</button>
+            </div>
+            <div id="exportWidgetListContainer" class="wb-tree">
+              <div class="wb-tree-empty">请选择左侧文件以生成“导出控件”列表。</div>
+            </div>
+            <div id="flattenGroupTreeContainer" class="wb-tree" style="display:none;">
+              <div class="wb-tree-empty">请选择左侧文件以生成分组树。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER -->
+      <div class="col-center">
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <div class="btn-group">
+              <button class="btn" id="sizeButton1920x1080" data-size-key="1920x1080" type="button">1920×1080</button>
+              <button class="btn active" id="sizeButton1600x900" data-size-key="1600x900" type="button">1600×900</button>
+              <button class="btn" id="sizeButton1560x720" data-size-key="1560x720" type="button">1560×720</button>
+              <button class="btn" id="sizeButton1280x720" data-size-key="1280x720" type="button">1280×720</button>
+            </div>
+            <div class="divider"></div>
+            <div class="btn-group">
+              <button class="btn active" id="previewVariantFlattenedButton" type="button">扁平化</button>
+              <button class="btn" id="previewVariantSourceButton" type="button">原稿</button>
+            </div>
+            <div class="divider"></div>
+            <div class="row" style="gap:6px;">
+              <span style="color:var(--muted); font-size:12px; white-space:nowrap;">状态</span>
+              <select id="uiStateGroupSelect" class="select select-sm" title="多状态控件预览：选择一个状态组后，可强制在预览中只显示该组的某个状态（不影响导出/写回）。"></select>
+              <select id="uiStateValueSelect" class="select select-sm" title="选择该状态组要显示的状态。"></select>
+              <button id="uiStateResetButton" class="btn" type="button" style="height: 22px; padding: 0 8px; font-size: 11px;" title="清除状态预览覆盖，恢复为 HTML 源码中定义的默认显隐（以及页面声明的 data-ui-preview-initial-states）。">重置</button>
+              <label class="checkbox" title="原稿预览时将带 data-ui-text 的元素显示为占位符文本（仅用于检查绑定；不影响扁平化/导出/写回）。">
+                <input id="dynamicTextPreviewCheckbox" type="checkbox" />
+                <span>动态文本</span>
+              </label>
+              <button id="flattenedTimelapseRevealButton" class="btn" type="button" style="height: 22px; padding: 0 8px; font-size: 11px;" title="对当前预览（扁平化/原稿）执行延时摄影：先隐藏当前可见层，再每 0.1 秒显示一个。">延时摄影</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="previewFrameContainer">
+          <div id="previewStage">
+            <iframe id="previewIframe" sandbox="allow-same-origin"></iframe>
+            <div id="previewSelectionOverlay">
+              <div id="previewSelectionBox"></div>
+              <div id="previewSelectionLabel"></div>
+              <div id="previewDragSelectBox"></div>
+              <div id="previewReverseTop"></div>
+              <div id="previewReverseBottom"></div>
+              <div id="previewReverseLeft"></div>
+              <div id="previewReverseRight"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="col-right">
+        <div class="section-header">
+          <span>检查器</span>
+          <span id="statusText" class="status" style="letter-spacing:0;text-transform:none;font-weight:500;">未选择</span>
+        </div>
+        <div class="section-body" style="gap:10px;">
+          <textarea id="inspectorImportantTextArea" class="wb-textarea readonly" readonly spellcheck="false" placeholder="点击预览区域元素查看坐标/尺寸..."></textarea>
+          <div id="textAlignInspectorBlock" class="wb-inspector-block" style="display:none;">
+            <div class="wb-inspector-block-title">文本对齐锚点（H×V）</div>
+            <div class="wb-align-grid" id="textAlignGrid" aria-label="文本对齐锚点">
+              <button type="button" data-h="left" data-v="top" title="左上">↖</button>
+              <button type="button" data-h="center" data-v="top" title="上中">↑</button>
+              <button type="button" data-h="right" data-v="top" title="右上">↗</button>
+              <button type="button" data-h="left" data-v="middle" title="左中">←</button>
+              <button type="button" data-h="center" data-v="middle" title="居中">•</button>
+              <button type="button" data-h="right" data-v="middle" title="右中">→</button>
+              <button type="button" data-h="left" data-v="bottom" title="左下">↙</button>
+              <button type="button" data-h="center" data-v="bottom" title="下中">↓</button>
+              <button type="button" data-h="right" data-v="bottom" title="右下">↘</button>
+            </div>
+            <div id="textAlignHint" class="wb-align-grid-hint">当前：-</div>
+          </div>
+          <textarea id="inspectorDetailsTextArea" class="wb-textarea readonly" readonly spellcheck="false" placeholder="详细属性将显示在这里..."></textarea>
+          <div class="status" id="selectedFileText">（未选择）</div>
+          <textarea id="exportStatusTextArea" class="wb-textarea readonly" readonly spellcheck="false" style="flex: 0 0 140px;" placeholder="导出 GIA/GIL 输出将显示在这里..."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- cache-bust: bump when preview logic changes -->
+  <script type="module" src="ui_app_ui_preview.js?v=2026-02-11-02"></script>
+</body>
+</html>
+

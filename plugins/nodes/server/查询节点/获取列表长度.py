@@ -11,7 +11,7 @@ from engine.utils.logging.logger import log_info
     description="获取列表长度（列表中的元素个数）",
     doc_reference="服务器节点/查询节点/查询节点.md"
 )
-def 获取列表长度(列表):
+def 获取列表长度(game, 列表):
     """获取列表长度（列表中的元素个数）"""
     if isinstance(列表, list):
         return len(列表)

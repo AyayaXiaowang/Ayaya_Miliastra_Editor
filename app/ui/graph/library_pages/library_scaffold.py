@@ -46,7 +46,7 @@ class LibraryPageMixin:
     仅约定接口签名，不直接绑定具体 UI 结构；
     各库页可选择性继承并实现下列方法，主窗口与控制器仅依赖这些统一入口：
 
-    - set_context(view) : 绑定 PackageView / GlobalResourceView / UnclassifiedResourceView 等资源视图；
+    - set_context(view) : 绑定 PackageView / GlobalResourceView 等资源视图；
     - reload()          : 在当前上下文下全量刷新列表/树，并负责选中恢复；
     - get_selection()   : 返回当前选中的 LibrarySelection；无选中时返回 None；
     - set_selection(sel): 根据 LibrarySelection 恢复选中；不匹配的 kind 应被安全忽略。

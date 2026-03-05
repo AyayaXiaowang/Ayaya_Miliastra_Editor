@@ -22,6 +22,7 @@ GRAPH_STEP_ADD_DICT_PAIRS = "graph_add_dict_pairs"
 GRAPH_STEP_ADD_BRANCH_OUTPUTS = "graph_add_branch_outputs"
 GRAPH_STEP_CONFIG_BRANCH_OUTPUTS = "graph_config_branch_outputs"
 GRAPH_STEP_BIND_SIGNAL = "graph_bind_signal"
+GRAPH_STEP_BIND_STRUCT = "graph_bind_struct"
 
 
 # 标记为“快速链可参与类型”的步骤集合：在执行器中用于决定是否跳过等待。
@@ -36,6 +37,7 @@ FAST_CHAIN_ELIGIBLE_STEP_TYPES: tuple[str, ...] = (
     GRAPH_STEP_ADD_BRANCH_OUTPUTS,
     GRAPH_STEP_CONFIG_BRANCH_OUTPUTS,
     GRAPH_STEP_BIND_SIGNAL,
+    GRAPH_STEP_BIND_STRUCT,
 )
 
 

@@ -17,6 +17,7 @@ from ..input.win_input import (
     right_down,
     right_up,
     iter_linear_drag_points,
+    scroll_wheel_notches,
 )
 from ..input.common import sleep_seconds
 from engine.configs.settings import settings
@@ -155,6 +156,65 @@ def _hybrid_drag_generic(button: str, screen_x1: int, screen_y1: int, screen_x2:
     return True
 
 
+def _stepped_drag_generic(
+    button: str,
+    screen_x1: int,
+    screen_y1: int,
+    screen_x2: int,
+    screen_y2: int,
+    *,
+    pre_down_sleep: float,
+    steps: int,
+    per_step_sleep: float,
+    step_end_sleep: float,
+    post_release_sleep: float,
+    reset_cursor: bool,
+) -> bool:
+    """步进拖拽：用于需要“拖拽持续时长”更可控的场景（可选复位）。"""
+    down_fn, up_fn = _get_button_actions(button)
+    if bool(reset_cursor):
+        orig_x, orig_y = get_cursor_pos()
+    else:
+        orig_x, orig_y = (0, 0)
+
+    start_ok = move_mouse_absolute(int(screen_x1), int(screen_y1))
+    if not start_ok:
+        return False
+    sleep_seconds(float(pre_down_sleep))
+    if not down_fn():
+        return False
+    sleep_seconds(float(pre_down_sleep))
+
+    total_steps = int(steps)
+    if total_steps <= 0:
+        raise ValueError("steps must be positive")
+
+    for xi, yi in iter_linear_drag_points(
+        int(screen_x1),
+        int(screen_y1),
+        int(screen_x2),
+        int(screen_y2),
+        total_steps,
+    ):
+        _ = move_mouse_absolute(int(xi), int(yi))
+        if float(per_step_sleep) > 0.0:
+            sleep_seconds(float(per_step_sleep))
+
+    if float(step_end_sleep) > 0.0:
+        sleep_seconds(float(step_end_sleep))
+
+    if not up_fn():
+        return False
+
+    if float(post_release_sleep) > 0.0:
+        sleep_seconds(float(post_release_sleep))
+
+    if bool(reset_cursor):
+        _ = move_mouse_absolute(int(orig_x), int(orig_y))
+
+    return True
+
+
 def _instant_drag_generic(button: str, screen_x1: int, screen_y1: int, screen_x2: int, screen_y2: int, *, pre_down_sleep: float, before_move_sleep: float, before_up_sleep: float) -> bool:
     """瞬移拖拽：按下后瞬移到终点再松开（参数化左右键与延时）。"""
     down_fn, up_fn = _get_button_actions(button)
@@ -260,6 +320,59 @@ def _hybrid_drag(button: str, screen_x1: int, screen_y1: int, screen_x2: int, sc
     )
 
 
+def _drag_button_timed(
+    button: str,
+    screen_x1: int,
+    screen_y1: int,
+    screen_x2: int,
+    screen_y2: int,
+    *,
+    duration_seconds: float,
+    steps: int,
+    post_release_sleep_override: Optional[float] = None,
+) -> bool:
+    """定时步进拖拽：用于“拖拽不生效/疑似卡顿”时让拖拽更慢、更稳。"""
+    total_steps = int(steps)
+    if total_steps <= 0:
+        raise ValueError("steps must be positive")
+    duration = float(duration_seconds)
+    if duration < 0.0:
+        raise ValueError("duration_seconds must be non-negative")
+
+    _begin_input_block_guard(5.0)
+    try:
+        mode = str(getattr(settings, 'MOUSE_EXECUTION_MODE', 'classic'))
+        reset_cursor = bool(mode == 'hybrid')
+
+        if post_release_sleep_override is not None:
+            post_release_sleep = float(post_release_sleep_override)
+        else:
+            post_release_sleep = (
+                float(getattr(settings, 'MOUSE_HYBRID_POST_RELEASE_SLEEP', 0.15))
+                if reset_cursor
+                else 0.0
+            )
+
+        per_step_sleep = float(duration) / float(total_steps)
+        return bool(
+            _stepped_drag_generic(
+                button,
+                int(screen_x1),
+                int(screen_y1),
+                int(screen_x2),
+                int(screen_y2),
+                pre_down_sleep=0.01,
+                steps=total_steps,
+                per_step_sleep=per_step_sleep,
+                step_end_sleep=0.005,
+                post_release_sleep=float(post_release_sleep),
+                reset_cursor=bool(reset_cursor),
+            )
+        )
+    finally:
+        _end_input_block_guard()
+
+
 def _drag_button(button: str, screen_x1: int, screen_y1: int, screen_x2: int, screen_y2: int, *, post_release_sleep_override: Optional[float] = None) -> bool:
     _begin_input_block_guard(5.0)
     try:
@@ -304,6 +417,52 @@ def drag_left_button(screen_x1: int, screen_y1: int, screen_x2: int, screen_y2: 
     return _drag_button('left', screen_x1, screen_y1, screen_x2, screen_y2, post_release_sleep_override=post_release_sleep)
 
 
+def drag_right_button_timed(
+    screen_x1: int,
+    screen_y1: int,
+    screen_x2: int,
+    screen_y2: int,
+    *,
+    duration_seconds: float = 1.0,
+    steps: int = 40,
+    post_release_sleep: Optional[float] = None,
+) -> bool:
+    """右键拖拽（定时步进版）：按 duration_seconds 放慢拖拽节奏，提高拖拽生效概率。"""
+    return _drag_button_timed(
+        'right',
+        int(screen_x1),
+        int(screen_y1),
+        int(screen_x2),
+        int(screen_y2),
+        duration_seconds=float(duration_seconds),
+        steps=int(steps),
+        post_release_sleep_override=post_release_sleep,
+    )
+
+
+def drag_left_button_timed(
+    screen_x1: int,
+    screen_y1: int,
+    screen_x2: int,
+    screen_y2: int,
+    *,
+    duration_seconds: float = 1.0,
+    steps: int = 40,
+    post_release_sleep: Optional[float] = None,
+) -> bool:
+    """左键拖拽（定时步进版）：按 duration_seconds 放慢拖拽节奏，提高拖拽生效概率。"""
+    return _drag_button_timed(
+        'left',
+        int(screen_x1),
+        int(screen_y1),
+        int(screen_x2),
+        int(screen_y2),
+        duration_seconds=float(duration_seconds),
+        steps=int(steps),
+        post_release_sleep_override=post_release_sleep,
+    )
+
+
 def get_cursor_pos() -> Tuple[int, int]:
     """获取当前鼠标指针的屏幕坐标 (x,y)。"""
     class POINT(ctypes.Structure):
@@ -313,4 +472,30 @@ def get_cursor_pos() -> Tuple[int, int]:
     if ok == 0:
         return (0, 0)
     return (int(pt.x), int(pt.y))
+
+
+def move_mouse(screen_x: int, screen_y: int) -> bool:
+    """仅移动鼠标到指定屏幕坐标，不点击。"""
+    return bool(move_mouse_absolute(int(screen_x), int(screen_y)))
+
+
+def scroll_wheel(
+    notches: int,
+    *,
+    per_notch_sleep: float = 0.01,
+) -> None:
+    """滚动鼠标滚轮（在当前位置）。
+
+    说明：
+    - 仅负责滚动，不负责移动鼠标；调用方应先将鼠标移动到期望滚动的区域上方；
+    - 为保持节奏稳定，默认每格滚轮之间等待极短时间。
+    """
+    total = int(notches)
+    if total == 0:
+        return
+    step = 1 if total > 0 else -1
+    for _ in range(abs(total)):
+        scroll_wheel_notches(int(step))
+        if float(per_notch_sleep) > 0:
+            sleep_seconds(float(per_notch_sleep))
 

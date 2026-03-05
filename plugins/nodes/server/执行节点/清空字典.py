@@ -14,3 +14,6 @@ from engine.utils.logging.logger import log_info
 def 清空字典(game, 字典):
     """清空指定字典的键值对"""
     log_info(f"[清空字典] 执行")
+    if isinstance(字典, dict):
+        字典.clear()
+    return

@@ -1,99 +1,105 @@
 """设置对话框 - 用户友好的设置界面"""
 
 from __future__ import annotations
-from PyQt6 import QtCore, QtGui, QtWidgets
+
 import sys
 
-from app.ui.foundation.base_widgets import BaseDialog
-from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
-from engine.configs.settings import settings
-from app.ui.graph.library_mixins import ConfirmDialogMixin
+from PyQt6 import QtCore, QtGui, QtWidgets
+
 from app.runtime.services.graph_data_service import get_shared_graph_data_service
+from app.ui.dialogs.settings_dialog_pages_mixin import SettingsDialogPagesMixin
+from app.ui.foundation.base_widgets import BaseDialog
+from app.ui.foundation.theme_manager import ThemeManager, Sizes
+from app.ui.graph.library_mixins import ConfirmDialogMixin
+from engine.configs.settings import settings
 
 
-class SettingsDialog(BaseDialog, ConfirmDialogMixin):
+class SettingsDialog(SettingsDialogPagesMixin, BaseDialog, ConfirmDialogMixin):
     """设置对话框
-    
+
     提供图形化界面让用户修改程序设置。
     所有设置更改立即生效并保存到配置文件。
     """
-    
+
     def __init__(self, parent=None):
         super().__init__(
             title="程序设置",
-            width=600,
-            height=500,
+            width=920,
+            height=640,
             parent=parent,
         )
-        self.setMinimumWidth(600)
-        self.setMinimumHeight(500)
-        
+        self.setMinimumWidth(880)
+        self.setMinimumHeight(600)
+
         self._build_content()
         self._load_current_settings()
-    
+
     def _apply_styles(self) -> None:
         """应用主题样式"""
-        base_style = ThemeManager.dialog_surface_style(include_tables=False)
-        self.setStyleSheet(
-            base_style
-            + f"""
-            QGroupBox {{
-                font-weight: bold;
-                border: 1px solid {Colors.BORDER_LIGHT};
-                border-radius: {Sizes.RADIUS_SMALL}px;
-                margin-top: {Sizes.SPACING_SMALL}px;
-                padding: {Sizes.PADDING_SMALL}px;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: {Sizes.SPACING_SMALL}px;
-                padding: 0 {Sizes.PADDING_SMALL}px;
-            }}
-        """
+        base_style = (
+            ThemeManager.dialog_surface_style(include_tables=False)
+            + ThemeManager.list_style()
+            + ThemeManager.left_panel_style()
+            + ThemeManager.splitter_style()
+            + ThemeManager.group_box_style()
         )
-    
+        self.setStyleSheet(base_style)
+
     def _build_content(self) -> None:
         """设置UI布局"""
         layout = self.content_layout
-        
+
         # 标题
         title_label = QtWidgets.QLabel("程序设置")
         title_label.setStyleSheet(f"{ThemeManager.heading(level=1)} padding: 10px;")
         layout.addWidget(title_label)
-        
-        # 设置选项区域（使用滚动区域）
-        scroll_area = QtWidgets.QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
-        scroll_content = QtWidgets.QWidget()
-        scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
-        scroll_layout.setSpacing(20)
-        
-        # ========== 自动排版 ==========
-        auto_layout_group = self._create_auto_layout_settings_group()
-        scroll_layout.addWidget(auto_layout_group)
-        
-        # ========== 输出与打印 ==========
-        output_group = self._create_output_settings_group()
-        scroll_layout.addWidget(output_group)
-        
-        # ========== 步骤与任务 ==========
-        steps_group = self._create_step_settings_group()
-        scroll_layout.addWidget(steps_group)
-        
-        # ========== 执行与系统 ==========
-        runtime_group = self._create_runtime_settings_group()
-        scroll_layout.addWidget(runtime_group)
 
-        # ========== 资源库更新 ==========
-        resource_update_group = self._create_resource_update_settings_group()
-        scroll_layout.addWidget(resource_update_group)
-        
-        scroll_layout.addStretch()
-        scroll_area.setWidget(scroll_content)
-        layout.addWidget(scroll_area, 1)
-        
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+
+        # 左侧：分类导航
+        nav = QtWidgets.QWidget()
+        nav_layout = QtWidgets.QVBoxLayout(nav)
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(Sizes.SPACING_MEDIUM)
+
+        nav_title = QtWidgets.QLabel("分类")
+        nav_title.setStyleSheet(ThemeManager.heading(level=3))
+        nav_layout.addWidget(nav_title)
+
+        self.category_list = QtWidgets.QListWidget()
+        # 复用全局左侧面板（leftPanel）选中态样式，避免在对话框内写局部 QSS 造成分叉。
+        self.category_list.setObjectName("leftPanel")
+        self.category_list.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        self.category_list.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.category_list.setVerticalScrollMode(
+            QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel
+        )
+        self.category_list.setMinimumWidth(180)
+        self.category_list.setMaximumWidth(240)
+        nav_layout.addWidget(self.category_list, 1)
+
+        nav_hint = QtWidgets.QLabel("修改后点击右下角「确定」保存。")
+        nav_hint.setWordWrap(True)
+        nav_hint.setStyleSheet(ThemeManager.hint_text_style())
+        nav_layout.addWidget(nav_hint)
+
+        splitter.addWidget(nav)
+
+        # 右侧：分组页面
+        self.pages_stack = QtWidgets.QStackedWidget()
+        splitter.addWidget(self.pages_stack)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([210, 700])
+        layout.addWidget(splitter, 1)
+
+        self._build_settings_pages()
+        self.category_list.currentRowChanged.connect(self.pages_stack.setCurrentIndex)
+        if self.category_list.count() > 0:
+            self.category_list.setCurrentRow(0)
+
         # 底部按钮
         button_layout = QtWidgets.QHBoxLayout()
 
@@ -117,332 +123,211 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         # 安装滚轮保护占位（具体逻辑由 ThemeManager.apply_app_style 提供的全局过滤器统一处理）
         self._install_wheel_guards()
 
-    def _on_accept(self) -> None:
-        """覆写基类接受逻辑，统一走设置保存流程。"""
-        self._save_and_close()
-    
-    def _create_auto_layout_settings_group(self) -> QtWidgets.QGroupBox:
-        """创建自动排版设置组"""
-        group = QtWidgets.QGroupBox("自动排版")
-        layout = QtWidgets.QVBoxLayout(group)
-        # 块间紧凑排列
-        self.tight_block_spacing_checkbox = QtWidgets.QCheckBox("块与块之间紧密排列")
-        self.tight_block_spacing_checkbox.setToolTip(
-            "启用后，在满足端口间距和避免矩形重叠的前提下，自动排版会尽量把块往左贴近上游块，"
-            "让列间空隙更小、整体更紧凑。\n"
-            "停用时，每列仅使用基础左边界，不再尝试额外左移，便于保留标准列间距。\n"
-            "✅ 立即生效，无需重启"
-        )
-        layout.addWidget(self.tight_block_spacing_checkbox)
-
-        # 数据节点跨块复制
-        self.data_node_copy_checkbox = QtWidgets.QCheckBox("数据节点跨块复制")
-        self.data_node_copy_checkbox.setToolTip(
-            "启用后，当数据节点被多个基本块共享时，会为每个块创建真实副本。\n"
-            "✅ 启用（推荐）：每个块拥有独立的数据节点副本，副本只保留连接到自己块的边\n"
-            "❌ 禁用：保持旧逻辑，数据节点属于先到块，后续块不复制\n"
-            "注意：复制在“分块/块内放置”阶段执行，仅复制纯数据节点，遇到带流程口的节点停止。"
-        )
-        layout.addWidget(self.data_node_copy_checkbox)
-
-        # 布局Y坐标调试（轻量 Tooltip）
-        self.layout_y_debug_overlay_checkbox = QtWidgets.QCheckBox("布局Y坐标调试（节点旁感叹号）")
-        self.layout_y_debug_overlay_checkbox.setToolTip(
-            "启用后，每个节点左上角显示“!”图标，点击弹出可复制的调试Tooltip，\n"
-            "展示当前Y轴分配的关键依据与链信息。轻量无全局避让，点击空白自动关闭。\n"
-            "✅ 立即生效，无需重启"
-        )
-        layout.addWidget(self.layout_y_debug_overlay_checkbox)
-
-        return group
-
-    def _create_output_settings_group(self) -> QtWidgets.QGroupBox:
-        """创建输出与打印设置组"""
-        group = QtWidgets.QGroupBox("输出与打印")
-        layout = QtWidgets.QVBoxLayout(group)
-        
-        # 布局调试打印
-        self.layout_debug_checkbox = QtWidgets.QCheckBox("布局调试打印")
-        self.layout_debug_checkbox.setToolTip(
-            "启用后，自动排版时会打印节点排序、位置计算等详细信息。\n"
-            "用于调试布局算法，默认关闭以保持控制台简洁。\n"
-            "✅ 立即生效，无需重启"
-        )
-        layout.addWidget(self.layout_debug_checkbox)
-
-        # 图编辑器详细日志（包含自动排版的错误提示打印）
-        self.graph_ui_verbose_checkbox = QtWidgets.QCheckBox("图编辑器详细日志（含自动排版错误打印）")
-        self.graph_ui_verbose_checkbox.setToolTip(
-            "启用后，图编辑器会在控制台输出更详细的调试信息，\n"
-            "包括自动排版的错误原因、节点/连线构建细节等。\n"
-            "用于排查自动排版按钮无响应或图形项异常问题。\n"
-            "✅ 立即生效，无需重启"
-        )
-        layout.addWidget(self.graph_ui_verbose_checkbox)
-
-        # 节点加载详细日志
-        self.node_loading_checkbox = QtWidgets.QCheckBox("节点加载详细日志（需要重启）")
-        self.node_loading_checkbox.setToolTip(
-            "启用后，启动时会打印节点定义加载的详细信息。\n"
-            "用于调试节点定义问题，默认关闭。\n"
-            "⚠️ 需要重启程序才能生效"
-        )
-        layout.addWidget(self.node_loading_checkbox)
-        
-        # 验证器详细模式
-        self.validator_verbose_checkbox = QtWidgets.QCheckBox("验证器详细模式")
-        self.validator_verbose_checkbox.setToolTip(
-            "启用后，验证器会输出更详细的验证过程信息。\n"
-            "用于调试验证逻辑，默认关闭。\n"
-            "✅ 立即生效，无需重启"
-        )
-        layout.addWidget(self.validator_verbose_checkbox)
-        
-        # 代码解析详细信息
-        self.dsl_parser_checkbox = QtWidgets.QCheckBox("代码解析详细信息")
-        self.dsl_parser_checkbox.setToolTip(
-            "启用后，解析器会输出详细的解析过程信息。\n"
-            "用于调试节点图代码解析问题，默认关闭。\n"
-            "✅ 立即生效，无需重启"
-        )
-        layout.addWidget(self.dsl_parser_checkbox)
-        
-        # 代码生成详细信息
-        self.dsl_generator_checkbox = QtWidgets.QCheckBox("代码生成详细信息")
-        self.dsl_generator_checkbox.setToolTip(
-            "启用后，代码生成器会输出详细的事件流分析、拓扑排序等信息。\n"
-            "用于调试节点图代码生成问题，默认关闭以保持控制台简洁。\n"
-            "✅ 立即生效，无需重启"
-        )
-        layout.addWidget(self.dsl_generator_checkbox)
-
-        # 真实执行调试输出
-        self.real_exec_verbose_checkbox = QtWidgets.QCheckBox("真实执行调试输出（识别/拖拽/校验详细日志）")
-        self.real_exec_verbose_checkbox.setToolTip(
-            "启用后，真实执行器会打印每一步的识别列表、拖拽向量、\n"
-            "相位相关位移估计、连线验证指标以及失败截图路径。\n"
-            "用于定位真实执行问题，默认关闭以保持输出简洁。\n"
-            "✅ 立即生效，无需重启"
-        )
-        layout.addWidget(self.real_exec_verbose_checkbox)
-        
-        return group
-    
-    def _create_step_settings_group(self) -> QtWidgets.QGroupBox:
-        """创建步骤与任务设置组"""
-        group = QtWidgets.QGroupBox("步骤与任务清单")
-        layout = QtWidgets.QVBoxLayout(group)
-        
-        # 步骤生成模式
-        mode_layout = QtWidgets.QHBoxLayout()
-        mode_label = QtWidgets.QLabel("步骤生成顺序：")
-        self.todo_mode_combo = QtWidgets.QComboBox()
-        self.todo_mode_combo.addItem("人类模式（连线并创建）", "human")
-        self.todo_mode_combo.addItem("AI模式（先创建再连接）", "ai")
-        self.todo_mode_combo.setToolTip(
-            "选择任务清单的节点图步骤生成顺序。\n"
-            "人类模式：按当前逻辑，从前驱/后继拖线并创建。\n"
-            "AI模式：先批量创建所有节点，再生成连接步骤，不使用‘连线并创建’。\n"
-            "⚠️ 修改后需要重新生成任务清单。"
-        )
-        mode_layout.addWidget(mode_label)
-        mode_layout.addWidget(self.todo_mode_combo)
-        mode_layout.addStretch()
-        layout.addLayout(mode_layout)
-
-        # 合并连线步骤
-        self.todo_merge_checkbox = QtWidgets.QCheckBox("合并连线步骤（简洁模式）")
-        self.todo_merge_checkbox.setToolTip(
-            "启用后，同一对节点间的多条连线会合并为一个步骤。\n"
-            "例如：从A拖线创建B + A与B的其他连线 → 合并为一个步骤。\n"
-            "✅ 简洁模式（默认）：适合用户操作，减少步骤数量\n"
-            "❌ 详细模式：每条连线独立步骤，适合自动化脚本或教程\n"
-            "⚠️ 需要重新生成任务清单才能生效"
-        )
-        layout.addWidget(self.todo_merge_checkbox)
-        
-        # 说明文本
-        info_label = QtWidgets.QLabel(
-            "注意：修改此设置后，需要关闭并重新打开存档，\n"
-            "或手动触发任务清单重新生成才能看到效果。"
-        )
-        info_label.setStyleSheet(
-            f"color: {Colors.TEXT_SECONDARY}; font-size: 10px; padding-left: 20px;"
-        )
-        info_label.setWordWrap(True)
-        layout.addWidget(info_label)
-        
-        return group
-    
-    def _create_runtime_settings_group(self) -> QtWidgets.QGroupBox:
-        """创建执行与系统设置组"""
-        group = QtWidgets.QGroupBox("执行与系统")
-        layout = QtWidgets.QVBoxLayout(group)
-
-        # 界面主题模式
-        theme_layout = QtWidgets.QHBoxLayout()
-        theme_label = QtWidgets.QLabel("界面主题：")
-        self.ui_theme_combo = QtWidgets.QComboBox()
-        self.ui_theme_combo.addItem("跟随系统（推荐）", "auto")
-        self.ui_theme_combo.addItem("浅色主题", "light")
-        self.ui_theme_combo.addItem("深色主题", "dark")
-        self.ui_theme_combo.setToolTip(
-            "选择界面整体的浅色/深色主题。\n"
-            "跟随系统：根据操作系统的浅色/深色模式自动切换。\n"
-            "浅色/深色：固定使用对应主题，不随系统变化。\n"
-            "⚠️ 更改后需要重新启动程序才能完全生效。"
-        )
-        theme_layout.addWidget(theme_label)
-        theme_layout.addWidget(self.ui_theme_combo)
-        theme_layout.addStretch()
-        layout.addLayout(theme_layout)
-
-        # 自动保存间隔
-        auto_save_layout = QtWidgets.QHBoxLayout()
-        auto_save_label = QtWidgets.QLabel("自动保存间隔（秒）：")
-        self.auto_save_spinbox = QtWidgets.QDoubleSpinBox()
-        self.auto_save_spinbox.setRange(0.0, 60.0)
-        self.auto_save_spinbox.setSingleStep(0.5)
-        self.auto_save_spinbox.setDecimals(1)
-        self.auto_save_spinbox.setToolTip(
-            "设置自动保存的时间间隔。\n"
-            "0 表示每次修改立即保存（默认），\n"
-            "大于0表示间隔指定秒数后保存。\n"
-            "✅ 立即生效，无需重启"
-        )
-        auto_save_layout.addWidget(auto_save_label)
-        auto_save_layout.addWidget(self.auto_save_spinbox)
-        auto_save_layout.addStretch()
-        layout.addLayout(auto_save_layout)
-
-        # 执行步骤方式（鼠标执行模式）
-        mouse_mode_layout = QtWidgets.QHBoxLayout()
-        mouse_mode_label = QtWidgets.QLabel("执行步骤方式：")
-        self.mouse_mode_combo = QtWidgets.QComboBox()
-        self.mouse_mode_combo.addItem("经典（不复位，直接移动+点击/拖拽）", "classic")
-        self.mouse_mode_combo.addItem("混合（瞬移-复位，轨迹分段平滑）", "hybrid")
-        self.mouse_mode_combo.setToolTip(
-            "经典：直接移动并完成点击/拖拽，操作结束后鼠标停留在目标处。\n"
-            "混合：瞬移到目标执行，拖拽按步进平滑移动，结束后将鼠标复位到原位置。\n"
-            "与脚本 test_background_drag_qxsandbox.py 一致的策略。"
-        )
-        self.mouse_mode_combo.currentIndexChanged.connect(self._update_hybrid_controls_enabled)
-        mouse_mode_layout.addWidget(mouse_mode_label)
-        mouse_mode_layout.addWidget(self.mouse_mode_combo)
-        mouse_mode_layout.addStretch()
-        layout.addLayout(mouse_mode_layout)
-
-        # 混合模式参数
-        hybrid_params_layout = QtWidgets.QHBoxLayout()
-        self.hybrid_params_container = QtWidgets.QWidget()
-        hybrid_inner = QtWidgets.QHBoxLayout(self.hybrid_params_container)
-        hybrid_inner.setContentsMargins(0, 0, 0, 0)
-        hybrid_inner.setSpacing(10)
-        hybrid_label = QtWidgets.QLabel("混合模式参数：")
-        steps_label = QtWidgets.QLabel("步数")
-        self.hybrid_steps_spinbox = QtWidgets.QSpinBox()
-        self.hybrid_steps_spinbox.setRange(1, 500)
-        self.hybrid_steps_spinbox.setSingleStep(1)
-        self.hybrid_steps_spinbox.setToolTip("拖拽期间的分段步数，数值越大轨迹越平滑（默认 40）")
-        sleep_label = QtWidgets.QLabel("步间隔(秒)")
-        self.hybrid_step_sleep_spinbox = QtWidgets.QDoubleSpinBox()
-        self.hybrid_step_sleep_spinbox.setRange(0.000, 0.200)
-        self.hybrid_step_sleep_spinbox.setSingleStep(0.001)
-        self.hybrid_step_sleep_spinbox.setDecimals(3)
-        self.hybrid_step_sleep_spinbox.setToolTip("每一步的等待时间（秒），默认 0.008")
-        hybrid_inner.addWidget(hybrid_label)
-        hybrid_inner.addWidget(steps_label)
-        hybrid_inner.addWidget(self.hybrid_steps_spinbox)
-        hybrid_inner.addSpacing(10)
-        hybrid_inner.addWidget(sleep_label)
-        hybrid_inner.addWidget(self.hybrid_step_sleep_spinbox)
-        hybrid_inner.addStretch()
-        hybrid_params_layout.addWidget(self.hybrid_params_container)
-        layout.addLayout(hybrid_params_layout)
-
-        # 拖拽策略（仅影响拖拽/连线，点击仍由上面的执行步骤方式决定）
-        drag_mode_layout = QtWidgets.QHBoxLayout()
-        drag_mode_label = QtWidgets.QLabel("拖拽策略：")
-        self.drag_mode_combo = QtWidgets.QComboBox()
-        self.drag_mode_combo.addItem("自动（跟随执行步骤方式）", "auto")
-        self.drag_mode_combo.addItem("瞬移（按下后直接到终点松开）", "instant")
-        self.drag_mode_combo.addItem("步进（平滑移动）", "stepped")
-        self.drag_mode_combo.setToolTip(
-            "自动：拖拽行为跟随‘执行步骤方式’。\n"
-            "瞬移：按下后直接瞬移到终点再松开（更快，可能更突兀）。\n"
-            "步进：按步进平滑移动（更自然，略慢）。"
-        )
-        drag_mode_layout.addWidget(drag_mode_label)
-        drag_mode_layout.addWidget(self.drag_mode_combo)
-        drag_mode_layout.addStretch()
-        layout.addLayout(drag_mode_layout)
-        
-        return group
-    
-    def _create_resource_update_settings_group(self) -> QtWidgets.QGroupBox:
-        """创建资源库更新策略设置组"""
-        group = QtWidgets.QGroupBox("资源库更新（节点图 / 管理配置等）")
-        layout = QtWidgets.QVBoxLayout(group)
-
-        description_label = QtWidgets.QLabel(
-            "当外部工具修改 assets/资源库 下的节点图、管理配置或战斗预设等资源时，"
-            "可以选择是否由程序自动检测并刷新视图，或仅在手动点击顶部“更新”按钮时刷新。"
-        )
-        description_label.setWordWrap(True)
-        description_label.setStyleSheet(
-            f"color: {Colors.TEXT_SECONDARY}; font-size: 10px;"
-        )
-        layout.addWidget(description_label)
-
-        mode_layout = QtWidgets.QHBoxLayout()
-        mode_label = QtWidgets.QLabel("资源库更新方式：")
-        self.resource_update_mode_combo = QtWidgets.QComboBox()
-        self.resource_update_mode_combo.addItem(
-            "自动更新（推荐）：检测到资源库变更时自动刷新索引与相关视图",
-            True,
-        )
-        self.resource_update_mode_combo.addItem(
-            "手动更新：仅在点击顶部工具栏的“更新”按钮时刷新资源库",
-            False,
-        )
-        self.resource_update_mode_combo.setToolTip(
-            "自动更新：继续使用文件监控，在外部修改资源库时自动刷新。\n"
-            "手动更新：关闭资源库目录自动监控，仅保留当前图文件监控；"
-            "当确认外部工具已完成修改时，可通过主窗口顶部的“更新”按钮手动刷新视图。"
-        )
-        mode_layout.addWidget(mode_label)
-        mode_layout.addWidget(self.resource_update_mode_combo)
-        mode_layout.addStretch()
-        layout.addLayout(mode_layout)
-
-        info_label = QtWidgets.QLabel(
-            "说明：切换为“手动更新”后，资源库目录的自动监控将被关闭，"
-            "避免频繁刷新带来的性能与日志开销；如需立即查看外部修改结果，"
-            "请使用主窗口顶部的“更新”按钮。"
-        )
-        info_label.setWordWrap(True)
-        info_label.setStyleSheet(
-            f"color: {Colors.TEXT_SECONDARY}; font-size: 10px; padding-left: 20px;"
-        )
-        layout.addWidget(info_label)
-
-        return group
-    
     def _load_current_settings(self) -> None:
         """加载当前设置到UI"""
         self.tight_block_spacing_checkbox.setChecked(
             getattr(settings, "LAYOUT_TIGHT_BLOCK_PACKING", True)
         )
+
+        x_percent = int(getattr(settings, "LAYOUT_NODE_SPACING_X_PERCENT", 100))
+        y_percent = int(getattr(settings, "LAYOUT_NODE_SPACING_Y_PERCENT", 100))
+        if x_percent < 10:
+            x_percent = 10
+        if x_percent > 200:
+            x_percent = 200
+        if y_percent < 10:
+            y_percent = 10
+        if y_percent > 200:
+            y_percent = 200
+        self.layout_spacing_x_slider.setValue(x_percent)
+        self.layout_spacing_y_slider.setValue(y_percent)
+
         self.layout_debug_checkbox.setChecked(settings.LAYOUT_DEBUG_PRINT)
-        self.layout_y_debug_overlay_checkbox.setChecked(getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False))
+        self.layout_y_debug_overlay_checkbox.setChecked(
+            getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False)
+        )
         self.graph_ui_verbose_checkbox.setChecked(getattr(settings, "GRAPH_UI_VERBOSE", False))
+        self.two_row_field_debug_checkbox.setChecked(
+            bool(getattr(settings, "UI_TWO_ROW_FIELD_DEBUG_PRINT", False))
+        )
         self.node_loading_checkbox.setChecked(settings.NODE_LOADING_VERBOSE)
         self.validator_verbose_checkbox.setChecked(settings.VALIDATOR_VERBOSE)
         self.dsl_parser_checkbox.setChecked(settings.GRAPH_PARSER_VERBOSE)
         self.dsl_generator_checkbox.setChecked(settings.GRAPH_GENERATOR_VERBOSE)
         self.real_exec_verbose_checkbox.setChecked(settings.REAL_EXEC_VERBOSE)
+        gia_node_pos_scale = float(getattr(settings, "UGC_GIA_NODE_POS_SCALE", 2.0) or 2.0)
+        if gia_node_pos_scale < 0.1:
+            gia_node_pos_scale = 0.1
+        if gia_node_pos_scale > 200.0:
+            gia_node_pos_scale = 200.0
+        self.ugc_gia_node_pos_scale_spinbox.setValue(float(gia_node_pos_scale))
         self.todo_merge_checkbox.setChecked(settings.TODO_MERGE_CONNECTION_STEPS)
+        self.todo_event_flow_lazy_load_checkbox.setChecked(
+            bool(getattr(settings, "TODO_EVENT_FLOW_LAZY_LOAD_ENABLED", True))
+        )
         self.data_node_copy_checkbox.setChecked(settings.DATA_NODE_CROSS_BLOCK_COPY)
+
+        self.local_var_relay_checkbox.setChecked(
+            bool(getattr(settings, "LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY", False))
+        )
+        relay_distance = int(
+            getattr(settings, "LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE", 5) or 5
+        )
+        if relay_distance < 3:
+            relay_distance = 3
+        if relay_distance > 10:
+            relay_distance = 10
+        self.local_var_relay_length_slider.setValue(relay_distance)
+        self._update_local_var_relay_controls_enabled()
+
+        node_alpha_percent = int(
+            float(getattr(settings, "GRAPH_NODE_CONTENT_ALPHA", 0.7)) * 100.0
+        )
+        if node_alpha_percent < 10:
+            node_alpha_percent = 10
+        if node_alpha_percent > 100:
+            node_alpha_percent = 100
+        self.graph_node_opacity_slider.setValue(node_alpha_percent)
+
+        # 画布外观：basic blocks
+        self.show_basic_blocks_checkbox.setChecked(bool(getattr(settings, "SHOW_BASIC_BLOCKS", True)))
+        basic_block_alpha_percent = int(float(getattr(settings, "BASIC_BLOCK_ALPHA", 0.2)) * 100.0)
+        if basic_block_alpha_percent < 0:
+            basic_block_alpha_percent = 0
+        if basic_block_alpha_percent > 100:
+            basic_block_alpha_percent = 100
+        self.basic_block_alpha_slider.setValue(basic_block_alpha_percent)
+
+        # 画布性能：常量控件虚拟化 + 快速预览 + 自动适配全图
+        self.graph_constant_widget_virtualization_checkbox.setChecked(
+            bool(getattr(settings, "GRAPH_CONSTANT_WIDGET_VIRTUALIZATION_ENABLED", True))
+        )
+        self.graph_fast_preview_checkbox.setChecked(
+            bool(getattr(settings, "GRAPH_FAST_PREVIEW_ENABLED", False))
+        )
+        self.graph_fast_preview_node_threshold_spinbox.setValue(
+            int(getattr(settings, "GRAPH_FAST_PREVIEW_NODE_THRESHOLD", 500) or 500)
+        )
+        self.graph_fast_preview_edge_threshold_spinbox.setValue(
+            int(getattr(settings, "GRAPH_FAST_PREVIEW_EDGE_THRESHOLD", 900) or 900)
+        )
+        self.graph_auto_fit_all_checkbox.setChecked(
+            bool(getattr(settings, "GRAPH_AUTO_FIT_ALL_ENABLED", False))
+        )
+        self.graph_perf_panel_checkbox.setChecked(
+            bool(getattr(settings, "GRAPH_PERF_PANEL_ENABLED", False))
+        )
+
+        # 全局性能监控（卡顿定位）
+        self.app_perf_monitor_enabled_checkbox.setChecked(
+            bool(getattr(settings, "APP_PERF_MONITOR_ENABLED", False))
+        )
+        self.app_perf_overlay_enabled_checkbox.setChecked(
+            bool(getattr(settings, "APP_PERF_OVERLAY_ENABLED", False))
+        )
+        self.app_perf_capture_stacks_checkbox.setChecked(
+            bool(getattr(settings, "APP_PERF_CAPTURE_STACKS_ENABLED", True))
+        )
+        stall_ms = int(getattr(settings, "APP_PERF_STALL_THRESHOLD_MS", 250) or 250)
+        if stall_ms < 100:
+            stall_ms = 100
+        if stall_ms > 5000:
+            stall_ms = 5000
+        self.app_perf_stall_threshold_spinbox.setValue(stall_ms)
+
+        # 画布 LOD（分层绘制）
+        self.graph_lod_enabled_checkbox.setChecked(bool(getattr(settings, "GRAPH_LOD_ENABLED", True)))
+
+        def _clamp_percent(value: int, *, min_value: int, max_value: int) -> int:
+            v = int(value)
+            if v < int(min_value):
+                return int(min_value)
+            if v > int(max_value):
+                return int(max_value)
+            return v
+
+        self.graph_lod_node_details_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_LOD_NODE_DETAILS_MIN_SCALE", 0.55)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_lod_node_title_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_LOD_NODE_TITLE_MIN_SCALE", 0.28)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_lod_port_min_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_LOD_PORT_MIN_SCALE", 0.30)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_lod_port_exit_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_LOD_PORT_VISIBILITY_EXIT_SCALE", 0.33)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_lod_edge_min_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_LOD_EDGE_MIN_SCALE", 0.22)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_lod_edge_exit_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_LOD_EDGE_VISIBILITY_EXIT_SCALE", 0.24)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_lod_edge_hittest_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_LOD_EDGE_HITTEST_MIN_SCALE", 0.28)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_grid_enabled_checkbox.setChecked(bool(getattr(settings, "GRAPH_GRID_ENABLED", True)))
+        self.graph_pan_freeze_viewport_checkbox.setChecked(
+            bool(getattr(settings, "GRAPH_PAN_FREEZE_VIEWPORT_ENABLED", False))
+        )
+        self.graph_zoom_freeze_viewport_checkbox.setChecked(
+            bool(getattr(settings, "GRAPH_ZOOM_FREEZE_VIEWPORT_ENABLED", False))
+        )
+        self.graph_pan_hide_icons_checkbox.setChecked(
+            bool(getattr(settings, "GRAPH_PAN_HIDE_ICONS_ENABLED", True))
+        )
+        self.graph_grid_min_px_spinbox.setValue(float(getattr(settings, "GRAPH_GRID_MIN_PX", 12.0) or 12.0))
+        self.graph_block_overview_enabled_checkbox.setChecked(
+            bool(getattr(settings, "GRAPH_BLOCK_OVERVIEW_ENABLED", True))
+        )
+        self.graph_block_overview_enter_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_BLOCK_OVERVIEW_ENTER_SCALE", 0.10)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_block_overview_exit_slider.setValue(
+            _clamp_percent(
+                int(float(getattr(settings, "GRAPH_BLOCK_OVERVIEW_EXIT_SCALE", 0.12)) * 100.0),
+                min_value=1,
+                max_value=100,
+            )
+        )
+        self.graph_block_overview_grid_min_px_spinbox.setValue(
+            float(getattr(settings, "GRAPH_BLOCK_OVERVIEW_GRID_MIN_PX", 24.0) or 24.0)
+        )
+        self._update_graph_lod_controls_enabled()
+        self._update_graph_grid_controls_enabled()
         # 界面主题模式
         current_theme_mode = getattr(settings, "UI_THEME_MODE", "auto")
         idx_theme = self.ui_theme_combo.findData(current_theme_mode)
@@ -461,63 +346,212 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         idx2 = self.mouse_mode_combo.findData(current_mouse_mode)
         self.mouse_mode_combo.setCurrentIndex(idx2 if idx2 != -1 else 0)
         self.hybrid_steps_spinbox.setValue(int(getattr(settings, "MOUSE_HYBRID_STEPS", 40)))
-        self.hybrid_step_sleep_spinbox.setValue(float(getattr(settings, "MOUSE_HYBRID_STEP_SLEEP", 0.008)))
+        self.hybrid_step_sleep_spinbox.setValue(
+            float(getattr(settings, "MOUSE_HYBRID_STEP_SLEEP", 0.008))
+        )
         self._update_hybrid_controls_enabled()
         # 拖拽策略
         current_drag_mode = getattr(settings, "MOUSE_DRAG_MODE", "auto")
         idx3 = self.drag_mode_combo.findData(current_drag_mode)
         self.drag_mode_combo.setCurrentIndex(idx3 if idx3 != -1 else 0)
-        # 资源库自动更新模式
-        auto_refresh_enabled = bool(getattr(settings, "RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED", True))
-        idx_resource = self.resource_update_mode_combo.findData(auto_refresh_enabled)
-        self.resource_update_mode_combo.setCurrentIndex(idx_resource if idx_resource != -1 else 0)
-    
+
     def show_info(self, title: str, message: str) -> None:
         """使用 ConfirmDialogMixin 风格的提示弹窗接口。
-        
+
         SettingsDialog 同时继承 BaseDialog 与 ConfirmDialogMixin，
         这里显式采用带标题的版本以统一交互文案。
         """
         ConfirmDialogMixin.show_info(self, title, message)
-    
+
     def _reset_to_defaults(self) -> None:
         """重置为默认值"""
         if self.confirm("确认重置", "确定要将所有设置重置为默认值吗？"):
             settings.reset_to_defaults()
             self._load_current_settings()
             self.show_info("完成", "设置已重置为默认值")
-    
+
     def _save_and_close(self) -> None:
         """保存设置并关闭对话框"""
         # 检查是否修改了需要重启的设置
-        node_loading_changed = (self.node_loading_checkbox.isChecked() != settings.NODE_LOADING_VERBOSE)
+        node_loading_changed = (
+            self.node_loading_checkbox.isChecked() != settings.NODE_LOADING_VERBOSE
+        )
         old_theme_mode = getattr(settings, "UI_THEME_MODE", "auto")
-        
+
+        # 记录“影响 GraphScene/图元装配结构”的旧值：
+        # - 这类开关仅做 resync（缩放提示）是不够的，必须重建 GraphScene 才能立即生效；
+        # - 典型：YDebug 叠加（禁用批量边层）、basic blocks、常量控件虚拟化、fast preview 等。
+        old_scene_build_settings = {
+            "SHOW_LAYOUT_Y_DEBUG": bool(getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False)),
+            "SHOW_BASIC_BLOCKS": bool(getattr(settings, "SHOW_BASIC_BLOCKS", True)),
+            "GRAPH_CONSTANT_WIDGET_VIRTUALIZATION_ENABLED": bool(
+                getattr(settings, "GRAPH_CONSTANT_WIDGET_VIRTUALIZATION_ENABLED", True)
+            ),
+            "GRAPH_FAST_PREVIEW_ENABLED": bool(getattr(settings, "GRAPH_FAST_PREVIEW_ENABLED", False)),
+            "GRAPH_FAST_PREVIEW_NODE_THRESHOLD": int(
+                getattr(settings, "GRAPH_FAST_PREVIEW_NODE_THRESHOLD", 500) or 500
+            ),
+            "GRAPH_FAST_PREVIEW_EDGE_THRESHOLD": int(
+                getattr(settings, "GRAPH_FAST_PREVIEW_EDGE_THRESHOLD", 900) or 900
+            ),
+        }
+
         # 记录关键开关的旧值（用于触发一次性重载）
         old_cross_block_copy = bool(settings.DATA_NODE_CROSS_BLOCK_COPY)
-        old_resource_auto_refresh = bool(getattr(settings, "RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED", True))
-        
+        old_local_var_relay_enabled = bool(
+            getattr(settings, "LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY", False)
+        )
+        old_local_var_relay_distance = int(
+            getattr(settings, "LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE", 5) or 5
+        )
+
         # 应用设置
         settings.LAYOUT_TIGHT_BLOCK_PACKING = self.tight_block_spacing_checkbox.isChecked()
+        settings.LAYOUT_NODE_SPACING_X_PERCENT = int(self.layout_spacing_x_slider.value())
+        settings.LAYOUT_NODE_SPACING_Y_PERCENT = int(self.layout_spacing_y_slider.value())
         settings.LAYOUT_DEBUG_PRINT = self.layout_debug_checkbox.isChecked()
         settings.SHOW_LAYOUT_Y_DEBUG = self.layout_y_debug_overlay_checkbox.isChecked()
         settings.GRAPH_UI_VERBOSE = self.graph_ui_verbose_checkbox.isChecked()
+        settings.UI_TWO_ROW_FIELD_DEBUG_PRINT = self.two_row_field_debug_checkbox.isChecked()
         settings.NODE_LOADING_VERBOSE = self.node_loading_checkbox.isChecked()
         settings.VALIDATOR_VERBOSE = self.validator_verbose_checkbox.isChecked()
         settings.GRAPH_PARSER_VERBOSE = self.dsl_parser_checkbox.isChecked()
         settings.GRAPH_GENERATOR_VERBOSE = self.dsl_generator_checkbox.isChecked()
         settings.REAL_EXEC_VERBOSE = self.real_exec_verbose_checkbox.isChecked()
+        settings.UGC_GIA_NODE_POS_SCALE = float(self.ugc_gia_node_pos_scale_spinbox.value())
         settings.TODO_MERGE_CONNECTION_STEPS = self.todo_merge_checkbox.isChecked()
+        settings.TODO_EVENT_FLOW_LAZY_LOAD_ENABLED = (
+            self.todo_event_flow_lazy_load_checkbox.isChecked()
+        )
         settings.DATA_NODE_CROSS_BLOCK_COPY = self.data_node_copy_checkbox.isChecked()
+        settings.LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY = self.local_var_relay_checkbox.isChecked()
+        settings.LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE = int(
+            self.local_var_relay_length_slider.value()
+        )
+        settings.GRAPH_NODE_CONTENT_ALPHA = float(self.graph_node_opacity_slider.value()) / 100.0
+
+        # 画布外观：basic blocks
+        settings.SHOW_BASIC_BLOCKS = bool(self.show_basic_blocks_checkbox.isChecked())
+        settings.BASIC_BLOCK_ALPHA = float(self.basic_block_alpha_slider.value()) / 100.0
+
+        # 画布性能：常量控件虚拟化 + 快速预览 + 自动适配全图
+        settings.GRAPH_CONSTANT_WIDGET_VIRTUALIZATION_ENABLED = bool(
+            self.graph_constant_widget_virtualization_checkbox.isChecked()
+        )
+        settings.GRAPH_FAST_PREVIEW_ENABLED = bool(self.graph_fast_preview_checkbox.isChecked())
+        settings.GRAPH_FAST_PREVIEW_NODE_THRESHOLD = int(
+            self.graph_fast_preview_node_threshold_spinbox.value()
+        )
+        settings.GRAPH_FAST_PREVIEW_EDGE_THRESHOLD = int(
+            self.graph_fast_preview_edge_threshold_spinbox.value()
+        )
+        settings.GRAPH_AUTO_FIT_ALL_ENABLED = bool(self.graph_auto_fit_all_checkbox.isChecked())
+        settings.GRAPH_PERF_PANEL_ENABLED = bool(self.graph_perf_panel_checkbox.isChecked())
+
+        # 全局性能监控（卡顿定位）
+        app_perf_overlay_enabled = bool(self.app_perf_overlay_enabled_checkbox.isChecked())
+        app_perf_monitor_enabled = bool(self.app_perf_monitor_enabled_checkbox.isChecked()) or bool(
+            app_perf_overlay_enabled
+        )
+        settings.APP_PERF_MONITOR_ENABLED = bool(app_perf_monitor_enabled)
+        settings.APP_PERF_OVERLAY_ENABLED = bool(app_perf_overlay_enabled)
+        settings.APP_PERF_STALL_THRESHOLD_MS = int(self.app_perf_stall_threshold_spinbox.value())
+        settings.APP_PERF_CAPTURE_STACKS_ENABLED = bool(
+            self.app_perf_capture_stacks_checkbox.isChecked()
+        )
+
+        # 画布 LOD（分层绘制）
+        settings.GRAPH_LOD_ENABLED = bool(self.graph_lod_enabled_checkbox.isChecked())
+        settings.GRAPH_LOD_NODE_DETAILS_MIN_SCALE = (
+            float(self.graph_lod_node_details_slider.value()) / 100.0
+        )
+        settings.GRAPH_LOD_NODE_TITLE_MIN_SCALE = (
+            float(self.graph_lod_node_title_slider.value()) / 100.0
+        )
+        port_enter_scale = float(self.graph_lod_port_min_slider.value()) / 100.0
+        port_exit_scale = float(self.graph_lod_port_exit_slider.value()) / 100.0
+        if port_exit_scale < port_enter_scale:
+            port_exit_scale = port_enter_scale
+        settings.GRAPH_LOD_PORT_MIN_SCALE = port_enter_scale
+        settings.GRAPH_LOD_PORT_VISIBILITY_EXIT_SCALE = port_exit_scale
+
+        edge_enter_scale = float(self.graph_lod_edge_min_slider.value()) / 100.0
+        edge_exit_scale = float(self.graph_lod_edge_exit_slider.value()) / 100.0
+        if edge_exit_scale < edge_enter_scale:
+            edge_exit_scale = edge_enter_scale
+        settings.GRAPH_LOD_EDGE_MIN_SCALE = edge_enter_scale
+        settings.GRAPH_LOD_EDGE_VISIBILITY_EXIT_SCALE = edge_exit_scale
+
+        edge_hittest_scale = float(self.graph_lod_edge_hittest_slider.value()) / 100.0
+        if edge_hittest_scale < edge_enter_scale:
+            edge_hittest_scale = edge_enter_scale
+        settings.GRAPH_LOD_EDGE_HITTEST_MIN_SCALE = edge_hittest_scale
+
+        settings.GRAPH_GRID_ENABLED = bool(self.graph_grid_enabled_checkbox.isChecked())
+        settings.GRAPH_PAN_HIDE_ICONS_ENABLED = bool(self.graph_pan_hide_icons_checkbox.isChecked())
+        settings.GRAPH_PAN_FREEZE_VIEWPORT_ENABLED = bool(
+            self.graph_pan_freeze_viewport_checkbox.isChecked()
+        )
+        settings.GRAPH_ZOOM_FREEZE_VIEWPORT_ENABLED = bool(
+            self.graph_zoom_freeze_viewport_checkbox.isChecked()
+        )
+        settings.GRAPH_GRID_MIN_PX = float(self.graph_grid_min_px_spinbox.value())
+
+        settings.GRAPH_BLOCK_OVERVIEW_ENABLED = bool(
+            self.graph_block_overview_enabled_checkbox.isChecked()
+        )
+        overview_enter_scale = float(self.graph_block_overview_enter_slider.value()) / 100.0
+        overview_exit_scale = float(self.graph_block_overview_exit_slider.value()) / 100.0
+        if overview_exit_scale < overview_enter_scale:
+            overview_exit_scale = overview_enter_scale
+        settings.GRAPH_BLOCK_OVERVIEW_ENTER_SCALE = overview_enter_scale
+        settings.GRAPH_BLOCK_OVERVIEW_EXIT_SCALE = overview_exit_scale
+        settings.GRAPH_BLOCK_OVERVIEW_GRID_MIN_PX = float(
+            self.graph_block_overview_grid_min_px_spinbox.value()
+        )
+
+        should_rebuild_scene = (
+            bool(old_scene_build_settings.get("SHOW_LAYOUT_Y_DEBUG", False))
+            != bool(getattr(settings, "SHOW_LAYOUT_Y_DEBUG", False))
+            or bool(old_scene_build_settings.get("SHOW_BASIC_BLOCKS", True))
+            != bool(getattr(settings, "SHOW_BASIC_BLOCKS", True))
+            or bool(old_scene_build_settings.get("GRAPH_CONSTANT_WIDGET_VIRTUALIZATION_ENABLED", True))
+            != bool(getattr(settings, "GRAPH_CONSTANT_WIDGET_VIRTUALIZATION_ENABLED", True))
+            or bool(old_scene_build_settings.get("GRAPH_FAST_PREVIEW_ENABLED", False))
+            != bool(getattr(settings, "GRAPH_FAST_PREVIEW_ENABLED", False))
+            or int(old_scene_build_settings.get("GRAPH_FAST_PREVIEW_NODE_THRESHOLD", 500))
+            != int(getattr(settings, "GRAPH_FAST_PREVIEW_NODE_THRESHOLD", 500) or 500)
+            or int(old_scene_build_settings.get("GRAPH_FAST_PREVIEW_EDGE_THRESHOLD", 900))
+            != int(getattr(settings, "GRAPH_FAST_PREVIEW_EDGE_THRESHOLD", 900) or 900)
+        )
+
+        if should_rebuild_scene:
+            parent = self.parent()
+            graph_controller = getattr(parent, "graph_controller", None) if parent is not None else None
+            rebuild = getattr(graph_controller, "rebuild_scene_for_settings_change", None)
+            if callable(rebuild):
+                rebuild(preserve_view=True)
+
+        # 让当前打开的图立即按新阈值重新同步 LOD/可见性（避免“改了但不缩放就不生效”的错觉）
+        self._resync_active_graph_scene_after_settings_change()
         new_theme_mode = self.ui_theme_combo.currentData()
         settings.UI_THEME_MODE = new_theme_mode
-        # 资源库自动刷新模式
-        settings.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED = bool(self.resource_update_mode_combo.currentData())
-        # 若跨块复制开关发生变化（True↔False）：在下次自动排版前强制以 .py 重新解析当前图
-        if bool(old_cross_block_copy) != bool(settings.DATA_NODE_CROSS_BLOCK_COPY):
+        # 强制启用：资源库自动刷新不再由设置页控制（避免外部修改后不刷新带来的困惑）
+        settings.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED = True
+        # 若“结构增强类”的自动排版开关发生变化：在下次自动排版前强制以 .py 重新解析当前图
+        # （避免在已加载的增强模型上叠加生成导致节点/连线膨胀或残留）
+        should_force_reparse = (
+            bool(old_cross_block_copy) != bool(settings.DATA_NODE_CROSS_BLOCK_COPY)
+            or bool(old_local_var_relay_enabled) != bool(settings.LAYOUT_AUTO_INSERT_LOCAL_VAR_RELAY)
+            or int(old_local_var_relay_distance)
+            != int(settings.LAYOUT_LOCAL_VAR_RELAY_MAX_BLOCK_DISTANCE)
+        )
+        if should_force_reparse:
             parent = self.parent()
             graph_controller = getattr(parent, "graph_controller", None)
-            if graph_controller and hasattr(graph_controller, "schedule_reparse_on_next_auto_layout"):
+            if graph_controller and hasattr(
+                graph_controller, "schedule_reparse_on_next_auto_layout"
+            ):
                 graph_controller.schedule_reparse_on_next_auto_layout()
         # 保存步骤模式
         settings.TODO_GRAPH_STEP_MODE = self.todo_mode_combo.currentData()
@@ -527,31 +561,30 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         settings.MOUSE_HYBRID_STEPS = int(self.hybrid_steps_spinbox.value())
         settings.MOUSE_HYBRID_STEP_SLEEP = float(self.hybrid_step_sleep_spinbox.value())
         settings.MOUSE_DRAG_MODE = self.drag_mode_combo.currentData()
-        
+
         # 保存到文件
         if settings.save():
-            # 设置已成功保存，必要时应用资源库自动刷新开关到文件监控
-            resource_auto_refresh_changed = (
-                bool(old_resource_auto_refresh) != bool(settings.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED)
-            )
-            if resource_auto_refresh_changed:
-                parent = self.parent()
-                file_watcher_manager = getattr(parent, "file_watcher_manager", None)
-                if file_watcher_manager is not None and hasattr(
-                    file_watcher_manager, "set_resource_auto_refresh_enabled"
-                ):
-                    file_watcher_manager.set_resource_auto_refresh_enabled(
-                        bool(settings.RESOURCE_LIBRARY_AUTO_REFRESH_ENABLED)
-                    )
+            # 设置已成功保存：确保文件监控侧也处于“资源库自动刷新启用”状态
+            parent = self.parent()
+            file_watcher_manager = getattr(parent, "file_watcher_manager", None)
+            if file_watcher_manager is not None and hasattr(
+                file_watcher_manager, "set_resource_auto_refresh_enabled"
+            ):
+                file_watcher_manager.set_resource_auto_refresh_enabled(True)
             # 如果修改了需要重启的设置，提示用户/询问是否立即重启
-            theme_mode_changed = (new_theme_mode != old_theme_mode)
+            theme_mode_changed = new_theme_mode != old_theme_mode
             if theme_mode_changed:
-                # 优先处理主题更改：询问是否立即重启以应用新主题
+                reasons: list[str] = []
+                if theme_mode_changed:
+                    reasons.append("界面主题")
+                reasons_text = "\n".join([f"- {x}" for x in reasons]) if reasons else ""
+
                 should_restart = self.confirm(
                     "设置已保存",
-                    "您的设置已成功保存并立即生效。\n\n"
-                    "界面主题的更改需要重启程序才能完全生效。\n\n"
-                    "是否立即重启程序以应用新的界面主题？",
+                    "您的设置已成功保存。\n\n"
+                    "以下设置需要重启程序才能完全生效：\n"
+                    f"{reasons_text}\n\n"
+                    "是否立即重启程序？",
                 )
                 self.accept()
                 if should_restart:
@@ -564,7 +597,9 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
                 )
             self.accept()
         else:
-            self.show_warning("保存失败", "设置已应用但未能保存到配置文件。\n程序重启后将使用默认设置。")
+            self.show_warning(
+                "保存失败", "设置已应用但未能保存到配置文件。\n程序重启后将使用默认设置。"
+            )
             self.accept()
 
     def _restart_application(self) -> None:
@@ -582,10 +617,157 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
 
     def _update_hybrid_controls_enabled(self) -> None:
         """根据当前鼠标执行模式，启用/禁用混合参数控件"""
-        mode = self.mouse_mode_combo.currentData() if hasattr(self, 'mouse_mode_combo') else "classic"
-        enabled = (mode == "hybrid")
-        if hasattr(self, 'hybrid_params_container'):
+        mode = (
+            self.mouse_mode_combo.currentData() if hasattr(self, "mouse_mode_combo") else "classic"
+        )
+        enabled = mode == "hybrid"
+        if hasattr(self, "hybrid_params_container"):
             self.hybrid_params_container.setEnabled(bool(enabled))
+
+    def _update_local_var_relay_controls_enabled(self) -> None:
+        """根据“长连线中转”开关，启用/禁用阈值滑块与输入框。"""
+        enabled = (
+            bool(self.local_var_relay_checkbox.isChecked())
+            if hasattr(self, "local_var_relay_checkbox")
+            else False
+        )
+        if hasattr(self, "local_var_relay_length_slider"):
+            self.local_var_relay_length_slider.setEnabled(enabled)
+        if hasattr(self, "local_var_relay_length_spinbox"):
+            self.local_var_relay_length_spinbox.setEnabled(enabled)
+
+    def _update_fast_preview_threshold_controls_enabled(self) -> None:
+        enabled = (
+            bool(self.graph_fast_preview_checkbox.isChecked())
+            if hasattr(self, "graph_fast_preview_checkbox")
+            else False
+        )
+        node_box = getattr(self, "graph_fast_preview_node_threshold_spinbox", None)
+        edge_box = getattr(self, "graph_fast_preview_edge_threshold_spinbox", None)
+        if isinstance(node_box, QtWidgets.QWidget):
+            node_box.setEnabled(enabled)
+        if isinstance(edge_box, QtWidgets.QWidget):
+            edge_box.setEnabled(enabled)
+
+    def _update_basic_block_alpha_controls_enabled(self) -> None:
+        enabled = (
+            bool(self.show_basic_blocks_checkbox.isChecked())
+            if hasattr(self, "show_basic_blocks_checkbox")
+            else False
+        )
+        slider = getattr(self, "basic_block_alpha_slider", None)
+        box = getattr(self, "basic_block_alpha_spinbox", None)
+        if isinstance(slider, QtWidgets.QWidget):
+            slider.setEnabled(enabled)
+        if isinstance(box, QtWidgets.QWidget):
+            box.setEnabled(enabled)
+
+    def _update_graph_lod_controls_enabled(self) -> None:
+        """根据 LOD 总开关启用/禁用子控件。"""
+        enabled = (
+            bool(self.graph_lod_enabled_checkbox.isChecked())
+            if hasattr(self, "graph_lod_enabled_checkbox")
+            else False
+        )
+        container = getattr(self, "graph_lod_params_container", None)
+        if isinstance(container, QtWidgets.QWidget):
+            container.setEnabled(enabled)
+        self._update_graph_block_overview_controls_enabled()
+
+    def _update_graph_block_overview_controls_enabled(self) -> None:
+        """根据“鸟瞰模式”开关启用/禁用其参数区。"""
+        lod_enabled = (
+            bool(self.graph_lod_enabled_checkbox.isChecked())
+            if hasattr(self, "graph_lod_enabled_checkbox")
+            else False
+        )
+        overview_enabled = (
+            bool(self.graph_block_overview_enabled_checkbox.isChecked())
+            if hasattr(self, "graph_block_overview_enabled_checkbox")
+            else False
+        )
+        enabled = bool(lod_enabled and overview_enabled)
+        container = getattr(self, "graph_block_overview_params_container", None)
+        if isinstance(container, QtWidgets.QWidget):
+            container.setEnabled(enabled)
+
+    def _update_graph_grid_controls_enabled(self) -> None:
+        """根据“显示画布网格”开关启用/禁用网格参数。"""
+        enabled = (
+            bool(self.graph_grid_enabled_checkbox.isChecked())
+            if hasattr(self, "graph_grid_enabled_checkbox")
+            else True
+        )
+        box = getattr(self, "graph_grid_min_px_spinbox", None)
+        if isinstance(box, QtWidgets.QWidget):
+            box.setEnabled(enabled)
+
+    def _resync_active_graph_scene_after_settings_change(self) -> None:
+        """让当前打开的 GraphScene 重新同步 LOD/可见性与叠加层（无需用户手动缩放触发）。"""
+        parent = self.parent()
+        if parent is None:
+            return
+
+        app_state = getattr(parent, "app_state", None)
+        graph_view = getattr(app_state, "graph_view", None) if app_state is not None else None
+        if graph_view is None:
+            graph_view = getattr(parent, "graph_view", None)
+        if graph_view is None:
+            # 兜底：从当前 QApplication 找任意 GraphView（避免主窗口结构调整后找不到引用）
+            from app.ui.graph.graph_view import GraphView
+
+            app = QtWidgets.QApplication.instance()
+            if app is not None:
+                for w in list(app.allWidgets() or []):
+                    if isinstance(w, GraphView):
+                        graph_view = w
+                        break
+        if graph_view is None or not hasattr(graph_view, "scene"):
+            return
+
+        scene = graph_view.scene()
+        if scene is None:
+            return
+
+        set_hint = getattr(scene, "set_view_scale_hint", None)
+        # 关键：使用视图的真实缩放比例（transform.m11），而不是 scene.view_scale_hint（可能尚未通过 paintEvent 同步）。
+        current_scale: float | None = None
+        get_transform = getattr(graph_view, "transform", None)
+        if callable(get_transform):
+            transform = get_transform()
+            if isinstance(transform, QtGui.QTransform):
+                current_scale = float(transform.m11())
+        if current_scale is None or current_scale <= 0.0:
+            current_scale = float(getattr(scene, "view_scale_hint", 1.0) or 1.0)
+
+        if callable(set_hint):
+            set_hint(float(current_scale))
+        else:
+            setattr(scene, "view_scale_hint", float(current_scale))
+
+        update_scene = getattr(scene, "update", None)
+        if callable(update_scene):
+            update_scene()
+
+        update_view = getattr(graph_view, "update", None)
+        if callable(update_view):
+            update_view()
+
+        viewport = getattr(graph_view, "viewport", None)
+        if callable(viewport):
+            vp = viewport()
+            if isinstance(vp, QtWidgets.QWidget):
+                vp.update()
+
+        # 画布性能面板：设置里开关后立即刷新可见性（避免需要切换页面才生效）
+        refresh_perf = getattr(graph_view, "refresh_perf_panel_visibility", None)
+        if callable(refresh_perf):
+            refresh_perf()
+
+        # 全局性能悬浮面板：设置里开关后立即刷新可见性（所有页面可见）
+        refresh_app_perf = getattr(parent, "refresh_app_performance_monitor_visibility", None)
+        if callable(refresh_app_perf):
+            refresh_app_perf()
 
     def _clear_all_caches(self) -> None:
         """清除所有缓存（内存+持久化的节点图缓存）"""
@@ -598,10 +780,14 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
 
         app_state = getattr(parent, "app_state", None) if parent is not None else None
         resource_manager = (
-            getattr(app_state, "resource_manager", None) if app_state is not None else getattr(parent, "resource_manager", None)
+            getattr(app_state, "resource_manager", None)
+            if app_state is not None
+            else getattr(parent, "resource_manager", None)
         )
         package_index_manager = (
-            getattr(app_state, "package_index_manager", None) if app_state is not None else getattr(parent, "package_index_manager", None)
+            getattr(app_state, "package_index_manager", None)
+            if app_state is not None
+            else getattr(parent, "package_index_manager", None)
         )
         if resource_manager is None:
             self.show_warning("无法执行", "未找到资源管理器实例，清除缓存失败。")
@@ -610,10 +796,7 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         nav_coordinator = getattr(parent, "nav_coordinator", None)
         file_watcher_manager = getattr(parent, "file_watcher_manager", None)
         graph_property_panel = getattr(parent, "graph_property_panel", None)
-        had_active_graph = bool(
-            graph_controller
-            and getattr(graph_controller, "current_graph_id", None)
-        )
+        had_active_graph = bool(graph_controller and getattr(graph_controller, "current_graph_id", None))
         result = resource_manager.clear_all_caches()
         removed = int(result.get("removed_persistent_files", 0))
         payload_provider = get_shared_graph_data_service(resource_manager, package_index_manager)
@@ -633,7 +816,7 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
             extra = "\n\n当前打开的节点图已关闭，您已回到节点图列表。请重新打开目标节点图以继续编辑。"
         self.show_info(
             "完成",
-            f"已清除所有缓存。\n\n磁盘缓存删除 {removed} 个文件，内存缓存已清空（graph_data: {removed_payload_items} 条）。{extra}"
+            f"已清除所有缓存。\n\n磁盘缓存删除 {removed} 个文件，内存缓存已清空（graph_data: {removed_payload_items} 条）。{extra}",
         )
 
     def _reset_graph_editor_after_cache_clear(
@@ -666,5 +849,4 @@ class SettingsDialog(BaseDialog, ConfirmDialogMixin):
         """设置页遵循全局滚轮防误触规则，此处保持占位以兼容旧代码。"""
         # 全局过滤器已在 ThemeManager.apply_app_style 中安装，这里无需再做额外处理。
         return
-
 

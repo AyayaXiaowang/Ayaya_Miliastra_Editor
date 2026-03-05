@@ -1,0 +1,29 @@
+{
+  "instance_id": "level_pkg_test",
+  "name": "关卡实体",
+  "template_id": "level_pkg_test",
+  "position": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "rotation": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "override_variables": [],
+  "additional_graphs": [
+    "server_test_project_level7_ingame_global_controller",
+    "server_test_project_ui_level_select_level7_timer_executor",
+    "server_test_project_level7_postdoor_relative_spawn"
+  ],
+  "additional_components": [],
+  "metadata": {
+    "is_level_entity": true,
+    "entity_type": "关卡",
+    "custom_variable_file": "auto_custom_vars__level__示例项目_第七关"
+  },
+  "graph_variable_overrides": {},
+  "updated_at": "2025-12-25T22:30:00.000000"
+}

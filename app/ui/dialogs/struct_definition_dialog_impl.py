@@ -8,6 +8,7 @@ from engine.configs.specialized.node_graph_configs import (
     STRUCT_TYPE_BASIC,
 )
 from app.ui.dialogs.struct_definition_types import (
+    canonical_to_param_type,
     is_dict_type,
     is_list_type,
     is_struct_type,
@@ -403,6 +404,17 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
             # 使用中文类型名
             key_type_name = "字符串"
             value_type_name = "字符串"
+            # 兼容别名字典类型：键类型-值类型字典 / 键类型_值类型字典
+            from engine.type_registry import parse_typed_dict_alias
+
+            is_typed_dict, alias_key_type, alias_value_type = parse_typed_dict_alias(
+                canonical_type_name
+            )
+            if is_typed_dict:
+                if alias_key_type:
+                    key_type_name = alias_key_type
+                if alias_value_type:
+                    value_type_name = alias_value_type
 
             dict_entries: List[Dict[str, object]] = []
             for key_text, value_text in entries:
@@ -419,10 +431,13 @@ class StructDefinitionEditorWidget(QtWidgets.QWidget):
                     }
                 )
 
+            # Dict 内部 key_type/value_type 使用英文类型名（与既有资源保持一致）
+            key_type_param = canonical_to_param_type(key_type_name)
+            value_type_param = canonical_to_param_type(value_type_name)
             inner_value = {
                 "type": "Dict",
-                "key_type": key_type_name,
-                "value_type": value_type_name,
+                "key_type": key_type_param,
+                "value_type": value_type_param,
                 "value": dict_entries,
             }
             return {

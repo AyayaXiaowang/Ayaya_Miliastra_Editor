@@ -58,6 +58,9 @@ class GraphReferencesTableWidget(QtWidgets.QWidget):
                 "template": "📦 元件",
                 "instance": "🎯 实体",
                 "level_entity": "🗺️ 关卡实体",
+                "combat_player_template": "🧑 玩家模板",
+                "combat_player_class": "🛡️ 职业",
+                "combat_skill": "🪄 技能",
             }.get(entity_type, entity_type)
 
             type_item = QtWidgets.QTableWidgetItem(type_text)
@@ -86,7 +89,7 @@ class GraphReferencesTableWidget(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         info_label = QtWidgets.QLabel(
-            "💡 以下列出了使用此节点图的所有元件和实例。\n"
+            "💡 以下列出了引用此节点图的所有资源（元件/实体摆放/关卡实体/战斗预设等）。\n"
             "双击条目或点击“操作”列可以跳转到对应的编辑界面。"
         )
         info_label.setWordWrap(True)

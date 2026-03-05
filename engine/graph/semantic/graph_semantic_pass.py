@@ -96,7 +96,6 @@ class GraphSemanticPass:
     - 节点 `input_constants`：
       - 可见选择端口：`信号名` / `结构体名`
       - 隐藏稳定 ID：`__signal_id` / `__struct_id`
-    -（迁移兼容）旧的 metadata bindings：仅作为“保留稳定 ID”的回退，不做局部合并。
 
     输出策略：
     - **覆盖式重建**：每次运行都会重建整张图的 bindings 映射，并覆盖写回 metadata。
@@ -137,24 +136,9 @@ class GraphSemanticPass:
         return id_by_name
 
     @staticmethod
-    def _extract_previous_signal_ids(model: GraphModel) -> Dict[str, str]:
-        bindings_raw = (getattr(model, "metadata", None) or {}).get(SIGNAL_BINDINGS_METADATA_KEY) or {}
-        if not isinstance(bindings_raw, dict):
-            return {}
-        previous: Dict[str, str] = {}
-        for node_id, info in bindings_raw.items():
-            if not isinstance(info, dict):
-                continue
-            signal_id_text = _safe_text(info.get("signal_id"))
-            if signal_id_text:
-                previous[str(node_id)] = signal_id_text
-        return previous
-
-    @staticmethod
     def _apply_signal_bindings(model: GraphModel) -> None:
         signal_payloads = GraphSemanticPass._load_signal_payloads()
         signal_id_by_name = GraphSemanticPass._build_signal_id_by_name(signal_payloads)
-        previous_by_node = GraphSemanticPass._extract_previous_signal_ids(model)
 
         new_bindings: Dict[str, Dict[str, str]] = {}
 
@@ -168,11 +152,7 @@ class GraphSemanticPass:
             # 1) 优先使用“隐藏稳定 ID”
             signal_id = _safe_text(constants.get(SEMANTIC_SIGNAL_ID_CONSTANT_KEY))
 
-            # 2) 迁移兼容：若隐藏 ID 缺失，则回退到旧的 metadata bindings
-            if not signal_id:
-                signal_id = _safe_text(previous_by_node.get(str(node_id)))
-
-            # 3) 最后使用“信号名”常量推导
+            # 2) 最后使用“信号名”常量推导
             if not signal_id:
                 literal = _safe_text(constants.get(SIGNAL_NAME_PORT_NAME))
                 if literal:
@@ -233,27 +213,16 @@ class GraphSemanticPass:
         for struct_id, payload in structs_by_id.items():
             if not isinstance(payload, Mapping):
                 continue
-            name_text = _safe_text(payload.get("name")) or _safe_text(payload.get("struct_name"))
+            # “结构体名”入参只接受结构体定义中的 `struct_name`（唯一名称），不再兼容传 STRUCT_ID 或 name。
+            name_text = _safe_text(payload.get("struct_name"))
             if name_text:
                 id_by_name.setdefault(name_text, str(struct_id))
-            id_by_name.setdefault(str(struct_id), str(struct_id))
         return id_by_name
 
     @staticmethod
     def _extract_struct_defined_fields(struct_payload: Mapping[str, Any]) -> Set[str]:
         fields: Set[str] = set()
 
-        # 兼容 schema 形态 A：value = [{"key": "...", "param_type": "..."}]
-        value_entries = struct_payload.get("value")
-        if isinstance(value_entries, Sequence) and not isinstance(value_entries, (str, bytes)):
-            for entry in value_entries:
-                if not isinstance(entry, Mapping):
-                    continue
-                name_text = _safe_text(entry.get("key"))
-                if name_text:
-                    fields.add(name_text)
-
-        # 兼容 schema 形态 B：fields = [{"field_name": "...", "param_type": "..."}]
         fields_entries = struct_payload.get("fields")
         if isinstance(fields_entries, Sequence) and not isinstance(fields_entries, (str, bytes)):
             for entry in fields_entries:
@@ -264,20 +233,6 @@ class GraphSemanticPass:
                     fields.add(name_text)
 
         return fields
-
-    @staticmethod
-    def _extract_previous_struct_ids(model: GraphModel) -> Dict[str, str]:
-        bindings_raw = (getattr(model, "metadata", None) or {}).get(STRUCT_BINDINGS_METADATA_KEY) or {}
-        if not isinstance(bindings_raw, dict):
-            return {}
-        previous: Dict[str, str] = {}
-        for node_id, payload in bindings_raw.items():
-            if not isinstance(payload, dict):
-                continue
-            struct_id_text = _safe_text(payload.get("struct_id"))
-            if struct_id_text:
-                previous[str(node_id)] = struct_id_text
-        return previous
 
     @staticmethod
     def _infer_struct_id_by_fields(
@@ -301,7 +256,6 @@ class GraphSemanticPass:
     def _apply_struct_bindings(model: GraphModel) -> None:
         structs_by_id = GraphSemanticPass._load_basic_struct_definitions()
         struct_id_by_name = GraphSemanticPass._build_struct_id_by_name(structs_by_id)
-        previous_by_node = GraphSemanticPass._extract_previous_struct_ids(model)
 
         defined_fields_by_id: Dict[str, Set[str]] = {}
         for struct_id, payload in structs_by_id.items():
@@ -323,17 +277,13 @@ class GraphSemanticPass:
             # 1) 优先使用隐藏稳定 ID
             struct_id = _safe_text(constants.get(SEMANTIC_STRUCT_ID_CONSTANT_KEY))
 
-            # 2) 其次使用结构体名常量推导（既支持 name 也支持 struct_id）
+            # 2) 其次使用结构体名常量推导（只支持 struct_name；不再兼容 struct_id / name）
             if not struct_id:
                 struct_name_constant = _safe_text(constants.get(STRUCT_NAME_PORT_NAME))
                 if struct_name_constant:
                     struct_id = _safe_text(struct_id_by_name.get(struct_name_constant))
 
-            # 3) 迁移兼容：回退到旧的 metadata bindings
-            if not struct_id:
-                struct_id = _safe_text(previous_by_node.get(str(node_id)))
-
-            # 4) 最后尝试“按字段集合反推唯一结构体”（仅在未填写结构体名时启用）
+            # 3) 最后尝试“按字段集合反推唯一结构体”（仅在未填写结构体名时启用）
             if not struct_id:
                 struct_name_constant = _safe_text(constants.get(STRUCT_NAME_PORT_NAME))
                 if not struct_name_constant:
@@ -350,8 +300,7 @@ class GraphSemanticPass:
             struct_payload = structs_by_id.get(str(struct_id))
             if isinstance(struct_payload, dict):
                 struct_name = (
-                    _safe_text(struct_payload.get("name"))
-                    or _safe_text(struct_payload.get("struct_name"))
+                    _safe_text(struct_payload.get("struct_name"))
                     or str(struct_id)
                 )
                 defined_fields = defined_fields_by_id.get(str(struct_id)) or set()

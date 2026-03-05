@@ -1,4 +1,4 @@
-"""全局视图/未分类视图保存服务。"""
+"""全局视图保存服务。"""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from engine.resources.ingame_save_template_schema_view import (
     update_default_template_id,
 )
 from engine.resources.resource_manager import ResourceManager, ResourceType
-from engine.resources.unclassified_resource_view import UnclassifiedResourceView
 from app.ui.controllers.package_dirty_state import PackageDirtyState
 
 from .fingerprint_baseline_service import FingerprintBaselineService
@@ -45,7 +44,7 @@ class SpecialViewSaveService:
         force_full: bool,
         request_save_current_graph: Callable[[], None],
     ) -> bool:
-        """在全局/未分类视图下按需保存。"""
+        """在全局视图下按需保存。"""
         did_write = False
 
         if force_full or dirty_snapshot.graph_dirty:
@@ -89,7 +88,7 @@ class SpecialViewSaveService:
         if did_write:
             self._fingerprint_baseline_service.refresh_after_write()
             print(
-                "[PACKAGE-SAVE] 已保存全局/未分类视图下的资源，"
+                "[PACKAGE-SAVE] 已保存全局视图下的资源，"
                 f"mode={current_package_id!r}"
             )
 
@@ -120,7 +119,7 @@ class SpecialViewSaveService:
         )
 
     def _save_management_for_special_view(self, package: object, *, allowed_keys: set[str] | None) -> None:
-        """在全局视图/未分类视图下，将管理页面编辑的配置直接写回管理配置资源。"""
+        """在全局视图下，将管理页面编辑的配置直接写回管理配置资源。"""
         management = getattr(package, "management", None)
         if management is None:
             return
@@ -163,7 +162,7 @@ class SpecialViewSaveService:
                 self._resource_manager.save_resource(resource_type, resource_id, payload)
 
     def _save_single_config_save_points(self, raw_value: object) -> None:
-        """在全局/未分类视图下，将 management.save_points 的“当前模板状态”写回模板。"""
+        """在全局视图下，将 management.save_points 的“当前模板状态”写回模板。"""
         if not isinstance(raw_value, dict):
             return
 

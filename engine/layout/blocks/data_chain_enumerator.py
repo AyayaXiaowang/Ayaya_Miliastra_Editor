@@ -54,8 +54,13 @@ class DataChainEnumerator:
         self._max_per_block = self._budget.max_per_block
         self._budget_remaining: Optional[int] = self._max_per_block if self._max_per_block > 0 else None
         self._exhausted_chain_budget = False
+        # 记录是否命中过链遍历限额（例如 max_per_node / max_per_start 等）。
+        # 注意：命中限额不应中止整个块的链枚举，否则后续流程节点的输入边会缺失链信息，
+        # 进而在 X 轴放置阶段出现“右→左折返线”或 UI 提示“未被任何数据链引用”。
+        self._hit_traversal_limits: bool = False
         # 共享"节点→路径列表"缓存
-        self._shared_paths_cache: Dict[str, List[tuple]] = {}
+        # 注意：链遍历对某些节点（如【获取局部变量】）是“端口感知”的，缓存 key 必须包含输出端口名。
+        self._shared_paths_cache: Dict[tuple[str, str], List[tuple]] = {}
 
     def enumerate_all_chains(self) -> None:
         """枚举所有数据链"""
@@ -77,17 +82,25 @@ class DataChainEnumerator:
                 if self._exhausted_chain_budget:
                     return
                 start_data_id = edge.src_node
+                start_data_output_port = str(getattr(edge, "src_port", "") or "")
                 if not self.context.is_pure_data_node(start_data_id):
                     continue
                 consumer_port_name = edge.dst_port
                 consumer_port_index = self.context.get_input_port_index(consumer_id, consumer_port_name)
-                self._enumerate_from_start(start_data_id, consumer_id, consumer_port_name, consumer_port_index)
+                self._enumerate_from_start(
+                    start_data_id,
+                    start_data_output_port,
+                    consumer_id,
+                    consumer_port_name,
+                    consumer_port_index,
+                )
                 if self._exhausted_chain_budget:
                     return
 
     def _enumerate_from_start(
         self,
         start_data_id: str,
+        start_data_output_port: str,
         consumer_flow_id: str,
         consumer_port_name: Optional[str],
         consumer_port_index: Optional[int],
@@ -99,6 +112,7 @@ class DataChainEnumerator:
         paths_result: ChainPathsResult = collect_data_chain_paths(
             model=self.context.model,
             start_data_id=start_data_id,
+            start_data_output_port=str(start_data_output_port or ""),
             flow_id_set=self.context.flow_id_set,
             skip_data_ids=set(),  # 不再需要 skip 集合
             get_data_in_edges_func=self.context.get_in_data_edges,
@@ -121,7 +135,7 @@ class DataChainEnumerator:
                 nodes_list=path_nodes,
                 src_flow_id=src_flow_id,
                 is_flow_origin=is_flow_origin,
-                extra=(consumer_flow_id, consumer_port_name, consumer_port_index),
+                extra=(consumer_flow_id, consumer_port_name, consumer_port_index, str(start_data_output_port or "")),
             )
             if signature in self._seen_chain_signatures:
                 continue
@@ -170,7 +184,9 @@ class DataChainEnumerator:
                     break
 
         if paths_result.exhausted:
-            self._exhausted_chain_budget = True
+            # 该起点的链枚举被截断（限流触发），但仍应继续处理后续流程节点/输入端口，
+            # 以保证每条“流程入参数据边”至少拥有基础链信息，避免布局折返与链路缺失。
+            self._hit_traversal_limits = True
 
     @property
     def exhausted_chain_budget(self) -> bool:
@@ -182,8 +198,13 @@ class DataChainEnumerator:
         src_flow_id: str,
     ) -> int:
         """计算链在流程对之间的有效长度"""
+        # 关键点：
+        # - `path_nodes` 的顺序为“从消费者侧到上游侧”（index 越小越靠近消费者）。
+        # - 为避免出现“流程节点输出 → 数据节点（在更靠左的列）”的折返线，
+        #   这里需要保证**所有直接消费该 src_flow 输出的节点**都有足够的列空间放在 src_flow 的右侧。
+        # - 因此有效长度取“所有命中入口的最大 index + 1”，而不是第一个命中入口（最小 index）。
         effective_length = len(path_nodes)
-        entry_index: Optional[int] = None
+        max_entry_index: Optional[int] = None
 
         for index, data_id in enumerate(path_nodes):
             incoming_edges = self.context.get_in_data_edges(data_id)
@@ -191,12 +212,11 @@ class DataChainEnumerator:
                 continue
             for edge in incoming_edges:
                 if edge.src_node == src_flow_id:
-                    entry_index = index
+                    if max_entry_index is None or index > max_entry_index:
+                        max_entry_index = index
                     break
-            if entry_index is not None:
-                break
 
-        if entry_index is not None:
-            effective_length = entry_index + 1
+        if max_entry_index is not None:
+            effective_length = max_entry_index + 1
 
-        return effective_length
+        return int(effective_length)

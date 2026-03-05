@@ -9,12 +9,20 @@ from engine.configs.settings import settings
 from .pipeline.runner import run_pipeline
 
 
-def load_all_nodes_from_impl(workspace_path: Path, include_composite: bool = True, verbose: bool = False) -> Dict[str, NodeDef]:
+def load_all_nodes_from_impl(
+    workspace_path: Path,
+    include_composite: bool = True,
+    verbose: bool = False,
+    *,
+    inject_alias_keys: bool | None = None,
+) -> Dict[str, NodeDef]:
     """从实现库构建 NodeDef 库（实现侧唯一权威来源）。
 
     说明：
     - V2 管线只解析 `plugins/nodes/**.py`，不做 import，避免副作用；
     - 该加载器基于管线产物构建 NodeDef 字典。
+    - 默认会根据 settings.NODE_ALIAS_INJECT_IN_LIBRARY 决定是否为每个别名注入“类别/别名”的直达键；
+      manifest 导出/回归等需要稳定口径时，可通过 inject_alias_keys=False 禁止注入。
     """
     library: Dict[str, NodeDef] = {}
 
@@ -52,6 +60,7 @@ def load_all_nodes_from_impl(workspace_path: Path, include_composite: bool = Tru
         output_names = _pair_names(outputs_pairs) or list(output_types.keys())
 
         node = NodeDef(
+            canonical_key=str(node_key),
             name=name_text,
             category=category_standard,
             inputs=input_names,
@@ -60,8 +69,10 @@ def load_all_nodes_from_impl(workspace_path: Path, include_composite: bool = Tru
             scopes=list(item.get("scopes") or []),
             mount_restrictions=list(item.get("mount_restrictions") or []),
             doc_reference=str(item.get("doc_reference") or ""),
+            semantic_id=str(item.get("semantic_id") or "").strip(),
             input_types=input_types,
             output_types=output_types,
+            input_defaults=dict(item.get("input_defaults") or {}),
             dynamic_port_type=str(item.get("dynamic_port_type") or ""),
             is_composite=False,
             composite_id="",
@@ -69,11 +80,18 @@ def load_all_nodes_from_impl(workspace_path: Path, include_composite: bool = Tru
             output_generic_constraints=dict(item.get("output_generic_constraints") or {}),
             input_enum_options=dict(item.get("input_enum_options") or {}),
             output_enum_options=dict(item.get("output_enum_options") or {}),
+            input_port_aliases=dict(item.get("input_port_aliases") or {}),
+            output_port_aliases=dict(item.get("output_port_aliases") or {}),
         )
         library[node_key] = node
 
     # 为别名注册直达键（保持对外输入兼容）
-    if getattr(settings, "NODE_ALIAS_INJECT_IN_LIBRARY", True):
+    resolved_inject_alias_keys = (
+        bool(getattr(settings, "NODE_ALIAS_INJECT_IN_LIBRARY", True))
+        if inject_alias_keys is None
+        else bool(inject_alias_keys)
+    )
+    if resolved_inject_alias_keys:
         for alias_key, mapped_key in alias_to_key.items():
             if mapped_key in library and alias_key not in library:
                 library[alias_key] = library[mapped_key]

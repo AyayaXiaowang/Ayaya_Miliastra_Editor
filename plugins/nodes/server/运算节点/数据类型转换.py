@@ -10,6 +10,11 @@ from engine.utils.logging.logger import log_info
     outputs=[("输出", "泛型")],
     description="将输入的参数类型转换为另一种类型输出。具体规则见基础概念-【基础数据类型之间的转换规则】",
     doc_reference="服务器节点/运算节点/运算节点.md",
+    # 转换关系以 `engine.type_registry.TYPE_CONVERSIONS` 为权威，规则要点：
+    # - 布尔值仅支持从整数转换
+    # - 浮点数仅支持从整数转换
+    # - 字符串支持从整数/实体/GUID/布尔值/浮点数/三维向量/阵营转换
+    # - 整数仅支持从布尔值/浮点数转换
     input_generic_constraints={
         "输入": ["整数", "实体", "GUID", "布尔值", "浮点数", "三维向量", "阵营"],
     },

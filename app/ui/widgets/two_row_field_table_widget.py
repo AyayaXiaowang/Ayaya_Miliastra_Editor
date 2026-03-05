@@ -35,6 +35,8 @@ from app.ui.foundation.context_menu_builder import ContextMenuBuilder
 from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 from app.ui.widgets.two_row_field_value_cell_factory import TwoRowFieldValueCellFactory
 
+from engine.configs.settings import settings
+
 
 class FieldTypeComboBox(ScrollSafeComboBox):
     """字段"数据类型"下拉框：在保持通用滚轮保护行为的基础上，用于两行字段表格。
@@ -488,7 +490,17 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
         # 类型列
         type_combo = FieldTypeComboBox(self.table)
         type_combo.addItems(self._supported_types)
-        default_type_name = type_name if type_name in self._supported_types else ""
+        # 兼容“别名类型”（例如别名字典：GUID-整数字典）：
+        # - 支持从现有数据加载并展示该类型；
+        # - 由于它不在基础下拉集合中，需按行插入以避免回退为默认类型。
+        raw_type_name = str(type_name or "").strip()
+        if raw_type_name and raw_type_name not in self._supported_types:
+            # insertItem 会自动去重吗？不会，因此先检查当前下拉是否已有该条目。
+            if type_combo.findText(raw_type_name) < 0:
+                type_combo.insertItem(0, raw_type_name)
+            default_type_name = raw_type_name
+        else:
+            default_type_name = type_name if type_name in self._supported_types else ""
         if not default_type_name and self._supported_types:
             default_type_name = self._supported_types[0]
         if default_type_name:
@@ -667,14 +679,15 @@ class TwoRowFieldTableWidget(QtWidgets.QWidget):
             kind = "字典"
         actual_height = self.table.rowHeight(row_index)
         hint_height = value_widget.sizeHint().height()
-        print(
-            "[UI调试/TwoRowField]",
-            f"kind={kind}",
-            f"row_index={row_index}",
-            f"hint_height={hint_height}",
-            f"target_height={int(target_height)}",
-            f"actual_height={actual_height}",
-        )
+        if settings.UI_TWO_ROW_FIELD_DEBUG_PRINT:
+            print(
+                "[UI调试/TwoRowField]",
+                f"kind={kind}",
+                f"row_index={row_index}",
+                f"hint_height={hint_height}",
+                f"target_height={int(target_height)}",
+                f"actual_height={actual_height}",
+            )
 
     # ------------------------------------------------------------------
     # 事件处理

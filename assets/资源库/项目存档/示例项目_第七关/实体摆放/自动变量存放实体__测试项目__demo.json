@@ -1,0 +1,32 @@
+{
+  "instance_id": "instance_auto_custom_var_store_b9ec9d81__测试项目",
+  "name": "自动变量存放实体__测试项目__demo",
+  "template_id": "template_auto_custom_var_store_b9ec9d81__测试项目",
+  "position": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "rotation": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "scale": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "override_variables": [],
+  "additional_graphs": [],
+  "additional_components": [],
+  "graph_variable_overrides": {},
+  "metadata": {
+    "entity_type": "物件",
+    "purpose": "auto_custom_var_store",
+    "auto_generated": true,
+    "auto_data_store_key": "demo",
+    "guid": 1898058694,
+    "custom_variable_file": []
+  }
+}

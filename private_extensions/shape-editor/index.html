@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:," />
+    <title>千星画板 - 形状编辑器</title>
+    <!-- 引入 Common CSS -->
+    <link rel="stylesheet" href="../../common.css">
+    <!-- 引入 Tailwind (CDN for utility classes) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Fabric.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <style>
+        /* 统一风格：对齐 private_extensions/千星沙箱网页处理工具/ui_app_ui_preview.html */
+        :root {
+            color-scheme: dark;
+            --bg-app: #121212;
+            --bg-panel: #1e1e1e;
+            --bg-header: #252526;
+            --bg-input: #2d2d2d;
+            --border: #333;
+            --border-active: #555;
+            --text: #e0e0e0;
+            --muted: #888;
+            --accent: #3794ff;
+            --radius: 8px;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        body { background: var(--bg-app); color: var(--text); font-family: var(--font); font-size: 13px; }
+
+        .app { height: 100vh; display: flex; flex-direction: column; }
+        .header {
+            height: 48px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            background: var(--bg-header);
+            border-bottom: 1px solid var(--border);
+        }
+        .title { font-weight: 800; font-size: 14px; display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+        .subtitle { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .spacer { flex: 1; }
+
+        .btn {
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text);
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+        }
+        .btn:hover { border-color: var(--border-active); background: #3a3a3a; }
+        .btn.primary { border-color: rgba(55,148,255,0.55); background: rgba(55,148,255,0.18); }
+        .btn.primary:hover { background: rgba(55,148,255,0.26); }
+
+        .main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+        /* 强制覆盖 common.css 中的容器限制，以占满屏幕 */
+        #app-container {
+            flex: 1;
+            min-height: 0;
+            width: 100vw !important;
+            height: auto !important;
+            max-width: none !important;
+            aspect-ratio: auto !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            display: flex !important;
+            flex-direction: row;
+            align-items: stretch;
+            overflow: hidden;
+        }
+
+        .tool-panel {
+            width: 460px;
+            flex-shrink: 0;
+            min-height: 0;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 12px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .properties-panel {
+            width: 360px;
+            flex-shrink: 0;
+            min-height: 0;
+            background: var(--bg-panel);
+            border-left: 1px solid var(--border);
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-section {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /* Prevent horizontal overflow caused by flex min-content sizing */
+        .tool-panel > *,
+        .panel-section > * {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        /* Text wrapping: break long paths/english tokens instead of overflowing */
+        .tool-panel,
+        .panel-section,
+        #log-window,
+        .pixel-meta,
+        .px-wb-hint,
+        .toast .t-msg {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .section-title {
+            height: 30px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            user-select: none;
+            min-width: 0;
+        }
+
+        .btn-small {
+            height: 28px;
+            padding: 0 10px;
+            font-size: 12px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text);
+            cursor: pointer;
+        }
+        .btn-small:hover { border-color: var(--border-active); background: #3a3a3a; }
+        .btn-small.btn-primary { border-color: rgba(55,148,255,0.55); background: rgba(55,148,255,0.18); }
+        .btn-small.btn-primary:hover { background: rgba(55,148,255,0.26); }
+
+        input[type="number"], input[type="text"], select {
+            height: 28px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0 10px;
+            font-size: 12px;
+            border-radius: 7px;
+            width: 100%;
+            outline: none;
+        }
+        input[type="number"] { width: 80px; }
+        input[type="text"]:focus, select:focus, input[type="number"]:focus {
+            border-color: rgba(55,148,255,0.85);
+            box-shadow: 0 0 0 2px rgba(55,148,255,0.15);
+        }
+
+        .canvas-area {
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+            background-color: #0d0d0d;
+            background-image: radial-gradient(#2a2a2a 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .color-btn {
+            width: 22px;
+            height: 22px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.08s, border-color 0.08s;
+        }
+        .color-btn:hover { transform: scale(1.08); border-color: rgba(55,148,255,0.85); }
+        .color-btn.active {
+            transform: scale(1.08);
+            border-color: rgba(55,148,255,0.85);
+            box-shadow: 0 0 0 2px rgba(55,148,255,0.18);
+        }
+
+        .btn-small.active {
+            border-color: rgba(55,148,255,0.85);
+            background: rgba(55,148,255,0.16);
+        }
+
+        /* right panel layout: keep logs visible */
+        .layers-section {
+            flex: 0 0 auto;
+            max-height: min(52vh, 520px);
+        }
+        .props-section {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .pixel-preview {
+            display: block;
+            /* 允许工作台内“放大超过容器”并配合平移查看 */
+            max-width: none;
+            max-height: none;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: rgba(0,0,0,0.18);
+            image-rendering: pixelated;
+            user-select: none;
+            touch-action: none;
+            will-change: transform;
+        }
+        .pixel-preview.editing { cursor: crosshair; }
+        .pixel-meta {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.3;
+            white-space: pre-wrap;
+        }
+
+        /* middle tabs (center overlay) */
+        .mid-tabs {
+            position: absolute;
+            left: 50%;
+            top: 10px;
+            transform: translateX(-50%);
+            z-index: 40;
+            display: flex;
+            gap: 8px;
+            padding: 6px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(20,20,20,0.78);
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+        }
+        .mid-tab-btn {
+            height: 28px;
+            padding: 0 12px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+        }
+        .mid-tab-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.10); background: rgba(255,255,255,0.04); }
+        .mid-tab-btn.active { color: var(--text); border-color: rgba(55,148,255,0.65); background: rgba(55,148,255,0.12); }
+
+        /* pixel workbench (center) */
+        .px-workbench-backdrop {
+            position: absolute;
+            inset: 0;
+            z-index: 34;
+            background: rgba(0,0,0,0.35);
+            backdrop-filter: blur(2px);
+        }
+        .px-workbench {
+            position: absolute;
+            inset: 0;
+            z-index: 35;
+            width: auto;
+            height: auto;
+            border-radius: 0;
+            border: none;
+            background: rgba(18,18,18,0.96);
+            box-shadow: none;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .px-wb-header {
+            height: 44px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 12px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+        }
+        .px-wb-tabs { display: flex; gap: 6px; }
+        .px-wb-tab {
+            height: 28px;
+            padding: 0 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--muted);
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+        }
+        .px-wb-tab:hover { border-color: var(--border-active); color: var(--text); }
+        .px-wb-tab.active { border-color: rgba(55,148,255,0.65); background: rgba(55,148,255,0.14); color: var(--text); }
+        .px-wb-body {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+        }
+        .px-wb-preview {
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .px-wb-preview-wrap {
+            flex: 1 1 auto;
+            min-height: 0;
+            position: relative;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(0,0,0,0.16);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            overflow: hidden;
+        }
+        .px-brush-indicator {
+            position: absolute;
+            pointer-events: none;
+            border: 2px solid rgba(55,148,255,0.85);
+            border-radius: 10px;
+            background: rgba(55,148,255,0.10);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 12px 26px rgba(0,0,0,0.35);
+        }
+        .px-brush-indicator.not-allowed {
+            border-color: rgba(255,99,99,0.75);
+            background: rgba(255,99,99,0.10);
+        }
+        .px-wb-side {
+            width: 380px;
+            flex-shrink: 0;
+            min-height: 0;
+            overflow: auto;
+            background: rgba(0,0,0,0.14);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .px-wb-side .section-title { height: 28px; }
+        .px-wb-hint { color: var(--muted); font-size: 12px; line-height: 1.35; white-space: pre-wrap; }
+
+        /* pixel assets list */
+        #px-asset-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            /* 限制素材列表高度，避免把下方工具挤走 */
+            max-height: min(34vh, 360px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 4px;
+        }
+        button.px-asset-item {
+            width: 100%;
+            text-align: left;
+            appearance: none;
+            -webkit-appearance: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            cursor: pointer;
+            user-select: none;
+            color: var(--text);
+        }
+        button.px-asset-item:hover { border-color: var(--border-active); background: rgba(255,255,255,0.04); }
+        button.px-asset-item.selected { border-color: rgba(55,148,255,0.85); background: rgba(55,148,255,0.14); }
+        .px-asset-thumb {
+            width: 54px;
+            height: 54px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.10);
+            background: rgba(0,0,0,0.20);
+            flex-shrink: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .px-asset-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
+        .px-asset-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .px-asset-title { font-weight: 800; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .px-asset-sub { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .px-asset-badge {
+            flex-shrink: 0;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.10);
+            background: rgba(255,255,255,0.04);
+            color: var(--muted);
+            user-select: none;
+        }
+        .px-asset-badge.ready { color: rgba(80, 220, 160, 0.95); border-color: rgba(80, 220, 160, 0.35); background: rgba(80, 220, 160, 0.08); }
+        .px-asset-badge.work { color: rgba(241,250,140,0.95); border-color: rgba(241,250,140,0.35); background: rgba(241,250,140,0.08); }
+        .px-asset-badge.error { color: rgba(255,99,99,0.95); border-color: rgba(255,99,99,0.35); background: rgba(255,99,99,0.08); }
+
+        /* project placements list */
+        #placement-list { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+        button.placement-item {
+            width: 100%;
+            text-align: left;
+            appearance: none;
+            -webkit-appearance: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            cursor: pointer;
+            user-select: none;
+            color: var(--text);
+        }
+        button.placement-item:hover { border-color: var(--border-active); background: rgba(255,255,255,0.04); }
+        button.placement-item.selected { border-color: rgba(55,148,255,0.85); background: rgba(55,148,255,0.14); }
+        button.placement-item .placement-check {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            cursor: pointer;
+            accent-color: rgba(55,148,255,0.85);
+        }
+        .placement-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .placement-meta { color: var(--muted); font-size: 11px; flex-shrink: 0; white-space: nowrap; }
+
+        /* 图层列表样式（保留旧逻辑，但用新色系） */
+        #layer-list { display: flex; flex-direction: column; gap: 6px; }
+        .layer-item {
+            padding: 8px 10px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .layer-item:hover { border-color: var(--border-active); background: rgba(255,255,255,0.04); }
+        .layer-item.selected { border-color: rgba(55,148,255,0.85); background: rgba(55,148,255,0.14); }
+        .layer-preview { width: 18px; height: 18px; border: 1px solid var(--border); flex-shrink: 0; }
+        .layer-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .layer-lock {
+            font-size: 11px;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            padding: 2px 6px;
+            border-radius: 999px;
+            cursor: pointer;
+            flex-shrink: 0;
+            background: rgba(255,255,255,0.03);
+        }
+        .layer-lock.active { color: #fff; border-color: rgba(55,148,255,0.65); background: rgba(55,148,255,0.12); }
+
+        /* right-click pick context menu */
+        .pick-menu {
+            position: fixed;
+            z-index: 9999;
+            min-width: 220px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(30,30,30,0.98);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.65);
+            padding: 8px;
+            display: none;
+        }
+        .pick-menu.visible { display: block; }
+        .pick-menu .pick-title {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 4px 6px 8px 6px;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .pick-menu .swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .pick-menu .pick-actions { display: flex; flex-direction: column; gap: 6px; padding: 0 2px 2px 2px; }
+        .pick-menu .pick-btn {
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text);
+            cursor: pointer;
+            text-align: left;
+            padding: 0 10px;
+            font-size: 12px;
+        }
+        .pick-menu .pick-btn:hover { border-color: var(--border-active); background: #3a3a3a; }
+        .pick-menu .pick-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* log window */
+        #log-window {
+            font-family: var(--mono);
+            font-size: 12px;
+            line-height: 1.35;
+            color: var(--text);
+            background: rgba(0,0,0,0.18);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            height: 180px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            white-space: pre-wrap;
+        }
+
+        /* side panels: never allow horizontal scrollbars */
+        #layer-list { overflow-x: hidden; }
+
+        /* toast notifications (non-blocking) */
+        #toast-container {
+            position: fixed;
+            left: 50%;
+            top: 14px;
+            transform: translateX(-50%);
+            z-index: 9998;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: none;
+            min-width: 240px;
+            max-width: 420px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(30,30,30,0.96);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+            padding: 10px 12px;
+            color: var(--text);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+        .toast .t-title { font-weight: 800; margin-bottom: 2px; }
+        .toast .t-msg { color: var(--text); white-space: pre-wrap; }
+        .toast.info { border-color: rgba(55,148,255,0.35); background: rgba(55,148,255,0.12); }
+        .toast.warn { border-color: rgba(241,250,140,0.35); background: rgba(241,250,140,0.10); }
+        .toast.error { border-color: rgba(255,99,99,0.45); background: rgba(255,99,99,0.10); }
+
+        /* --- Mode: canvas vs pixel workbench --- */
+        body.mode-pixel .only-canvas { display: none !important; }
+        body.mode-canvas .only-pixel { display: none !important; }
+        body.mode-pixel .tool-panel { width: 360px; }
+        body.mode-pixel .properties-panel { display: none !important; }
+        /* Pixel 工作台全屏后，避免 mid-tabs 遮挡顶部 header */
+        body.mode-pixel .mid-tabs { top: 56px; }
+    </style>
+</head>
+<body class="mode-canvas">
+    <div class="app">
+        <div class="header">
+            <div class="title">
+                <span>🎨 拼贴画</span>
+                <span class="subtitle" id="shape-status">未连接</span>
+            </div>
+            <div class="spacer"></div>
+            <button class="btn" id="btn-layer-timelapse">图层逐显</button>
+            <button class="btn" id="btn-export-gia-entity">导出为实体</button>
+            <button class="btn primary" id="btn-export-gia-template">导出为元件</button>
+        </div>
+        <div class="main">
+            <div id="app-container">
+        <!-- 左侧工具栏 -->
+        <div class="tool-panel w-64 shrink-0 z-20">
+            <div class="section-title"><span>工具箱</span><span class="text-xs" style="color:var(--muted)">Editor</span></div>
+            
+            <!-- 矩形颜色 -->
+            <div class="only-canvas">
+                <div class="section-title">矩形 (Rect)</div>
+                <div id="rect-palette" class="flex flex-wrap gap-2">
+                    <!-- JS 生成 -->
+                </div>
+            </div>
+
+            <!-- 圆形颜色 -->
+            <div class="only-canvas">
+                <div class="section-title">圆形 (Circle)</div>
+                <div id="circle-palette" class="flex flex-wrap gap-2">
+                    <!-- JS 生成 -->
+                </div>
+            </div>
+
+            <!-- 涂抹工具（改色：单击 / 长按拖拽） -->
+            <div class="only-canvas">
+                <div class="section-title">后处理：矩形刷 (Rect Brush)</div>
+                <div class="flex gap-2">
+                    <button id="paint-on" class="btn-small w-full">开启</button>
+                    <button id="paint-off" class="btn-small w-full active">关闭</button>
+                </div>
+                <div class="mt-2">
+                    <div class="section-title">颜色（矩形支持色）</div>
+                    <div id="paint-palette" class="flex flex-wrap gap-2">
+                        <!-- JS 生成 -->
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-300" style="min-width: 72px;">画笔(px)</span>
+                        <input type="range" id="paint-size" min="1" max="120" step="1" value="16" class="flex-1 accent-yellow-500">
+                        <input type="number" id="paint-size-number" min="1" max="120" step="1" value="16" style="width: 72px;">
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        提示：用于“生成实体后”的快速改色（改的是矩形对象 fill）；像素图生成前改色请用中间的“像素画→改色”。锁定图层不会被涂抹。
+                    </div>
+                </div>
+            </div>
+
+            <!-- 参考图 -->
+            <div class="only-canvas">
+                <div class="section-title">参考图 (Reference)</div>
+                <input type="file" id="img-upload" accept="image/*" class="text-xs text-gray-400 w-full mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-300">透明度:</span>
+                    <input type="range" id="ref-opacity" min="0" max="1" step="0.1" value="0.5" class="w-20 accent-yellow-500">
+                </div>
+                <button id="btn-quantize-image" class="btn-small w-full mt-2 text-gold">颜色规整 (支持色)</button>
+                <div class="mt-2">
+                    <div class="section-title">取色创建</div>
+                    <div class="flex gap-2">
+                        <button id="pick-rect" class="btn-small w-full">矩形</button>
+                        <button id="pick-circle" class="btn-small w-full">圆形</button>
+                        <button id="pick-off" class="btn-small w-full">关闭</button>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">选中参考图后点击取色</div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="btn-ref-back" class="btn-small w-full">置底</button>
+                    <button id="btn-ref-front" class="btn-small w-full">置顶</button>
+                </div>
+                <button id="btn-del-ref" class="btn-small w-full mt-2 text-red-400">删除参考图</button>
+            </div>
+
+            <!-- 像素画（PerfectPixel）：工作台入口（中间标签页） -->
+            <div>
+                <div class="section-title">像素图 → 实体 (PerfectPixel)</div>
+                <button id="btn-open-px-workbench" class="btn-small btn-primary w-full only-canvas">打开像素工作台</button>
+                <div class="text-xs text-gray-500 mt-2 only-canvas">
+                    说明：上传像素图 → 标准像素化 → 改色 → 生成实体，都在画布中间的“像素画”里完成。
+                </div>
+                <div class="text-xs text-gray-500 mt-2 only-pixel">
+                    像素工作台已开启：标准像素化后会切到“改色”；生成实体后会自动切回画布（不自动导出）。Esc / “关闭” 返回画布。
+                </div>
+            </div>
+
+            <!-- 像素画：改色工具（左侧工具栏；由“导入/改色”页签控制显示） -->
+            <div id="px-wb-panel-edit" class="only-pixel hidden">
+                <div class="section-title">像素改色</div>
+                <div class="flex gap-2">
+                    <button id="px-edit-on" class="btn-small w-full">改色：开</button>
+                    <button id="px-edit-off" class="btn-small w-full active">改色：关</button>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="px-edit-tool-brush" class="btn-small w-full active">画笔</button>
+                    <button id="px-edit-tool-trash" class="btn-small w-full">垃圾桶</button>
+                </div>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="text-xs text-gray-300">笔刷(px)</span>
+                    <input type="range" id="px-edit-size" min="1" max="12" step="1" value="1" class="w-20 accent-yellow-500">
+                    <input type="number" id="px-edit-size-number" min="1" max="12" step="1" value="1" style="width: 66px;">
+                </div>
+                <label class="text-xs text-gray-300 flex items-center gap-2 mt-2">
+                    <input type="checkbox" id="px-edit-allow-blank">
+                    允许在空白/背景涂色（长出新像素）
+                </label>
+                <div class="flex flex-wrap gap-1 mt-2" id="px-edit-palette"></div>
+                <div class="flex gap-2 mt-2">
+                    <button id="btn-px-undo" class="btn-small w-full">撤销</button>
+                    <button id="btn-px-reset" class="btn-small w-full text-red-400">重置</button>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="btn-px-generate-entity-edit" class="btn-small btn-primary w-full">生成实体（保存到项目）</button>
+                </div>
+                <div class="px-wb-hint mt-2">
+                    交互：左键拖拽=涂抹；Shift+点击=整色替换/删除；Alt+点击=取色。垃圾桶=涂成透明（空白）。
+                    约束：默认只允许在“原始非透明区域”改色；勾选“允许在空白/背景涂色”后，可在透明/忽略背景区域长出新像素，并会被标记为“用户像素”以避免 ignoreBg 把刚涂的颜色当背景抹掉（即使颜色与背景一致）。
+                </div>
+            </div>
+
+             <!-- 数据操作 -->
+             <div class="only-canvas">
+                <div class="section-title">保存 / 导入 (Project)</div>
+                <div class="flex flex-col gap-2">
+                    <button id="btn-save" class="btn-small btn-primary">保存到项目 (Save)</button>
+                    <button id="btn-load" class="btn-small">从项目读取 (Load)</button>
+                    <button id="btn-export-json" class="btn-small text-gold">导出 JSON</button>
+                    <button id="btn-export-group" class="btn-small">导出选中组</button>
+                    <label class="btn-small text-center cursor-pointer">
+                        导入 JSON
+                        <input type="file" id="json-upload" accept=".json" class="hidden">
+                    </label>
+                    <button id="btn-clear" class="btn-small text-red-500 mt-2">清空画布</button>
+                </div>
+            </div>
+
+            <!-- 项目实体摆放列表（预览带装饰实体） -->
+            <div>
+                <div class="section-title">
+                    <span>项目实体摆放</span>
+                    <span class="text-xs" id="placement-status" style="color:var(--muted)">-</span>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <button class="btn-small text-gold" id="btn-refresh-placements">刷新项目列表</button>
+                    <button id="btn-new-entity" class="btn-small btn-primary">新建空白实体</button>
+                    <input type="text" id="placement-search" placeholder="搜索：文件名 / name / instance_id">
+                    <div class="flex gap-2">
+                        <button class="btn-small w-full" id="btn-placement-check-all">全选（筛选结果）</button>
+                        <button class="btn-small w-full" id="btn-placement-check-none">取消全选</button>
+                    </div>
+                    <div class="text-xs" style="color:var(--muted)" id="placement-checked-indicator">已勾选：0（勾选≥2项后，右上角导出将批量）</div>
+                    <div id="placement-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间画布区域 -->
+        <div class="canvas-area flex-grow relative" id="canvas-wrapper">
+            <canvas id="c"></canvas>
+
+            <!-- 中间标签页：画布 / 像素画 -->
+            <div class="mid-tabs" id="canvas-mid-tabs">
+                <button class="mid-tab-btn active" id="mid-tab-canvas">画布</button>
+                <button class="mid-tab-btn" id="mid-tab-pixel">像素画</button>
+            </div>
+
+            <!-- 像素画工作台（PerfectPixel） -->
+            <div id="px-workbench-backdrop" class="px-workbench-backdrop hidden"></div>
+            <div id="px-workbench" class="px-workbench hidden">
+                <div class="px-wb-header">
+                    <div class="px-wb-tabs">
+                        <button class="px-wb-tab active" id="px-wb-tab-import">导入</button>
+                        <button class="px-wb-tab" id="px-wb-tab-edit">改色</button>
+                    </div>
+                    <div class="spacer"></div>
+                    <button class="btn-small" id="px-wb-close">关闭</button>
+                </div>
+                <div class="px-wb-body">
+                    <div class="px-wb-preview">
+                        <div class="px-wb-preview-wrap" id="px-preview-wrap">
+                            <canvas id="px-preview" class="pixel-preview hidden" aria-label="px-preview"></canvas>
+                            <div id="px-brush-indicator" class="px-brush-indicator hidden"></div>
+                        </div>
+                        <div class="pixel-meta" id="px-meta">（未选择图片）</div>
+                    </div>
+                    <div class="px-wb-side">
+                            <!-- 素材列表（批量导入 / 切换 / 统一生成） -->
+                            <div id="px-asset-panel" class="mb-3">
+                                <div class="section-title">
+                                    <span>素材列表</span>
+                                    <span class="text-xs" id="px-asset-status" style="color:var(--muted)">0</span>
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <label class="btn-small text-center cursor-pointer">
+                                        添加图片（可多选）
+                                        <input type="file" id="px-upload-multi" accept="image/*" multiple class="hidden">
+                                    </label>
+                                    <label class="btn-small text-center cursor-pointer">
+                                        导入文件夹（批量）
+                                        <input type="file" id="px-upload-folder" accept="image/*" webkitdirectory directory multiple class="hidden">
+                                    </label>
+                                    <div class="flex gap-2">
+                                        <button id="btn-px-generate-all" class="btn-small btn-primary w-full">生成全部实体</button>
+                                        <button id="btn-px-clear-assets" class="btn-small w-full text-red-400">清空</button>
+                                    </div>
+                                    <div id="px-asset-list" class="custom-scrollbar"></div>
+                                </div>
+                                <div class="px-wb-hint mt-2">
+                                    说明：导入后会自动“标准像素化”（队列处理，不会卡死 UI）。点击缩略图可查看并改色；全部完成后点“生成全部实体”。
+                                </div>
+                            </div>
+
+                        <!-- 导入 -->
+                        <!-- 视图（缩放/平移）：导入与改色共用同一套预览画布 -->
+                        <div id="px-wb-panel-view" class="mb-3">
+                            <div class="section-title">
+                                <span>视图 (View)</span>
+                                <span class="text-xs" id="px-view-status" style="color:var(--muted)">适配</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button id="btn-px-zoom-out" class="btn-small" style="width: 44px;">-</button>
+                                <input type="range" id="px-view-zoom" min="0.5" max="20" step="0.1" value="1" class="flex-1 accent-yellow-500">
+                                <button id="btn-px-zoom-in" class="btn-small" style="width: 44px;">+</button>
+                            </div>
+                            <div class="flex gap-2 mt-2">
+                                <button id="btn-px-view-fit" class="btn-small w-full">适配</button>
+                                <button id="btn-px-view-center" class="btn-small w-full">居中</button>
+                            </div>
+                            <div class="px-wb-hint mt-2">
+                                提示：滚轮缩放；中键拖拽平移；双击预览“适配”。
+                            </div>
+                        </div>
+
+                        <!-- 生成（实体化模式） -->
+                        <div id="px-wb-panel-generate" class="mb-3">
+                            <div class="section-title">生成 (Generate)</div>
+                            <label class="text-xs text-gray-300">
+                                实体化模式
+                                <select id="px-generate-mode">
+                                    <option value="merge_rects" selected>合并矩形（默认，性能好）</option>
+                                    <option value="pixel_points">像素点（每像素 1 矩形，不合并）</option>
+                                </select>
+                            </label>
+                            <div class="px-wb-hint mt-2">
+                                提示：像素点模式会显著增加矩形数量（≈像素数量）；仅在确实需要“逐像素实体”时使用。
+                            </div>
+                        </div>
+
+                        <div id="px-wb-panel-import">
+                                <div class="section-title">当前素材：参数与操作</div>
+                                <input type="file" id="px-upload" accept="image/*" class="text-xs text-gray-400 w-full mb-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="text-xs text-gray-300">
+                                    像素大小(px)
+                                    <input type="number" id="px-cell-size" min="1" value="12">
+                                </label>
+                                <label class="text-xs text-gray-300">
+                                    refine强度
+                                    <input type="number" id="px-refine-intensity" min="0" max="0.5" step="0.05" value="0.30">
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <label class="text-xs text-gray-300">
+                                    采样
+                                    <select id="px-sample-method">
+                                        <option value="center" selected>center</option>
+                                        <option value="median">median</option>
+                                        <option value="majority">majority</option>
+                                    </select>
+                                </label>
+                                <label class="text-xs text-gray-300 flex items-center gap-2" style="height: 28px; margin-top: 18px;">
+                                    <input type="checkbox" id="px-fix-square" checked>
+                                    强制正方形
+                                </label>
+                            </div>
+                            <label class="text-xs text-gray-300 flex items-center gap-2 mt-2">
+                                <input type="checkbox" id="px-ignore-bg" checked>
+                                忽略背景色（最常见）
+                            </label>
+                            <div class="flex gap-2 mt-2">
+                                <button id="btn-px-refine" class="btn-small w-full">标准像素化</button>
+                                <button id="btn-px-generate-entity" class="btn-small btn-primary w-full">生成实体（保存到项目）</button>
+                            </div>
+                            <div class="px-wb-hint mt-2">
+                                说明：会先用 PerfectPixel 输出标准像素矩阵，然后吸附到矩形支持色；实体化模式可选“合并矩形（更少矩形）”或“像素点（每像素1点）”，最后保存为新实体并切回画布（不自动导出；需要时用右上角“导出为实体”手动导出）。
+                            </div>
+                        </div>
+
+                        <!-- 像素改色工具位于左侧工具栏（#px-wb-panel-edit） -->
+                        <!-- Pixel mode: move log panel here -->
+                        <div id="px-wb-log-slot" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 装饰角标 -->
+            <div class="corner-decor top-left"></div>
+            <div class="corner-decor top-right"></div>
+            <div class="corner-decor bottom-left"></div>
+            <div class="corner-decor bottom-right"></div>
+        </div>
+
+        <!-- 右侧面板 (属性 + 图层) -->
+        <div class="properties-panel w-72 shrink-0 z-20">
+            <!-- 上半部分：图层列表 (Flex 1 自动填充) -->
+            <div class="panel-section layers-section flex flex-col min-h-0">
+                <div class="section-title">
+                    <span>图层 (Layers)</span>
+                    <span class="text-xs text-gray-500" id="layer-count-indicator"></span>
+                </div>
+                <div class="flex flex-col gap-2 mb-2">
+                    <input type="text" id="layer-search" placeholder="搜索名称 / 颜色 / 类型">
+                    <div class="filter-row">
+                        <select id="layer-shape-filter">
+                            <option value="all">全部类型</option>
+                            <option value="rect">矩形</option>
+                            <option value="circle">圆形</option>
+                            <option value="image">参考图</option>
+                            <option value="group">组合</option>
+                        </select>
+                    </div>
+                    <div id="layer-color-filter" class="filter-row flex-wrap"></div>
+                </div>
+                <div id="layer-list" class="overflow-y-auto flex-grow custom-scrollbar">
+                    <!-- JS 生成图层列表 -->
+                </div>
+            </div>
+
+            <!-- 下半部分：属性控制 (固定高度或内容撑开) -->
+            <div class="panel-section props-section bg-black/20">
+                <h2 class="text-lg text-gold font-bold mb-4">属性面板</h2>
+                
+                <div id="prop-container" class="hidden">
+                    <div class="section-title">变换 (Transform)</div>
+                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-300 mb-4">
+                        <label>X: <input type="number" id="prop-x"></label>
+                        <label>Y: <input type="number" id="prop-y"></label>
+                        <label>W: <input type="number" id="prop-w"></label>
+                        <label>H: <input type="number" id="prop-h"></label>
+                        <label>Angle: <input type="number" id="prop-angle"></label>
+                        <label>Scale: <input type="number" id="prop-scale" step="0.1"></label>
+                    </div>
+
+                    <div class="section-title">图层操作</div>
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button id="layer-up" class="btn-small">上移</button>
+                        <button id="layer-down" class="btn-small">下移</button>
+                        <button id="layer-top" class="btn-small">置顶</button>
+                        <button id="layer-bottom" class="btn-small">置底</button>
+                    </div>
+
+                    <div class="section-title">常用操作</div>
+                    <div class="flex flex-col gap-2">
+                        <button id="btn-group" class="btn-small">打组 (Group)</button>
+                        <button id="btn-ungroup" class="btn-small">解组 (Ungroup)</button>
+                        <button id="btn-delete" class="btn-small text-red-500 border-red-900 bg-red-900/20">删除 (Del)</button>
+                    </div>
+                </div>
+                
+                <div id="no-selection" class="text-gray-500 text-center py-4 text-sm">
+                    点击图层或画布物体<br>进行编辑
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-gray-700">
+                    <div class="text-xs text-gray-400">快捷键：</div>
+                    <div class="text-xs text-gray-500 grid grid-cols-2 gap-1 mt-1">
+                        <span>Ctrl+C 复制</span>
+                        <span>Ctrl+V 粘贴</span>
+                        <span>Ctrl+Z 撤销</span>
+                        <span>Del 删除</span>
+                    </div>
+                </div>
+
+                <div id="log-host">
+                    <div id="log-panel" class="mt-4 pt-4 border-t border-gray-700">
+                        <div class="section-title"><span>日志 (Logs)</span><span class="text-xs" style="color:var(--muted)">Export</span></div>
+                        <div id="log-window" class="custom-scrollbar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右键取色创建菜单（不替代左侧按钮，仅提供更顺手的入口） -->
+    <div id="pick-context-menu" class="pick-menu">
+        <div class="pick-title">
+            <span id="pick-menu-title">取色创建</span>
+            <span id="pick-menu-swatch" class="swatch"></span>
+        </div>
+        <div class="pick-actions">
+            <button id="pick-menu-rect" class="pick-btn" type="button">取色创建矩形</button>
+            <button id="pick-menu-circle" class="pick-btn" type="button">取色创建圆形</button>
+            <button id="pick-menu-cancel" class="pick-btn" type="button">取消</button>
+        </div>
+    </div>
+
+    <!-- 右键选择菜单：多选打组/解组/另存为新实体（非阻塞） -->
+    <div id="selection-context-menu" class="pick-menu">
+        <div class="pick-title">
+            <span id="sel-menu-title">选择操作</span>
+            <span style="color:var(--muted);font-size:12px;">Selection</span>
+        </div>
+        <div class="pick-actions">
+            <button id="sel-menu-group" class="pick-btn" type="button">打组</button>
+            <button id="sel-menu-ungroup" class="pick-btn" type="button">解组</button>
+            <button id="sel-menu-delete" class="pick-btn" type="button" style="color:#ff6b6b;border-color:rgba(255,107,107,0.35);background:rgba(255,107,107,0.08);">删除</button>
+            <button id="sel-menu-saveas" class="pick-btn" type="button">另存为新的实体</button>
+            <button id="sel-menu-cancel" class="pick-btn" type="button">取消</button>
+        </div>
+    </div>
+
+    <!-- 实体列表右键菜单：删除（非阻塞二次确认） -->
+    <div id="placement-context-menu" class="pick-menu">
+        <div class="pick-title">
+            <span id="placement-menu-title">实体操作</span>
+            <span style="color:var(--muted);font-size:12px;">Entity</span>
+        </div>
+        <div class="pick-actions">
+            <button id="placement-menu-copy" class="pick-btn" type="button">复制该实体</button>
+            <button id="placement-menu-delete" class="pick-btn" type="button">删除该实体</button>
+            <button id="placement-menu-cancel" class="pick-btn" type="button">取消</button>
+        </div>
+    </div>
+
+    <!-- 实体重命名（双击实体列表项触发）：非阻塞 -->
+    <div id="placement-rename-menu" class="pick-menu">
+        <div class="pick-title">
+            <span id="placement-rename-title">重命名实体</span>
+            <span style="color:var(--muted);font-size:12px;">Rename</span>
+        </div>
+        <div class="pick-actions">
+            <input id="placement-rename-input" type="text" placeholder="输入新的实体名称">
+            <button id="placement-rename-ok" class="pick-btn" type="button">确定</button>
+            <button id="placement-rename-cancel" class="pick-btn" type="button">取消</button>
+        </div>
+    </div>
+
+    <!-- 轻提示（toast）：不阻塞用户操作 -->
+    <div id="toast-container"></div>
+
+    <!-- 前端报错桥：将 window error / unhandledrejection 回传到后端终端 -->
+    <script>
+        (function () {
+            const ENDPOINT = '/api/shape_editor/frontend_log';
+            const MAX_TEXT = 6000;
+            const MAX_REPORTS = 30;
+            let _sentCount = 0;
+
+            function _truncate(v) {
+                const s = String(v === undefined ? '' : v);
+                if (s.length <= MAX_TEXT) return s;
+                return s.slice(0, MAX_TEXT) + '…(truncated)';
+            }
+
+            function _post(payload) {
+                if (_sentCount >= MAX_REPORTS) return;
+                _sentCount += 1;
+
+                const body = JSON.stringify(payload);
+                if (navigator && typeof navigator.sendBeacon === 'function') {
+                    const blob = new Blob([body], { type: 'application/json' });
+                    navigator.sendBeacon(ENDPOINT, blob);
+                    return;
+                }
+                if (typeof fetch === 'function') {
+                    fetch(ENDPOINT, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                        body: body,
+                        keepalive: true
+                    }).then(function () { }, function () { });
+                }
+            }
+
+            function _report(level, kind, message, extra) {
+                const payload = Object.assign({
+                    level: String(level || 'ERROR'),
+                    kind: String(kind || ''),
+                    message: _truncate(message),
+                    href: String(location && location.href ? location.href : ''),
+                    user_agent: String(navigator && navigator.userAgent ? navigator.userAgent : ''),
+                    ts_ms: Date.now()
+                }, extra || {});
+                _post(payload);
+            }
+
+            window.addEventListener('error', function (ev) {
+                // 资源加载失败：ev 通常是 Event，且无 message/filename
+                const target = ev && ev.target ? ev.target : null;
+                const isErrorEvent = !!(ev && (ev.message || ev.filename || ev.lineno || ev.colno));
+                if (!isErrorEvent && target) {
+                    const tag = String(target.tagName || '');
+                    const url = String(target.src || target.href || '');
+                    if (tag || url) {
+                        _report('ERROR', 'resource_error', 'Resource load error', { tag: tag, url: url });
+                    }
+                    return;
+                }
+
+                const err = ev && ev.error ? ev.error : null;
+                _report('ERROR', 'window_error', ev && ev.message ? ev.message : 'Unknown error', {
+                    filename: ev && ev.filename ? String(ev.filename) : '',
+                    lineno: ev && ev.lineno ? Number(ev.lineno) : 0,
+                    colno: ev && ev.colno ? Number(ev.colno) : 0,
+                    stack: err && err.stack ? _truncate(err.stack) : ''
+                });
+            }, true);
+
+            window.addEventListener('unhandledrejection', function (ev) {
+                const reason = ev && ev.reason !== undefined ? ev.reason : '';
+                const msg = reason && reason.message ? reason.message : String(reason);
+                const stack = reason && reason.stack ? reason.stack : '';
+                _report('ERROR', 'unhandledrejection', msg || 'Unhandled promise rejection', {
+                    stack: stack ? _truncate(stack) : ''
+                });
+            });
+        })();
+    </script>
+
+    <!-- Frontend scripts (split from legacy app.js) -->
+    <script src="src/00_core.js"></script>
+    <script src="src/10_layers.js"></script>
+    <script src="src/20_reference_images.js"></script>
+    <script src="src/25_pixel_art_import.js"></script>
+    <script src="src/30_ps_interactions.js"></script>
+    <script src="src/40_clipboard.js"></script>
+    <script src="src/50_events.js"></script>
+    <script src="src/55_properties_panel.js"></script>
+    <script src="src/60_hotkeys.js"></script>
+    <script src="src/70_persistence.js"></script>
+    <script src="src/80_export_payload.js"></script>
+    <script src="src/81_export_gia.js"></script>
+    <script src="src/82_export_json_import.js"></script>
+    <script src="src/90_ui_feedback.js"></script>
+    <script src="src/91_project_placements.js"></script>
+    <!-- Entry: boot after all scripts loaded -->
+    <script src="shape_editor_entry.js"></script>
+</body>
+</html>

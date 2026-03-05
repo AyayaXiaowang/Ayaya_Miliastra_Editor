@@ -12,8 +12,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from PIL import Image
 
 from app.automation import capture as editor_capture
-from app.automation.editor.ui_constants import NODE_VIEW_WIDTH_PX, NODE_VIEW_HEIGHT_PX
 from engine.graph.models.graph_model import GraphModel, NodeModel
+from app.automation.vision.ui_profile_params import get_node_view_size_px
 
 from .debug_utils import log_branch_ambiguity_report
 
@@ -132,8 +132,11 @@ class EditorExecutorDebugMixin:
                 scale_value = 1.0
                 if self.scale_ratio is not None:
                     scale_value = float(self.scale_ratio) if abs(float(self.scale_ratio)) > 1e-6 else 1.0
-                bbox_width = int(NODE_VIEW_WIDTH_PX * scale_value)
-                bbox_height = int(NODE_VIEW_HEIGHT_PX * scale_value)
+                node_view_w_px, node_view_h_px = get_node_view_size_px()
+                base_w = float(node_view_w_px) if float(node_view_w_px) > 0.0 else 200.0
+                base_h = float(node_view_h_px) if float(node_view_h_px) > 0.0 else 100.0
+                bbox_width = int(base_w * scale_value)
+                bbox_height = int(base_h * scale_value)
                 bbox_left = int(anchor_editor_x)
                 bbox_top = int(anchor_editor_y)
             anchor_title_text = ""

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from engine.configs.resource_types import ResourceType
+from engine.resources.graph_reference_service import collect_graph_ids_from_resource_payload
 
 
 class ResourceMetadataService:
@@ -25,6 +26,7 @@ class ResourceMetadataService:
         # 管理配置系列
         ResourceType.UI_LAYOUT: ["layout_name"],
         ResourceType.UI_WIDGET_TEMPLATE: ["template_name"],
+        ResourceType.UI_PAGE: ["ui_page_name"],
         ResourceType.UNIT_TAG: ["tag_name"],
         ResourceType.SHIELD: ["shield_name"],
         ResourceType.SCAN_TAG: ["scan_tag_name"],
@@ -36,6 +38,9 @@ class ResourceMetadataService:
         ResourceType.PERIPHERAL_SYSTEM: ["system_name"],
         ResourceType.BACKGROUND_MUSIC: ["music_name"],
         ResourceType.LEVEL_SETTINGS: ["level_name"],
+        # 代码级管理配置（Python 资源）
+        ResourceType.SIGNAL: ["signal_name"],
+        ResourceType.STRUCT_DEFINITION: ["name", "struct_name"],
     }
 
     def build_resource_metadata(
@@ -97,45 +102,12 @@ class ResourceMetadataService:
         payload: Dict[str, Any],
         raw_metadata: Dict[str, Any],
     ) -> List[str]:
-        graph_ids: List[str] = []
-
-        def append_graph_id(value: object) -> None:
-            if isinstance(value, str) and value and value not in graph_ids:
-                graph_ids.append(value)
-
-        default_graphs = payload.get("default_graphs")
-        if isinstance(default_graphs, list):
-            for graph_id in default_graphs:
-                append_graph_id(graph_id)
-
-        additional_graphs = payload.get("additional_graphs")
-        if isinstance(additional_graphs, list):
-            for graph_id in additional_graphs:
-                append_graph_id(graph_id)
-
-        if resource_type != ResourceType.PLAYER_TEMPLATE:
-            return graph_ids
-
-        player_editor = raw_metadata.get("player_editor")
-        if not isinstance(player_editor, dict):
-            return graph_ids
-
-        def collect_from_section(section: object) -> None:
-            if not isinstance(section, dict):
-                return
-            section_graphs = section.get("graphs")
-            if isinstance(section_graphs, list):
-                for graph_id in section_graphs:
-                    append_graph_id(graph_id)
-
-        collect_from_section(player_editor.get("player"))
-        collect_from_section(player_editor.get("role"))
-
-        roles_value = player_editor.get("roles")
-        if isinstance(roles_value, list):
-            for role_entry in roles_value:
-                collect_from_section(role_entry)
-
-        return graph_ids
+        _ = raw_metadata
+        return collect_graph_ids_from_resource_payload(
+            resource_type,
+            payload,
+            package_id="",
+            include_skill_ugc_indirect=False,
+        )
 
 

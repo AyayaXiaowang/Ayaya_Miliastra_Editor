@@ -2,6 +2,7 @@
 实体配置验证器
 验证实体配置项是否符合知识库规范
 """
+from dataclasses import fields
 from typing import Any, Callable, Dict, List
 
 from .issue import EngineIssue
@@ -18,6 +19,16 @@ from ..configs.entities.entity_configs import (
     ReviveConfig,
     SkillConfig,
 )
+
+def _filter_payload_for_dataclass(dataclass_cls: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """过滤 payload 中不属于 dataclass_cls 字段的键，避免因未知字段导致校验器崩溃。
+
+    说明：
+    - 编辑器侧的 entity_config 可能同时承载多种段落（例如 collider/render/tags、战斗面板段落等）；
+    - 校验器只关心本模块定义的 dataclass 字段，其余字段应忽略而不是抛异常。
+    """
+    allowed = {f.name for f in fields(dataclass_cls)}
+    return {key: value for key, value in payload.items() if key in allowed}
 
 
 def _validate_combat_attributes(
@@ -377,11 +388,10 @@ class EntityConfigValidator:
         """根据实体类型验证配置"""
         if entity_type in {"物件-静态", "物件-动态"}:
             is_static = entity_type == "物件-静态"
-            object_config = (
-                ObjectConfig(is_static=is_static, **config_dict)
-                if config_dict
-                else ObjectConfig(is_static=is_static)
-            )
+            payload = dict(config_dict or {})
+            payload = _filter_payload_for_dataclass(ObjectConfig, payload)
+            payload["is_static"] = is_static
+            object_config = ObjectConfig(**payload)
             return EntityConfigValidator.validate_object_config(object_config)
 
         handler = _ENTITY_CONFIG_HANDLERS.get(entity_type)
@@ -394,6 +404,7 @@ def _build_character_config(data: Dict[str, Any]) -> CharacterConfig:
     payload = dict(data or {})
     payload["combat_attributes"] = _build_combat_attributes(payload.get("combat_attributes"))
     payload["equipment_slots"] = payload.get("equipment_slots", [])
+    payload = _filter_payload_for_dataclass(CharacterConfig, payload)
     return CharacterConfig(**payload)
 
 
@@ -403,6 +414,7 @@ def _build_creature_config(data: Dict[str, Any]) -> CreatureConfig:
     payload["hatred_config"] = payload.get("hatred_config", {})
     payload["general_settings"] = payload.get("general_settings", {})
     payload["behavior_mode"] = payload.get("behavior_mode", "")
+    payload = _filter_payload_for_dataclass(CreatureConfig, payload)
     return CreatureConfig(**payload)
 
 
@@ -417,6 +429,7 @@ def _build_local_projectile_config(data: Dict[str, Any]) -> LocalProjectileConfi
     payload["lifecycle"] = _build_local_projectile_section(
         LocalProjectileLifecycle, payload.get("lifecycle")
     )
+    payload = _filter_payload_for_dataclass(LocalProjectileConfig, payload)
     return LocalProjectileConfig(**payload)
 
 
@@ -432,8 +445,14 @@ def _build_combat_attributes(value: Any) -> BaseCombatAttributes:
     if isinstance(value, BaseCombatAttributes):
         return value
     if isinstance(value, dict):
-        return BaseCombatAttributes(**value)
+        payload = _filter_payload_for_dataclass(BaseCombatAttributes, value)
+        return BaseCombatAttributes(**payload)
     return BaseCombatAttributes()
+
+def _build_skill_config(data: Dict[str, Any]) -> SkillConfig:
+    payload = dict(data or {})
+    payload = _filter_payload_for_dataclass(SkillConfig, payload)
+    return SkillConfig(**payload)
 
 
 _ENTITY_CONFIG_HANDLERS: Dict[str, Callable[[Dict[str, Any]], List[EngineIssue]]] = {
@@ -450,7 +469,7 @@ _ENTITY_CONFIG_HANDLERS: Dict[str, Callable[[Dict[str, Any]], List[EngineIssue]]
         _build_local_projectile_config(data)
     ),
     "技能": lambda data: EntityConfigValidator.validate_skill_config(
-        SkillConfig(**(data or {}))
+        _build_skill_config(data)
     ),
 }
 

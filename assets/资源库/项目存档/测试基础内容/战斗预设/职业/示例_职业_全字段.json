@@ -1,0 +1,31 @@
+{
+  "id": "player_class_sample_all_fields_01__测试基础内容",
+  "class_id": "player_class_sample_all_fields_01__测试基础内容",
+  "class_name": "示例_职业_全字段",
+  "name": "示例_职业_全字段",
+  "description": "示例职业：展示职业基础属性、技能列表与 metadata.class_editor 的典型结构。",
+  "base_health": 250.0,
+  "base_attack": 35.0,
+  "base_defense": 18.0,
+  "base_speed": 6.5,
+  "skill_list": [
+    "skill_sample_all_fields_01__测试基础内容"
+  ],
+  "metadata": {
+    "class_editor": {
+      "battle": {
+        "note": "示例：这里可扩展职业战斗侧的编辑器信息"
+      },
+      "skills": {
+        "active_skills": [
+          "skill_sample_all_fields_01__测试基础内容"
+        ],
+        "basic_attack_id": ""
+      },
+      "graphs": [],
+      "graph_variable_overrides": {}
+    }
+  },
+  "updated_at": "2025-12-18T12:00:00.000000",
+  "last_modified": "2025-12-20 10:32:19"
+}

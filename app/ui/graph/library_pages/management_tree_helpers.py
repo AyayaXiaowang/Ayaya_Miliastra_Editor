@@ -5,7 +5,11 @@ from typing import Callable, Mapping, Optional, Sequence, Tuple
 from PyQt6 import QtCore, QtWidgets
 
 from engine.resources.resource_manager import ResourceManager, ResourceType
-from app.ui.management.section_registry import MANAGEMENT_RESOURCE_TITLES
+from app.ui.management.section_registry import (
+    MANAGEMENT_RESOURCE_DEFAULT_SECTION_KEYS,
+    MANAGEMENT_RESOURCE_ORDER,
+    MANAGEMENT_RESOURCE_TITLES,
+)
 
 
 SingleConfigKey = str
@@ -50,8 +54,11 @@ def build_management_category_items_for_tree(
         resource_manager:
             用于按 resource_type / resource_id 载入聚合 JSON 与元数据。
         mark_management_items:
-            为 True 时，在分类节点与叶子节点上写入
-            (resource_key, resource_id) 到 UserRole+1，供外层跳转使用。
+            为 True 时，在分类节点与叶子节点上写入“管理配置条目标记”到 UserRole+1。
+            该标记同时包含：
+            - binding_key（PackageIndex.resources.management 的桶 key，用于右侧摘要与所属存档）
+            - jump_section_key（管理页面的 section_key，用于双击跳转）
+            - item_id（叶子节点对应的资源 ID）
         assume_sorted:
             为 True 时认为传入的 resource_ids 已经排好序，避免重复排序。
         display_name_resolver / extra_info_resolver:
@@ -66,8 +73,8 @@ def build_management_category_items_for_tree(
     """
     total_count = 0
 
-    for resource_key in sorted(category_resources_map.keys()):
-        resource_ids, resource_type = category_resources_map[resource_key]
+    for resource_key in MANAGEMENT_RESOURCE_ORDER:
+        resource_ids, resource_type = category_resources_map.get(resource_key, ([], None))
         ordered_ids = list(resource_ids)
         if not assume_sorted:
             ordered_ids.sort()
@@ -77,6 +84,20 @@ def build_management_category_items_for_tree(
 
         category_label = MANAGEMENT_RESOURCE_TITLES.get(resource_key, resource_key)
         is_single_config_category = resource_key in SINGLE_CONFIG_RESOURCE_KEYS
+
+        if resource_key == "struct_definitions":
+            category_items, category_count_for_section = _build_struct_definitions_category_items(
+                resource_ids=ordered_ids,
+                resource_type=resource_type,
+                resource_manager=resource_manager,
+                mark_management_items=mark_management_items,
+            )
+            if not category_items or category_count_for_section <= 0:
+                continue
+            for category_item in category_items:
+                root_item.addChild(category_item)
+            total_count += category_count_for_section
+            continue
 
         if resource_key == "signals":
             # 信号管理：不按聚合资源计数，而是枚举聚合 JSON 中的每个信号。
@@ -118,17 +139,46 @@ def build_management_category_items_for_tree(
             continue
 
         if mark_management_items:
-            # 为分类节点本身写入 (resource_key, "")，用于表示“整类配置”。
+            # 为分类节点本身写入管理标记：item_id 为空表示“整类配置”。
             category_item.setData(
                 0,
                 QtCore.Qt.ItemDataRole.UserRole + 1,
-                (resource_key, ""),
+                _build_management_item_marker(
+                    binding_key=resource_key,
+                    item_id="",
+                    jump_section_key=_resolve_default_jump_section_key(resource_key),
+                ),
             )
 
         root_item.addChild(category_item)
         total_count += category_count_for_section
 
     return total_count
+
+
+def _build_management_item_marker(
+    *,
+    binding_key: str,
+    item_id: str,
+    jump_section_key: str,
+) -> dict:
+    """构建写入 QTreeWidgetItem.UserRole+1 的管理条目标记。"""
+    return {
+        "binding_key": str(binding_key or ""),
+        "item_id": str(item_id or ""),
+        "jump_section_key": str(jump_section_key or ""),
+    }
+
+
+def _resolve_default_jump_section_key(binding_key: str) -> str:
+    normalized = str(binding_key or "").strip()
+    if not normalized:
+        return ""
+    mapped = MANAGEMENT_RESOURCE_DEFAULT_SECTION_KEYS.get(normalized)
+    if isinstance(mapped, str) and mapped:
+        return mapped
+    # 回退：多数情况下 resource_key 与 section_key 相同
+    return normalized
 
 
 def _build_signals_category_item(
@@ -176,12 +226,130 @@ def _build_signals_category_item(
             entry_item.setData(
                 0,
                 QtCore.Qt.ItemDataRole.UserRole + 1,
-                (resource_key, signal_id),
+                _build_management_item_marker(
+                    binding_key=resource_key,
+                    item_id=signal_id,
+                    jump_section_key=_resolve_default_jump_section_key(resource_key),
+                ),
             )
         category_item.addChild(entry_item)
 
     category_item.setExpanded(True)
     return category_item, category_count_for_section
+
+
+def _build_struct_definitions_category_items(
+    *,
+    resource_ids: Sequence[str],
+    resource_type: Optional[ResourceType],
+    resource_manager: ResourceManager,
+    mark_management_items: bool,
+) -> Tuple[list[QtWidgets.QTreeWidgetItem], int]:
+    """将结构体定义按类型拆成两个分类：基础结构体 / 局内存档结构体。"""
+    if resource_type is None:
+        return [], 0
+
+    basic_ids: list[str] = []
+    ingame_ids: list[str] = []
+    for struct_id in resource_ids:
+        payload = resource_manager.load_resource(resource_type, struct_id) or {}
+        if not isinstance(payload, dict):
+            continue
+        struct_type = _infer_struct_type_from_payload(payload)
+        if struct_type == "ingame_save":
+            ingame_ids.append(struct_id)
+        else:
+            basic_ids.append(struct_id)
+
+    items: list[QtWidgets.QTreeWidgetItem] = []
+    total_count = 0
+
+    if basic_ids:
+        category_label = "🧬 基础结构体定义"
+        category_item = QtWidgets.QTreeWidgetItem([f"{category_label} ({len(basic_ids)})", "", "", ""])
+        if mark_management_items:
+            category_item.setData(
+                0,
+                QtCore.Qt.ItemDataRole.UserRole + 1,
+                _build_management_item_marker(
+                    binding_key="struct_definitions",
+                    item_id="",
+                    jump_section_key="struct_definitions",
+                ),
+            )
+        for struct_id in basic_ids:
+            payload = resource_manager.load_resource(resource_type, struct_id) or {}
+            display_name = _get_struct_display_name(struct_id, payload)
+            entry_item = QtWidgets.QTreeWidgetItem([category_label, display_name, "", ""])
+            entry_item.setToolTip(1, struct_id)
+            if mark_management_items:
+                entry_item.setData(
+                    0,
+                    QtCore.Qt.ItemDataRole.UserRole + 1,
+                    _build_management_item_marker(
+                        binding_key="struct_definitions",
+                        item_id=struct_id,
+                        jump_section_key="struct_definitions",
+                    ),
+                )
+            category_item.addChild(entry_item)
+        items.append(category_item)
+        total_count += len(basic_ids)
+
+    if ingame_ids:
+        category_label = "💾 局内存档结构体定义"
+        category_item = QtWidgets.QTreeWidgetItem([f"{category_label} ({len(ingame_ids)})", "", "", ""])
+        if mark_management_items:
+            category_item.setData(
+                0,
+                QtCore.Qt.ItemDataRole.UserRole + 1,
+                _build_management_item_marker(
+                    binding_key="struct_definitions",
+                    item_id="",
+                    jump_section_key="ingame_struct_definitions",
+                ),
+            )
+        for struct_id in ingame_ids:
+            payload = resource_manager.load_resource(resource_type, struct_id) or {}
+            display_name = _get_struct_display_name(struct_id, payload)
+            entry_item = QtWidgets.QTreeWidgetItem([category_label, display_name, "", ""])
+            entry_item.setToolTip(1, struct_id)
+            if mark_management_items:
+                entry_item.setData(
+                    0,
+                    QtCore.Qt.ItemDataRole.UserRole + 1,
+                    _build_management_item_marker(
+                        binding_key="struct_definitions",
+                        item_id=struct_id,
+                        jump_section_key="ingame_struct_definitions",
+                    ),
+                )
+            category_item.addChild(entry_item)
+        items.append(category_item)
+        total_count += len(ingame_ids)
+
+    return items, total_count
+
+
+def _infer_struct_type_from_payload(payload: Mapping[str, object]) -> str:
+    raw_value = payload.get("struct_ype")
+    if isinstance(raw_value, str) and raw_value.strip():
+        return raw_value.strip()
+    raw_struct_type = payload.get("struct_type")
+    if isinstance(raw_struct_type, str) and raw_struct_type.strip():
+        return raw_struct_type.strip()
+    return "basic"
+
+
+def _get_struct_display_name(struct_id: str, payload: object) -> str:
+    if isinstance(payload, dict):
+        name_value = payload.get("name")
+        if isinstance(name_value, str) and name_value.strip():
+            return name_value.strip()
+        struct_name_value = payload.get("struct_name")
+        if isinstance(struct_name_value, str) and struct_name_value.strip():
+            return struct_name_value.strip()
+    return str(struct_id or "")
 
 
 def _build_single_config_category_item(

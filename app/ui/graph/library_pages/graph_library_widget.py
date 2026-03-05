@@ -1,12 +1,13 @@
 """节点图库界面 - 统一管理所有节点图"""
 
-from PyQt6 import QtCore, QtWidgets
-from typing import Optional, Dict, List, Union
+from PyQt6 import QtCore, QtWidgets, QtGui
+from typing import Optional, Dict, List, Union, Callable
 from datetime import datetime
 from pathlib import Path
 
 from app.ui.foundation.theme_manager import Sizes
 from app.ui.foundation.context_menu_builder import ContextMenuBuilder
+from app.ui.foundation.keymap_store import KeymapStore
 from app.ui.graph.library_mixins import (
     SearchFilterMixin,
     SelectionAndScrollMixin,
@@ -29,7 +30,6 @@ from app.ui.graph.library_pages.graph_card_widget import GraphCardWidget
 from app.ui.controllers.graph_error_tracker import get_instance as get_error_tracker
 from engine.resources.package_view import PackageView
 from engine.resources.global_resource_view import GlobalResourceView
-from engine.resources.unclassified_resource_view import UnclassifiedResourceView
 from app.ui.panels.panel_scaffold import PanelScaffold, SectionCard
 
 from app.ui.graph.graph_library import FolderTreeMixin, GraphListMixin
@@ -67,21 +67,25 @@ class GraphLibraryWidget(
         self.resource_manager = resource_manager
         self.package_index_manager = package_index_manager
         self.selection_mode = selection_mode
+        self._standard_shortcuts: list[QtGui.QShortcut] = []
         self.reference_tracker = GraphReferenceTracker(resource_manager, package_index_manager)
         self.error_tracker = get_error_tracker()  # 错误跟踪器（单例）
-        # 节点图库在当前工程中以只读模式运行：
-        # - 仅用于浏览、筛选与跳转节点图
-        # - 不在 UI 中新建/删除/移动节点图，也不编辑节点图变量
-        # - 唯一允许写入的仍是右侧属性面板中的“所属存档”行（写入 PackageIndex）
-        self.graph_library_read_only: bool = True
+        # 节点图库默认允许“轻量资源管理操作”（新建/复制/重命名/删除/移动到文件夹）。
+        # 若需要强制只读（例如演示/只读环境），可将该开关设为 True。
+        self.graph_library_read_only: bool = False
         
         self.current_folder = ""
         self.current_graph_type = "server"  # server | client | all
         self.current_sort_by = "modified"  # modified | name | nodes | references
         self.graph_cards: Dict[str, GraphCardWidget] = {}  # 存储卡片部件
         self.selected_graph_id: Optional[str] = None
+        # 插件扩展区：允许私有扩展在不触碰内部 layout 的情况下追加按钮/状态控件
+        self._extension_toolbar_buttons: Dict[str, QtWidgets.QAbstractButton] = {}
+        self._extension_toolbar_widgets: Dict[str, QtWidgets.QWidget] = {}
+        self._extension_toolbar_layout: QtWidgets.QHBoxLayout | None = None
+        self._extension_toolbar_widget_host: QtWidgets.QWidget | None = None
         self.current_package: Optional[
-            Union[PackageView, GlobalResourceView, UnclassifiedResourceView]
+            Union[PackageView, GlobalResourceView]
         ] = None
 
         self._setup_ui()
@@ -97,14 +101,19 @@ class GraphLibraryWidget(
 
     def set_context(
         self,
-        package: Union[PackageView, GlobalResourceView, UnclassifiedResourceView],
+        package: Union[PackageView, GlobalResourceView],
     ) -> None:
         """设置当前视图对应的存档/特殊视图，用于过滤显示。
 
-        - 未分类视图：仅显示未分类的节点图；
-        - 全局/具体存档：显示全部节点图（按类型/文件夹）。
+        - 全局视图：显示全部节点图（按类型/文件夹）；
+        - 具体存档：按存档索引过滤可见节点图集合（避免看到其它项目的节点图）。
         """
         self.current_package = package
+        # 切换存档/视图时：避免沿用上一视图残留的目录过滤（会导致列表看起来“只剩某个文件夹”，
+        # 或文件夹树显示已回退到根目录但列表仍按旧 current_folder 过滤）。
+        self.current_folder = ""
+        setattr(self, "current_folder_scope", "all")
+        self._refresh_folder_tree(force=True)
         self._refresh_graph_list()
         if self.isVisible():
             self.ensure_default_selection()
@@ -116,6 +125,16 @@ class GraphLibraryWidget(
         self._refresh_graph_list()
         if self.isVisible():
             self.ensure_default_selection()
+
+    def refresh_for_mode_enter(self) -> None:
+        """进入 GRAPH_LIBRARY 模式时的轻量刷新。
+
+        设计目标：
+        - 切页时避免每次都强制失效快照缓存并全量重建，降低“从大图返回列表/切到节点图库”的卡顿；
+        - 仍会调用内部的增量刷新逻辑：folder tree 基于快照、graph list 基于 refresh_signature。
+        """
+        self._refresh_folder_tree()
+        self._refresh_graph_list()
 
     def get_selection(self) -> Optional[LibrarySelection]:
         """返回当前选中的节点图（若存在）。"""
@@ -137,7 +156,9 @@ class GraphLibraryWidget(
             return
         if not selection.id:
             return
-        self.select_graph_by_id(selection.id, open_editor=False)
+        # 启动/会话恢复时只需要恢复“当前选中图”，不应隐式把目录筛选切到该图所在文件夹，
+        # 否则中间列表会被收窄，看起来像“只剩两三个节点图”。
+        self.select_graph_by_id(selection.id, open_editor=False, sync_folder_filter=False)
     
     def _setup_ui(self) -> None:
         """设置UI"""
@@ -175,6 +196,8 @@ class GraphLibraryWidget(
         self.init_toolbar(toolbar_layout)
         self.add_graph_btn = QtWidgets.QPushButton("+ 新建节点图", self)
         self.add_folder_btn = QtWidgets.QPushButton("+ 新建文件夹", self)
+        self.duplicate_graph_btn = QtWidgets.QPushButton("复制", self)
+        self.rename_graph_btn = QtWidgets.QPushButton("重命名", self)
         self.delete_btn = QtWidgets.QPushButton("删除", self)
         self.move_btn = QtWidgets.QPushButton("移动到文件夹", self)
         self.search_edit = QtWidgets.QLineEdit(self)
@@ -182,15 +205,39 @@ class GraphLibraryWidget(
         toolbar_buttons = [
             self.add_graph_btn,
             self.add_folder_btn,
+            self.duplicate_graph_btn,
+            self.rename_graph_btn,
             self.delete_btn,
             self.move_btn,
         ]
-        self.setup_toolbar_with_search(toolbar_layout, toolbar_buttons, self.search_edit)
+
+        # 标准按钮
+        for button in toolbar_buttons:
+            toolbar_layout.addWidget(button)
+
+        # 插件扩展区：位于主按钮与搜索框之间（用于私有扩展注入按钮/状态控件）
+        extension_toolbar_widget = QtWidgets.QWidget(toolbar_widget)
+        extension_toolbar_layout = QtWidgets.QHBoxLayout(extension_toolbar_widget)
+        extension_toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        extension_toolbar_layout.setSpacing(Sizes.SPACING_MEDIUM)
+        self._extension_toolbar_layout = extension_toolbar_layout
+        self._extension_toolbar_widget_host = extension_toolbar_widget
+        toolbar_layout.addWidget(extension_toolbar_widget)
+
+        toolbar_layout.addStretch(1)
+        toolbar_layout.addWidget(self.search_edit)
         self.set_status_widget(toolbar_widget)
 
         # 只读模式下禁用所有会修改节点图结构或文件夹的按钮
         if getattr(self, "graph_library_read_only", False):
-            for button in toolbar_buttons:
+            for button in (
+                self.add_graph_btn,
+                self.add_folder_btn,
+                self.duplicate_graph_btn,
+                self.rename_graph_btn,
+                self.delete_btn,
+                self.move_btn,
+            ):
                 button.setEnabled(False)
                 button.setToolTip("只读模式：节点图库仅用于浏览与跳转，节点图结构与变量请在代码中维护。")
         
@@ -202,7 +249,9 @@ class GraphLibraryWidget(
         self.folder_tree = QtWidgets.QTreeWidget()
         self.folder_tree.setHeaderLabel("文件夹")
         self.folder_tree.setObjectName("leftPanel")
-        self.folder_tree.setFixedWidth(Sizes.LEFT_PANEL_WIDTH)
+        # 不要锁死宽度：该页面使用 QSplitter，左侧树需要允许用户拖拽分隔线改变宽度。
+        # 默认宽度仍以主题 token 为基准，但通过 splitter.setSizes(...) 设定初始值。
+        self.folder_tree.setMinimumWidth(Sizes.LEFT_PANEL_WIDTH)
         if not self.selection_mode:
             self.folder_tree.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             self.folder_tree.customContextMenuRequested.connect(self._show_folder_context_menu)
@@ -251,12 +300,16 @@ class GraphLibraryWidget(
         
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
+        # 左侧默认收窄，但允许用户拖到更宽
+        splitter.setSizes([Sizes.LEFT_PANEL_WIDTH, 1000])
         
         self.body_layout.addWidget(splitter, 1)
         
         # 连接信号
         self.add_graph_btn.clicked.connect(self._add_graph)
         self.add_folder_btn.clicked.connect(self._add_folder)
+        self.duplicate_graph_btn.clicked.connect(self._duplicate_selected_graph)
+        self.rename_graph_btn.clicked.connect(self._rename_selected_graph)
         self.delete_btn.clicked.connect(self._delete_selected)
         self.move_btn.clicked.connect(self._move_graph)
         self.connect_search(self.search_edit, self._filter_graphs, placeholder="搜索节点图...")
@@ -264,6 +317,154 @@ class GraphLibraryWidget(
 
         if self.selection_mode:
             self._apply_selection_mode()
+
+        self._install_standard_shortcuts()
+
+    # === 插件扩展：工具栏按钮/控件（幂等）===
+    def ensure_extension_toolbar_button(
+        self,
+        key: str,
+        text: str,
+        *,
+        tooltip: str = "",
+        on_clicked: Callable[[], None] | None = None,
+        enabled: bool = True,
+    ) -> QtWidgets.QPushButton:
+        """确保“扩展工具栏”存在一个按钮（幂等）。"""
+        normalized_key = str(key or "").strip()
+        if not normalized_key:
+            raise ValueError("extension toolbar button key 不能为空")
+
+        existing = self._extension_toolbar_buttons.get(normalized_key)
+        if existing is not None:
+            if not isinstance(existing, QtWidgets.QPushButton):
+                raise TypeError(
+                    f"extension toolbar key 已存在但不是 QPushButton: key={normalized_key!r}, type={type(existing).__name__}"
+                )
+            existing.setText(str(text))
+            if tooltip:
+                existing.setToolTip(str(tooltip))
+            existing.setEnabled(bool(enabled))
+            return existing
+
+        if self._extension_toolbar_layout is None:
+            raise RuntimeError("extension toolbar layout 未初始化（_setup_ui 尚未完成）")
+
+        button = QtWidgets.QPushButton(str(text))
+        if tooltip:
+            button.setToolTip(str(tooltip))
+        button.setEnabled(bool(enabled))
+        if on_clicked is not None:
+            button.clicked.connect(on_clicked)
+        self._extension_toolbar_layout.addWidget(button)
+        self._extension_toolbar_buttons[normalized_key] = button
+        return button
+
+    def ensure_extension_toolbar_widget(
+        self,
+        key: str,
+        create_widget: Callable[[QtWidgets.QWidget], QtWidgets.QWidget],
+        *,
+        visible: bool = True,
+    ) -> QtWidgets.QWidget:
+        """确保“扩展工具栏”存在一个自定义 widget（幂等）。"""
+        normalized_key = str(key or "").strip()
+        if not normalized_key:
+            raise ValueError("extension toolbar widget key 不能为空")
+        if normalized_key in self._extension_toolbar_buttons:
+            raise RuntimeError(f"extension toolbar key 已被按钮占用：{normalized_key!r}")
+
+        existing = self._extension_toolbar_widgets.get(normalized_key)
+        if existing is not None:
+            existing.setVisible(bool(visible))
+            return existing
+
+        if self._extension_toolbar_layout is None:
+            raise RuntimeError("extension toolbar layout 未初始化（_setup_ui 尚未完成）")
+        if self._extension_toolbar_widget_host is None:
+            raise RuntimeError("extension toolbar host 未初始化（_setup_ui 尚未完成）")
+
+        widget = create_widget(self._extension_toolbar_widget_host)
+        if not isinstance(widget, QtWidgets.QWidget):
+            raise TypeError(
+                f"create_widget 必须返回 QWidget（key={normalized_key!r}, got={type(widget).__name__}）"
+            )
+        widget.setVisible(bool(visible))
+        self._extension_toolbar_layout.addWidget(widget)
+        self._extension_toolbar_widgets[normalized_key] = widget
+        return widget
+
+    def apply_keymap_shortcuts(self, keymap_store: object) -> None:
+        """由主窗口调用：在快捷键配置变更后刷新本页快捷键绑定。"""
+        self._install_standard_shortcuts(keymap_store=keymap_store)
+
+    def _resolve_keymap_store(self) -> object | None:
+        window_obj = self.window()
+        app_state = getattr(window_obj, "app_state", None)
+        return getattr(app_state, "keymap_store", None) if app_state is not None else None
+
+    def _clear_standard_shortcuts(self) -> None:
+        for shortcut in list(self._standard_shortcuts):
+            shortcut.setEnabled(False)
+            shortcut.deleteLater()
+        self._standard_shortcuts.clear()
+
+    def _primary_shortcut(self, action_id: str) -> str:
+        keymap_store = self._resolve_keymap_store()
+        get_primary = getattr(keymap_store, "get_primary_shortcut", None) if keymap_store is not None else None
+        if callable(get_primary):
+            return str(get_primary(action_id) or "")
+        defaults = KeymapStore.get_default_shortcuts(action_id)
+        return defaults[0] if defaults else ""
+
+    def _install_standard_shortcuts(self, *, keymap_store: object | None = None) -> None:
+        """统一快捷键（尽量与其他库页一致）。"""
+        resolved = keymap_store if keymap_store is not None else self._resolve_keymap_store()
+        get_primary = getattr(resolved, "get_primary_shortcut", None) if resolved is not None else None
+
+        def _primary(action_id: str) -> str:
+            if callable(get_primary):
+                return str(get_primary(action_id) or "")
+            defaults = KeymapStore.get_default_shortcuts(action_id)
+            return defaults[0] if defaults else ""
+
+        self._clear_standard_shortcuts()
+
+        shortcut_new = _primary("library.new")
+        if shortcut_new:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_new), self)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._add_graph)
+            self._standard_shortcuts.append(sc)
+
+        # 删除/重命名/复制/移动：仅在卡片滚动区域聚焦时触发，避免干扰搜索框输入。
+        shortcut_dup = _primary("library.duplicate")
+        if shortcut_dup:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_dup), self.graph_scroll_area)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._duplicate_selected_graph)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_rename = _primary("library.rename")
+        if shortcut_rename:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_rename), self.graph_scroll_area)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._rename_selected_graph)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_delete = _primary("library.delete")
+        if shortcut_delete:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_delete), self.graph_scroll_area)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._delete_selected)
+            self._standard_shortcuts.append(sc)
+
+        shortcut_move = _primary("library.move")
+        if shortcut_move:
+            sc = QtGui.QShortcut(QtGui.QKeySequence(shortcut_move), self.graph_scroll_area)
+            sc.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(self._move_graph)
+            self._standard_shortcuts.append(sc)
 
 
     
@@ -278,6 +479,8 @@ class GraphLibraryWidget(
 
     def _apply_selection_mode(self) -> None:
         self.add_folder_btn.hide()
+        self.duplicate_graph_btn.hide()
+        self.rename_graph_btn.hide()
         self.delete_btn.hide()
         self.move_btn.hide()
         self.folder_tree.setDragEnabled(False)

@@ -32,8 +32,10 @@ ID_FIELDS_BY_TYPE: Dict[ResourceType, str] = {
     # 管理配置 - 多条记录
     ResourceType.TIMER: "timer_id",
     ResourceType.LEVEL_VARIABLE: "variable_id",
+    ResourceType.PRESET_POINT: "point_id",
     ResourceType.UI_LAYOUT: "layout_id",
     ResourceType.UI_WIDGET_TEMPLATE: "template_id",
+    ResourceType.UI_PAGE: "ui_page_id",
     ResourceType.SKILL_RESOURCE: "resource_id",
     ResourceType.EQUIPMENT_DATA: "equipment_id",
     ResourceType.SHOP_TEMPLATE: "shop_id",
@@ -65,8 +67,10 @@ DISPLAY_NAME_FIELDS_BY_TYPE: Dict[ResourceType, str] = {
     # 管理配置 - 多条记录
     ResourceType.TIMER: "timer_name",
     ResourceType.LEVEL_VARIABLE: "variable_name",
+    ResourceType.PRESET_POINT: "point_name",
     ResourceType.UI_LAYOUT: "layout_name",
     ResourceType.UI_WIDGET_TEMPLATE: "template_name",
+    ResourceType.UI_PAGE: "ui_page_name",
     ResourceType.SKILL_RESOURCE: "resource_name",
     ResourceType.EQUIPMENT_DATA: "equipment_name",
     ResourceType.SHOP_TEMPLATE: "shop_name",

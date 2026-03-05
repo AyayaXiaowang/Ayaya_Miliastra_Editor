@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>本地节点图 UI 监控面板</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-app: #121212;
+      --bg-panel: #1e1e1e;
+      --bg-header: #252526;
+      --bg-input: #2d2d2d;
+      --border: #333;
+      --border-active: #555;
+      --text: #e0e0e0;
+      --muted: #888;
+      --accent: #3794ff;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    body { background: var(--bg-app); color: var(--text); font-family: var(--font); font-size: 13px; }
+    a { color: inherit; }
+
+    /* hide scrollbars (still scrollable) */
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; }
+
+    .btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+    }
+    .btn:hover { border-color: var(--border-active); background: #3a3a3a; }
+    .btn.primary { border-color: rgba(55,148,255,0.55); background: rgba(55,148,255,0.18); }
+    .btn.primary:hover { background: rgba(55,148,255,0.26); }
+
+    .input, select, textarea {
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      outline: none;
+      font: inherit;
+    }
+    .input, select { height: 28px; padding: 0 10px; }
+    .input:focus, select:focus { border-color: rgba(55,148,255,0.85); box-shadow: 0 0 0 2px rgba(55,148,255,0.15); }
+
+    textarea.wb-textarea {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+      color: rgba(255,255,255,0.88);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 10px;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+      overflow: auto;
+    }
+
+    .app { height: 100vh; display: flex; flex-direction: column; }
+    .header {
+      height: 48px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+    }
+    .title { font-weight: 700; font-size: 14px; display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+    .subtitle { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .spacer { flex: 1; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    .main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+    .col-left {
+      width: 420px;
+      flex-shrink: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+    }
+    .col-center { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #0f0f0f; }
+    .col-right {
+      width: 420px;
+      flex-shrink: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+    }
+
+    .section-header {
+      height: 36px;
+      flex-shrink: 0;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      user-select: none;
+    }
+    .section-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 10px; font-size: 12px; color: var(--muted); }
+    .kv b { color: var(--text); font-weight: 700; }
+
+    /* center toolbar (match workbench feel) */
+    .toolbar {
+      min-height: 50px;
+      height: auto;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 12px;
+      flex-wrap: wrap;
+    }
+    .toolbar-group { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+    .btn-group { display: flex; gap: 2px; background: var(--bg-input); padding: 3px; border-radius: 7px; }
+    .btn-group .btn { height: 22px; padding: 0 10px; border: none; background: transparent; color: var(--muted); border-radius: 5px; }
+    .btn-group .btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+    .btn-group .btn.active { background: var(--bg-panel); color: var(--accent); font-weight: 700; }
+    .divider { width: 1px; height: 24px; background: var(--border); }
+    .checkbox { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; user-select: none; cursor: pointer; white-space: nowrap; }
+    .checkbox input { accent-color: var(--accent); }
+    .small { color: var(--muted); font-size: 12px; }
+
+    /* preview canvas (keep ids used by JS: stageContainer/stage/uiFrame) */
+    #stageContainer {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #0d0d0d;
+      background-image: radial-gradient(#2a2a2a 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    #stage {
+      position: relative;
+      background: #000;
+      border: 1px solid #333;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      overflow: hidden;
+      border-radius: 12px;
+      transform-origin: 0 0;
+    }
+    #uiFrame {
+      border: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="title">
+        <span>本地节点图 UI 监控面板</span>
+        <span class="subtitle" id="statusSub">正在连接...</span>
+      </div>
+      <div class="spacer"></div>
+      <span class="badge" id="statusBadge">离线</span>
+      <button id="btnReloadUi" class="btn" type="button">刷新预览</button>
+      <button id="btnRestartAll" class="btn" type="button" title="重建模拟会话（相当于重新启动本地测试），并刷新本页。">一键重启</button>
+      <button id="btnPauseToggle" class="btn primary" type="button" title="暂停/继续：暂停期间虚拟时间不推进，倒计时与定时器不会前进。">暂停</button>
+      <button id="btnStep" class="btn" type="button" title="单步执行：仅在暂停状态下生效。推进虚拟时间 dt 并最多触发一个定时器事件。">单步</button>
+      <button id="btnClearTrace" class="btn" type="button">清空日志</button>
+    </div>
+
+    <div class="main">
+      <!-- LEFT -->
+      <div class="col-left">
+        <div class="section-header">
+          <span>信号 / 会话</span>
+          <span class="subtitle" style="max-width: 210px;" title="本地模拟会话（local-sim）">本地模拟（local-sim）</span>
+        </div>
+        <div class="section-body no-scrollbar">
+          <div class="row" style="gap:8px;">
+            <span class="small">布局</span>
+            <select id="layoutSelect" class="no-scrollbar" style="flex:1; min-width: 160px;"></select>
+            <button id="btnApplyLayout" class="btn" type="button" style="height: 28px;">切换</button>
+          </div>
+
+          <div class="row">
+            <label class="checkbox" title="使用 UI Workbench 的扁平化算法在浏览器侧生成 flat layers；原始 DOM 仅用于交互/变量绑定。">
+              <input id="flattenToggle" type="checkbox" />
+              <span>扁平化预览</span>
+            </label>
+          </div>
+
+          <div style="height: 1px; background: var(--border); opacity: 0.65; margin: 2px 0;"></div>
+
+          <div class="row">
+            <span class="small" style="min-width:64px;" title="signal_id">信号ID</span>
+            <input id="signalId" class="input" style="flex:1; min-width: 160px;" placeholder="例如：signal_level_lobby_start_level" />
+            <button id="btnSendSignal" class="btn primary" type="button">发送</button>
+          </div>
+          <div class="small">参数（JSON 对象，可留空）</div>
+          <textarea id="signalParams" class="wb-textarea no-scrollbar" style="flex: 0 0 120px;" spellcheck="false">{}</textarea>
+
+          <div style="height: 1px; background: var(--border); opacity: 0.65; margin: 2px 0;"></div>
+
+          <div class="small">当前会话</div>
+          <div class="kv" id="kvSession"></div>
+
+          <div style="height: 1px; background: var(--border); opacity: 0.65; margin: 2px 0;"></div>
+
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;">UI 合约检查</div>
+            <button id="btnUiContractCheck" class="btn primary" type="button" style="height: 28px;" title="扫描当前 iframe UI HTML：按钮/状态组/绑定，并调用后端 resolve_ui_key 做可解析性检查。">运行检查</button>
+          </div>
+          <textarea id="uiContractBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 220px;" placeholder="这里会显示：按钮 data-ui-key 是否可解析、UI_STATE_GROUP 覆盖、lv.* 绑定覆盖等。"></textarea>
+        </div>
+      </div>
+
+      <!-- CENTER -->
+      <div class="col-center">
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <div class="btn-group" id="sizeButtons">
+              <button class="btn" data-res="1920x1080" type="button">1920×1080</button>
+              <button class="btn active" data-res="1600x900" type="button">1600×900</button>
+              <button class="btn" data-res="1280x720" type="button">1280×720</button>
+              <button class="btn" data-res="2560x1440" type="button">2560×1440</button>
+            </div>
+            <div class="divider"></div>
+            <div class="row" style="gap:6px;">
+              <span class="small">自定义</span>
+              <input id="resW" class="input" type="number" min="320" step="10" style="width:110px" />
+              <span class="small">×</span>
+              <input id="resH" class="input" type="number" min="240" step="10" style="width:110px" />
+              <button id="btnApplyRes" class="btn" type="button" style="height: 28px;">应用</button>
+            </div>
+          </div>
+          <div class="toolbar-group">
+            <!-- keep resPreset/fitToggle/fitInfo ids (JS expects them) -->
+            <select id="resPreset" class="no-scrollbar" style="display:none">
+              <option value="1920x1080">1920×1080</option>
+              <option value="1600x900">1600×900</option>
+              <option value="1280x720">1280×720</option>
+              <option value="2560x1440">2560×1440</option>
+              <option value="3840x2160">3840×2160</option>
+            </select>
+            <label class="checkbox" title="始终缩放适配窗口，避免出现滚动条。">
+              <input id="fitToggle" type="checkbox" checked/>
+              <span>适配窗口</span>
+            </label>
+            <span class="small" id="fitInfo"></span>
+          </div>
+        </div>
+
+        <div id="stageContainer" class="no-scrollbar">
+          <div id="stage">
+            <iframe id="uiFrame" src="/ui.html" scrolling="no"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="col-right">
+        <div class="section-header">
+          <span>日志 / 实体</span>
+          <button id="btnRefreshEntities" class="btn" type="button" style="height: 28px;">刷新实体</button>
+        </div>
+        <div class="section-body no-scrollbar" style="gap:10px;">
+          <div class="small">日志</div>
+          <textarea id="traceBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly></textarea>
+          <div class="small">实体</div>
+          <textarea id="entitiesBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly></textarea>
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;" title="Last Action">最后动作</div>
+            <button id="btnRefreshLastAction" class="btn" type="button" style="height: 28px;">刷新</button>
+            <button id="btnToggleLastActionRaw" class="btn" type="button" style="height: 28px;" title="切换：动作报告 / 原始 JSON">原始JSON</button>
+          </div>
+          <textarea id="lastActionReportBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 240px;" placeholder="这里会显示：动作摘要 / UI patches / 数据 diff / 关联 trace"></textarea>
+          <textarea id="lastActionRawBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="display:none; flex: 0 0 240px;"></textarea>
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;" title="validate-graphs">图校验</div>
+            <button id="btnValidate" class="btn" type="button" style="height: 28px;">运行验证</button>
+          </div>
+          <textarea id="validateBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 180px;"></textarea>
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;">录制/导出（JSON）</div>
+            <span id="recordBadge" class="badge">未录制</span>
+            <button id="btnRecordToggle" class="btn" type="button" style="height: 28px;">开始/停止</button>
+            <button id="btnRecordClear" class="btn" type="button" style="height: 28px;">清空</button>
+            <button id="btnExportRepro" class="btn primary" type="button" style="height: 28px;" title="导出复现包：包含 snapshot/last_action/validate/trace/录制动作（recorded_actions）。">导出复现包</button>
+          </div>
+          <textarea id="recordBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 180px;"></textarea>
+
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;">断言 / 用例</div>
+            <button id="btnAssertionsTemplate" class="btn" type="button" style="height: 28px;" title="写入一个最小断言模板（可编辑）。">模板</button>
+            <button id="btnAssertionsFromLast" class="btn" type="button" style="height: 28px;" title="从“最后动作”的 patches/diff 自动提取一批断言（可编辑）。">从最后动作提取</button>
+            <button id="btnRunAssertions" class="btn primary" type="button" style="height: 28px;" title="对“最后动作”运行断言，输出 PASS/FAIL。">运行</button>
+            <button id="btnGenPytest" class="btn" type="button" style="height: 28px;" title="根据录制动作 + 断言生成 pytest 代码（复制到 tests/local_sim/）。">生成pytest</button>
+          </div>
+          <textarea id="assertionsBox" class="wb-textarea no-scrollbar" spellcheck="false" style="flex: 0 0 200px;" placeholder="断言 JSON（version=1）。例如：patch_contains / path_equals / trace_contains"></textarea>
+          <textarea id="assertionsOutBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 200px;" placeholder="运行结果 / 生成的 pytest 代码会显示在这里。"></textarea>
+
+          <div class="row" style="gap:8px;">
+            <div class="small" style="flex:1;">Watch / Breakpoint</div>
+            <button id="btnWatchTemplate" class="btn" type="button" style="height: 28px;" title="写入 watch 模板（可编辑）。">模板</button>
+            <button id="btnApplyWatch" class="btn primary" type="button" style="height: 28px;" title="应用 watch 配置并开始轮询 snapshot（不会推进时间）。">应用</button>
+            <button id="btnClearWatch" class="btn" type="button" style="height: 28px;" title="清空 watch 与状态。">清空</button>
+          </div>
+          <textarea id="watchBox" class="wb-textarea no-scrollbar" spellcheck="false" style="flex: 0 0 160px;" placeholder="Watch JSON（version=1）。支持 break_on_change / break_on_equals"></textarea>
+          <textarea id="watchOutBox" class="wb-textarea no-scrollbar" spellcheck="false" readonly style="flex: 0 0 160px;" placeholder="Watch 状态：当前值、变化、是否触发断点等。"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/local_sim_shared.js"></script>
+  <script src="/monitor.js"></script>
+</body>
+</html>

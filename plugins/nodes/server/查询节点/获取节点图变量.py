@@ -6,6 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="获取节点图变量",
     category="查询节点",
+    semantic_id="graph_var.get",
     inputs=[("变量名", "字符串")],
     outputs=[("变量值", "泛型")],
     description="获取当前节点图的指定节点图变量的值 如果变量不存在，则返回类型的默认值",

@@ -13,4 +13,30 @@ from engine.utils.logging.logger import log_info
 )
 def 更改玩家职业(game, 目标玩家, 职业配置ID):
     """修改玩家的当前职业为配置ID对应的职业"""
-    log_info(f"[更改玩家职业] 执行")
+    new_profession_id = str(职业配置ID or "")
+    old_profession_id = game.get_custom_variable(目标玩家, "当前职业配置ID", "")
+
+    if old_profession_id != new_profession_id:
+        if str(old_profession_id or ""):
+            game.trigger_event(
+                "玩家职业解除时",
+                事件源实体=目标玩家,
+                事件源GUID=0,
+                更改前职业配置ID=old_profession_id,
+                更改后职业配置ID=new_profession_id,
+            )
+
+        game.set_custom_variable(目标玩家, "当前职业配置ID", new_profession_id, trigger_event=True)
+        game.trigger_event(
+            "玩家职业更改时",
+            事件源实体=目标玩家,
+            事件源GUID=0,
+            更改前职业配置ID=old_profession_id,
+            更改后职业配置ID=new_profession_id,
+        )
+
+    log_info(
+        "[更改玩家职业] old={}, new={}",
+        str(old_profession_id or "<empty>"),
+        str(new_profession_id or "<empty>"),
+    )

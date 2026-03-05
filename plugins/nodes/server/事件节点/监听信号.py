@@ -7,6 +7,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="监听信号",
     category="事件节点",
+    semantic_id="signal.listen",
     inputs=[
         ("信号名", "字符串"),
     ],

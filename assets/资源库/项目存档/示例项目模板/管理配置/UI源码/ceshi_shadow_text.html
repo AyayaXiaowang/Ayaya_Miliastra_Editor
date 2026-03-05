@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>示例 UI - ceshi_shadow_text</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #101014;
+        color: #ffffff;
+        font-family: "Microsoft YaHei", sans-serif;
+      }
+
+      .level-panel {
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+      }
+
+      .label {
+        position: absolute;
+        left: 120px;
+        top: 80px;
+        font-size: 48px;
+        font-weight: 900;
+        color: #ffffff;
+        /* 关键：用来生成 .flat-text-shadow 层（回归用例需要） */
+        text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.9);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 底层大面板：回归目标是避免误选到它 -->
+    <div class="level-panel" data-ui-key="level-panel"></div>
+
+    <!-- 阴影文字层：应生成 debug-label = text-shadow-level-name-0 -->
+    <div class="label" data-ui-key="text-level-name" data-debug-label="text-level-name">第2关</div>
+  </body>
+</html>
+

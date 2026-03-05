@@ -14,7 +14,6 @@ from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.package_index import PackageIndex
 from engine.resources.package_view import PackageView
 from engine.resources.global_resource_view import GlobalResourceView
-from engine.resources.unclassified_resource_view import UnclassifiedResourceView
 from app.ui.foundation import dialog_utils, input_dialogs
 from app.ui.controllers.package_dirty_state import PackageDirtyState
 from app.ui.controllers.package_save import PackageSaveOrchestrator
@@ -45,7 +44,7 @@ class PackageController(QtCore.QObject):
         
         # 当前存档状态
         self.current_package_index: Optional[PackageIndex] = None
-        self.current_package: PackageView | GlobalResourceView | UnclassifiedResourceView | None = None
+        self.current_package: PackageView | GlobalResourceView | None = None
         self.current_package_id: Optional[str] = None
         self.dirty_state = PackageDirtyState()
         
@@ -163,8 +162,6 @@ class PackageController(QtCore.QObject):
         last_id = self.package_index_manager.get_last_opened_package()
         if last_id == "global_view":
             self.load_package("global_view")
-        elif last_id == "unclassified_view":
-            self.load_package("unclassified_view")
         elif last_id and any(p["package_id"] == last_id for p in packages):
             self.load_package(last_id)
         else:
@@ -172,13 +169,38 @@ class PackageController(QtCore.QObject):
         
         self.package_list_changed.emit()
     
-    def load_package(self, package_id: str) -> None:
-        """加载存档或全局视图"""
+    def load_package(self, package_id: str, *, save_before_switch: bool = True) -> None:
+        """加载存档或全局视图。
+
+        Args:
+            save_before_switch:
+                - True：切换前执行 `save_now()`（默认，兼容旧行为）
+                - False：切换前不保存（用于上层已完成“保存/不保存/取消”的确认流程）
+        """
+        # 兼容旧状态：历史版本可能保存过 unclassified_view，这里将其回退为“第一个存档”或全局视图。
+        if package_id == "unclassified_view":
+            packages = self.package_index_manager.list_packages()
+            if packages:
+                package_id = str(packages[0].get("package_id") or "")
+            package_id = package_id or "global_view"
+
         # 切换存档前：优先 flush 右侧属性面板中的去抖缓冲，再按脏块增量落盘。
         # 约定：若无任何本地改动则不写盘，避免无意义覆盖与 I/O 卡顿。
-        if self.current_package and self.current_package_id:
+        if save_before_switch and self.current_package and self.current_package_id:
             self.save_now()
         self.reset_dirty_state()
+
+        # 关键：允许“不同项目存档内存在重复资源 ID”后，资源索引必须按当前视图作用域构建。
+        # - global_view：仅共享根
+        # - 具体项目存档：共享根 + 当前项目存档根
+        if package_id == "global_view":
+            self.resource_manager.rebuild_index(active_package_id=None)
+        else:
+            self.resource_manager.rebuild_index(active_package_id=package_id)
+            # 重要：PackageIndexManager 的派生缓存仅以“目录 mtime”为一致性基线，
+            # 若该包曾在“共享视图（仅扫描共享根）”作用域下被派生并缓存，会导致 resources.graphs 等资源列表为空，
+            # 进而使节点图库/存档库等页面错误地只显示共享资源。切包时强制失效该包缓存，确保使用当前作用域重新派生。
+            self.package_index_manager.invalidate_package_index_cache(package_id)
         
         # 检查是否是特殊浏览模式
         if package_id == "global_view":
@@ -187,18 +209,9 @@ class PackageController(QtCore.QObject):
             self.current_package_id = package_id
             
             # 更新标题
-            self.title_update_requested.emit("<全部资源>")
+            self.title_update_requested.emit("<共享资源>")
             # 记录最近打开为全局视图
             self.package_index_manager.set_last_opened_package("global_view")
-        elif package_id == "unclassified_view":
-            self.current_package_index = None
-            self.current_package = UnclassifiedResourceView(self.resource_manager, self.package_index_manager)
-            self.current_package_id = package_id
-
-            # 更新标题
-            self.title_update_requested.emit("<未分类资源>")
-            # 记录最近打开
-            self.package_index_manager.set_last_opened_package("unclassified_view")
         else:
             # 加载存档索引
             package_index = self.package_index_manager.load_package_index(package_id)
@@ -206,7 +219,7 @@ class PackageController(QtCore.QObject):
                 # 创建新的空存档索引
                 package_index = PackageIndex(
                     package_id=package_id,
-                    name="未命名存档"
+                    name="未命名项目存档"
                 )
                 self.package_index_manager.save_package_index(package_index)
             
@@ -224,8 +237,8 @@ class PackageController(QtCore.QObject):
         self.package_loaded.emit(package_id)
     
     def create_package(self, parent_widget: QtWidgets.QWidget) -> None:
-        """创建新存档"""
-        name = input_dialogs.prompt_text(parent_widget, "新建存档", "请输入存档名称:")
+        """创建新项目存档"""
+        name = input_dialogs.prompt_text(parent_widget, "新建项目存档", "请输入项目存档名称:")
         if not name:
             return
         package_id = self.package_index_manager.create_package(name)
@@ -241,7 +254,7 @@ class PackageController(QtCore.QObject):
         self._save_internal(force_full=False)
 
     def save_now(self) -> None:
-        """保存当前脏块（用户显式保存/切换存档等入口使用）。
+        """保存当前脏块（用户显式保存/切换项目存档等入口使用）。
 
         约定：
         - 先 flush 右侧属性面板中使用去抖写回的编辑缓冲（名称/描述/GUID 等）；
@@ -252,8 +265,12 @@ class PackageController(QtCore.QObject):
             flush_callback()
         self.save_dirty_blocks()
 
+    def has_unsaved_changes(self) -> bool:
+        """当前项目存档是否存在未落盘的本地修改（按脏块）。"""
+        return not self.dirty_state.is_empty()
+
     def _save_internal(self, *, force_full: bool) -> None:
-        """按需保存当前存档或视图。"""
+        """按需保存当前项目存档或视图。"""
         dirty_snapshot = (
             self._build_full_dirty_snapshot() if force_full else self.dirty_state.snapshot()
         )
@@ -273,7 +290,7 @@ class PackageController(QtCore.QObject):
         # 保存实现已迁移到 `app/ui/controllers/package_save/` 下的 service。
     
     def export_package(self, parent_widget: QtWidgets.QWidget) -> None:
-        """导出存档"""
+        """导出项目存档（JSON）"""
         if not self.current_package:
             return
         
@@ -282,14 +299,14 @@ class PackageController(QtCore.QObject):
             dialog_utils.show_warning_dialog(
                 parent_widget,
                 "提示",
-                "当前视图不支持导出。\n请选择具体的存档后再导出。",
+                "当前视图不支持导出。\n请选择具体的项目存档后再导出。",
             )
             return
         
         self.save_now()
         
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            parent_widget, "导出存档",
+            parent_widget, "导出项目存档（JSON）",
             f"{self.current_package.name}.json",
             filter="JSON (*.json)"
         )
@@ -299,13 +316,13 @@ class PackageController(QtCore.QObject):
             dialog_utils.show_info_dialog(
                 parent_widget,
                 "成功",
-                f"存档已导出到: {path}",
+                f"项目存档已导出到: {path}",
             )
     
     def import_package(self, parent_widget: QtWidgets.QWidget) -> None:
-        """导入存档（索引格式）"""
+        """导入项目存档（索引格式，JSON）"""
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            parent_widget, "导入存档", filter="JSON (*.json)"
+            parent_widget, "导入项目存档（JSON）", filter="JSON (*.json)"
         )
         if not path:
             return
@@ -321,7 +338,7 @@ class PackageController(QtCore.QObject):
             dialog_utils.show_warning_dialog(
                 parent_widget,
                 "错误",
-                "无法识别的存档格式（仅支持 PackageIndex 索引格式导入）",
+                "无法识别的项目存档格式（仅支持 PackageIndex 索引格式导入）",
             )
             return
         
@@ -330,7 +347,7 @@ class PackageController(QtCore.QObject):
         dialog_utils.show_info_dialog(
             parent_widget,
             "成功",
-            "存档导入成功！",
+            "项目存档导入成功！",
         )
     
     def _import_package_index(self, data: dict) -> None:

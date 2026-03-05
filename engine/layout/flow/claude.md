@@ -3,12 +3,10 @@
 
 ## 当前状态
 - 包含事件流分析与根节点发现、流程树生成以及布局前的模型预处理等模块。
-- 统一使用 `engine.utils.graph.graph_utils` 判断流程端口、获取链条语义，保持与节点图工具层的行为一致。
+- 流程口/流程边判定统一收敛到 `layout/utils/graph_query_utils`：以 `NodeModel.effective_input_types/effective_output_types` 端口类型快照为真源（名称规则仅作兼容回退），避免多分支/动态端口依赖字符串关键字识别。
 - 仅依赖图模型与布局核心上下文，不直接参与具体几何计算与坐标回填。
 - 纯数据图的树状展示复用 `layout/utils/data_graph_utils` 的分层结果，避免与核心层重复维护拓扑逻辑。
 - 事件根判定通过 `_compute_flow_indegree` 统一统计忽略虚拟引脚的流程入度，减少重复遍历；当模型中不存在显式事件节点时，`find_event_roots` 会优先根据是否存在流程边与带流程端口的节点动态推断起点：若只有孤立的流程控制/执行节点（例如仅有一个带“流程入/是/否”的双分支节点），也会将这些节点视作事件起点参与布局与流程树分析，而不再简单将整图归类为纯数据图。
-- 布局前的 `promote_flow_outputs_for_layout` 会预先构建 `src_node→edges` 索引，再对命中的节点批量重命名端口和同步边，避免在大图上对整张边表进行多次全量扫描。
-- `promote_flow_outputs_for_layout` 返回节点→端口的重命名记录，核心层在非克隆布局流程中可以据此回滚临时命名，确保调用方模型不被污染。
 - `flow_tree_generator` 优先复用模型上 `_layout_context_cache`，否则才初始化新的 `LayoutContext`，并在此基础上构建数据边索引，供流程树与纯数据树共享；递归过程中复用单一 `visited` 集合避免指数级复制。
 - `flow_tree_generator` 使用 `FlowTreeRenderContext` 统一封装模型、布局上下文与块关系快照，事件遍历、数据输入渲染与 ASCII 输出共享一份缓存，并在具备块关系快照时保持与布局顺序一致的分支排列。
 - 流程树在无块关系快照时的端口排序直接调用 `LayoutContext` 的端口索引缓存，通过通用的 `get_ordered_flow_out_edges` 与块层保持一致。

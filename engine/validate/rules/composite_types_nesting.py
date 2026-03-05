@@ -14,6 +14,7 @@ from engine.type_registry import (
     BANNED_TYPE_ALIASES,
     COMPOSITE_ALLOWED_DATA_PIN_TYPES,
     PYTHON_BUILTIN_TYPE_NAMES,
+    parse_typed_dict_alias,
     TYPE_FLOW,
     TYPE_GENERIC,
     TYPE_GENERIC_DICT,
@@ -39,7 +40,7 @@ ALLOWED_DATA_PIN_TYPES: Set[str] = set(COMPOSITE_ALLOWED_DATA_PIN_TYPES)
 
 
 class CompositeTypesAndNestingRule(ValidationRule):
-    """复合节点：参数/返回中文类型、流程入必填、禁止复合嵌套"""
+    """复合节点：参数/返回中文类型、流程入必填（允许复合内嵌套复合）"""
 
     rule_id = "engine_composite_types_and_nesting"
     category = "复合节点"
@@ -53,17 +54,11 @@ class CompositeTypesAndNestingRule(ValidationRule):
         tree = get_cached_module(ctx)
         issues: List[EngineIssue] = []
 
-        # 建立复合节点名称集合（用于嵌套检测）
-        registry = get_node_registry(ctx.workspace_path, include_composite=True)
-        lib = registry.get_library()
-        composite_names: Set[str] = {nd.name for _, nd in lib.items() if getattr(nd, "is_composite", False)}
-
         # 0) payload 格式（可视化落盘）：直接从 JSON 校验虚拟引脚与嵌套复合
         payload_json = try_extract_composite_payload_json(tree)
         if payload_json is not None:
             payload_obj = json.loads(payload_json)
             issues.extend(_check_payload_virtual_pins(payload_obj, file_path, default_level=self.default_level))
-            issues.extend(_check_payload_composite_nesting(payload_obj, file_path, default_level=self.default_level))
             return issues
 
         # 1) 类格式复合节点（@composite_class）：以方法体 pin_marker 声明为权威来源
@@ -73,7 +68,6 @@ class CompositeTypesAndNestingRule(ValidationRule):
                 _check_class_based_pin_markers_and_nesting(
                     composite_classes,
                     file_path,
-                    composite_names=composite_names,
                     default_level=self.default_level,
                 )
             )
@@ -160,42 +154,6 @@ def _check_payload_virtual_pins(
     return issues
 
 
-def _check_payload_composite_nesting(
-    payload_obj: object,
-    file_path: Path,
-    *,
-    default_level: str,
-) -> List[EngineIssue]:
-    issues: List[EngineIssue] = []
-    if not isinstance(payload_obj, dict):
-        return issues
-    sub_graph = payload_obj.get("sub_graph", {})
-    if not isinstance(sub_graph, dict):
-        return issues
-    nodes = sub_graph.get("nodes", [])
-    if not isinstance(nodes, list):
-        return issues
-    for node in nodes:
-        if not isinstance(node, dict):
-            continue
-        if bool(node.get("is_virtual_pin", False)):
-            continue
-        category = str(node.get("category", "") or "")
-        composite_id = str(node.get("composite_id", "") or "")
-        if category == "复合节点" or composite_id:
-            title = str(node.get("title", "") or "")
-            issues.append(
-                EngineIssue(
-                    level=default_level,
-                    category="复合节点",
-                    code="COMPOSITE_NESTING_FORBIDDEN",
-                    message=f"禁止在复合节点内部嵌套其它复合节点（node='{title}', composite_id='{composite_id}'）",
-                    file=str(file_path),
-                )
-            )
-    return issues
-
-
 def _extract_pin_defs(call_node: ast.Call, keyword: str) -> List[Tuple[str, str, ast.AST]]:
     pins: List[Tuple[str, str, ast.AST]] = []
     for kw in call_node.keywords:
@@ -227,7 +185,6 @@ def _check_class_based_pin_markers_and_nesting(
     class_defs: List[ast.ClassDef],
     file_path: Path,
     *,
-    composite_names: Set[str],
     default_level: str,
 ) -> List[EngineIssue]:
     issues: List[EngineIssue] = []
@@ -288,21 +245,6 @@ def _check_class_based_pin_markers_and_nesting(
                         )
                     )
 
-            # 禁止复合嵌套：方法体内不允许直接调用其他复合节点（旧规则语义，按名称匹配）
-            for node in ast.walk(item):
-                if isinstance(node, ast.Call) and isinstance(getattr(node, "func", None), ast.Name):
-                    fname = node.func.id
-                    if fname in composite_names:
-                        issues.append(
-                            EngineIssue(
-                                level=default_level,
-                                category="复合节点",
-                                code="COMPOSITE_NESTING_FORBIDDEN",
-                                message=f"{line_span_text(node)}: 禁止在复合节点内部调用其他复合节点 '{fname}'",
-                                file=str(file_path),
-                                line_span=line_span_text(node),
-                            )
-                        )
     return issues
 
 
@@ -317,6 +259,16 @@ def _is_supported_pin_type(type_name: str) -> bool:
 
     if type_name == TYPE_FLOW:
         return True
+    # 别名字典：允许作为复合节点对外数据引脚类型（用于稳定表达 dict(K,V)）
+    ok_alias, key_type, value_type = parse_typed_dict_alias(type_name)
+    if ok_alias:
+        # key/value 递归要求为“复合允许的数据引脚类型”（基础/列表/字典），但禁止占位型
+        if key_type in {TYPE_GENERIC, TYPE_GENERIC_LIST, TYPE_GENERIC_DICT, TYPE_LIST_PLACEHOLDER}:
+            return False
+        if value_type in {TYPE_GENERIC, TYPE_GENERIC_LIST, TYPE_GENERIC_DICT, TYPE_LIST_PLACEHOLDER}:
+            return False
+        # 允许 value 为列表类型；是否允许 value 继续为别名字典由 parse_typed_dict_alias 递归表达决定。
+        return _is_supported_pin_type(key_type) and _is_supported_pin_type(value_type)
 
     return type_name in ALLOWED_DATA_PIN_TYPES
 

@@ -28,7 +28,7 @@ def get_ui_session_state_path(workspace_path: Path) -> Path:
     """返回 UI 会话状态文件路径。
 
     参数：
-        workspace_path: 工程根路径（Graph_Generater 目录）。
+        workspace_path: 工程根路径（workspace_root）。
     """
     return get_runtime_cache_root(workspace_path) / _SESSION_FILENAME
 

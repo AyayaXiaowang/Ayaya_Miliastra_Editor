@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from engine.graph.models import GraphModel
-from engine.utils.graph.graph_utils import is_flow_port_name
+from ..internal.constants import ORDER_MAX_FALLBACK
+from .graph_query_utils import is_flow_input_port
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,15 @@ def compute_data_components_layers(model: GraphModel) -> List[DataComponentLayer
     if not model or not model.nodes:
         return []
 
-    node_ids = list(model.nodes.keys())
+    def _node_order_key(node_id: str) -> Tuple[int, str, str]:
+        node = model.nodes.get(node_id)
+        lineno = getattr(node, "source_lineno", 0) if node is not None else 0
+        lineno_key = lineno if isinstance(lineno, int) and lineno > 0 else ORDER_MAX_FALLBACK
+        title = str(getattr(node, "title", "") or "") if node is not None else ""
+        # 注意：node_id 可能包含 uuid 片段（解析期生成）；仅作为最后的稳定兜底键。
+        return (lineno_key, title, str(node_id))
+
+    node_ids = [node_id for node_id in sorted(model.nodes.keys(), key=_node_order_key)]
     directed_adj: Dict[str, List[str]] = {node_id: [] for node_id in node_ids}
     undirected_adj: Dict[str, Set[str]] = {node_id: set() for node_id in node_ids}
 
@@ -35,17 +44,22 @@ def compute_data_components_layers(model: GraphModel) -> List[DataComponentLayer
         if not dst_node:
             continue
         dst_port = dst_node.get_input_port(edge.dst_port)
-        if dst_port and not is_flow_port_name(dst_port.name):
+        if dst_port and not is_flow_input_port(dst_node, dst_port.name):
             if edge.src_node in directed_adj and edge.dst_node in directed_adj:
                 directed_adj[edge.src_node].append(edge.dst_node)
                 undirected_adj[edge.src_node].add(edge.dst_node)
                 undirected_adj[edge.dst_node].add(edge.src_node)
 
+    # 稳定排序：消除边构建/插入顺序差异带来的遍历漂移
+    for src_id, neighbors in directed_adj.items():
+        if neighbors:
+            neighbors.sort(key=_node_order_key)
+
     components: List[DataComponentLayers] = []
     remaining: Set[str] = set(node_ids)
 
     while remaining:
-        start = next(iter(remaining))
+        start = min(remaining, key=_node_order_key)
         queue = deque([start])
         visited_order: List[str] = []
         visited_set: Set[str] = set()
@@ -56,7 +70,80 @@ def compute_data_components_layers(model: GraphModel) -> List[DataComponentLayer
                 continue
             visited_set.add(current)
             visited_order.append(current)
-            for neighbor in undirected_adj.get(current, set()):
+            for neighbor in sorted(undirected_adj.get(current, set()), key=_node_order_key):
+                if neighbor not in visited_set:
+                    queue.append(neighbor)
+
+        remaining -= visited_set
+        layers = _topological_layers_for_component(visited_order, directed_adj)
+        components.append(DataComponentLayers(nodes=list(visited_order), layers=layers))
+
+    return components
+
+
+def compute_data_components_layers_for_nodes(model: GraphModel, node_ids: Set[str]) -> List[DataComponentLayers]:
+    """
+    基于数据边在指定节点集合内构建连通分量，并为每个分量做拓扑分层。
+
+    设计目标：
+    - 只在给定 node_ids 子图中计算（不会把其它节点“捎带”进来）
+    - 输出顺序稳定：不依赖 set 迭代顺序（用于布局可复现）
+    """
+    if not model or not model.nodes or not node_ids:
+        return []
+
+    def _node_order_key(node_id: str) -> Tuple[int, str, str]:
+        node = model.nodes.get(node_id)
+        lineno = getattr(node, "source_lineno", 0) if node is not None else 0
+        lineno_key = lineno if isinstance(lineno, int) and lineno > 0 else ORDER_MAX_FALLBACK
+        title = str(getattr(node, "title", "") or "") if node is not None else ""
+        return (lineno_key, title, str(node_id))
+
+    # 仅在子集内建图：使用排序后的节点列表保证遍历稳定
+    scoped_node_ids = [node_id for node_id in sorted(node_ids, key=_node_order_key) if node_id in model.nodes]
+    if not scoped_node_ids:
+        return []
+
+    directed_adj: Dict[str, List[str]] = {node_id: [] for node_id in scoped_node_ids}
+    undirected_adj: Dict[str, Set[str]] = {node_id: set() for node_id in scoped_node_ids}
+
+    for edge in model.edges.values():
+        src_id = getattr(edge, "src_node", None)
+        dst_id = getattr(edge, "dst_node", None)
+        if not isinstance(src_id, str) or not isinstance(dst_id, str):
+            continue
+        if src_id not in directed_adj or dst_id not in directed_adj:
+            continue
+        dst_node = model.nodes.get(dst_id)
+        if not dst_node:
+            continue
+        dst_port = dst_node.get_input_port(getattr(edge, "dst_port", ""))
+        if dst_port and not is_flow_input_port(dst_node, dst_port.name):
+            directed_adj[src_id].append(dst_id)
+            undirected_adj[src_id].add(dst_id)
+            undirected_adj[dst_id].add(src_id)
+
+    # 稳定排序：邻接表去除 set 迭代顺序影响
+    for node_id, neighbors in directed_adj.items():
+        if neighbors:
+            neighbors.sort(key=_node_order_key)
+
+    components: List[DataComponentLayers] = []
+    remaining: Set[str] = set(scoped_node_ids)
+
+    while remaining:
+        start = min(remaining, key=_node_order_key)
+        queue = deque([start])
+        visited_order: List[str] = []
+        visited_set: Set[str] = set()
+
+        while queue:
+            current = queue.popleft()
+            if current in visited_set:
+                continue
+            visited_set.add(current)
+            visited_order.append(current)
+            for neighbor in sorted(undirected_adj.get(current, set()), key=_node_order_key):
                 if neighbor not in visited_set:
                     queue.append(neighbor)
 

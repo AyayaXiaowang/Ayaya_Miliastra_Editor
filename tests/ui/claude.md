@@ -1,21 +1,113 @@
 ## 目录用途
-存放 UI 相关测试（含 PyQt6 最小构造/冒烟回归）。目标是覆盖 UI 高频改动的关键链路，同时保持不启动主窗口、不依赖真实外设输入。
+- 存放 UI 层回归测试：覆盖图编辑器视图/场景（GraphView/GraphScene）、自动排版入口、任务清单、执行监控、主题 tokens，以及 UI Workbench（Web 预览/导出工具链）等组件的关键契约与崩溃护栏。
+- 测试目标以“契约不回退 + 不崩溃”为主，尽量使用最小桩/最小输入，避免依赖完整运行态或真实外部环境（不启动主窗口、不依赖真实外设输入）。
 
 ## 当前状态
-- `test_ui_library_pages_smoke.py`：资源库关键页面（元件库/实体摆放/节点图库/存档库）构造与刷新冒烟测试，复用 `tools.smoke_test_ui_libraries` 的同源逻辑。
+- Qt 相关测试通过 `tests/ui/conftest.py` 的 session 级 fixture 统一确保存在 `QApplication` 且持续持有引用（避免被 GC 立刻销毁 → 创建 QWidget/QGraphicsScene 时触发进程级崩溃）。
+  - 同时遵守启动顺序约束：若环境存在 `rapidocr_onnxruntime`，则必须先于 `PyQt6` 导入（参照 `app.bootstrap.ui_bootstrap`），避免 DLL 冲突；缺失时不强依赖 OCR，仍允许执行不依赖 OCR 的 UI 回归用例。
+- UI Workbench（HTML/Playwright）用例在缺失 Playwright 环境时应使用 `pytest.skip` 而非直接抛错（包含“未安装 python 包”或“未执行 `playwright install` 下载浏览器”两类情况），保证 CI/展示型仓库可稳定运行。
+- `test_ui_workbench_export_defaults_full_state_groups.py`：导出一致性回归：Workbench（导出中心/CLI）与预览页导出的 bundle 必须固定 `ui_state_consolidation_mode="full_state_groups"`，且预览页不再暴露该开关；导出中心在 bundle mode 不是 full_state_groups 时也应触发自动更新。
+- `test_theme_tokens_colors_border.py`：主题 token 合同回归：`Colors.BORDER` 必须存在，且在浅/深主题切换后始终与 `BORDER_NORMAL` 同步（避免旧 QSS 引用导致启动期 AttributeError）。
+- `test_ui_html_flatten_compare_report.py`：UI HTML 对比产物生成（原稿 vs 扁平化）：
+  - 默认对 `assets/资源库/项目存档/示例项目模板/管理配置/UI源码/` 下 `ceshi.html` 与 `2.html` 生成对比产物；可通过环境变量 `UI_COMPARE_HTMLS` 覆盖（分号分隔，如 `UI_COMPARE_HTMLS=ceshi.html;2.html;1.html`）。
+  - 若环境安装了 Playwright：会先用 Web Workbench **即时生成最新扁平化**（避免旧缓存），并写出 `validation.txt`；生成时走“自动修正并校验”（注入禁滚动等修正，降低预览环境差异误报）；测试对“结构/运行态校验”的 **errors=0** 做硬性要求（warnings 允许但建议清理），扁平化降级提示允许存在（属于链路能力差异提示）；通过后输出 `compare_report.html`（左右并排 iframe 对照）与 `original.png/flattened.png/compare.png`。
+  - Workbench 页面默认会跳转到唯一入口 `ui_app_ui_preview.html`；测试访问 Workbench 时会带 `internal=1` 禁用跳转，保证自动化 DOM 驱动稳定。
+  - 若未安装 Playwright：回退使用 `app/runtime/cache/ui_html_bundle_cli/<package_id>/` 下最新的 `<name>*.flattened.html` 产物，仅输出 `compare_report.html`（无法保证与当前源码同步）。
+- `test_ui_html_flatten_four_sizes_mosaic.py`：扁平化“四档画布尺寸”渲染拼图：用 Playwright 分别以 1920×1080 / 1600×900 / 1560×720 / 1280×720 渲染同一份 `flattened.html`，输出 `flattened_4sizes_mosaic.png` 便于快速肉眼检查是否存在分辨率适配问题。
+  - 同时内置“硬性断言”：四档下关键控件必须完全落在画布内，否则测试直接失败（防回归）。对 `ceshi.html` 默认只断言主弹窗 `game-panel`（顶部按钮结构允许迭代变化）。
+  - 实现策略：每档尺寸分别触发一次 Workbench 扁平化生成，避免在极端环境下“非当前选中尺寸的扁平层为空”导致误判。
+  - 支持环境变量 `UI_MOSAIC_HTMLS`（分号分隔）指定要生成拼图的 HTML（默认 `ceshi.html;2.html`）；不同页面会用不同的关键元素断言（如 `ceshi` 校验主弹窗 `game-panel`，`2` 校验主面板 `main-panel`）。
+- `test_ui_html_top_actions_sticky_and_not_occluded.py`：左上角“退出/关卡选择”按钮贴顶回归：
+  - 通过 Workbench 对 `1.html/2.html/3.html` 在 4 档画布尺寸下分别生成扁平化，并解析扁平层的 rect/z-index。
+  - 硬性断言：按钮层 `top/left` 必须处于顶部安全区（防止被容器 padding/居中推下去），且不得被更高 z-index 的不透明底板层完全遮挡（否则等价于按钮不可用/不在顶层）。
+  - 为提升大文本稳定性：向编辑器灌入 HTML 时使用“直接赋值 textarea.value + dispatch input”，避免 `page.fill()` 在超大 HTML 下逐字符输入导致 30s 超时。
+- `test_ui_html_top_actions_text_alignment_explicit.py`：左上角“退出/关卡选择”文本居中回归：
+  - 静态合同：校验 `span.btn-text` 必须显式标注 `data-ui-text-align/valign`（避免扁平化后左上对齐）。
+  - 端到端（可选 Playwright）：强制扁平化后读取 `export_widget_preview_model`，断言“退出/关卡选择”的 TextBox 对齐为“水平居中/垂直居中”。
+- `test_library_mixins_rebuild_list_exception_safety.py`：库页通用列表刷新助手回归：当 `build_items()` 抛异常时，必须恢复 `updatesEnabled`/解除信号阻塞，避免 UI 假死。
+- `test_graph_search_results_item_widget_geometry.py`：GraphSearchOverlay 搜索结果列表回归：结果项使用 `setItemWidget(...)` 自绘三行文本时，editor geometry 不得被 `QListWidget::item` 的 QSS `padding` 明显缩小（否则会导致文本裁切）。
 - `test_two_row_field_table_widget_smoke.py`：`TwoRowFieldTableWidget` 的最小冒烟回归（加载/读回、集合类型展开、只读结构体“查看”按钮信号、metadata raw 值保留）。
+- `test_constant_vector3_edit_none_value.py`：常量编辑器回归：当三维向量端口常量为 `None`（旧图/异常数据）时，`ConstantVector3Edit` 必须可构建并回退显示 `0, 0, 0`，且不强制覆盖已有原始常量值。
 - `test_execution_thread_step_event_semantics.py`：执行线程事件语义回归（`step_completed` 仅在最终结果时发射一次，重试/跳过不会导致步骤计数与任务树联动错位）。
 - `test_resource_library_auto_refresh_state_machine.py`：资源库文件监控的自动刷新状态机纯逻辑回归（去抖/最大等待、指纹复核触发、刷新互斥、内部写盘抑制（含目录粒度抑制）、周期性指纹复核兜底），不依赖 PyQt6。
+- `test_auto_layout_logging_setting.py`：SettingsDialog 设置项回写回归（自动排版详细日志开关、节点间距倍率），并覆盖 verbose 打开且校验失败时 AutoLayoutController 在 compute-thread finished 回调中的 stdout 输出链路。
+- `test_auto_layout_deleted_edge_item_guard.py`：回归自动排版清理旧连线图元时的 Qt 对象生命周期问题：`edge_items` 中若残留已被 Qt 侧释放的 EdgeGraphicsItem，必须用 `sip.isdeleted()` 跳过，避免 `wrapped C/C++ object ... has been deleted` 崩溃。
+  - 在 Windows + pytest 下直接对真实 Qt 对象调用 `sip.delete(...)` 可能触发进程级崩溃（例如 `STATUS_STACK_BUFFER_OVERRUN`），用例改为用 `monkeypatch` 模拟 `sip.isdeleted(...)==True` 覆盖护栏路径。
 - `test_window_close_save_policy.py`：窗口关闭保存策略回归：关闭阶段必须走“flush 去抖缓冲 → 按脏块保存”，禁止无条件全量保存导致外部更新被覆盖。
-- `test_save_conflict_policy.py`：保存冲突策略回归：当磁盘文件已被外部修改且提供 expected_mtime 时，保存必须默认拒绝静默覆盖；允许显式开启覆盖策略以对齐 VSCode 的“Overwrite”决策。
+- `test_save_conflict_policy.py`：保存冲突策略回归：资源保存在“磁盘文件已被外部修改且提供 expected_mtime”时必须默认拒绝静默覆盖；允许显式开启覆盖策略以对齐 VSCode 的“Overwrite”决策；同时覆盖目录模式下 `PackageIndexManager.save_package_index` 不写 `pkg_*.json` 的语义（包根目录由 `get_packages_root_dir` 提供单一真源）。
 - `test_graph_editor_new_node_ports_policy.py`：节点图编辑器“新建节点初始端口策略”的纯逻辑回归，确保“拼装字典”默认生成 `键0/值0`，避免业务特例回流到控制器。
 - `test_management_special_panel_selection_single_read.py`：管理模式“专用右侧面板刷新”selection 单次解析回归：确保 coordinator 解析当前选中后不会被专用面板二次反查库页选中，避免协议漂移导致右侧面板静默空白。
+  - 结构体/信号等代码级定义的读取在 UI 中可能按当前 `ResourceManager` 作用域过滤；相关用例如需 monkeypatch 对应数据访问函数，应兼容可选的 `resource_manager` 形参（避免因函数签名升级导致回归用例失效）。
+- `test_edit_session_capabilities_sync.py`：`EditSessionCapabilities` 在 Controller/View/Scene 的同步回归；覆盖从只读态进入编辑器打开图时会恢复“可交互+可校验”，避免右上角“自动排版”入口被隐藏。
+- `test_graph_scene_scope_variant_resolution.py`：节点图 UI 侧回归：`GraphScene.get_node_def` 必须按 `graph_type` 命中 `#{scope}` 变体；并对模板示例 client 图做最小装配验证（模型边 == 场景边），避免端口不匹配导致连线被跳过（通过 `ResourceManager.rebuild_index(active_package_id=...)` 指定示例项目存档作用域）。
+- `test_node_graphics_item_flow_in_port_resolution.py`：端口查找/高亮回归：当节点存在多个流程输入口（如“有限循环”的“流程入/跳出循环”）时，按“流程入”查找必须命中真正的“流程入”，避免任务清单/预览高亮指向错误端口。
+- `test_todo_tree_node_highlight.py`：Todo 任务树与节点预览联动的最小 UI 回归：点击节点后高亮相关步骤/置灰不相关步骤，并正确维护内部 filter/highlight 状态。
+- `test_todo_tree_graph_expander_placeholder_lifecycle.py`：Todo 节点图懒加载展开占位项生命周期回归：当树刷新/clear 释放旧 `QTreeWidgetItem` 后，进度更新不得再触碰已删除 item（避免 `wrapped C/C++ object ... has been deleted` 崩溃），并应清理占位缓存以允许后续重建。
+- `test_todo_tree_source_tooltip.py`：Todo 图步骤“源码定位 tooltip”回归：从 `TodoItem.detail_info` 提取关联节点信息并构建提示文本，避免悬停时因变量引用错误导致崩溃。
+- `test_todo_mode_presenter_focus_selected_graph_from_graph_library.py`：Todo 模式进入回归：从“节点图库”切到“任务清单”时必须按当前选中 `graph_id` 记录 pending focus，避免进入 Todo 后仍停留在上一轮节点图上下文。
 - `test_execution_monitor_panel_ui_splitter_no_out_of_range_warning.py`：执行监控面板 UI 组装回归：构造 `log_splitter` 时不应触发 `QSplitter::setCollapsible: Index ... out of range` Qt 警告。
 - `test_execution_monitor_log_view_scroll_debounce_smoke.py`：日志视图高频追加冒烟：连续 append 多行并 `processEvents()`，验证 debounce 滚动逻辑可用且不崩溃。
+- `test_execution_monitor_port_contract.py`：执行监控面板端口合同回归：`ExecutionMonitorPanel` 必须实现 Todo 侧 `ExecutionMonitorPort`（含 `attach_session`）。
+- `test_shared_graph_view_lease.py`：共享画布租约回归：覆盖 `SharedGraphViewLeaseManager` 的 acquire/release、幂等与 host 不一致时的显式错误，并校验“视图状态快照（缩放/镜头）”在借还时能恢复，避免预览侧 `fit_all` 把编辑器画布带入“压缩状态”。
+- `test_private_extension_injected_button_smoke.py`：私有扩展 UI 冒烟回归：按文件路径加载扩展模块 → 注册主窗口钩子注入按钮 → 点击按钮触发运行期 `dataclass`，确保 loader 已写入 `sys.modules` 且点击链路不崩溃。
+- `test_ui_workbench_placeholder_validation.py`：UI 工作台（Web-first）导入/导出前占位符校验回归：`{{lv./ps.}}` 变量来源解析、无前缀占位符歧义报错、以及“局内存档变量禁止用于 UI”的硬约束。
+- `test_ui_workbench_variable_catalog.py`：UI 工作台（Web-first）变量浏览器回归：后端能给出当前项目可用的 lv/ps 变量清单，并附带解析链路信息（便于解释性报错/排查）。
+- `test_ui_html_debug_label_normalizer.py`：UI HTML 扁平化预览产物回归：当扁平化输出存在重复 `data-debug-label`（例如大量 `text-`）时，后处理必须将其去重为唯一值，确保 Web 侧基于 label 的定位/点击选择不会失效。
+- `test_ui_html_tutorial_overlay_no_overlap.py`：新手指引遮罩层回归：对 `2.html` 的 `tutorial_overlay`（`guide_1~guide_6`）在 4 档画布尺寸下做几何断言：
+  - 生成链路使用 `ui_app_ui_preview.html` 的“强制扁平化”（每档尺寸都强制生成一次，避免缓存/空层误判）。
+  - 硬性约束：指引卡片（tutorial-card）必须完全落在画布内（以 iframe 的 `.flat-display-area` 尺寸为准，不许出屏）。
+  - 额外锚定：对 `guide_6` 使用扁平化 iframe 内的按钮文本（`拒绝进入/允许进入`）定位高亮目标区域并做零重叠断言，确保“卡片遮挡高亮按钮”能被确定性捕捉。
+- `test_ui_app_ui_preview_selection_mapping.py`：UI 预览页（`ui_app_ui_preview.html`）回归：在扁平模式下点击画布元素（尤其是文字层）时，左下角“导出控件”高亮必须与预览 iframe 的实际 `data-layer-key` **精确匹配**（即选中行的 `data-flat-layer-key` 与点击层一致），避免误选到底层大底板/组容器。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_app_ui_preview_selection_mapping.py -q`
+- `test_ui_app_ui_preview_source_timelapse_stays_in_source_variant.py`：UI 预览页“原稿延时摄影”回归：在“原稿”模式点击顶部“延时摄影”后，状态文本必须进入“延时摄影（原稿）”分支，且预览变体保持“原稿 active / 扁平化 inactive”（不允许自动切回扁平化）；并在预览 iframe 临时注入一个“父容器也具可视样式”的双 `flex:1` 按钮行，断言播放过程中出现“只剩一个按钮可见时宽度接近整行”的重排效果，防止回归成“只播最外层整块”。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_app_ui_preview_source_timelapse_stays_in_source_variant.py -q`
+- `test_ui_app_ui_preview_text_align_anchor_panel_reflects_flattened_text.py`：UI 预览页右侧“文本对齐锚点（3×3）”面板回归：点选扁平化文本层时，锚点高亮必须反映“扁平化后的真实对齐”（`.flat-text-inner` 的 `justify-content/align-items`），避免永远卡在“左中”。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_app_ui_preview_text_align_anchor_panel_reflects_flattened_text.py -q`
+- `test_ui_app_ui_preview_canvas_click_text_level_name_scrolls_export_widget_list.py`：用户反馈回归：扁平化后点击画布文字“第4关”（组件 `text-level-name`）时，左下角“导出控件”必须选中并滚动到对应条目；用于覆盖“点到文本子层但无直连 flat_layer_key 映射”场景。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_app_ui_preview_canvas_click_text_level_name_scrolls_export_widget_list.py -q`
+- `test_ui_app_ui_preview_canvas_click_element_layer_key_scrolls_export_widget_list.py`：用户现场补充回归：扁平化后点击画布某个 `element__...` 层（右侧检查器能显示 layer_key），左下角“导出控件”也必须跳转高亮对应条目，避免“只更新检查器但列表没反应”。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_app_ui_preview_canvas_click_element_layer_key_scrolls_export_widget_list.py -q`
+- `test_ui_app_ui_preview_canvas_click_text_level_name_scrolls_flatten_group_tree.py`：用户需求回归：扁平化后点击画布文字“第4关”（组件 `text-level-name`）时，左下角“扁平分组”必须展开父组并滚动到可视区高亮对应条目（与实际点选 layerKey 几何一致）。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_app_ui_preview_canvas_click_text_level_name_scrolls_flatten_group_tree.py -q`
+- `test_ui_app_ui_preview_export_group_hide_does_not_hide_other_groups.py`：回归“组隐藏误伤”：在导出控件视图点击某个组的“眼睛”后，只应隐藏该组的扁平层，不应把其它组一起隐藏（防止 groupKey 撞名/口径不一致导致跨组隐藏）。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_app_ui_preview_export_group_hide_does_not_hide_other_groups.py -q`
+- `test_ui_app_ui_preview_export_widget_toggle_hides_same_layer_key_as_row.py`：回归“隐藏口径必须与选中一致”：导出控件列表点击单项“眼睛”时，必须隐藏该行 `data-flat-layer-key` 指向的扁平层，且不得误伤其它条目。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_app_ui_preview_export_widget_toggle_hides_same_layer_key_as_row.py -q`
+- `test_ui_export_widget_list_click_selection_consistency.py`：导出控件列表全量回归：对当前页面导出控件列表中所有具备 `flat_layer_key` 的 widget，逐个点击并断言“列表行 `data-flat-layer-key` == 实际选中层 `window.__wb_last_preview_selected_layer_key`”，用于发现/拦截“点击列表误选到 vote-overlay/底板”等回归。
+  - 依赖：Playwright（用于 headless 浏览器驱动）。
+  - 运行方式：`python -X utf8 -m pytest tests/ui/test_ui_export_widget_list_click_selection_consistency.py -q`
+  - 说明：预览页会在生成导出控件列表时，基于真实扁平化预览 DOM 对 `flat_layer_key` 做一次“定位归一化”（让列表 key 与 iframe 内 `data-layer-key` 对齐），因此该用例可以对“列表点击定位”做确定性断言。
+- `test_ui_html_forbidden_css_features.py`：UI HTML 禁用特性文本扫描护栏：
+  - 在 CI 提前拦截 Workbench 明确不支持/会导致不一致的写法（例如伪元素、动效、background-image 等）。
+  - 扫描范围默认只覆盖 `示例项目模板/管理配置/UI源码/*.html`（避免误扫私有资源，同时确保 CI 可覆盖版本化示例）。
+- `test_ui_html_textbox_width_contract.py`：UI HTML 文本框宽度/默认值合同护栏：
+  - 目的：把“导出 TextBox 宽度=字宽 → 运行时文本变长就换行”的问题前移到 CI。
+  - 静态规则：若页面使用 `.btn-text`，必须定义可拉伸规则（至少包含 `flex:` 与 `min-width:0`）；若页面出现 `data-ui-text` 或 `{1:lv.` 占位符，必须声明 `data-ui-variable-defaults`。
+- `test_ui_html_shadow_depth_spec.py`：UI HTML 阴影深度规范护栏：
+  - 对包含 `data-ui-` 且使用 `tone-3` 遮罩皮肤的页面，强制阴影遮罩仅使用浅阴影一档（`rgba(0, 0, 0, 0.14)`），并要求存在 bottom+deep 两层（底部自然加深但不发黑）。
+- `test_ui_variable_defaults_extractor_accepts_scalar_values.py`：UI defaults 解析契约回归：`data-ui-variable-defaults` 顶层 value 允许为标量或 dict；Python extractor 需容忍标量并仅拆分 dict 到 `split_defaults`（避免导出链路被标量默认值阻断）。
+- `test_ui_workbench_variable_defaults_create_typed_custom_vars.py`：写回端回归：`data-ui-variable-defaults` 的标量/列表/字典默认值应按 `engine/type_registry.py` 的类型体系创建实体自定义变量（支持变量名显式类型标注 `..._<类型名>__...`）。
+- `test_ugc_file_tools_export_gil_dialog_single_page.py`：扩展 `ugc_file_tools` 旧“导出 .gil”入口回归：应收敛到“导出中心”并默认切到 `gil` 格式页（不跑真实写回），避免多入口/多对话框口径漂移。
+- `test_ugc_file_tools_export_wizard_dialog_smoke.py`：扩展 `ugc_file_tools`“导出中心”对话框冒烟：覆盖 `export_enabled=False/True` 两种状态，可打开并可被定时关闭（避免阻塞）；用于拦截 `ThemeManager` 漏导入或主题 `Colors` token 误用导致的运行期崩溃。
+  - 约束：导出中心为**非模态**弹窗（不阻塞底层页面操作），测试通过 `QApplication.topLevelWidgets()` 捕获对话框并显式运行短事件循环驱动定时器。
+- `test_export_center_resource_picker_expanded_state_persisted.py`：导出中心左侧资源树展开状态持久化回归：展开分类/来源/目录后关闭导出中心，再次打开应自动恢复展开。
+- `test_ui_workbench_allow_duplicate_item_display_keycodes.py`：写回端回归：同一页面内“可交互道具展示”的按键码即使重复也不应阻断导出；应在 report 中记录 warning 便于排查。
+- `test_web_ui_import_visibility_patch_component_index.py`：写回端单元回归：`initial_visible` 必须写入真源口径的 `component_list[1]['503']['14']['502']`（而不是误写到其它 component 的同名 node14），避免多状态控件非默认态无法初始隐藏导致画面叠加混乱。
+- `test_package_library_extension_toolbar_widget_smoke.py`：项目存档页扩展工具栏冒烟：支持私有扩展注入自定义 widget（例如进度条），并保证幂等复用同 key 实例。
+- `test_packages_view_graph_preview_mode.py`：项目存档页回归：当“当前存档 A”下预览并点击“存档 B 的节点图”时，应进入图属性面板的预览模式（不触发错误的图资源加载）；同存档或共享视图下仍走完整加载链路。
 
 ## 注意事项
 - 需要创建 `QApplication` 的测试应复用 `QApplication.instance()`，避免多实例导致崩溃。
-- 如需 OCR 预热，必须在导入 PyQt6 之前完成（参照 tools 冒烟脚本的顺序），避免 DLL 冲突。
+- 如需 OCR 预热，必须在导入 PyQt6 之前完成（参照 `app.bootstrap.ui_bootstrap` 的顺序约束），避免 DLL 冲突。
 - 不使用 `try/except` 吞错，失败直接抛出由 pytest 记录。
+- 涉及 UI HTML/示例包资源时，测试应优先使用版本化的 `示例项目模板/`；本地自用的 `测试项目/` 可能被忽略不入库，不能作为 CI 依赖（如需覆盖本地包，用例应在资源缺失时 `pytest.skip` 或通过环境变量显式指定）。
 
 

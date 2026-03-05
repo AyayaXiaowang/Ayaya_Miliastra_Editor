@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Callable, Dict, Optional
 
 from PyQt6 import QtWidgets
 
 from app.ui.forms.schema_bound_form import FormFieldSpec, SchemaBoundForm
 
 
-def create_backpack_form(settings: Dict[str, object], parent: QtWidgets.QWidget) -> QtWidgets.QWidget:
+def create_backpack_form(
+    settings: Dict[str, object],
+    parent: QtWidgets.QWidget,
+    *,
+    on_settings_changed: Optional[Callable[[], None]] = None,
+) -> QtWidgets.QWidget:
     """为“背包”组件创建简单表单，只暴露背包容量字段。
 
     说明：
@@ -31,6 +36,11 @@ def create_backpack_form(settings: Dict[str, object], parent: QtWidgets.QWidget)
                 default=20,
                 minimum_int=0,
                 maximum_int=9999,
+                on_changed=(
+                    (lambda _value: on_settings_changed())
+                    if on_settings_changed is not None
+                    else None
+                ),
             )
         ],
         settings,  # type: ignore[arg-type]

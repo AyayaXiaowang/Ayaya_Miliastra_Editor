@@ -10,6 +10,7 @@ from PyQt6 import QtCore, QtWidgets
 
 from engine.configs.settings import settings
 from engine.resources.resource_manager import ResourceManager, ResourceType
+from engine.utils.logging.logger import log_debug
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,12 +69,12 @@ class GraphFileWatchCoordinator(QtCore.QObject):
         # 防抖：如果是刚刚保存的，忽略这次变化
         current_time = time.time()
         if (current_time - self._last_save_wall_time_seconds) < float(self._ignore_seconds_after_save):
-            print("[文件监控] 忽略自身保存触发的变化")
+            log_debug("[文件监控] 忽略自身保存触发的变化")
             return
 
         if not file_path_text:
             return
-        print(f"[文件监控] 检测到文件变化: {file_path_text}")
+        log_debug("[文件监控] 检测到文件变化: {}", str(file_path_text))
 
         # 延迟一小段时间再处理（Windows 文件系统 + 原子写入/重命名覆盖会造成短暂抖动）
         self._debounce_timer.start(int(self._debounce_ms))
@@ -94,7 +95,7 @@ class GraphFileWatchCoordinator(QtCore.QObject):
         graph_file_path_text = str(graph_file_path)
         if graph_file_path_text not in watched_files:
             self._file_watcher.addPath(graph_file_path_text)
-            print(f"[文件监控] 已恢复监控: {graph_file_path}")
+            log_debug("[文件监控] 已恢复监控: {}", str(graph_file_path))
 
         watched_graph_id = self._context.graph_id
         active_graph_id = self._get_active_graph_id() or None
@@ -104,12 +105,12 @@ class GraphFileWatchCoordinator(QtCore.QObject):
         )
 
         if not has_local_changes:
-            print("[文件监控] 无本地修改，直接重新加载")
+            log_debug("[文件监控] 无本地修改，直接重新加载")
             self._reload_graph_from_file()
             self._emit_toast("节点图已更新", "info")
             return
 
-        print("[文件监控] 检测到本地修改，显示冲突对话框")
+        log_debug("[文件监控] 检测到本地修改，显示冲突对话框")
         self._show_conflict_dialog(graph_file_path)
 
     def _has_local_changes(self, *, watched_graph_id: Optional[str], active_graph_id: Optional[str]) -> bool:
@@ -164,7 +165,7 @@ class GraphFileWatchCoordinator(QtCore.QObject):
             if callable(clear_method):
                 clear_method()
 
-        print("[文件监控] 节点图已重新加载，视图位置已恢复")
+        log_debug("[文件监控] 节点图已重新加载，视图位置已恢复")
 
     def _show_conflict_dialog(self, graph_file_path: Path) -> None:
         from app.ui.dialogs.conflict_resolution_dialog import ConflictResolutionDialog
@@ -185,13 +186,13 @@ class GraphFileWatchCoordinator(QtCore.QObject):
 
         choice = dialog.get_user_choice()
         if choice == "keep_local":
-            print("[冲突解决] 用户选择保留本地修改")
+            log_debug("[冲突解决] 用户选择保留本地修改")
             self.update_last_save_time()
             self._request_force_save()
             self._emit_toast("已保留您的修改", "info")
             return
         if choice == "use_external":
-            print("[冲突解决] 用户选择使用外部版本")
+            log_debug("[冲突解决] 用户选择使用外部版本")
             self._reload_graph_from_file()
             self._emit_toast("已使用外部版本", "info")
             return

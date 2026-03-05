@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from engine.graph.common import TARGET_ENTITY_PORT_NAME
+from engine.nodes.node_definition_loader import NodeDef
 from engine.utils.graph.graph_utils import build_connection_map, build_node_map, get_node_display_info
+from engine.validate.node_semantics import SEMANTIC_CUSTOM_VAR_GET, is_semantic_graph_node
 
 from ..comprehensive_types import ValidationIssue
 from .base import BaseComprehensiveRule
@@ -22,11 +26,16 @@ def validate_frontend_variable_usage(validator) -> List[ValidationIssue]:
     if not validator.resource_manager:
         return []
     issues: List[ValidationIssue] = []
+
+    workspace_path = Path(getattr(validator.resource_manager, "workspace_path"))
+    node_library: Dict[str, NodeDef] = getattr(validator, "node_library", {}) or {}
+
     attachments = iter_all_package_graphs(
         validator.resource_manager,
         validator.package.templates,
         validator.package.instances,
         validator.package.level_entity,
+        validator.package.combat_presets,
     )
     for attachment in attachments:
         if not attachment.entity_type:
@@ -38,6 +47,9 @@ def validate_frontend_variable_usage(validator) -> List[ValidationIssue]:
                 attachment.location_compact,
                 attachment.detail,
                 is_self_allowed,
+                workspace_path=workspace_path,
+                node_library=node_library,
+                scope_text=str(getattr(attachment.graph_config, "graph_type", "") or ""),
                 cache_key=attachment.graph_id,
             )
         )
@@ -49,6 +61,10 @@ def check_frontend_variable_in_graph(
     location: str,
     detail: Dict,
     is_self_allowed: bool,
+    *,
+    workspace_path: Path,
+    node_library: Dict[str, NodeDef],
+    scope_text: str,
     cache_key: Optional[str] = None,
 ) -> List[ValidationIssue]:
     if not graph_data or "nodes" not in graph_data:
@@ -61,12 +77,19 @@ def check_frontend_variable_in_graph(
     node_map = build_node_map(nodes)
     node_issues: List[ValidationIssue] = []
     for node in nodes:
-        node_id, node_title, _ = get_node_display_info(node)
-        if node_title != "获取自定义变量":
+        node_id, node_title, node_category = get_node_display_info(node)
+        if not is_semantic_graph_node(
+            workspace_path=workspace_path,
+            node_library=node_library,
+            node_category=str(node_category or ""),
+            node_title=str(node_title or ""),
+            scope_text=str(scope_text or ""),
+            semantic_id=SEMANTIC_CUSTOM_VAR_GET,
+        ):
             continue
         entity_source = _trace_entity_source(
             node_id,
-            "目标实体",
+            TARGET_ENTITY_PORT_NAME,
             connection_map,
             node_map,
         )

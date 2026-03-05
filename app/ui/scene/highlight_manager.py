@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional, Set
 
-from PyQt6 import QtGui
+from PyQt6 import QtGui, sip
 
 from app.ui.foundation.theme_manager import Colors
 from app.ui.scene.interaction_state import YDebugInteractionState
@@ -39,7 +39,43 @@ class YDebugHighlightManager:
         model = self._model_provider()
         return getattr(model, "_layout_y_debug_info", {}) or {}
 
+    def _is_scene_deleted(self) -> bool:
+        """判断宿主场景 Qt 对象是否已被释放。
+
+        说明：
+        - update_scene 通常为 GraphScene.update 的绑定方法；
+        - 在 QGraphicsScene.clear() 或场景销毁过程中，Python 包装对象可能仍存活，但底层 C++ 已被释放；
+          此时继续调用 update()/重绘或访问图元会触发 `wrapped C/C++ object ... has been deleted`。
+        """
+        bound_owner = getattr(self._update_scene, "__self__", None)
+        return bound_owner is not None and sip.isdeleted(bound_owner)
+
+    def _safe_update_scene(self) -> None:
+        if self._is_scene_deleted():
+            return
+        self._update_scene()
+
+    def _purge_deleted_graphics_items(self) -> None:
+        """清理 provider 字典中残留的“已被 Qt 释放”的图元包装对象。"""
+        node_items = self._node_items_provider()
+        edge_items = self._edge_items_provider()
+
+        stale_node_ids: list[str] = []
+        for node_id, node_item in (node_items or {}).items():
+            if node_item is None or sip.isdeleted(node_item):
+                stale_node_ids.append(node_id)
+        for node_id in stale_node_ids:
+            node_items.pop(node_id, None)
+
+        stale_edge_ids: list[str] = []
+        for edge_id, edge_item in (edge_items or {}).items():
+            if edge_item is None or sip.isdeleted(edge_item):
+                stale_edge_ids.append(edge_id)
+        for edge_id in stale_edge_ids:
+            edge_items.pop(edge_id, None)
+
     def apply_all_chains_highlight(self) -> None:
+        self._purge_deleted_graphics_items()
         debug_map = self._debug_map
         active_node_id = self.state.active_node_id
         if not active_node_id or active_node_id not in debug_map:
@@ -186,9 +222,10 @@ class YDebugHighlightManager:
         self._all_chains_active = True
         self._node_color_map = node_color_map
         self._node_chain_badges = node_chain_badges
-        self._update_scene()
+        self._safe_update_scene()
 
     def clear_all_chains_highlight(self) -> None:
+        self._purge_deleted_graphics_items()
         if not self._all_chains_active:
             return
         node_items = self._node_items_provider()
@@ -209,9 +246,10 @@ class YDebugHighlightManager:
         self._all_chains_active = False
         self._node_color_map.clear()
         self._node_chain_badges.clear()
-        self._update_scene()
+        self._safe_update_scene()
 
     def highlight_chain(self, chain_id: int) -> None:
+        self._purge_deleted_graphics_items()
         debug_map = self._debug_map
         active_node_id = self.state.active_node_id
         active_info = debug_map.get(active_node_id, {}) if active_node_id else {}
@@ -280,9 +318,10 @@ class YDebugHighlightManager:
                 edge_item.setSelected(False)
                 edge_item.setOpacity(0.15)
             edge_item.update()
-        self._update_scene()
+        self._safe_update_scene()
 
     def clear_chain_highlight(self) -> None:
+        self._purge_deleted_graphics_items()
         node_items = self._node_items_provider()
         edge_items = self._edge_items_provider()
         for node_item in node_items.values():
@@ -298,7 +337,7 @@ class YDebugHighlightManager:
             self._clear_port_highlights_cb()
         self._active_chain_id = None
         self._active_chain_nodes.clear()
-        self._update_scene()
+        self._safe_update_scene()
 
     def _update_node_badge(self, storage: Dict[str, int], node_id: str, chain_id: int) -> None:
         existing = storage.get(node_id)

@@ -1,54 +1,18 @@
 ## 目录用途
-节点系统核心：节点定义（`NodeDef`）、节点解析管线、节点注册表（`NodeRegistry`）、复合节点编辑能力（`CompositeNodeManager`）等。
+节点系统核心：节点规格（`NodeSpec`/`NodeDef`）、端口类型系统、节点库构建管线（V2 AST pipeline）、节点注册表（`NodeRegistry`），以及复合节点（Composite Node）的解析与管理。
 
 ## 当前状态
-- **节点库构建**：`NodeRegistry` 负责构建并缓存“节点定义库（NodeDef）”，实现侧节点来自 V2 管线（只解析不导入），复合节点通过 `pipeline/composite_runner.py` 解析追加，构建期不依赖 `CompositeNodeManager`。
-- **复合节点管理**：`CompositeNodeManager` 仅用于复合节点的增删改查、落盘与懒加载子图，属于“编辑/运行期管理器”，不应参与节点库构建。
-- **复合节点文件筛选**：统一由 `engine.nodes.composite_file_policy` 提供；复合节点定义文件为 `assets/资源库/复合节点库/**/composite_*.py`（跳过 `__init__.py`、`_*.py`、`*校验*.py`），manager/pipeline/校验入口共用同一规则避免漂移。
-- **复合节点子图解析**：需要显式注入 `base_node_library`；禁止在解析过程中隐式触发节点库构建或重新扫描实现库，避免缓存不一致与潜在循环依赖。全局工厂在未注入时会使用实现侧管线产物构建基础库（不触发 `NodeRegistry`）。
+- **实现节点发现**：实现侧节点位于 `plugins/nodes/**`，由 `engine.nodes.pipeline` 通过 AST 扫描 `@node_spec` 构建节点定义库（只解析不导入）。
+- **节点库入口**：运行期通过 `engine.get_node_registry(workspace_root).get_library()` 获取节点库；节点定位使用 `NodeDef.canonical_key`（`node_def_key.py` 提供统一解析/反查工具），调用侧禁止自行拼接字符串当主键。
+- **复合节点**：文件筛选规则在 `composite_file_policy.py`；解析/扩展在 `pipeline/composite_*`；运行期管理器 `CompositeNodeManager` 负责复合节点的 CRUD/落盘/懒加载子图。
+  - 子图解析（load_subgraph=True）会使用“基础节点库 + 当前作用域内的复合节点 NodeDef”构建解析上下文，以支持复合节点内部调用复合节点的建模（嵌套复合）。
+- **虚拟引脚类型收敛**：`CompositeVirtualPinManager.add_virtual_pin_mapping` 在绑定内部端口时会把“占位型 pin_type”（如 `字典/列表/泛型列表/泛型字典/枚举`）收敛为内部端口的具体 `port_type`，确保复合节点对外暴露的类型是确定且可导出的。
+- **端口系统**：`port_type_system.py` / `port_name_rules.py` / `port_index_mapper.py` 管理端口类型推断与连线判定，类型语义单一真源以 `engine.type_registry` 为准。
+- **迁移与桩**：`migrations/` 存放节点改名/端口改名迁移规则数据；`stubgen.py` 可导出 `.pyi` 供 Graph Code 编写时补全。
 
 ## 注意事项
-- 严禁让复合节点编辑/解析路径在节点库构建过程中反向调用 `get_node_registry().get_library()`。
-- 不使用 `try/except` 吞错；错误直接抛出，由上层处理。
-- 不在节点图逻辑里书写任何“判空/数据是否存在”类防御代码；缺数据应直接报错暴露问题。
+- 避免循环依赖：复合节点加载/解析路径禁止在节点库构建过程中反向调用 `get_node_registry().get_library()`。
+- 复合节点路径必须做安全归一化：只允许相对路径，禁止绝对路径/盘符/UNC/`..` 注入；字符串层分隔符归一化统一复用 `engine.utils.path_utils.normalize_slash`。
+- 不写防御式“判空/缺数据兜底”；缺数据应直接抛错暴露问题。
+- 文档与注释统一称工作区根为 `workspace_root`。
 
-## 目录用途
-- 抽象节点规格与相关类型（端口、属性、校验约束）
-- 提供节点定义加载与聚合能力（`node_definition_loader.py`, `impl_definition_loader.py`）
-- 提供集中式节点注册与查询（`node_registry.py`）
-- 管理端口名称/类型规则（`port_name_rules.py`, `port_type_system.py`, `port_index_mapper.py`）
-- 提供复合节点管线与管理能力（`pipeline/*`, `composite_node_manager.py` 等）
-
-## 公共 API（通过 `engine.nodes` 顶层导出）
-- 定义与注册：`NodeSpec`, `node_spec`, `NodeDef`, `load_all_nodes`
-- 节点库实例管理：`NodeRegistry`, `get_node_registry(workspace_path, include_composite=True)` 使用按 `(workspace_path.resolve(), include_composite)` 键控的缓存字典，为不同工作区和复合节点视图提供独立的节点库实例；测试环境可通过 `clear_all_registries_for_tests()` 显式清空实例缓存。
-- 端口规则与类型：`get_dynamic_port_type`, `FLOW_PORT_TYPE`, `ANY_PORT_TYPE`, `GENERIC_PORT_TYPE`, `can_connect_ports`, `get_port_type_color`
-- 枚举与常量：`NodeCategory`, `NODE_CATEGORY_VALUES`, `ALLOWED_SCOPES`
-- 复合节点：`CompositeNodeManager`（延迟导入以避免循环依赖）、`get_composite_node_manager(workspace_path, ...)`（首次创建必须显式传入 workspace；若全局缓存中仅存在单一工作区实例，可省略 workspace_path 直接复用；多工作区场景必须显式传入避免歧义）、`clear_global_composite_node_manager_for_tests()`（测试清理口）、虚拟引脚与映射配置类型，以及基于 `CompositeVirtualPinSnapshot` 的虚拟引脚撤销助手（`composite_virtual_pin_undo_helper.py`），为 UI 撤销命令提供纯模型级快照/恢复能力
-
-## 依赖边界与节点实现来源
-- 允许依赖：`engine/utils`、`engine/graph`、`engine/validate`
-- 禁止依赖：`plugins/*`、`app/*`、`assets/*`、`core/*`
-- 节点实现代码的实际来源为工作区根目录下的实现库管线：
-  - 现用实现库：`plugins/nodes/`
-- 节点库持久化缓存的“变更指纹”与图缓存共用统一实现：同时覆盖历史目录、新目录以及节点定义/图解析核心和复合节点库，任一部分变更都会触发缓存失效与重建。
-
-## 当前状态与注意事项
-- 节点实现发现与索引已迁移至 `plugins/nodes` 管线；不再在运行期解析旧 `node_implementations/` 目录。
-- 端口类型推断统一通过 `port_name_rules.get_dynamic_port_type()`；流程口判断统一使用 `engine.utils.graph.graph_utils.is_flow_port_name()`。
-- 端口类型语义（流程/泛型/泛型列表/泛型字典、字典别名判定、列表判定等）统一以 `engine/type_registry.py` 的规范类型名与工具函数为唯一事实来源，`port_type_system.py` 仅负责“连线判定与 UI 颜色”的端口侧逻辑，避免类型语义在多处实现发生漂移。
-- 节点作用域以 `NodeDef.scopes` 为唯一语义来源：`scopes` 非空则只在对应作用域可用；`scopes` 为空则视为通用节点（在所有受支持作用域中均可用）。不再依赖 `doc_reference` 推断作用域，避免“文档目录结构变更=功能变更”的高耦合风险。
-- 为避免循环依赖，复合节点管理器采用延迟导入与模块级转发。
-- 复合节点库加载阶段直接依赖 AST / IR 解析构建内存索引，语法或结构错误会在解析时抛出异常，由调用方或 UI 层显式暴露问题，而不在管理器内部静默跳过。
-- 不使用异常吞没；节点与图解析相关错误在进入引擎层后仍直接抛出，由调用方按需处理。
-- `NodeRegistry` 节点库加载采用阻断式策略：禁止“加载中静默返回空库”。同线程重入会抛出 `NodeRegistryRecursiveLoadError`；跨线程并发访问会等待加载完成，确保上层不会拿到半成品节点库。
-- 复合节点解析阶段会在应用布局时显式注入“基于基础节点库派生的布局上下文”，避免解析期反向调用 `NodeRegistry` 引发递归加载。
-- 复合节点装饰器 `flow_entry` / `event_handler` / `data_method` 支持省略 `inputs`/`outputs`，依赖 `auto_inputs/auto_outputs` 标记与 `engine.graph.composite.pin_api` 提供的辅助函数填充虚拟引脚。
-- `CompositeNodeManager` 的影响分析复用了 `engine.resources.graph_reference_tracker` 并缓存复合节点引用，避免每次分析都全量扫描节点图。
-- 附录/节点图高级特性中的 `advanced_node_features.py` 集中定义结构体、信号、泛型引脚等高级概念，并以 `VirtualPinConfig/CompositeNodeConfig` 为核心描述复合节点的虚拟引脚配置，提供从 `PackageModel.signals` 到运行时 `SignalDefinition` 的桥接函数，供校验、代码生成和 Todo 管线复用。
-- `NodeSpec` 支持 `input_generic_constraints`/`output_generic_constraints` 以及 `input_enum_options`/`output_enum_options` 字段，分别用于约束泛型端口允许的具体类型与声明枚举端口可选值集合；管线与 `NodeDef` 将原样保留这些元数据，验证器/编辑器可以据此阻止非法类型连接或枚举取值。
-- 复合节点加载器在仅提取元数据与虚拟引脚时不会构建完整节点库，而是在需要加载子图或生成函数代码时才依赖基础节点库与实现管线；`CompositeNodeManager` 构造时优先复用 `NodeRegistry` 提供的节点库，避免在复合节点加载路径上重复跑节点实现管线，从而降低 UI 启动与模式切换的卡顿感。
-- 复合节点的“源码生成/落盘”（`save_composite_to_file`）不再由引擎层内置生成器实现：需要由上层注入 `composite_code_generator.generate_code(CompositeNodeConfig)`；引擎层仅负责复合节点配置/子图的解析、校验与持久化编排，避免绑定运行时/插件导入策略。
-- 复合节点落盘格式以**类格式（@composite_class）+ JSON payload**为闭环契约：加载器在懒加载阶段可从 `COMPOSITE_PAYLOAD_JSON` 直接提取虚拟引脚与元信息但不加载子图；保存则写回 payload，避免生成“解析不了的新文件”。新建复合节点默认创建“流程入/流程出”两个流程虚拟引脚，避免落盘空壳导致后续加载/校验失败。**旧函数式复合节点格式已移除且禁止使用**，确保“校验=解析=懒加载展示”口径一致。
-- `CompositeVirtualPinManager` 统一负责虚拟引脚映射的增删查与显示编号计算，并提供按内部节点 ID 批量清理映射的辅助函数，供 UI 撤销命令和批处理工具在不关心持久化细节的前提下复用。
-- 虚拟引脚类型遵循 `port_type_system.ANY_PORT_TYPE/GENERIC_PORT_TYPE`（即“泛型”）；禁止使用旧别名 `"any"/"Any"/"ANY"`，遇到会直接抛错，需手工迁移为“泛型”。

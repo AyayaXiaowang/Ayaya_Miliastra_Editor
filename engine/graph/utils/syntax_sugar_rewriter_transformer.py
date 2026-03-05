@@ -1,0 +1,24 @@
+from __future__ import annotations
+
+import ast
+
+from .syntax_sugar_rewriter_transformer_base import _GraphCodeSyntaxSugarTransformerBase
+from .syntax_sugar_rewriter_transformer_expr_access import _GraphCodeSyntaxSugarTransformerExprAccessMixin
+from .syntax_sugar_rewriter_transformer_expr_binary import _GraphCodeSyntaxSugarTransformerExprBinaryMixin
+from .syntax_sugar_rewriter_transformer_expr_call import _GraphCodeSyntaxSugarTransformerExprCallMixin
+from .syntax_sugar_rewriter_transformer_expr_compare import _GraphCodeSyntaxSugarTransformerExprCompareMixin
+from .syntax_sugar_rewriter_transformer_expr_ifexp import _GraphCodeSyntaxSugarTransformerExprIfExpMixin
+from .syntax_sugar_rewriter_transformer_stmt import _GraphCodeSyntaxSugarTransformerStmtMixin
+
+
+class _GraphCodeSyntaxSugarTransformer(
+    _GraphCodeSyntaxSugarTransformerStmtMixin,
+    _GraphCodeSyntaxSugarTransformerExprBinaryMixin,
+    _GraphCodeSyntaxSugarTransformerExprAccessMixin,
+    _GraphCodeSyntaxSugarTransformerExprCallMixin,
+    _GraphCodeSyntaxSugarTransformerExprCompareMixin,
+    _GraphCodeSyntaxSugarTransformerExprIfExpMixin,
+    _GraphCodeSyntaxSugarTransformerBase,
+    ast.NodeTransformer,
+):
+    pass

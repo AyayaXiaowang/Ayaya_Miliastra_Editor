@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import atexit
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import Dict, List, Optional, Tuple
@@ -19,6 +21,43 @@ from engine.resources.package_index_manager import PackageIndexManager
 from engine.resources.resource_manager import ResourceManager, ResourceType
 
 from .graph_model_cache import GraphModelCacheEntry, get_or_build_graph_model
+
+
+_GRAPH_RESOURCE_LOAD_EXECUTOR: ThreadPoolExecutor | None = None
+_GRAPH_RESOURCE_LOAD_EXECUTOR_LOCK = Lock()
+
+
+def _get_graph_resource_load_executor() -> ThreadPoolExecutor:
+    """延迟初始化线程池：用于将“图资源解析异常”隔离为可读错误，不让异常炸穿 UI 主线程。
+
+    注意：本模块属于 runtime service（无 UI 依赖），但会被 UI 同步调用；
+    当资源库中存在非法节点图源码时，`ResourceManager.load_resource(ResourceType.GRAPH, ...)`
+    可能抛出解析异常。这里用 Future.exception() 获取异常文本，避免上层被直接打断。
+    """
+    global _GRAPH_RESOURCE_LOAD_EXECUTOR
+    with _GRAPH_RESOURCE_LOAD_EXECUTOR_LOCK:
+        if _GRAPH_RESOURCE_LOAD_EXECUTOR is None:
+            _GRAPH_RESOURCE_LOAD_EXECUTOR = ThreadPoolExecutor(
+                max_workers=2,
+                thread_name_prefix="graph-resource-loader",
+            )
+            atexit.register(_GRAPH_RESOURCE_LOAD_EXECUTOR.shutdown, False)
+        return _GRAPH_RESOURCE_LOAD_EXECUTOR
+
+
+def shutdown_graph_resource_load_executor() -> None:
+    """退出阶段显式关闭图资源加载线程池。
+
+    设计目标：
+    - 避免窗口关闭阶段残留 ThreadPoolExecutor worker 线程；
+    - 若有未执行的任务，使用 cancel_futures=True 直接取消。
+    """
+    global _GRAPH_RESOURCE_LOAD_EXECUTOR
+    with _GRAPH_RESOURCE_LOAD_EXECUTOR_LOCK:
+        executor = _GRAPH_RESOURCE_LOAD_EXECUTOR
+        _GRAPH_RESOURCE_LOAD_EXECUTOR = None
+    if executor is not None:
+        executor.shutdown(wait=False, cancel_futures=True)
 
 
 @dataclass
@@ -52,6 +91,8 @@ class GraphDataService:
         self._graph_model_cache: Dict[str, GraphModelCacheEntry] = {}
         self._reference_cache: Dict[str, List[Tuple[str, str, str, str]]] = {}
         self._graph_membership_cache: Dict[str, set[str]] = {}
+        # graph_id -> 最近一次“加载/解析节点图资源”失败原因（用于 UI 友好提示）
+        self._graph_load_error_cache: Dict[str, str] = {}
 
         self._packages_cache: List[dict] = []
         self._package_map: Dict[str, dict] = {}
@@ -76,7 +117,8 @@ class GraphDataService:
 
         graph_config = self.get_graph_config(graph_id)
         if not graph_config:
-            payload.error = f"节点图 '{graph_id}' 不存在或已被删除。"
+            error_text = self.get_graph_load_error(graph_id)
+            payload.error = error_text or f"节点图 '{graph_id}' 不存在或已被删除。"
             return payload
 
         graph_data = graph_config.data
@@ -130,11 +172,13 @@ class GraphDataService:
                 self._graph_model_cache.pop(graph_id, None)
                 self._reference_cache.pop(graph_id, None)
                 self._graph_membership_cache.pop(graph_id, None)
+                self._graph_load_error_cache.pop(graph_id, None)
             else:
                 self._graph_config_cache.clear()
                 self._graph_model_cache.clear()
                 self._reference_cache.clear()
                 self._graph_membership_cache.clear()
+                self._graph_load_error_cache.clear()
 
         # payload 缓存为进程级共享（模块全局），因此这里必须一起失效，
         # 否则会出现“某入口清了 GraphModel/GraphConfig，但预览/执行仍复用旧 payload”的回退。
@@ -143,6 +187,13 @@ class GraphDataService:
         else:
             clear_all_graph_data()
 
+    def get_graph_load_error(self, graph_id: str) -> Optional[str]:
+        """返回节点图最近一次加载失败原因（若存在）。"""
+        if not graph_id:
+            return None
+        with self._lock:
+            return self._graph_load_error_cache.get(graph_id)
+
     def _load_graph_config(self, graph_id: str) -> Optional[GraphConfig]:
         with self._lock:
             cached = self._graph_config_cache.get(graph_id)
@@ -150,12 +201,37 @@ class GraphDataService:
             return cached
         if not self.resource_manager:
             return None
-        graph_resource = self.resource_manager.load_resource(ResourceType.GRAPH, graph_id)
-        if not graph_resource:
+        executor = _get_graph_resource_load_executor()
+        future = executor.submit(self.resource_manager.load_resource, ResourceType.GRAPH, graph_id)
+        if future.cancelled():
+            with self._lock:
+                self._graph_load_error_cache[graph_id] = f"节点图 '{graph_id}' 加载已取消。"
             return None
+
+        error = future.exception()
+        if error is not None:
+            with self._lock:
+                self._graph_load_error_cache[graph_id] = (
+                    f"节点图 '{graph_id}' 加载失败：{error}"
+                )
+            return None
+
+        graph_resource = future.result()
+        if not isinstance(graph_resource, dict):
+            with self._lock:
+                self._graph_load_error_cache.pop(graph_id, None)
+            return None
+        if (not graph_resource.get("graph_id")) or ("name" not in graph_resource):
+            with self._lock:
+                self._graph_load_error_cache[graph_id] = (
+                    f"节点图 '{graph_id}' 加载失败：缺少必要字段 graph_id/name。"
+                )
+            return None
+
         graph_config = GraphConfig.deserialize(graph_resource)
         with self._lock:
             self._graph_config_cache[graph_id] = graph_config
+            self._graph_load_error_cache.pop(graph_id, None)
         return graph_config
 
     # ------------------------------------------------------------------ Graph data (process in-memory payload cache)
@@ -187,19 +263,26 @@ class GraphDataService:
         return dict(self._package_map)
 
     def get_graph_membership(self, graph_id: str) -> set[str]:
+        """返回节点图的“归属根目录”集合（单选语义）。
+
+        目录即存档模式下，节点图归属由其物理文件所在的资源根目录决定：
+        - {"shared"}：位于 `assets/资源库/共享/节点图/`
+        - {"<package_id>"}：位于 `assets/资源库/项目存档/<package_id>/节点图/`
+        """
         with self._lock:
             cached = self._graph_membership_cache.get(graph_id)
         if cached is not None:
             return set(cached)
-        memberships = set()
-        packages = self.get_packages()
-        for pkg in packages:
-            pkg_id = pkg.get("package_id", "")
-            if not pkg_id:
-                continue
-            resources = self._get_package_resources(pkg_id)
-            if resources and graph_id in resources.graphs:
-                memberships.add(pkg_id)
+
+        manager = self.package_index_manager
+        if manager is None:
+            return set()
+
+        owner_id = manager.get_resource_owner_root_id(resource_type="graph", resource_id=graph_id)
+        memberships: set[str] = set()
+        if owner_id:
+            memberships.add(owner_id)
+
         with self._lock:
             self._graph_membership_cache[graph_id] = memberships
         return set(memberships)

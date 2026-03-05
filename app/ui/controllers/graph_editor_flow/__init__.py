@@ -10,6 +10,8 @@ from .load_service import GraphEditorLoadService, GraphEditorLoadRequest, GraphE
 from .save_service import GraphEditorSaveService, GraphEditorSaveResult
 from .validate_service import GraphEditorValidateService
 from .auto_layout_prepare_service import GraphEditorAutoLayoutPrepareService
+from .auto_layout_reparse_thread import GraphAutoLayoutReparseResult, GraphAutoLayoutReparseThread
+from .graph_prepare_thread import GraphPrepareResult, GraphPrepareThread
 from .new_node_ports_policy import derive_initial_input_names_for_new_node
 
 __all__ = [
@@ -21,6 +23,10 @@ __all__ = [
     "GraphEditorSaveResult",
     "GraphEditorValidateService",
     "GraphEditorAutoLayoutPrepareService",
+    "GraphAutoLayoutReparseResult",
+    "GraphAutoLayoutReparseThread",
+    "GraphPrepareResult",
+    "GraphPrepareThread",
     "derive_initial_input_names_for_new_node",
 ]
 

@@ -78,7 +78,8 @@ class ResourceIndexService:
                 sanitized = self._file_ops.sanitize_filename(internal_name)
                 if sanitized != filename_without_ext:
                     current_mtime = file_path.stat().st_mtime
-                    key = str(file_path.resolve())
+                    normalized = file_path if file_path.is_absolute() else file_path.absolute()
+                    key = str(normalized)
                     last_logged_mtime = self._name_sync_state.get(key)
                     if (
                         last_logged_mtime is None

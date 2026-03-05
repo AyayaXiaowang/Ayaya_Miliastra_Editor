@@ -15,6 +15,7 @@ from typing import Optional, Callable, Tuple
 from pathlib import Path
 from PIL import Image
 
+from app.automation import capture as editor_capture
 from app.automation.editor.executor_protocol import EditorExecutorProtocol
 
 from app.automation.editor.executor_canvas_utils import (
@@ -28,6 +29,7 @@ from app.automation.editor.executor_canvas_utils import (
     CANVAS_RECT_SAMPLE_STEPS_X,
     CANVAS_RECT_SAMPLE_STEPS_Y,
     snap_screen_point_to_canvas_background,
+    snap_screen_point_to_canvas_background_coarse,
 )
 
 from app.automation.editor.executor_hook_utils import (
@@ -81,13 +83,33 @@ def click_canvas_blank_near_screen_point(
     """
     log = make_executor_log_fn(executor, log_callback)
 
-    snapped_blank = snap_screen_point_to_canvas_background(
-        executor,
-        int(start_screen_x),
-        int(start_screen_y),
-        log_callback=log_callback,
-        visual_callback=visual_callback,
-    )
+    snapped_blank = None
+
+    # 快速链模式：优先走“粗略吸附”以避免为了收尾点击触发整屏节点识别（昂贵）。
+    # 约定：粗略吸附仅保证命中允许底色附近，不做严格 bbox 避让；失败再回退到严格吸附。
+    if is_fast_chain_runtime_enabled(executor):
+        screenshot = editor_capture.capture_window_strict(executor.window_title)
+        if screenshot is None:
+            screenshot = editor_capture.capture_window(executor.window_title)
+        if screenshot is not None:
+            rx, ry, rw, rh = editor_capture.get_region_rect(screenshot, "节点图布置区域")
+            snapped_blank = snap_screen_point_to_canvas_background_coarse(
+                executor,
+                int(start_screen_x),
+                int(start_screen_y),
+                screenshot=screenshot,
+                region_rect=(int(rx), int(ry), int(rw), int(rh)),
+                log_callback=log_callback,
+            )
+
+    if snapped_blank is None:
+        snapped_blank = snap_screen_point_to_canvas_background(
+            executor,
+            int(start_screen_x),
+            int(start_screen_y),
+            log_callback=log_callback,
+            visual_callback=visual_callback,
+        )
     if snapped_blank is None:
         log(f"{log_prefix}未在画布内找到可用空白点，跳过空白点击收尾")
         return False
@@ -130,6 +152,7 @@ __all__ = [
     "CANVAS_RECT_SAMPLE_STEPS_Y",
     # 画布吸附
     "snap_screen_point_to_canvas_background",
+    "snap_screen_point_to_canvas_background_coarse",
     "click_canvas_blank_near_screen_point",
     "make_executor_log_fn",
     # 运行时钩子与交互工具

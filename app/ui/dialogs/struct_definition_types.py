@@ -77,9 +77,19 @@ def is_struct_type(type_name: str) -> bool:
 
 
 def is_dict_type(type_name: str) -> bool:
-    """判断是否为“字典”类型（展示名语义层）。"""
+    """判断是否为“字典”类型（展示名语义层）。
+
+    备注：
+    - 项目允许“别名字典类型”语法：`键类型-值类型字典` / `键类型_值类型字典`；
+    - UI 侧在多数场景下仅需要把它们当作“字典”来选择合适的编辑器。
+    """
     normalized = normalize_canonical_type_name(type_name)
-    return normalized == "字典"
+    if not normalized:
+        return False
+    if normalized == "字典":
+        return True
+    # 兼容别名字典类型：例如“GUID-整数字典”
+    return normalized.endswith("字典")
 
 
 def is_list_type(type_name: str) -> bool:

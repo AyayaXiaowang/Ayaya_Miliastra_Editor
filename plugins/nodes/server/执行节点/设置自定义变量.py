@@ -6,6 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="设置自定义变量",
     category="执行节点",
+    semantic_id="custom_var.set",
     inputs=[("流程入", "流程"), ("目标实体", "实体"), ("变量名", "字符串"), ("变量值", "泛型"), ("是否触发事件", "布尔值")],
     outputs=[("流程出", "流程")],
     description="为目标实体上的指定自定义变量设置值",

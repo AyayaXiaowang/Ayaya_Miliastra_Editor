@@ -1,22 +1,15 @@
 ## 目录用途
-`app/runtime/services/` 存放 **无 PyQt6 依赖** 的应用层运行时服务（service），用于收敛“资源加载 / 缓存策略 / 领域计算”等可测试逻辑，供 UI 控制器与面板复用。
+`app/runtime/services/`：应用层运行时服务（**无 PyQt6 依赖**）。用于收敛资源加载/缓存策略/纯策略计算等可测试逻辑，供 UI 控制器与面板复用。
 
 ## 当前状态
-- `graph_data_service.py`：图数据统一门面（GraphDataService）
-  - 统一提供 `GraphConfig/graph_data/GraphModel` 的加载与内存缓存（含 GraphModel 的签名失效，避免布局变更后复用旧模型）
-  - 桥接进程内 `graph_data_key` payload 缓存（resolve/store/drop/clear），并将 `invalidate_graph()` 作为“一句清干净”的统一失效入口，供 Todo/预览/导航共享
-- `graph_model_cache.py`：GraphModel 缓存工具（纯函数 + 小型 entry），供图相关 UI 在本地字典缓存 GraphModel 时复用
-- `json_cache_service.py`：运行期 JSON 缓存门面（JsonCacheService）
-  - 统一派生 runtime_cache_root（遵循 `settings.RUNTIME_CACHE_ROOT` 与 `engine.utils.cache.cache_paths` 单一真源）
-  - 提供“整文件 JSON”读写与“KV（schema_version + values）”模式，供 UI 会话状态与轻量 UI 记忆类缓存复用
-  - 写入统一采用原子写（tmp -> replace），避免中断导致空文件/半写入
-  - 提供 `append_jsonl/append_text`，用于“回放记录”等按行追加的落盘场景，避免各处手写路径拼接与文件打开逻辑
-
-## 依赖边界
-- 允许依赖：`engine/*`、`app/runtime/*`、`app/common/*`
-- 禁止依赖：`app/ui/*`、`PyQt6/*`
+- **图数据门面**：`graph_data_service.py` 的 `GraphDataService` 统一加载 `GraphConfig/GraphModel` 并做进程内缓存与失效（按 graph_id / 一键清理），供编辑器与 TODO 预览共享。
+- **运行期缓存门面**：`json_cache_service.py` 的 `JsonCacheService` 统一派生 runtime cache root（遵循 `settings.RUNTIME_CACHE_ROOT`），并用原子写保证会话状态/轻量 KV 缓存一致性。
+- **预览扫描服务**：`resource_preview_scan_service.py` 的 `ResourcePreviewScanService` 直接从磁盘扫描资源 ID 列表与代码级 Schema（节点图/信号/结构体），用于“预览其它项目存档”而不切换当前 ResourceManager 作用域。
+- **画布/面板策略**：`graph_scene_policy.py`、`execution_monitor_panel_policy.py` 等将 UI 侧高频 if-else 下沉为纯策略，UI 只负责应用到 Qt 图元/控件。
+- **本地图模拟器**：`local_graph_simulator.py` 提供稳定会话入口（`LocalGraphSimSession / build_local_graph_sim_session`），并配套 HTTP server / 协议描述 / web assets，支持在 runtime cache 下生成可回放/可复现的模拟产物。
+- **UI Workbench 纯逻辑**：`ui_workbench/` 提供 UI 源码浏览/布局导入/变量默认值处理等服务，UI 侧仅做门面与展示。
 
 ## 注意事项
-- 本目录的服务必须保持可单测：不要在导入阶段访问磁盘或启动线程，不要依赖 Qt 对象生命周期。
-- 缓存失效应提供明确入口（按 graph_id 与全量清理），避免 UI 侧维护“需要清一串缓存”的链条。
-
+- 允许依赖：`engine/*`、`app/runtime/*`、`app/common/*`；禁止依赖 `app/ui/*` 与 `PyQt6/*`。
+- 服务必须可单测：不要在导入阶段触盘/启动线程；需要后台执行时提供显式启动与 shutdown。
+- 缓存必须提供集中失效入口；不使用 try/except 吞错，错误直接抛出或返回结构化结果由上层决定呈现。

@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from engine.nodes.advanced_node_features import CompositeNodeConfig, VirtualPinConfig, MappedPort
 from engine.nodes.port_type_system import ANY_PORT_TYPE, GENERIC_PORT_TYPE
+from engine.type_registry import TYPE_DICT, TYPE_ENUM, TYPE_GENERIC_DICT, TYPE_GENERIC_LIST, TYPE_LIST_PLACEHOLDER
 from engine.utils.logging.logger import log_info, log_error
 
 
@@ -92,6 +93,36 @@ class CompositeVirtualPinManager:
             def _is_generic_type(type_name: str) -> bool:
                 normalized = str(type_name or "").strip()
                 return normalized in (ANY_PORT_TYPE, GENERIC_PORT_TYPE)
+
+            def _is_placeholder_type(type_name: str) -> bool:
+                """
+                复合节点虚拟引脚上“不可落盘/不可导出”的占位类型（需要被具体类型覆盖）。
+                注意：这里只把它们视为“可收敛”，不是做类型推断。
+                """
+                normalized = str(type_name or "").strip()
+                return normalized in {
+                    TYPE_DICT,
+                    TYPE_LIST_PLACEHOLDER,
+                    TYPE_GENERIC_LIST,
+                    TYPE_GENERIC_DICT,
+                    TYPE_ENUM,
+                }
+
+            # 关键：复合节点虚拟引脚类型必须“写死”为具体类型。
+            # 若虚拟引脚仍处于占位类型（字典/列表/泛型列表/泛型字典/枚举），则在绑定端口时直接收敛到端口的具体类型。
+            # 这不是“推断”，而是使用内部端口的已知 port_type 作为唯一真源。
+            if (
+                declared_port_type
+                and (not _is_generic_type(declared_port_type))
+                and (not _is_placeholder_type(declared_port_type))
+                and (
+                    (not declared_pin_type)
+                    or _is_generic_type(declared_pin_type)
+                    or _is_placeholder_type(declared_pin_type)
+                )
+            ):
+                virtual_pin.pin_type = declared_port_type
+                declared_pin_type = declared_port_type
 
             # 如果虚拟引脚已有映射，检查类型是否一致
             if virtual_pin.mapped_ports:

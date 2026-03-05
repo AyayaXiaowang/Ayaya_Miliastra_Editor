@@ -1,38 +1,22 @@
 ## 目录用途
-- 提供引擎侧的通用验证能力：实体/组件/实体配置校验、节点图代码与图结构校验、功能包级综合校验等。
-- 封装验证管线、规则集与对上层暴露的统一入口（如 `validate_files`、`ComprehensiveValidator` 等），产出结构化的 `EngineIssue` / `ValidationIssue` 结果。
+引擎侧验证层（纯逻辑）：提供节点图/复合节点/项目存档等校验与可选 QuickFix 能力，统一输出结构化 Issue（`EngineIssue` / `ValidationIssue`）。
 
 ## 当前状态
-- 校验逻辑全部为纯 Python，不依赖 UI 层或 CLI 层，通常经由 `engine.validate.*` 或工具脚本间接调用。
-- 节点图代码校验的“文件/类便捷入口”统一由 `engine.validate.node_graph_validator` 提供；runtime 层仅做 re-export（保持旧导入路径可用）。
-- 复合节点/普通节点图的规则集选择统一由 `engine.nodes.composite_file_policy.is_composite_definition_file` 判定（默认复合节点文件名 `composite_*.py`），避免通过目录名推断导致入口间漂移。
-- `engine.validate.node_graph_validator.validate_file` 支持“直接运行单个节点图文件”的自检用法：会自动调用 `settings.set_config_path(workspace_root)` 注入工作区根目录，避免布局阶段因 `Settings._workspace_root` 未设置而崩溃。
-- 节点图代码侧的静态规则集中在 `rules/code_*.py`，覆盖语法/结构/布尔条件/变量声明/端口类型/类型名，以及“发送信号调用所用参数名必须与信号定义一致”“Graph Code 中【信号名】参数必须使用信号名称而非 ID”等约束，并依赖节点库索引、信号/结构体 Schema 视图与 AST 工具进行分析。
-- 节点图代码侧新增“内置事件回调命名”校验：当 `register_event_handler` 注册的是内置事件时，回调必须为 `on_<事件名>`（严格一致）；信号事件不强制回调名。
-- 节点图代码侧新增 `on_XXX` 方法名严格校验：只要方法名以 `on_` 开头，`XXX` 必须是内置事件名或已定义信号名/ID（即使未注册也会报错），防止伪事件入口潜伏。
-- 节点图代码侧额外提供“节点调用必填入参”校验：基于节点库静态输入端口清单，禁止 Graph Code 漏传必填端口（流程端口与变参占位端口除外），减少运行期静默失败。
-- 节点图代码侧新增【获取局部变量】用法校验：必须二元解包或显式下标选择输出（`[0]=句柄`、`[1]=值`），避免误用二元返回值。
-- 节点图代码侧新增“已知节点必须传 game”校验：只要函数名在节点库中，就必须显式传入 `self.game/game`（支持位置参数或 `game=self.game` 关键字形式），避免漏传 game 绕过部分静态规则并在运行期报错。
-- 代码可读性相关的规则除 error 级硬约束外，也提供若干 warning：例如事件节点多流程出口提示、以及 `if 是否相等(布尔值, True/False)` 的冗余比较提示，用于帮助开发者在不阻断流程的前提下发现 UI 可读性风险点。
-- 针对离线/简化“拉取式执行器”新增风险提示规则：当【设置自定义变量】写入后，后续流程节点仍依赖同一个【获取自定义变量】节点实例时，报告 `CODE_PULL_EVAL_REEVAL_AFTER_WRITE` warning，提醒可能因重复求值导致条件/数值偏移；推荐在执行器层实现“同一 node_id 单次事件流只求值一次”的输出缓存语义。
-- 图结构与综合规则通过 `comprehensive_graph_checks.py` 与 `comprehensive_rules/*` 完成统一标准化与多维检查，复用缓存的节点库与图模型构建；结构校验直接基于节点图序列化数据（含布局阶段生成的数据节点副本）构造 `GraphModel` 并调用引擎层的 `validate_graph`，保证 CLI 校验、运行期校验与 UI 校验在连线完整性（如流程入口是否连接、数据输入是否有来源）上的行为一致，并保留节点的 `source_lineno/source_end_lineno` 等源码行信息以便输出贴近代码的错误范围提示。对于运行时代码会注入默认值的特定输入端口（例如自定义变量节点的“目标实体”），结构校验在“缺少数据来源”规则上做了对应豁免，避免与代码生成语义产生冲突。
-- 节点端口定义一致性校验支持“范围占位端口”（如 `0~99`、`键0~49`）与展开端口（如 `0`、`1`、`键0`…）互相兼容，用于覆盖变参/批量端口节点的图数据表示差异，避免误报缺失端口。
-- 结构校验与挂载/作用域校验产出的 `ValidationIssue` 会保留稳定错误码 `code`（例如 `CONNECTION_*`、`NODE_MOUNT_FORBIDDEN`），便于 UI/工具侧做跳转、统计与豁免。
-- 复合节点的“结构一致性校验”（缺少数据来源/未连接/端口类型不匹配等）提供统一入口 `collect_composite_structural_issues(...)`，用于 UI/CLI 共用，避免重复实现与规则漂移。
-- 存档级关卡实体规则 `package.level_entity` 仅在实际配置了关卡实体时检查其类型与组件是否符合约定；如果当前存档未配置关卡实体，则跳过该规则而不产出任何错误或警告，避免在示例包/临时测试包中产生噪声。
-- 验证入口采用 `ValidationPipeline`+`ValidationContext` 组合组织规则执行，可根据配置选择启用的规则集、严格模式与豁免策略；`validation_cache.py` 会在规则签名与文件状态均稳定且当前无错误时，为单个文件复用上一次的验证结果。
-- 验证缓存的规则签名包含工作区节点库指纹，节点定义或复合节点变更会自动使缓存失效。
-- `NoListDictLiteralRule` 对所有节点图（包括复合节点）生效，禁止使用 `[]` 或 `{}` 字面量定义列表/字典，必须使用【拼装列表】【建立字典】等节点代替。
-- `MatchCaseLiteralPatternRule` 对所有节点图（包括复合节点）生效，限制 `match/case` 的 `case` 模式只能使用字面量（或字面量 `|` 组合）与 `_` 通配，避免出现 `case self.xxx`/`case 变量名` 等解析器无法静态处理的写法。
-- Graph Code 的可读性规则持续演进：除“if 条件必须为布尔来源、禁止内联 Python 比较”等基础约束外，新增规则禁止在 `if` 条件中直接调用 `逻辑非运算(...)`，要求使用正向条件（例如 `if 条件: pass else: return`）让主流程从“是”分支接续。
-- 节点图代码侧新增“未知节点函数名”校验：当代码出现 `某函数(self.game, ...)` 形态但该函数名不在节点库中，会直接报错，避免拼写错误/不存在节点名在校验阶段被静默放过。
+- **稳定入口**：上层通过 `engine.validate.api.validate_files`、`ComprehensiveValidator`、`RoundtripValidator` 等调用；CLI 仅做包装（如 `app.cli.graph_tools`）。
+- **目标收集与报告**：`graph_validation_targets` 负责扫描目标与路径归一化；`graph_validation_cli_runner` / `graph_validation_cli_reporting` 负责 `validate-graphs` 的编排与输出（含 `--json`）。
+- **退出码语义**：`validate-graphs` 默认 **仅 error 视为失败**（exit code=1）；warning/info 会完整输出但不阻断（exit code=0）。
+- **作用域切换**：批量校验由 `graph_validation_orchestrator.collect_validate_graphs_engine_issues(...)` 按资源根目录分组切换 `active_package_id`，并刷新 NodeRegistry + 代码级 Schema 作用域，避免跨项目存档混扫串包。
+- **单文件入口**：`node_graph_validator` 提供 `validate_file/strict_parse_file` 与类装饰器入口；收集与文本报告格式化逻辑收敛在 `node_graph_validation_utils.py`（用于在纯文本模式下输出更可定位的信息，如 error code、行号范围与少量源码片段）。
+- **严格语义对齐**：
+  - 普通节点图：IR 建模错误（`GraphModel.metadata["ir_errors"]`）与结构校验（`validate_graph_model`）会在验证阶段提升为 error，保证与 UI 严格加载口径一致。
+  - 复合节点：除 AST/pin_marker 规则外，还会解析复合子图并执行结构校验、虚拟引脚映射校验与流程连通性校验，避免“校验通过但 UI 出现空白引脚/孤立流程口”的漂移。
+- **端口类型一致性**：复合节点源码与普通节点图统一执行端口类型匹配与同型输入约束，确保 `拼装列表/拼装字典` 等变参节点在复合节点内同样可被静态拦截明显类型错误。
+- **可选 QuickFix**：`graph_validation_quickfixes` 与 `struct_definition_quickfixes` 默认关闭，仅在 CLI `--fix/--fix-dry-run` 明确启用时执行。
+- **命名长度硬约束**：自定义变量名与节点图变量名长度上限为 **20 字符**；超长在源码校验与存档综合校验中均会报错。
 
 ## 注意事项
-- 允许依赖：`engine/nodes`、`engine/graph`、`engine/utils`、`engine/configs`；禁止引入 `plugins/*`、`app/*`、`assets/*`、`core/*` 等上层模块。
-- 规则和管线实现避免使用 try/except 捕捉业务异常，发现问题直接抛给调用方或以 Issue 形式返回，由上层决定处理策略。
-- 涉及节点库或资源图定义时，务必通过 `workspace_path` 获取对应的注册表或资源管理器，并优先复用已有缓存工具函数。
-- 综合规则应通过 `ComprehensiveValidator` 的辅助方法访问图校验入口，避免跨越封装直接调用内部实现细节。
-- 针对节点图或生成代码的修改，需要通过配套的验证脚本或工具执行一次完整校验，确保在引擎级验证下无报错后再集成到上层流程；对于存在错误的文件，每次验证都会重新执行规则而不会使用缓存。
-- `RoundtripValidator`（GraphModel ↔ Graph Code 往返）不再在引擎内构造“源码生成器”，而是通过依赖注入接收 `code_generator.generate_code(...)`，避免验证层绑定运行时/插件导入策略。
-
+- 允许依赖：`engine/nodes`、`engine/graph`、`engine/utils`、`engine/configs`；禁止引入 `plugins/*`、`app/*`、`assets/*`。
+- 不使用 try/except 吞错；异常直接抛出或以 Issue 返回。
+- **禁止为通过校验而补节点**：遇到 `CODE_UNKNOWN_NODE_CALL` 等错误应改图/改写法/调整 scope，不允许在 `plugins/nodes/**` 加节点绕过。
+- 修改节点图/复合节点或生成链路后，必须跑一次配套验证工具闭环确认。
 

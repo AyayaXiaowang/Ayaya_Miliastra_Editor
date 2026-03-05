@@ -3,7 +3,7 @@ from __future__ import annotations
 # 仅用于类型检查工具（如 Pyright/Pylance）识别的“占位类型定义”。
 # 运行时无任何行为，仅提供名称以避免“未定义类型”提示。
 # 节点图验证统一由 `engine.validate.node_graph_validator` 提供；
-# runtime 侧（`runtime.engine.node_graph_validator` / `app.runtime.engine.node_graph_validator`）仅做 re-export。
+# runtime 侧（`app.runtime.engine.node_graph_validator`）仅做 re-export。
 #
 # 注意：为减少误报（例如 range(0, 行上界) 中行上界的类型检查错误），
 # 部分占位类型会继承对应的内置类型，使其在静态分析时具备基本的兼容性。
@@ -52,6 +52,14 @@ class 字典(dict):
 
 
 class 结构体: ...
+
+
+# 运行期/校验器可能会在部分节点的端口类型中使用这些“抽象占位类型名”；
+# 这里提供最小声明以避免类型桩（如 `plugins/nodes/*/__init__.pyi`）引用时报“未定义”。
+class 自定义变量快照: ...
+
+
+class 局部变量: ...
 
 
 class 实体列表(list[实体]):

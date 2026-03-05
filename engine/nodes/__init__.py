@@ -9,6 +9,7 @@ from .port_type_system import can_connect_ports
 from .node_registry import NodeRegistry, get_node_registry
 from .port_index_mapper import map_port_index_to_name, get_and_clear_last_mappings
 from .node_spec import node_spec, NodeSpec
+from .node_def_key import get_canonical_node_def_key, resolve_node_def_by_key
 from .port_name_rules import (
     parse_range_definition,
     map_index_to_range_instance,
@@ -61,6 +62,9 @@ __all__ = [
     'NODE_CATEGORY_VALUES',
     'ALLOWED_SCOPES',
     'NodeCategory',
+    # canonical key（稳定 NodeDef Key 契约）
+    'get_canonical_node_def_key',
+    'resolve_node_def_by_key',
     # 高级特性
     'MappedPort',
     'VirtualPinConfig',

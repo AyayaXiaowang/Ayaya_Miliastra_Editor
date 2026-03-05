@@ -12,6 +12,12 @@ from .package_index_manager import PackageIndexManager
 from .package_view import PackageView
 from .global_resource_view import GlobalResourceView
 from .graph_reference_tracker import GraphReferenceTracker
+from .package_guid_index import (  # noqa: F401
+    PackageGuidIndexService,
+    ResourceRef,
+    build_package_guid_index,
+)
+from .ref_resolver import RefResolver  # noqa: F401
 from .resource_context import (
     build_resource_context,
     build_resource_index_context,
@@ -34,6 +40,10 @@ __all__ = [
     "PackageView",
     "GlobalResourceView",
     "GraphReferenceTracker",
+    "PackageGuidIndexService",
+    "ResourceRef",
+    "build_package_guid_index",
+    "RefResolver",
     "init_workspace_settings",
     "build_resource_manager",
     "build_resource_index_context",

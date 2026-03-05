@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Any
+from typing import Any, Dict, List
 import ast
 
 from .types import ExtractedSpec
+from .node_spec_ast_utils import is_node_spec_decorator
 
 
 def extract_specs(file_paths: List[Path]) -> List[ExtractedSpec]:
@@ -28,7 +29,7 @@ def extract_specs(file_paths: List[Path]) -> List[ExtractedSpec]:
         if isinstance(node, ast.Tuple):
             return tuple(_to_literal(e) for e in node.elts)
         if isinstance(node, ast.Dict):
-            return { _to_literal(k): _to_literal(v) for k, v in zip(node.keys, node.values) }
+            return {_to_literal(k): _to_literal(v) for k, v in zip(node.keys, node.values)}
         return None
 
     extracted: List[ExtractedSpec] = []
@@ -43,14 +44,16 @@ def extract_specs(file_paths: List[Path]) -> List[ExtractedSpec]:
             has_node_spec = False
             spec_kwargs: Dict[str, Any] = {}
             for dec in fn.decorator_list:
-                # 仅提取 @node_spec(...) 装饰的函数参数
+                # 仅提取 @node_spec(...) 装饰的函数参数（支持 @engine.node_spec(...) 形态）
+                if not is_node_spec_decorator(dec):
+                    continue
+                has_node_spec = True
                 if isinstance(dec, ast.Call):
-                    callee = dec.func
-                    if isinstance(callee, ast.Name) and callee.id == "node_spec":
-                        has_node_spec = True
-                        for kw in dec.keywords:
-                            spec_kwargs[kw.arg] = _to_literal(kw.value)
-                        break
+                    for kw in dec.keywords:
+                        if not kw.arg:
+                            continue
+                        spec_kwargs[kw.arg] = _to_literal(kw.value)
+                break
             # 没有 @node_spec(...) 则跳过；有装饰器但缺字段由后续 normalizer/validator 阻断式报错
             if not has_node_spec:
                 continue
@@ -60,8 +63,11 @@ def extract_specs(file_paths: List[Path]) -> List[ExtractedSpec]:
                 function_name=str(fn.name or ""),
                 name=spec_kwargs.get("name"),
                 category=spec_kwargs.get("category"),
+                semantic_id=str(spec_kwargs.get("semantic_id") or ""),
                 inputs=spec_kwargs.get("inputs") or [],
                 outputs=spec_kwargs.get("outputs") or [],
+                input_port_aliases=dict(spec_kwargs.get("input_port_aliases") or {}),
+                output_port_aliases=dict(spec_kwargs.get("output_port_aliases") or {}),
                 description=spec_kwargs.get("description") or "",
                 mount_restrictions=list(spec_kwargs.get("mount_restrictions") or []),
                 doc_reference=spec_kwargs.get("doc_reference") or "",
@@ -72,6 +78,7 @@ def extract_specs(file_paths: List[Path]) -> List[ExtractedSpec]:
                 output_generic_constraints=dict(spec_kwargs.get("output_generic_constraints") or {}),
                 input_enum_options=dict(spec_kwargs.get("input_enum_options") or {}),
                 output_enum_options=dict(spec_kwargs.get("output_enum_options") or {}),
+                input_defaults=dict(spec_kwargs.get("input_defaults") or {}),
             )
             extracted.append(spec)
 

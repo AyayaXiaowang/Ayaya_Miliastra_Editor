@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 
 from PyQt6 import QtWidgets
 
@@ -20,6 +20,7 @@ def create_component_form(
     settings: Dict[str, object],
     parent: QtWidgets.QWidget,
     *,
+    on_settings_changed: Optional[Callable[[], None]] = None,
     resource_manager: Optional[object] = None,
     package_index_manager: Optional[object] = None,
 ) -> QtWidgets.QWidget | None:
@@ -33,11 +34,16 @@ def create_component_form(
     其余组件返回 None，由调用方决定展示只读占位说明。
     """
     if component_type == "背包":
-        return create_backpack_form(settings, parent)
+        return create_backpack_form(
+            settings,
+            parent,
+            on_settings_changed=on_settings_changed,
+        )
     if component_type == "铭牌":
         return NameplateConfigForm(
             settings,
             parent,
+            on_settings_changed=on_settings_changed,
             resource_manager=resource_manager,
             package_index_manager=package_index_manager,
         )
@@ -45,6 +51,7 @@ def create_component_form(
         return TabConfigForm(
             settings,
             parent,
+            on_settings_changed=on_settings_changed,
             resource_manager=resource_manager,
             package_index_manager=package_index_manager,
         )

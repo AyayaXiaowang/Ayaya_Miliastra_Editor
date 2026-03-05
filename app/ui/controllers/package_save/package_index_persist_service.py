@@ -1,4 +1,12 @@
-"""索引写盘服务：保存 PackageIndex 并刷新资源库指纹基线。"""
+"""索引写盘服务：保存 PackageIndex 并刷新资源库指纹基线。
+
+注意（目录即项目存档模式）：
+- 已不再写回 `pkg_*.json / packages.json` 这类旧式索引文件；
+- `PackageIndexManager.save_package_index(...)` 在目录模式下主要承担：
+  - 写入运行期状态（例如 Todo 勾选）；
+  - 更新进程内的 PackageIndex 派生缓存；
+  - 触发指纹基线刷新（用于资源库变更检测与缓存一致性）。
+"""
 
 from __future__ import annotations
 
@@ -32,7 +40,10 @@ class PackageIndexPersistService:
             return False
 
         self._fingerprint_baseline_service.refresh_after_write()
-        print(f"[PACKAGE-SAVE] 存档索引已写入：package_id={current_package_id!r}")
+        print(
+            "[PACKAGE-SAVE] 存档运行期状态已写入（目录派生索引不落盘）："
+            f"package_id={current_package_id!r}"
+        )
         return True
 
     def refresh_after_write(self) -> None:

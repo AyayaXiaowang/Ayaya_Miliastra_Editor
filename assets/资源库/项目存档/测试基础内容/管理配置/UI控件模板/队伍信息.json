@@ -1,0 +1,37 @@
+{
+  "template_id": "builtin_队伍信息__测试基础内容",
+  "template_name": "队伍信息",
+  "is_combination": false,
+  "widgets": [
+    {
+      "widget_id": "builtin_队伍信息_widget__测试基础内容",
+      "widget_type": "队伍信息",
+      "widget_name": "队伍信息",
+      "position": [
+        10,
+        300
+      ],
+      "size": [
+        180,
+        400
+      ],
+      "initial_visible": true,
+      "layer_index": 2,
+      "is_builtin": true,
+      "settings": {}
+    }
+  ],
+  "group_position": [
+    10,
+    300
+  ],
+  "group_size": [
+    180,
+    400
+  ],
+  "supports_layout_visibility_override": true,
+  "description": "固有内容：队伍信息",
+  "created_at": "2025-10-14T15:41:59.320620",
+  "updated_at": "2025-10-14T15:41:59.320620",
+  "name": "队伍信息"
+}

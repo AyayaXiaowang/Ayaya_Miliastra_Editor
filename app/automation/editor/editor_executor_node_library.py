@@ -38,6 +38,7 @@ def _get_equivalent_categories(category_text: str) -> set[str]:
 class EditorExecutorNodeLibraryMixin:
     _node_library: Dict[str, Any] | None
     _node_defs_by_name: Dict[str, List[Any]]
+    _composite_defs_by_id: Dict[str, Any]
     workspace_path: object
 
     def _ensure_node_library(self) -> None:
@@ -46,10 +47,15 @@ class EditorExecutorNodeLibraryMixin:
         library = get_node_library(self.workspace_path)
         self._node_library = library
         self._node_defs_by_name = {}
+        self._composite_defs_by_id = {}
         for node_def in library.values():
             node_name = getattr(node_def, "name", "")
             if isinstance(node_name, str) and node_name:
                 self._node_defs_by_name.setdefault(node_name, []).append(node_def)
+            if bool(getattr(node_def, "is_composite", False)):
+                composite_id = str(getattr(node_def, "composite_id", "") or "").strip()
+                if composite_id and composite_id not in self._composite_defs_by_id:
+                    self._composite_defs_by_id[composite_id] = node_def
 
     def _resolve_node_def_by_name(self, node_name: str, preferred_category: str):
         if not isinstance(node_name, str) or node_name == "":
@@ -76,35 +82,24 @@ class EditorExecutorNodeLibraryMixin:
         self._ensure_node_library()
         if self._node_library is None:
             return None
-        from engine.nodes.node_definition_loader import find_composite_node_def
-
-        # 复合节点优先按 composite_id 精确匹配
-        if getattr(node, "composite_id", ""):
-            found = find_composite_node_def(
-                self._node_library,
-                composite_id=node.composite_id,
-                node_name=node.title,
+        node_def_ref = getattr(node, "node_def_ref", None)
+        if node_def_ref is None:
+            raise ValueError(
+                f"NodeModel 缺少 node_def_ref：{getattr(node, 'category', '')}/{getattr(node, 'title', '')}"
             )
-            if found:
-                return found[1]
-
-        # 常规节点：标准键/别名映射（类别统一为“...节点”）
-        category_standard = _normalize_category_text(getattr(node, "category", ""))
-        candidate_key = f"{category_standard}/{node.title}"
-        # 直接命中标准键或别名键（impl_definition_loader 已将别名键注入库）
-        direct = self._node_library.get(candidate_key)
-        if direct is not None:
-            return direct
-        # 尝试作用域变体（当仅注册了 #{scope} 变体时）
-        for scope_suffix in ("#client", "#server"):
-            scoped_key = f"{candidate_key}{scope_suffix}"
-            scoped = self._node_library.get(scoped_key)
-            if scoped is not None:
-                return scoped
-        fallback = self._resolve_node_def_by_name(node.title, category_standard)
-        if fallback is not None:
-            return fallback
-        return None
+        kind = str(getattr(node_def_ref, "kind", "") or "").strip()
+        key = str(getattr(node_def_ref, "key", "") or "").strip()
+        if kind == "builtin":
+            return self._node_library.get(key)
+        if kind == "composite":
+            return self._composite_defs_by_id.get(key)
+        if kind == "event":
+            # event 的 key 通常为事件实例标识；需要按 (category/title) 映射回 builtin key。
+            category = str(getattr(node, "category", "") or "").strip()
+            title = str(getattr(node, "title", "") or "").strip()
+            builtin_key = f"{category}/{title}" if (category and title) else ""
+            return self._node_library.get(builtin_key) if builtin_key else None
+        raise ValueError(f"非法 node_def_ref.kind：{kind!r}")
 
     def get_node_def_for_model(self, node: NodeModel):
         """

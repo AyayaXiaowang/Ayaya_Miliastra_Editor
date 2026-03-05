@@ -1,29 +1,16 @@
-# 目录用途
-CLI 与批处理入口（解析参数→调用 `engine` / `plugins` → 输出结果）。
+## 目录用途
+命令行入口集合：解析参数后调用 `engine` / `plugins` 的公共能力，提供校验、诊断、导出等离线工具；同时承载 UI 启动入口（以模块方式运行）。
 
-# 公共 API
-无（仅可执行入口）。
+## 当前状态
+- 推荐 UI 启动命令：`python -X utf8 -m app.cli.run_app`（启动装配由 `app.bootstrap` 执行）。
+- 工具入口主要集中在 `app.cli.graph_tools`；子命令的实现与注册按领域拆分在 `app/cli/commands/`。
+- 读取代码资源（如 `自定义变量注册表.py`）的 CLI（例如 `sync-custom-vars`）统一使用 AST 静态提取（`engine.resources.auto_custom_variable_registry`），避免 import 执行顶层代码与副作用；其中 `sync-custom-vars` 已调整为 refs-only：仅同步引用点与第三方存放实体资源，不再生成 `自动分配_*.py` 变量文件。
+- 自定义变量注册表的 `owner` 直接填实体/元件 ID 或 `player`/`level` 关键字（支持 `str | list[str]` 多 owner）；`sync-custom-vars` 按 owner 值在实体摆放/元件库中查找实体并追加变量文件引用到对应模板。
+- UI 占位符校验（`validate-ui`）为只读校验（不写盘、不提供 `--fix` 自动生成变量定义），并跳过 `UI源码/__hook_tests__/` 夹具目录；支持 typed dict alias（例如 `字符串-整数字典`），允许 `lv.<字典变量>.<key>` 的一层键路径校验。
+- `local_graph_sim.py`：本地节点图模拟器 CLI（serve/click/emit-signal）；`serve` 支持 `--ready-file` 将启动后的 URL/端口写入 JSON，供 UI 父进程读取。
 
-# 依赖边界
-- 允许依赖：`engine/*`（通过公共 API）、`plugins/*`
-- 禁止依赖：`core/*`（应使用 `engine` 公共 API 替代）、实现业务规则（规则必须在 `engine`）
-
-# 当前状态
-- 解析/校验等能力优先使用 `engine` 公共 API（`from engine import ...`）；运行时绑定的源码生成器位于 `app.codegen`，CLI 在需要“导出可运行代码”时可从 `app.codegen` 导入。
-- 所有 CLI 入口脚本均位于本目录；根目录不再提供同名 Python 薄包装脚本，但允许提供 OS 级便捷启动入口（如 `run_app.bat` / `run_app.ps1`），其内部仍必须使用 `python -m ...`
-- CLI 工作流主要围绕“AI/脚本写 Graph Code → 引擎解析/校验/排版 → 自动化脚本在真实编辑器中搭图”设计，仅做静态建模与生成，不在本地执行节点实际业务逻辑。
-- `run_app.py` 作为 UI 启动入口，负责预热 OCR 引擎、在创建 `QApplication` 之前加载并应用用户设置（含界面主题模式与日志详细程度），统一在启动阶段通过 `settings.NODE_IMPL_LOG_VERBOSE` 打开信息级日志以确保控制台可见关键进度，然后创建主窗口；安全声明弹窗统一通过 `ui.foundation.dialog_utils` 的封装接口弹出，包含“我已知晓/不再提醒”两种选择，并将“不再提醒”状态写回 `settings.SAFETY_NOTICE_SUPPRESSED`；同时兼容 PyInstaller 冻结运行：默认以 **exe 所在目录** 作为工作区，并在启动阶段 `chdir` 到该目录（要求外置 `assets/` 与 exe 同级）。
-
-# 注意事项
-- PowerShell 环境下逐行执行命令，不使用 `&&`。
- - 典型入口：
-  - `run_app.py`：启动应用主窗口（推荐命令：`python -X utf8 -m app.cli.run_app`）。
-  - `convert_graph_to_executable.py`：将节点图导出为可执行代码（推荐命令：`python -X utf8 -m app.cli.convert_graph_to_executable`）。
-  - `graph_tools.py`：便携版工具入口（校验/诊断），用于打包产物中的 `Graph_Generater_Tools.exe`；冻结运行时默认以 exe 所在目录为工作区根目录（要求 `assets/` 与 exe 同级外置），提供 `validate-graphs` / `validate-file` 等命令。
-- CLI 输出的“运行生成文件”提示需包含 `-X utf8` 且对路径加引号，避免中文路径/空格路径在 PowerShell 下解析异常。
-- 导入规范：默认统一从 `engine` 导入，如 `from engine import GraphCodeParser, get_node_registry, log_info`；UI 相关统一使用 `app.ui.*`（不再制造顶层包名 `ui`，避免同一模块被导入两份）。
-- 所有 CLI 入口应在导入/调用布局、缓存等依赖 workspace_root 的逻辑前调用 `settings.set_config_path(workspace_root)`，避免 settings 未初始化导致布局/注册表上下文构建失败。
-- 错误输出：优先使用 `output_stream = sys.__stdout__ or sys.stdout`，避免直接访问 `sys.__stdout__` 引发可空属性检查，并兼容无原始流缺失的场景。
-- 对外入口必须在启动阶段提示“仅用于离线教学/禁止接入官方服务器”的安全声明；`run_app.py` 已在控制台与 UI 弹窗双重提示，新增入口需保持一致。
-- 安全声明弹窗提供“不再提醒”按钮，状态由 `settings.SAFETY_NOTICE_SUPPRESSED` 管理，需要复用该配置以确保提示一致。
+## 注意事项
+- 统一使用模块方式运行（`python -m ...`），避免 `__package__` 与工作区根目录推导异常。
+- PowerShell 不支持 `&&`，文档/输出中的命令应按行给出。
+- `workspace_root` 推导与 settings 初始化需在调用依赖工作区的逻辑前完成，且应复用 `engine.utils.workspace` 的统一入口。
 

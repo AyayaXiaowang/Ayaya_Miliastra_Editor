@@ -13,4 +13,23 @@ from engine.utils.logging.logger import log_info
 )
 def 以整数设置玩家排行榜分数(game, 玩家序号列表, 排行榜分数, 排行榜序号):
     """以整数设置玩家排行榜分数"""
-    log_info(f"[以整数设置玩家排行榜分数] 执行")
+    if not isinstance(玩家序号列表, list):
+        raise TypeError("以整数设置玩家排行榜分数：玩家序号列表 必须为 整数列表")
+
+    lb_index = int(排行榜序号)
+    score = int(排行榜分数)
+
+    store = getattr(game, "leaderboards", None)
+    if not isinstance(store, dict):
+        store = {}
+        setattr(game, "leaderboards", store)
+
+    scores = store.get(lb_index, None)
+    if not isinstance(scores, dict):
+        scores = {}
+        store[lb_index] = scores
+
+    for player_idx in 玩家序号列表:
+        scores[int(player_idx)] = int(score)
+
+    log_info("[以整数设置玩家排行榜分数] lb_index={}, players={}, score={}", lb_index, len(玩家序号列表), score)

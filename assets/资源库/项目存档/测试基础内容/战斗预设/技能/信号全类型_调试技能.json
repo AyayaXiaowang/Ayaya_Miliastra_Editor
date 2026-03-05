@@ -1,0 +1,29 @@
+{
+  "skill_id": "skill_signal_all_types_debug__测试基础内容",
+  "skill_name": "信号全类型_调试技能",
+  "description": "用于在示例项目存档中触发 signal_all_supported_types_example 信号示例节点图的占位技能。",
+  "cooldown": 1.0,
+  "cost_type": "mana",
+  "cost_value": 0.0,
+  "damage": 0.0,
+  "damage_type": "physical",
+  "range_value": 0.0,
+  "cast_time": 0.0,
+  "animation": "",
+  "effects": [],
+  "ability_units": [],
+  "metadata": {
+    "skill_editor": {
+      "basic": {},
+      "combo": {},
+      "numeric": {},
+      "lifecycle": {},
+      "graphs": [],
+      "graph_variable_overrides": {}
+    }
+  },
+  "id": "skill_signal_all_types_debug__测试基础内容",
+  "last_modified": "2025-11-30 19:00:00",
+  "updated_at": "2025-12-05T22:18:29.214457",
+  "name": "信号全类型_调试技能"
+}

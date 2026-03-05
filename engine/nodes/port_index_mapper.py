@@ -27,7 +27,7 @@ _last_mapping_records: List[Dict[str, object]] = []
 
 def _get_workspace_path() -> Path:
     current_file = Path(__file__).resolve()
-    # 当前文件位于 Graph_Generater/engine/nodes/，上溯两级到 Graph_Generater/
+    # 当前文件位于 <workspace_root>/engine/nodes/，上溯两级到 <workspace_root>/
     return current_file.parents[2]
 
 

@@ -114,13 +114,29 @@ class BaseDialog(QtWidgets.QDialog):
         """添加布局到内容区域"""
         self.content_layout.addLayout(layout)
     
-    def show_error(self, message: str):
-        """显示错误消息"""
-        dialog_utils.show_warning_dialog(self, "错误", message)
-    
-    def show_info(self, message: str):
-        """显示信息消息"""
-        dialog_utils.show_info_dialog(self, "提示", message)
+    def show_error(self, title: str, message: str | None = None) -> None:
+        """显示错误消息。
+
+        兼容两种调用风格：
+        - `show_error("错误信息")`
+        - `show_error("标题", "错误信息")`
+        """
+        if message is None:
+            dialog_utils.show_error_dialog(self, "错误", str(title or ""))
+            return
+        dialog_utils.show_error_dialog(self, str(title or "错误"), str(message or ""))
+
+    def show_info(self, title: str, message: str | None = None) -> None:
+        """显示信息消息。
+
+        兼容两种调用风格：
+        - `show_info("提示信息")`
+        - `show_info("标题", "提示信息")`
+        """
+        if message is None:
+            dialog_utils.show_info_dialog(self, "提示", str(title or ""))
+            return
+        dialog_utils.show_info_dialog(self, str(title or "提示"), str(message or ""))
 
 
 class FormDialog(BaseDialog):

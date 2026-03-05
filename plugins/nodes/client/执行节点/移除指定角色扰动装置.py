@@ -9,7 +9,14 @@ from engine.utils.logging.logger import log_info
     inputs=[("流程入", "流程"), ("扰动装置类型", "枚举")],
     outputs=[("流程出", "流程")],
     description="移除指定类型的角色扰动装置",
-    doc_reference="客户端节点/执行节点/执行节点.md"
+    doc_reference="客户端节点/执行节点/执行节点.md",
+    input_enum_options={
+        "扰动装置类型": [
+            "扰动装置类型_力场器",
+            "扰动装置类型_弹射器",
+            "扰动装置类型_牵引器",
+        ],
+    },
 )
 def 移除指定角色扰动装置(game, 扰动装置类型):
     """移除指定类型的角色扰动装置"""

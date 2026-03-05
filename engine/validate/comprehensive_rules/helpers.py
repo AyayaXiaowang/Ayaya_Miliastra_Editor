@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterator, List, Optional
 from weakref import WeakKeyDictionary
 
 from engine.graph.models.graph_config import GraphConfig
-from engine.graph.models.package_model import InstanceConfig, TemplateConfig
+from engine.graph.models.package_model import CombatPresets, InstanceConfig, TemplateConfig
 from engine.resources.resource_manager import ResourceManager, ResourceType
 from engine.validate.component_validator import ComponentValidator
 from engine.utils.graph.graph_utils import normalize_graph_edges, normalize_graph_nodes
@@ -157,10 +157,14 @@ def iter_instance_graphs(
     resource_manager: Optional[ResourceManager],
     instances: Dict[str, InstanceConfig],
     templates: Optional[Dict[str, TemplateConfig]] = None,
+    *,
+    exclude_instance_ids: set[str] | None = None,
 ) -> Iterator[GraphAttachment]:
     if not resource_manager:
         return
     for instance_id, instance in instances.items():
+        if exclude_instance_ids and instance_id in exclude_instance_ids:
+            continue
         if not instance.additional_graphs:
             continue
         template = templates.get(instance.template_id) if templates else None
@@ -173,7 +177,7 @@ def iter_instance_graphs(
             graph_config = _load_graph_config(resource_manager, graph_id)
             if not graph_config:
                 continue
-            location_prefix = f"实例 '{instance.name}' ({instance_id})"
+            location_prefix = f"实体摆放 '{instance.name}' ({instance_id})"
             detail = {
                 "type": "instance",
                 "instance_id": instance.instance_id,
@@ -225,15 +229,125 @@ def iter_level_entity_graphs(
         )
 
 
+def iter_player_template_graphs(
+    resource_manager: Optional[ResourceManager],
+    combat_presets: CombatPresets,
+) -> Iterator[GraphAttachment]:
+    """遍历玩家模板（战斗预设/玩家模板）中挂载的节点图。
+
+    约定：
+    - `metadata.player_editor.player.graphs`：挂载在“玩家”实体上；
+    - `metadata.player_editor.role.graphs` / `metadata.player_editor.roles[].graphs`：挂载在“角色”实体上。
+    """
+    if not resource_manager:
+        return
+
+    player_templates = getattr(combat_presets, "player_templates", None)
+    if not isinstance(player_templates, dict) or not player_templates:
+        return
+
+    def iter_section_graphs(
+        *,
+        template_id: str,
+        template_name: str,
+        section: object,
+        section_display: str,
+        entity_type: str,
+    ) -> Iterator[GraphAttachment]:
+        if not isinstance(section, dict):
+            return
+        graphs = section.get("graphs")
+        if not isinstance(graphs, list) or not graphs:
+            return
+        for graph_id in graphs:
+            if not isinstance(graph_id, str) or not graph_id:
+                continue
+            graph_config = _load_graph_config(resource_manager, graph_id)
+            if not graph_config:
+                continue
+            location_prefix = f"玩家模板 '{template_name}' ({template_id}) > {section_display}"
+            detail = {
+                "type": "player_template",
+                "player_template_id": template_id,
+                "player_template_name": template_name,
+                "section": section_display,
+                "graph_name": graph_config.name,
+                "graph_id": graph_id,
+                "entity_type": entity_type,
+            }
+            yield GraphAttachment(
+                owner_kind="player_template",
+                owner_name=template_name,
+                owner_id=template_id,
+                entity_type=entity_type,
+                graph_id=graph_id,
+                graph_config=graph_config,
+                detail=detail,
+                location_full=f"{location_prefix} > 节点图 '{graph_config.name}' ({graph_id})",
+                location_compact=f"{location_prefix} > 节点图 '{graph_config.name}'",
+            )
+
+    for template_id, payload in player_templates.items():
+        if not isinstance(template_id, str) or not template_id:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        template_name = str(payload.get("template_name") or payload.get("name") or template_id).strip() or template_id
+        raw_metadata = payload.get("metadata")
+        if not isinstance(raw_metadata, dict):
+            continue
+        player_editor = raw_metadata.get("player_editor")
+        if not isinstance(player_editor, dict):
+            continue
+
+        yield from iter_section_graphs(
+            template_id=template_id,
+            template_name=template_name,
+            section=player_editor.get("player"),
+            section_display="玩家层",
+            entity_type="玩家",
+        )
+        yield from iter_section_graphs(
+            template_id=template_id,
+            template_name=template_name,
+            section=player_editor.get("role"),
+            section_display="角色层",
+            entity_type="角色",
+        )
+
+        roles_value = player_editor.get("roles")
+        if isinstance(roles_value, list):
+            for index, role_entry in enumerate(roles_value):
+                yield from iter_section_graphs(
+                    template_id=template_id,
+                    template_name=template_name,
+                    section=role_entry,
+                    section_display=f"角色槽位{index + 1}",
+                    entity_type="角色",
+                )
+
+
 def iter_all_package_graphs(
     resource_manager: Optional[ResourceManager],
     templates: Dict[str, TemplateConfig],
     instances: Dict[str, InstanceConfig],
     level_entity,
+    combat_presets: CombatPresets | None = None,
 ) -> Iterator[GraphAttachment]:
     yield from iter_template_graphs(resource_manager, templates)
-    yield from iter_instance_graphs(resource_manager, instances, templates)
     yield from iter_level_entity_graphs(resource_manager, level_entity)
+    excluded_instance_ids: set[str] = set()
+    level_entity_instance_id = getattr(level_entity, "instance_id", None)
+    if isinstance(level_entity_instance_id, str) and level_entity_instance_id:
+        excluded_instance_ids.add(level_entity_instance_id)
+    yield from iter_instance_graphs(
+        resource_manager,
+        instances,
+        templates,
+        exclude_instance_ids=excluded_instance_ids if excluded_instance_ids else None,
+    )
+    if combat_presets is not None:
+        yield from iter_player_template_graphs(resource_manager, combat_presets)
 
 
 __all__ = [
@@ -243,6 +357,7 @@ __all__ = [
     "iter_template_graphs",
     "iter_instance_graphs",
     "iter_level_entity_graphs",
+    "iter_player_template_graphs",
     "get_graph_snapshot",
     "clear_graph_snapshot_cache",
     "convert_engine_issues_to_validation",

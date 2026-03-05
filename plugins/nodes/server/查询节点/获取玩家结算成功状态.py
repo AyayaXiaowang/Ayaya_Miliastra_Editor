@@ -9,8 +9,15 @@ from engine.utils.logging.logger import log_info
     inputs=[("玩家实体", "实体")],
     outputs=[("结算状态", "枚举")],
     description="获取玩家结算成功状态",
-    doc_reference="服务器节点/查询节点/查询节点.md"
+    doc_reference="服务器节点/查询节点/查询节点.md",
+    output_enum_options={
+        "结算状态": [
+            "未定",
+            "胜利",
+            "失败",
+        ],
+    },
 )
 def 获取玩家结算成功状态(game, 玩家实体):
     """获取玩家结算成功状态"""
-    return True
+    return "未定"

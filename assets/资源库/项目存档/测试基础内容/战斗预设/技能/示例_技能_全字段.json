@@ -1,0 +1,41 @@
+{
+  "id": "skill_sample_all_fields_01__测试基础内容",
+  "skill_id": "skill_sample_all_fields_01__测试基础内容",
+  "skill_name": "示例_技能_全字段",
+  "name": "示例_技能_全字段",
+  "description": "示例技能：覆盖冷却、消耗、伤害、施法参数、特效/能力单元列表与 metadata.skill_editor 扩展字段。",
+  "cooldown": 3.5,
+  "cost_type": "mana",
+  "cost_value": 25.0,
+  "damage": 80.0,
+  "damage_type": "magical",
+  "range_value": 12.0,
+  "cast_time": 0.75,
+  "animation": "anim_sample_cast",
+  "effects": [
+    "fx_sample_cast_start",
+    "fx_sample_projectile_trail",
+    "fx_sample_hit"
+  ],
+  "ability_units": [
+    "ability_unit_sample_damage",
+    "ability_unit_sample_apply_status"
+  ],
+  "metadata": {
+    "skill_editor": {
+      "graphs": [],
+      "graph_variable_overrides": {},
+      "note": "示例：技能节点图可在此挂载 client/技能节点图 下的节点图ID",
+      "basic": {},
+      "combo": {},
+      "numeric": {},
+      "lifecycle": {}
+    },
+    "ui": {
+      "icon": "",
+      "color": "#FF66CC"
+    }
+  },
+  "updated_at": "2025-12-18T12:00:00.000000",
+  "last_modified": "2025-12-18 12:00:00"
+}

@@ -1,0 +1,2829 @@
+{
+  "instance_id": "shape_editor_entity__测试项目__24",
+  "name": "普通眼镜",
+  "template_id": "shape_editor_empty__测试项目",
+  "position": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "rotation": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "override_variables": [],
+  "additional_graphs": [],
+  "additional_components": [],
+  "metadata": {
+    "entity_type": "物件",
+    "shape_editor": {
+      "kind": "canvas_instance",
+      "canvas_payload": {
+        "meta": {
+          "timestamp": "2026-02-07T03:22:12.878Z",
+          "tool": "qx-shape-editor",
+          "mode": "pixel_art_import",
+          "target_rel_path": "实体摆放/shape_editor_entity_024.json",
+          "coord_origin": "center",
+          "coord_y_axis": "up",
+          "pixel_art": {
+            "refined_w": 87,
+            "refined_h": 132,
+            "cell_size_px": 12,
+            "ignore_bg": true,
+            "generate_mode": "merge_rects"
+          }
+        },
+        "canvas": {
+          "width": 2300,
+          "height": 1411
+        },
+        "objects": [
+          {
+            "type": "rect",
+            "label": "px_1",
+            "id": "obj_mlbr0cge_343",
+            "color": "#464749",
+            "src": "",
+            "left": 892,
+            "top": 298,
+            "width": 180,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 982,
+              "y": 304
+            },
+            "centered": {
+              "x": -168,
+              "y": 402
+            },
+            "anchor_centered": {
+              "x": -168,
+              "y": 402
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_2",
+            "id": "obj_mlbr0cge_344",
+            "color": "#464749",
+            "src": "",
+            "left": 1180,
+            "top": 298,
+            "width": 180,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1270,
+              "y": 304
+            },
+            "centered": {
+              "x": 120,
+              "y": 402
+            },
+            "anchor_centered": {
+              "x": 120,
+              "y": 402
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_3",
+            "id": "obj_mlbr0cge_345",
+            "color": "#464749",
+            "src": "",
+            "left": 880,
+            "top": 310,
+            "width": 204,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 982,
+              "y": 316
+            },
+            "centered": {
+              "x": -168,
+              "y": 390
+            },
+            "anchor_centered": {
+              "x": -168,
+              "y": 390
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_4",
+            "id": "obj_mlbr0cge_346",
+            "color": "#464749",
+            "src": "",
+            "left": 1168,
+            "top": 310,
+            "width": 204,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1270,
+              "y": 316
+            },
+            "centered": {
+              "x": 120,
+              "y": 390
+            },
+            "anchor_centered": {
+              "x": 120,
+              "y": 390
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_5",
+            "id": "obj_mlbr0cge_347",
+            "color": "#464749",
+            "src": "",
+            "left": 844,
+            "top": 322,
+            "width": 60,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 874,
+              "y": 328
+            },
+            "centered": {
+              "x": -276,
+              "y": 378
+            },
+            "anchor_centered": {
+              "x": -276,
+              "y": 378
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_6",
+            "id": "obj_mlbr0cge_348",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 904,
+            "top": 322,
+            "width": 156,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 982,
+              "y": 328
+            },
+            "centered": {
+              "x": -168,
+              "y": 378
+            },
+            "anchor_centered": {
+              "x": -168,
+              "y": 378
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_7",
+            "id": "obj_mlbr0cge_349",
+            "color": "#464749",
+            "src": "",
+            "left": 1060,
+            "top": 322,
+            "width": 48,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1084,
+              "y": 328
+            },
+            "centered": {
+              "x": -66,
+              "y": 378
+            },
+            "anchor_centered": {
+              "x": -66,
+              "y": 378
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_8",
+            "id": "obj_mlbr0cge_350",
+            "color": "#464749",
+            "src": "",
+            "left": 1156,
+            "top": 322,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1174,
+              "y": 328
+            },
+            "centered": {
+              "x": 24,
+              "y": 378
+            },
+            "anchor_centered": {
+              "x": 24,
+              "y": 378
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_9",
+            "id": "obj_mlbr0cge_351",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 1192,
+            "top": 322,
+            "width": 156,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1270,
+              "y": 328
+            },
+            "centered": {
+              "x": 120,
+              "y": 378
+            },
+            "anchor_centered": {
+              "x": 120,
+              "y": 378
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_10",
+            "id": "obj_mlbr0cge_352",
+            "color": "#464749",
+            "src": "",
+            "left": 1348,
+            "top": 322,
+            "width": 60,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1378,
+              "y": 328
+            },
+            "centered": {
+              "x": 228,
+              "y": 378
+            },
+            "anchor_centered": {
+              "x": 228,
+              "y": 378
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_11",
+            "id": "obj_mlbr0cge_353",
+            "color": "#464749",
+            "src": "",
+            "left": 844,
+            "top": 334,
+            "width": 12,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 850,
+              "y": 340
+            },
+            "centered": {
+              "x": -300,
+              "y": 366
+            },
+            "anchor_centered": {
+              "x": -300,
+              "y": 366
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_12",
+            "id": "obj_mlbr0cge_354",
+            "color": "#464749",
+            "src": "",
+            "left": 868,
+            "top": 334,
+            "width": 24,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 880,
+              "y": 340
+            },
+            "centered": {
+              "x": -270,
+              "y": 366
+            },
+            "anchor_centered": {
+              "x": -270,
+              "y": 366
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_13",
+            "id": "obj_mlbr0cge_355",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 892,
+            "top": 334,
+            "width": 180,
+            "height": 84,
+            "angle": 0,
+            "anchor": {
+              "x": 982,
+              "y": 376
+            },
+            "centered": {
+              "x": -168,
+              "y": 330
+            },
+            "anchor_centered": {
+              "x": -168,
+              "y": 330
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_14",
+            "id": "obj_mlbr0cge_356",
+            "color": "#464749",
+            "src": "",
+            "left": 1072,
+            "top": 334,
+            "width": 108,
+            "height": 36,
+            "angle": 0,
+            "anchor": {
+              "x": 1126,
+              "y": 352
+            },
+            "centered": {
+              "x": -24,
+              "y": 354
+            },
+            "anchor_centered": {
+              "x": -24,
+              "y": 354
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_15",
+            "id": "obj_mlbr0cge_357",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 1180,
+            "top": 334,
+            "width": 180,
+            "height": 84,
+            "angle": 0,
+            "anchor": {
+              "x": 1270,
+              "y": 376
+            },
+            "centered": {
+              "x": 120,
+              "y": 330
+            },
+            "anchor_centered": {
+              "x": 120,
+              "y": 330
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_16",
+            "id": "obj_mlbr0cge_358",
+            "color": "#464749",
+            "src": "",
+            "left": 1360,
+            "top": 334,
+            "width": 24,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1372,
+              "y": 340
+            },
+            "centered": {
+              "x": 222,
+              "y": 366
+            },
+            "anchor_centered": {
+              "x": 222,
+              "y": 366
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_17",
+            "id": "obj_mlbr0cge_359",
+            "color": "#464749",
+            "src": "",
+            "left": 1396,
+            "top": 334,
+            "width": 12,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1402,
+              "y": 340
+            },
+            "centered": {
+              "x": 252,
+              "y": 366
+            },
+            "anchor_centered": {
+              "x": 252,
+              "y": 366
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_18",
+            "id": "obj_mlbr0cge_360",
+            "color": "#464749",
+            "src": "",
+            "left": 844,
+            "top": 346,
+            "width": 48,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 868,
+              "y": 352
+            },
+            "centered": {
+              "x": -282,
+              "y": 354
+            },
+            "anchor_centered": {
+              "x": -282,
+              "y": 354
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_19",
+            "id": "obj_mlbr0cge_361",
+            "color": "#464749",
+            "src": "",
+            "left": 1360,
+            "top": 346,
+            "width": 48,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1384,
+              "y": 352
+            },
+            "centered": {
+              "x": 234,
+              "y": 354
+            },
+            "anchor_centered": {
+              "x": 234,
+              "y": 354
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_20",
+            "id": "obj_mlbr0cge_362",
+            "color": "#464749",
+            "src": "",
+            "left": 856,
+            "top": 358,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 874,
+              "y": 364
+            },
+            "centered": {
+              "x": -276,
+              "y": 342
+            },
+            "anchor_centered": {
+              "x": -276,
+              "y": 342
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_21",
+            "id": "obj_mlbr0cge_363",
+            "color": "#464749",
+            "src": "",
+            "left": 1360,
+            "top": 358,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1378,
+              "y": 364
+            },
+            "centered": {
+              "x": 228,
+              "y": 342
+            },
+            "anchor_centered": {
+              "x": 228,
+              "y": 342
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_22",
+            "id": "obj_mlbr0cge_364",
+            "color": "#464749",
+            "src": "",
+            "left": 868,
+            "top": 370,
+            "width": 24,
+            "height": 72,
+            "angle": 0,
+            "anchor": {
+              "x": 880,
+              "y": 406
+            },
+            "centered": {
+              "x": -270,
+              "y": 300
+            },
+            "anchor_centered": {
+              "x": -270,
+              "y": 300
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_23",
+            "id": "obj_mlbr0cge_365",
+            "color": "#464749",
+            "src": "",
+            "left": 1072,
+            "top": 370,
+            "width": 48,
+            "height": 24,
+            "angle": 0,
+            "anchor": {
+              "x": 1096,
+              "y": 382
+            },
+            "centered": {
+              "x": -54,
+              "y": 324
+            },
+            "anchor_centered": {
+              "x": -54,
+              "y": 324
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_24",
+            "id": "obj_mlbr0cge_366",
+            "color": "#464749",
+            "src": "",
+            "left": 1144,
+            "top": 370,
+            "width": 36,
+            "height": 24,
+            "angle": 0,
+            "anchor": {
+              "x": 1162,
+              "y": 382
+            },
+            "centered": {
+              "x": 12,
+              "y": 324
+            },
+            "anchor_centered": {
+              "x": 12,
+              "y": 324
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_25",
+            "id": "obj_mlbr0cge_367",
+            "color": "#464749",
+            "src": "",
+            "left": 1360,
+            "top": 370,
+            "width": 24,
+            "height": 72,
+            "angle": 0,
+            "anchor": {
+              "x": 1372,
+              "y": 406
+            },
+            "centered": {
+              "x": 222,
+              "y": 300
+            },
+            "anchor_centered": {
+              "x": 222,
+              "y": 300
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_26",
+            "id": "obj_mlbr0cge_368",
+            "color": "#464749",
+            "src": "",
+            "left": 1072,
+            "top": 394,
+            "width": 36,
+            "height": 24,
+            "angle": 0,
+            "anchor": {
+              "x": 1090,
+              "y": 406
+            },
+            "centered": {
+              "x": -60,
+              "y": 300
+            },
+            "anchor_centered": {
+              "x": -60,
+              "y": 300
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_27",
+            "id": "obj_mlbr0cge_369",
+            "color": "#464749",
+            "src": "",
+            "left": 1156,
+            "top": 394,
+            "width": 24,
+            "height": 24,
+            "angle": 0,
+            "anchor": {
+              "x": 1168,
+              "y": 406
+            },
+            "centered": {
+              "x": 18,
+              "y": 300
+            },
+            "anchor_centered": {
+              "x": 18,
+              "y": 300
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_28",
+            "id": "obj_mlbr0cge_370",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 892,
+            "top": 418,
+            "width": 168,
+            "height": 24,
+            "angle": 0,
+            "anchor": {
+              "x": 976,
+              "y": 430
+            },
+            "centered": {
+              "x": -174,
+              "y": 276
+            },
+            "anchor_centered": {
+              "x": -174,
+              "y": 276
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_29",
+            "id": "obj_mlbr0cge_371",
+            "color": "#464749",
+            "src": "",
+            "left": 1060,
+            "top": 418,
+            "width": 24,
+            "height": 24,
+            "angle": 0,
+            "anchor": {
+              "x": 1072,
+              "y": 430
+            },
+            "centered": {
+              "x": -78,
+              "y": 276
+            },
+            "anchor_centered": {
+              "x": -78,
+              "y": 276
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_30",
+            "id": "obj_mlbr0cge_372",
+            "color": "#464749",
+            "src": "",
+            "left": 1168,
+            "top": 418,
+            "width": 24,
+            "height": 24,
+            "angle": 0,
+            "anchor": {
+              "x": 1180,
+              "y": 430
+            },
+            "centered": {
+              "x": 30,
+              "y": 276
+            },
+            "anchor_centered": {
+              "x": 30,
+              "y": 276
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_31",
+            "id": "obj_mlbr0cge_373",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 1192,
+            "top": 418,
+            "width": 168,
+            "height": 24,
+            "angle": 0,
+            "anchor": {
+              "x": 1276,
+              "y": 430
+            },
+            "centered": {
+              "x": 126,
+              "y": 276
+            },
+            "anchor_centered": {
+              "x": 126,
+              "y": 276
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_32",
+            "id": "obj_mlbr0cge_374",
+            "color": "#464749",
+            "src": "",
+            "left": 880,
+            "top": 442,
+            "width": 24,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 892,
+              "y": 448
+            },
+            "centered": {
+              "x": -258,
+              "y": 258
+            },
+            "anchor_centered": {
+              "x": -258,
+              "y": 258
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_33",
+            "id": "obj_mlbr0cge_375",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 904,
+            "top": 442,
+            "width": 132,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 970,
+              "y": 448
+            },
+            "centered": {
+              "x": -180,
+              "y": 258
+            },
+            "anchor_centered": {
+              "x": -180,
+              "y": 258
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_34",
+            "id": "obj_mlbr0cge_376",
+            "color": "#464749",
+            "src": "",
+            "left": 1036,
+            "top": 442,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1054,
+              "y": 448
+            },
+            "centered": {
+              "x": -96,
+              "y": 258
+            },
+            "anchor_centered": {
+              "x": -96,
+              "y": 258
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_35",
+            "id": "obj_mlbr0cge_377",
+            "color": "#464749",
+            "src": "",
+            "left": 1180,
+            "top": 442,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1198,
+              "y": 448
+            },
+            "centered": {
+              "x": 48,
+              "y": 258
+            },
+            "anchor_centered": {
+              "x": 48,
+              "y": 258
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_36",
+            "id": "obj_mlbr0cge_378",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 1216,
+            "top": 442,
+            "width": 132,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1282,
+              "y": 448
+            },
+            "centered": {
+              "x": 132,
+              "y": 258
+            },
+            "anchor_centered": {
+              "x": 132,
+              "y": 258
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_37",
+            "id": "obj_mlbr0cge_379",
+            "color": "#464749",
+            "src": "",
+            "left": 1348,
+            "top": 442,
+            "width": 24,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1360,
+              "y": 448
+            },
+            "centered": {
+              "x": 210,
+              "y": 258
+            },
+            "anchor_centered": {
+              "x": 210,
+              "y": 258
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_38",
+            "id": "obj_mlbr0cge_380",
+            "color": "#464749",
+            "src": "",
+            "left": 880,
+            "top": 454,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 898,
+              "y": 460
+            },
+            "centered": {
+              "x": -252,
+              "y": 246
+            },
+            "anchor_centered": {
+              "x": -252,
+              "y": 246
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_39",
+            "id": "obj_mlbr0cge_381",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 916,
+            "top": 454,
+            "width": 108,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 970,
+              "y": 460
+            },
+            "centered": {
+              "x": -180,
+              "y": 246
+            },
+            "anchor_centered": {
+              "x": -180,
+              "y": 246
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_40",
+            "id": "obj_mlbr0cge_382",
+            "color": "#464749",
+            "src": "",
+            "left": 1024,
+            "top": 454,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1042,
+              "y": 460
+            },
+            "centered": {
+              "x": -108,
+              "y": 246
+            },
+            "anchor_centered": {
+              "x": -108,
+              "y": 246
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_41",
+            "id": "obj_mlbr0cge_383",
+            "color": "#464749",
+            "src": "",
+            "left": 1192,
+            "top": 454,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1210,
+              "y": 460
+            },
+            "centered": {
+              "x": 60,
+              "y": 246
+            },
+            "anchor_centered": {
+              "x": 60,
+              "y": 246
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_42",
+            "id": "obj_mlbr0cge_384",
+            "color": "#E0D6C8",
+            "src": "",
+            "left": 1228,
+            "top": 454,
+            "width": 108,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1282,
+              "y": 460
+            },
+            "centered": {
+              "x": 132,
+              "y": 246
+            },
+            "anchor_centered": {
+              "x": 132,
+              "y": 246
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_43",
+            "id": "obj_mlbr0cge_385",
+            "color": "#464749",
+            "src": "",
+            "left": 1336,
+            "top": 454,
+            "width": 36,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1354,
+              "y": 460
+            },
+            "centered": {
+              "x": 204,
+              "y": 246
+            },
+            "anchor_centered": {
+              "x": 204,
+              "y": 246
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_44",
+            "id": "obj_mlbr0cge_386",
+            "color": "#464749",
+            "src": "",
+            "left": 892,
+            "top": 466,
+            "width": 156,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 970,
+              "y": 472
+            },
+            "centered": {
+              "x": -180,
+              "y": 234
+            },
+            "anchor_centered": {
+              "x": -180,
+              "y": 234
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_45",
+            "id": "obj_mlbr0cge_387",
+            "color": "#464749",
+            "src": "",
+            "left": 1204,
+            "top": 466,
+            "width": 156,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1282,
+              "y": 472
+            },
+            "centered": {
+              "x": 132,
+              "y": 234
+            },
+            "anchor_centered": {
+              "x": 132,
+              "y": 234
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_46",
+            "id": "obj_mlbr0cge_388",
+            "color": "#464749",
+            "src": "",
+            "left": 916,
+            "top": 478,
+            "width": 96,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 964,
+              "y": 484
+            },
+            "centered": {
+              "x": -186,
+              "y": 222
+            },
+            "anchor_centered": {
+              "x": -186,
+              "y": 222
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          },
+          {
+            "type": "rect",
+            "label": "px_47",
+            "id": "obj_mlbr0cge_389",
+            "color": "#464749",
+            "src": "",
+            "left": 1240,
+            "top": 478,
+            "width": 96,
+            "height": 12,
+            "angle": 0,
+            "anchor": {
+              "x": 1288,
+              "y": 484
+            },
+            "centered": {
+              "x": 138,
+              "y": 222
+            },
+            "anchor_centered": {
+              "x": 138,
+              "y": 222
+            },
+            "pivot": "center",
+            "opacity": 1,
+            "isReference": false,
+            "isLocked": false,
+            "group": null
+          }
+        ]
+      },
+      "export_seq_counter": 0
+    },
+    "common_inspector": {
+      "model": {
+        "decorations": [
+          {
+            "instanceId": "shape_1",
+            "displayName": "px_1",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.04,
+                "y": 13.563963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 10.8
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_2",
+            "displayName": "px_2",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999999999996,
+                "y": 13.563963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 10.8
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_3",
+            "displayName": "px_3",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.04,
+                "y": 13.203963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 12.24
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_4",
+            "displayName": "px_4",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999999999996,
+                "y": 13.203963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 12.24
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_5",
+            "displayName": "px_5",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.28,
+                "y": 12.843963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 3.5999999999999996
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_6",
+            "displayName": "px_6",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.04,
+                "y": 12.843963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 0.3,
+                "y": 0.009999999776482582,
+                "z": 3.9000000000000004
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_7",
+            "displayName": "px_7",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.98,
+                "y": 12.843963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.88
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_8",
+            "displayName": "px_8",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.72,
+                "y": 12.843963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_9",
+            "displayName": "px_9",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999999999996,
+                "y": 12.843963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 0.3,
+                "y": 0.009999999776482582,
+                "z": 3.9000000000000004
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_10",
+            "displayName": "px_10",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.84,
+                "y": 12.843963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 3.5999999999999996
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_11",
+            "displayName": "px_11",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -9.0,
+                "y": 12.483963232040406,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 0.72
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_12",
+            "displayName": "px_12",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.1,
+                "y": 12.483963232040406,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_13",
+            "displayName": "px_13",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.04,
+                "y": 11.403963232040406,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 2.1,
+                "y": 0.009999999776482582,
+                "z": 4.5
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_14",
+            "displayName": "px_14",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -0.72,
+                "y": 12.123963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 2.16,
+                "y": 0.009999999776482582,
+                "z": 6.48
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_15",
+            "displayName": "px_15",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.5999999999999996,
+                "y": 11.403963232040406,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 2.1,
+                "y": 0.009999999776482582,
+                "z": 4.5
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_16",
+            "displayName": "px_16",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.66,
+                "y": 12.483963232040406,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_17",
+            "displayName": "px_17",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.56,
+                "y": 12.483963232040406,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 0.72
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_18",
+            "displayName": "px_18",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.459999999999999,
+                "y": 12.123963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.88
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_19",
+            "displayName": "px_19",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 7.02,
+                "y": 12.123963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.88
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_20",
+            "displayName": "px_20",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.28,
+                "y": 11.763963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_21",
+            "displayName": "px_21",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.84,
+                "y": 11.763963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_22",
+            "displayName": "px_22",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -8.1,
+                "y": 10.503963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 4.32,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_23",
+            "displayName": "px_23",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.6199999999999999,
+                "y": 11.223963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 1.44,
+                "y": 0.009999999776482582,
+                "z": 2.88
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_24",
+            "displayName": "px_24",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.36,
+                "y": 11.223963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 1.44,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_25",
+            "displayName": "px_25",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.66,
+                "y": 10.503963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 4.32,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_26",
+            "displayName": "px_26",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -1.7999999999999998,
+                "y": 10.503963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 1.44,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_27",
+            "displayName": "px_27",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.54,
+                "y": 10.503963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 1.44,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_28",
+            "displayName": "px_28",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.22,
+                "y": 9.783963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 0.6,
+                "y": 0.009999999776482582,
+                "z": 4.2
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_29",
+            "displayName": "px_29",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.34,
+                "y": 9.783963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 1.44,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_30",
+            "displayName": "px_30",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 0.8999999999999999,
+                "y": 9.783963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 1.44,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_31",
+            "displayName": "px_31",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.78,
+                "y": 9.783963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 0.6,
+                "y": 0.009999999776482582,
+                "z": 4.2
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_32",
+            "displayName": "px_32",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.739999999999999,
+                "y": 9.243963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_33",
+            "displayName": "px_33",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.3999999999999995,
+                "y": 9.243963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 0.3,
+                "y": 0.009999999776482582,
+                "z": 3.3000000000000003
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_34",
+            "displayName": "px_34",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -2.88,
+                "y": 9.243963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_35",
+            "displayName": "px_35",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.44,
+                "y": 9.243963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_36",
+            "displayName": "px_36",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.96,
+                "y": 9.243963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 0.3,
+                "y": 0.009999999776482582,
+                "z": 3.3000000000000003
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_37",
+            "displayName": "px_37",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.3,
+                "y": 9.243963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 1.44
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_38",
+            "displayName": "px_38",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -7.56,
+                "y": 8.883963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_39",
+            "displayName": "px_39",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.3999999999999995,
+                "y": 8.883963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 0.3,
+                "y": 0.009999999776482582,
+                "z": 2.7
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_40",
+            "displayName": "px_40",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -3.2399999999999998,
+                "y": 8.883963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_41",
+            "displayName": "px_41",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 1.7999999999999998,
+                "y": 8.883963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_42",
+            "displayName": "px_42",
+            "isVisible": true,
+            "assetId": 20002159,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.96,
+                "y": 8.883963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": -90.00000000000001
+              },
+              "scale": {
+                "x": 0.3,
+                "y": 0.009999999776482582,
+                "z": 2.7
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_43",
+            "displayName": "px_43",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 6.12,
+                "y": 8.883963232040404,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 2.16
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_44",
+            "displayName": "px_44",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.3999999999999995,
+                "y": 8.523963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 9.36
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_45",
+            "displayName": "px_45",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 3.96,
+                "y": 8.523963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 9.36
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_46",
+            "displayName": "px_46",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": -5.58,
+                "y": 8.163963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 5.76
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          },
+          {
+            "instanceId": "shape_47",
+            "displayName": "px_47",
+            "isVisible": true,
+            "assetId": 20002129,
+            "parentId": "GI_RootNode",
+            "transform": {
+              "pos": {
+                "x": 4.14,
+                "y": 8.163963232040405,
+                "z": 0.0
+              },
+              "rot": {
+                "x": -0.0,
+                "y": 90.00000000000001,
+                "z": 90.00000000000001
+              },
+              "scale": {
+                "x": 0.72,
+                "y": 0.009999999776482582,
+                "z": 5.76
+              },
+              "isLocked": false
+            },
+            "physics": {
+              "enableCollision": false,
+              "isClimbable": false,
+              "showPreview": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  "graph_variable_overrides": {},
+  "updated_at": "2026-02-07T04:23:14.885733"
+}

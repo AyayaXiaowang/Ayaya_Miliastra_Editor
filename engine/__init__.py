@@ -15,7 +15,8 @@ from .graph.models import (
     deserialize_graph,
     get_content_hash,
     GraphConfig,
-    VariableConfig,
+    LevelVariableDefinition,
+    LevelVariableOverride,
     GraphVariableConfig,
     SignalParameterConfig,
     SignalConfig,
@@ -37,7 +38,7 @@ from engine.graph import (  # type: ignore
     GraphCodeParser,
     CompositeCodeParser,
     GraphParseError,
-    validate_graph,
+    validate_graph_model,
 )
 
 # Validators（验证引擎）
@@ -64,7 +65,8 @@ __all__ = [
     # graph config
     "GraphConfig",
     # package model (transition)
-    "VariableConfig",
+    "LevelVariableDefinition",
+    "LevelVariableOverride",
     "GraphVariableConfig",
     "SignalParameterConfig",
     "SignalConfig",
@@ -80,7 +82,7 @@ __all__ = [
     "GraphCodeParser",
     "CompositeCodeParser",
     "GraphParseError",
-    "validate_graph",
+    "validate_graph_model",
     # validators
     "validate_files",
     # utilities

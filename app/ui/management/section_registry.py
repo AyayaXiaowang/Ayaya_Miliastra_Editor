@@ -43,6 +43,29 @@ class ManagementSectionSpec:
     group: str = "general"
     group_title: Optional[str] = None
 
+
+@dataclass(frozen=True)
+class ManagementResourceSpec:
+    """描述一个“管理配置资源桶”（PackageIndex.resources.management 的 key）。
+
+    重要：resource_key（桶 key）与管理页面的 section_key 并非总是一一对应。
+    - 例如计时器：resource_key="timers" 但 section_key="timer"
+    - 例如结构体：resource_key="struct_definitions" 但 section_key 可能为
+      "struct_definitions" 或 "ingame_struct_definitions"（由 payload 类型决定）
+
+    本结构用于在“项目存档页”等场景下以稳定、无冲突的方式提供：
+    - 资源桶顺序
+    - 资源桶标题
+    - 资源桶对应 ResourceType
+    - 聚合计数模式
+    """
+
+    key: str
+    title: str
+    resource_type: ResourceType
+    aggregation_mode: str = "id_list"
+
+
 MANAGEMENT_SECTIONS: Tuple[ManagementSectionSpec, ...] = (
     ManagementSectionSpec(
         key="signals",
@@ -79,18 +102,6 @@ MANAGEMENT_SECTIONS: Tuple[ManagementSectionSpec, ...] = (
                 ResourceType.SAVE_POINT,
                 aggregation_mode="single_config_non_empty",
             ),
-        ),
-    ),
-    ManagementSectionSpec(
-        key="ui_control_groups",
-        title="🖼️ 界面控件组",
-        connect_data_updated=False,
-        eager_load=True,
-        group="ui",
-        group_title="界面与模板",
-        resources=(
-            ManagementResourceBinding("ui_layouts", ResourceType.UI_LAYOUT),
-            ManagementResourceBinding("ui_widget_templates", ResourceType.UI_WIDGET_TEMPLATE),
         ),
     ),
     ManagementSectionSpec(
@@ -244,40 +255,182 @@ MANAGEMENT_SECTIONS: Tuple[ManagementSectionSpec, ...] = (
 )
 
 
-MANAGEMENT_RESOURCE_ORDER: Tuple[str, ...] = tuple(
-    binding.key
-    for section in MANAGEMENT_SECTIONS
-    for binding in section.resources
+MANAGEMENT_RESOURCES: Tuple[ManagementResourceSpec, ...] = (
+    # === 系统服务 / 核心系统 ===
+    ManagementResourceSpec(
+        key="signals",
+        title="📡 信号管理",
+        resource_type=ResourceType.SIGNAL,
+        aggregation_mode="signal_entries",
+    ),
+    ManagementResourceSpec(
+        key="struct_definitions",
+        title="🧬 结构体定义",
+        resource_type=ResourceType.STRUCT_DEFINITION,
+        aggregation_mode="id_list",
+    ),
+    ManagementResourceSpec(
+        key="timers",
+        title="⏰ 计时器管理",
+        resource_type=ResourceType.TIMER,
+    ),
+    ManagementResourceSpec(
+        key="unit_tags",
+        title="🏷️ 单位标签管理",
+        resource_type=ResourceType.UNIT_TAG,
+    ),
+    ManagementResourceSpec(
+        key="scan_tags",
+        title="🔍 扫描标签管理",
+        resource_type=ResourceType.SCAN_TAG,
+    ),
+    ManagementResourceSpec(
+        key="multi_language",
+        title="🌐 多语言文本管理",
+        resource_type=ResourceType.MULTI_LANGUAGE,
+    ),
+    ManagementResourceSpec(
+        key="peripheral_systems",
+        title="🔧 外围系统管理",
+        resource_type=ResourceType.PERIPHERAL_SYSTEM,
+        aggregation_mode="peripheral_items",
+    ),
+    # === 关卡配置 ===
+    ManagementResourceSpec(
+        key="level_settings",
+        title="⚙️ 关卡设置",
+        resource_type=ResourceType.LEVEL_SETTINGS,
+        aggregation_mode="single_config_non_empty",
+    ),
+    ManagementResourceSpec(
+        key="level_variables",
+        title="📊 关卡变量管理",
+        resource_type=ResourceType.LEVEL_VARIABLE,
+    ),
+    ManagementResourceSpec(
+        key="preset_points",
+        title="📍 预设点管理",
+        resource_type=ResourceType.PRESET_POINT,
+    ),
+    ManagementResourceSpec(
+        key="paths",
+        title="🛤️ 路径管理",
+        resource_type=ResourceType.PATH,
+    ),
+    ManagementResourceSpec(
+        key="main_cameras",
+        title="📷 主镜头管理",
+        resource_type=ResourceType.MAIN_CAMERA,
+    ),
+    ManagementResourceSpec(
+        key="light_sources",
+        title="💡 光源管理",
+        resource_type=ResourceType.LIGHT_SOURCE,
+    ),
+    ManagementResourceSpec(
+        key="shields",
+        title="🛡️ 护盾管理",
+        resource_type=ResourceType.SHIELD,
+    ),
+    ManagementResourceSpec(
+        key="entity_deployment_groups",
+        title="📦 实体布设组管理",
+        resource_type=ResourceType.ENTITY_DEPLOYMENT_GROUP,
+    ),
+    ManagementResourceSpec(
+        key="save_points",
+        title="💾 局内存档管理",
+        resource_type=ResourceType.SAVE_POINT,
+        aggregation_mode="single_config_non_empty",
+    ),
+    # === 资源资产 ===
+    ManagementResourceSpec(
+        key="currency_backpack",
+        title="💰 货币与背包",
+        resource_type=ResourceType.CURRENCY_BACKPACK,
+        aggregation_mode="single_config_non_empty",
+    ),
+    ManagementResourceSpec(
+        key="skill_resources",
+        title="✨ 技能资源管理",
+        resource_type=ResourceType.SKILL_RESOURCE,
+    ),
+    ManagementResourceSpec(
+        key="background_music",
+        title="🎵 背景音乐管理",
+        resource_type=ResourceType.BACKGROUND_MUSIC,
+    ),
+    ManagementResourceSpec(
+        key="equipment_data",
+        title="⚔️ 装备数据管理",
+        resource_type=ResourceType.EQUIPMENT_DATA,
+    ),
+    ManagementResourceSpec(
+        key="shop_templates",
+        title="🏪 商店模板管理",
+        resource_type=ResourceType.SHOP_TEMPLATE,
+    ),
+    ManagementResourceSpec(
+        key="chat_channels",
+        title="💬 文字聊天管理",
+        resource_type=ResourceType.CHAT_CHANNEL,
+    ),
 )
 
-MANAGEMENT_RESOURCE_BINDINGS = {
-    binding.key: binding.resource_type
-    for section in MANAGEMENT_SECTIONS
-    for binding in section.resources
+
+MANAGEMENT_RESOURCE_ORDER: Tuple[str, ...] = tuple(spec.key for spec in MANAGEMENT_RESOURCES)
+
+MANAGEMENT_RESOURCE_BINDINGS: Dict[str, ResourceType] = {
+    spec.key: spec.resource_type for spec in MANAGEMENT_RESOURCES
 }
 
-# 资源 key -> 左侧管理页标题映射，用于在其他视图中复用人类可读的分类名称
+# 资源 key（PackageIndex.resources.management 的 key）-> 人类可读标题（稳定且不冲突）
 MANAGEMENT_RESOURCE_TITLES: Dict[str, str] = {
-    binding.key: section.title
-    for section in MANAGEMENT_SECTIONS
-    for binding in section.resources
+    spec.key: spec.title for spec in MANAGEMENT_RESOURCES
 }
 
 # 资源 key -> 聚合视图中的计数/展示模式映射。
-# 用于在存档库等视图中统一处理“单配置类字段的汇总规则”与信号等特殊展开行为。
 MANAGEMENT_RESOURCE_AGGREGATION_MODES: Dict[str, str] = {
-    binding.key: binding.aggregation_mode
-    for section in MANAGEMENT_SECTIONS
-    for binding in section.resources
+    spec.key: spec.aggregation_mode for spec in MANAGEMENT_RESOURCES
+}
+
+# resource_key（桶 key）-> 管理页面 section_key（用于项目存档页双击跳转）。
+# 注意：这里是“默认跳转”，并不要求与资源桶一一对应。
+MANAGEMENT_RESOURCE_DEFAULT_SECTION_KEYS: Dict[str, str] = {
+    "signals": "signals",
+    "struct_definitions": "struct_definitions",  # ingame_save 由展示层按 payload 决定
+    "timers": "timer",
+    "level_variables": "variable",
+    "preset_points": "preset_point",
+    "skill_resources": "skill_resource",
+    "currency_backpack": "currency_backpack",
+    "equipment_data": "equipment_entries",
+    "shop_templates": "shop_templates",
+    "multi_language": "multi_language",
+    "main_cameras": "main_cameras",
+    "light_sources": "light_sources",
+    "background_music": "background_music",
+    "paths": "paths",
+    "entity_deployment_groups": "entity_deployment_groups",
+    "unit_tags": "unit_tags",
+    "scan_tags": "scan_tags",
+    "shields": "shields",
+    "peripheral_systems": "peripheral_systems",
+    "save_points": "save_points",
+    "chat_channels": "chat_channels",
+    "level_settings": "level_settings",
 }
 
 __all__ = [
     "ManagementResourceBinding",
+    "ManagementResourceSpec",
     "ManagementSectionSpec",
     "MANAGEMENT_SECTIONS",
+    "MANAGEMENT_RESOURCES",
     "MANAGEMENT_RESOURCE_BINDINGS",
     "MANAGEMENT_RESOURCE_ORDER",
     "MANAGEMENT_RESOURCE_TITLES",
     "MANAGEMENT_RESOURCE_AGGREGATION_MODES",
+    "MANAGEMENT_RESOURCE_DEFAULT_SECTION_KEYS",
 ]
 

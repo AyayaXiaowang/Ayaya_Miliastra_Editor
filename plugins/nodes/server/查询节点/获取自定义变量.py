@@ -6,6 +6,7 @@ from engine.utils.logging.logger import log_info
 @node_spec(
     name="获取自定义变量",
     category="查询节点",
+    semantic_id="custom_var.get",
     inputs=[("目标实体", "实体"), ("变量名", "字符串")],
     outputs=[("变量值", "泛型")],
     description="获取目标实体的指定自定义变量的值 如果变量不存在，则返回类型的默认值",

@@ -158,18 +158,90 @@ class SceneModelOpsMixin:
                 self.undo_manager.execute_command(cmd)
     
     def _update_scene_rect(self) -> None:
-        """更新场景矩形以包含所有节点,并保持大量的扩展空间"""
-        items_rect = self.itemsBoundingRect()
-        if not items_rect.isEmpty():
-            # 在内容周围添加大量空白区域(10倍的扩展)
-            expansion = max(items_rect.width(), items_rect.height()) * 10
-            # 至少保持10000的扩展
-            expansion = max(expansion, 10000)
-            expanded_rect = items_rect.adjusted(-expansion, -expansion, expansion, expansion)
-            self.setSceneRect(expanded_rect)
+        """更新场景矩形以包含所有节点，并保留适当的视口边距。
+
+        设计目标：
+        - 允许将边缘节点居中显示（需要一定的“可滚动空白区域”）；
+        - 避免旧策略的“按内容尺寸 10 倍扩张”在超大图下把 sceneRect 拉得过大，
+          进而拖慢索引、命中检测与滚动性能。
+        """
+        # 超大图优化：避免 itemsBoundingRect() 枚举全量 QGraphicsItem（端口/常量控件/连线等），
+        # 降级为基于 GraphModel.nodes[*].pos 的估算边界（与小地图的简化策略保持一致）。
+        model = getattr(self, "model", None)
+        nodes = getattr(model, "nodes", None) if model is not None else None
+        edges = getattr(model, "edges", None) if model is not None else None
+        node_count = len(nodes) if isinstance(nodes, dict) else 0
+        edge_count = len(edges) if isinstance(edges, dict) else 0
+
+        from engine.configs.settings import settings as _settings_ui
+
+        node_threshold = int(getattr(_settings_ui, "GRAPH_SCENE_RECT_SIMPLIFY_NODE_THRESHOLD", 500) or 500)
+        edge_threshold = int(getattr(_settings_ui, "GRAPH_SCENE_RECT_SIMPLIFY_EDGE_THRESHOLD", 900) or 900)
+        should_simplify = bool(int(node_count) >= node_threshold or int(edge_count) >= edge_threshold)
+        if should_simplify and isinstance(nodes, dict) and nodes:
+            min_x = 1e18
+            min_y = 1e18
+            max_x = -1e18
+            max_y = -1e18
+            for node in nodes.values():
+                pos = getattr(node, "pos", None)
+                if not isinstance(pos, (list, tuple)) or len(pos) < 2:
+                    continue
+                x = float(pos[0])
+                y = float(pos[1])
+                if x < min_x:
+                    min_x = x
+                if y < min_y:
+                    min_y = y
+                if x > max_x:
+                    max_x = x
+                if y > max_y:
+                    max_y = y
+            if min_x <= max_x and min_y <= max_y:
+                approx_w = float(getattr(_settings_ui, "GRAPH_SCENE_RECT_APPROX_NODE_WIDTH", 280.0))
+                approx_h = float(getattr(_settings_ui, "GRAPH_SCENE_RECT_APPROX_NODE_HEIGHT", 140.0))
+                margin = float(getattr(_settings_ui, "GRAPH_SCENE_RECT_MARGIN", 200.0))
+                items_rect = QtCore.QRectF(
+                    float(min_x),
+                    float(min_y),
+                    float(max(1.0, (max_x - min_x) + approx_w)),
+                    float(max(1.0, (max_y - min_y) + approx_h)),
+                ).adjusted(-margin, -margin, margin, margin)
+            else:
+                items_rect = QtCore.QRectF()
         else:
-            # 如果没有内容,设置一个默认的大场景
+            items_rect = self.itemsBoundingRect()
+        if items_rect.isEmpty():
+            # 如果没有内容，设置一个默认的大场景
             self.setSceneRect(-10000, -10000, 20000, 20000)
+            return
+
+        # 基础边距（场景单位，近似像素）
+        min_padding = 2000.0
+        max_padding = 60000.0
+        padding = float(min_padding)
+
+        # 根据当前视口大小动态补齐边距：确保边缘元素可被居中。
+        # 注意：视口尺寸会随缩放变化而变化，因此需要设置一个上限以避免极小缩放时 padding 过大。
+        views = self.views() if hasattr(self, "views") else []
+        for view in (views or []):
+            if view is None or not hasattr(view, "viewport"):
+                continue
+            viewport = view.viewport()
+            if viewport is None:
+                continue
+            viewport_scene_rect = view.mapToScene(viewport.rect()).boundingRect()
+            padding = max(
+                padding,
+                viewport_scene_rect.width() * 0.6,
+                viewport_scene_rect.height() * 0.6,
+            )
+
+        if padding > max_padding:
+            padding = float(max_padding)
+
+        expanded_rect = items_rect.adjusted(-padding, -padding, padding, padding)
+        self.setSceneRect(expanded_rect)
     
     def _remove_node_graphics(self, node_id: str) -> None:
         """从场景中移除节点的图形项"""
@@ -183,6 +255,14 @@ class SceneModelOpsMixin:
                 if edge_item.dst.node_item.node.id != node_id:
                     affected_nodes.add(edge_item.dst.node_item.node.id)
         
+        # fast_preview_mode + batched edges：同时清理批量边层中与该节点相关的边，避免残留索引与绘制
+        remove_batched = getattr(self, "remove_batched_edge", None)
+        layer = getattr(self, "_batched_fast_preview_edge_layer", None)
+        get_edge_ids_for_node = getattr(layer, "get_edge_ids_for_node", None) if layer is not None else None
+        if callable(remove_batched) and callable(get_edge_ids_for_node):
+            for edge_id in (get_edge_ids_for_node(node_id) or set()):
+                remove_batched(edge_id)
+
         for edge_id in edges_to_remove:
             edge_item = self.edge_items.pop(edge_id, None)
             if edge_item:
@@ -225,22 +305,29 @@ class SceneModelOpsMixin:
         self.clear_highlights()
         
         edge_item = self.edge_items.get(edge_id)
-        if edge_item:
+        if edge_item is not None:
             # 设置连线为选中状态
             edge_item.setSelected(True)
-            # 同时高亮连接的两个节点
-            edge = self.model.edges.get(edge_id)
-            if edge:
-                src_node_item = self.node_items.get(edge.src_node)
-                dst_node_item = self.node_items.get(edge.dst_node)
-                if src_node_item:
-                    src_node_item.setSelected(True)
-                if dst_node_item:
-                    dst_node_item.setSelected(True)
-                
-                # 高亮连接的端口
-                self.highlight_port(edge.src_node, edge.src_port, is_input=False)
-                self.highlight_port(edge.dst_node, edge.dst_port, is_input=True)
+        else:
+            # fast_preview_mode + batched edges：没有 per-edge item 时，交由批量边层维护“选中边集合”
+            has_batched = getattr(self, "has_batched_fast_preview_edges", None)
+            set_batched_selected = getattr(self, "set_batched_selected_edge_ids", None)
+            if callable(has_batched) and has_batched() and callable(set_batched_selected):
+                set_batched_selected({str(edge_id)})
+
+        # 同时高亮连接的两个节点/端口（不依赖 edge_item 是否存在）
+        edge = self.model.edges.get(edge_id)
+        if edge:
+            src_node_item = self.node_items.get(edge.src_node)
+            dst_node_item = self.node_items.get(edge.dst_node)
+            if src_node_item:
+                src_node_item.setSelected(True)
+            if dst_node_item:
+                dst_node_item.setSelected(True)
+
+            # 高亮连接的端口
+            self.highlight_port(edge.src_node, edge.src_port, is_input=False)
+            self.highlight_port(edge.dst_node, edge.dst_port, is_input=True)
     
     def highlight_port(self, node_id: str, port_name: str, is_input: bool) -> None:
         """高亮显示指定端口
@@ -263,6 +350,9 @@ class SceneModelOpsMixin:
     def clear_highlights(self) -> None:
         """清除所有高亮"""
         self.clearSelection()
+        clear_batched_selected = getattr(self, "clear_batched_selected_edges", None)
+        if callable(clear_batched_selected):
+            clear_batched_selected()
         
         # 清除所有端口的高亮状态
         for node_item in self.node_items.values():

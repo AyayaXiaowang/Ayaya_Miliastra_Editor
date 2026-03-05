@@ -1,0 +1,22 @@
+{
+  "template_id": "shape_editor_empty__测试项目",
+  "name": "拼贴画空实体（画布载体）",
+  "entity_type": "物件",
+  "description": "shape-editor 画布载体：用于挂载装饰物组并承载网页画布数据（项目级持久化）。",
+  "default_graphs": [],
+  "default_components": [],
+  "entity_config": {
+    "render": {
+      "model_name": "空模型",
+      "visible": true
+    }
+  },
+  "metadata": {
+    "object_model_name": "空模型",
+    "shape_editor": {
+      "kind": "canvas_carrier"
+    }
+  },
+  "graph_variable_overrides": {},
+  "updated_at": "2026-02-19T13:41:13.111588"
+}

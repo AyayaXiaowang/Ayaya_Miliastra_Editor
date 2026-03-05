@@ -10,6 +10,11 @@ from engine.nodes.node_registry import get_node_registry
 from engine.utils.cache.cache_paths import get_node_cache_dir
 from engine.utils.graph.graph_utils import is_flow_port_name
 from engine.nodes.port_name_rules import get_dynamic_port_type
+from engine.utils.workspace import (
+    get_injected_workspace_root_or_none,
+    looks_like_workspace_root,
+    resolve_workspace_root,
+)
 
 
 @dataclass(frozen=True)
@@ -46,6 +51,7 @@ class NodeTypeHelper:
         self.workspace_path = workspace_path
         self._node_library: Optional[Dict[str, Any]] = None
         self._name_to_node_def: Dict[str, Any] = {}
+        self._composite_id_to_node_def: Dict[str, Any] = {}
         self._variadic_rules: Dict[str, int] = {}
     
     def get_node_library(self) -> Dict[str, Any]:
@@ -67,6 +73,13 @@ class NodeTypeHelper:
             self._node_library = cached_library
             cached_name_index = self._GLOBAL_NAME_INDEX_CACHE.get(cache_key)
             self._name_to_node_def = cached_name_index if cached_name_index is not None else {}
+            # composite_id → NodeDef 映射（不做全局缓存，基于 node_library 快速重建）
+            self._composite_id_to_node_def = {}
+            for node_def in self._node_library.values():
+                if bool(getattr(node_def, "is_composite", False)):
+                    composite_id = str(getattr(node_def, "composite_id", "") or "").strip()
+                    if composite_id and composite_id not in self._composite_id_to_node_def:
+                        self._composite_id_to_node_def[composite_id] = node_def
             cached_variadic_rules = self._GLOBAL_VARIADIC_RULES_CACHE.get(cache_key)
             self._variadic_rules = cached_variadic_rules if cached_variadic_rules is not None else {}
             return self._node_library
@@ -76,10 +89,15 @@ class NodeTypeHelper:
         
         # 构建按名称的索引映射（O(1) 查找）
         self._name_to_node_def = {}
+        self._composite_id_to_node_def = {}
         for node_def in self._node_library.values():
             node_name = getattr(node_def, "name", None)
             if node_name:
                 self._name_to_node_def[node_name] = node_def
+            if bool(getattr(node_def, "is_composite", False)):
+                composite_id = str(getattr(node_def, "composite_id", "") or "").strip()
+                if composite_id and composite_id not in self._composite_id_to_node_def:
+                    self._composite_id_to_node_def[composite_id] = node_def
         
         self._GLOBAL_LIBRARY_CACHE[cache_key] = self._node_library
         self._GLOBAL_NAME_INDEX_CACHE[cache_key] = self._name_to_node_def
@@ -93,7 +111,10 @@ class NodeTypeHelper:
     def _resolve_workspace_root(self) -> Path:
         if self.workspace_path:
             return Path(self.workspace_path).resolve()
-        return Path(__file__).resolve().parent.parent.parent
+        injected_root = get_injected_workspace_root_or_none()
+        if injected_root is not None and looks_like_workspace_root(injected_root):
+            return injected_root
+        return resolve_workspace_root(start_paths=[Path(__file__).resolve()])
 
     def _resolve_cache_key(self, workspace_path: Path) -> str:
         return str(workspace_path)
@@ -108,10 +129,7 @@ class NodeTypeHelper:
             如果节点包含泛型端口则返回 True，否则返回 False
         """
         self.get_node_library()
-        node_name = getattr(node_obj, "title", "") or ""
-        
-        # 使用索引进行 O(1) 查找
-        node_def = self._name_to_node_def.get(node_name)
+        node_def = self.get_node_def_for_model(node_obj)
         if node_def:
             # 输入/输出任一侧包含"泛型"即认为需要类型设置
             in_has = any(
@@ -140,8 +158,7 @@ class NodeTypeHelper:
             泛型输入端口名列表
         """
         self.get_node_library()
-        node_name = getattr(node_obj, "title", "") or ""
-        node_def = self._name_to_node_def.get(node_name)
+        node_def = self.get_node_def_for_model(node_obj)
         if not node_def:
             return []
 
@@ -185,8 +202,7 @@ class NodeTypeHelper:
             泛型输出端口名列表
         """
         self.get_node_library()
-        node_name = getattr(node_obj, "title", "") or ""
-        node_def = self._name_to_node_def.get(node_name)
+        node_def = self.get_node_def_for_model(node_obj)
         if not node_def:
             return []
 
@@ -224,16 +240,30 @@ class NodeTypeHelper:
         """根据节点模型对象获取对应的节点定义。
         
         Args:
-            node_obj: 节点模型对象（需包含 title 属性）
+            node_obj: 节点模型对象（必须包含 node_def_ref；禁止用 title 定位）
             
         Returns:
             对应的节点定义对象，若不存在则返回 None
         """
         self.get_node_library()
-        node_name = getattr(node_obj, "title", "") or ""
-        if not node_name:
+        if self._node_library is None:
             return None
-        return self._name_to_node_def.get(node_name)
+        node_def_ref = getattr(node_obj, "node_def_ref", None)
+        if node_def_ref is None:
+            raise ValueError(f"NodeTypeHelper: 节点缺少 node_def_ref：{getattr(node_obj, 'title', '')}")
+        kind = str(getattr(node_def_ref, "kind", "") or "").strip()
+        key = str(getattr(node_def_ref, "key", "") or "").strip()
+        if kind == "builtin":
+            return self._node_library.get(key)
+        if kind == "composite":
+            return self._composite_id_to_node_def.get(key)
+        if kind == "event":
+            # event 的 key 通常为事件实例标识；需要按 (category/title) 映射回 builtin key。
+            category = str(getattr(node_obj, "category", "") or "").strip()
+            title = str(getattr(node_obj, "title", "") or "").strip()
+            builtin_key = f"{category}/{title}" if (category and title) else ""
+            return self._node_library.get(builtin_key) if builtin_key else None
+        raise ValueError(f"NodeTypeHelper: 非法 node_def_ref.kind：{kind!r}")
 
     def describe_dynamic_port_behavior(self, node_obj) -> Optional[DynamicPortBehavior]:
         """保留旧接口，返回无需计数的动态端口类型。"""
@@ -244,17 +274,13 @@ class NodeTypeHelper:
 
     def plan_dynamic_ports(self, node_obj) -> Optional[DynamicPortPlan]:
         """结合节点定义与命名模式，返回需要新增端口的执行计划。"""
-        from engine.graph.common import SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE
-
         self.get_node_library()
-        node_name = getattr(node_obj, "title", "") or ""
-        if not node_name:
+        node_def = self.get_node_def_for_model(node_obj)
+        if not node_def:
             return None
         # 信号节点的端口形状由信号定义驱动，不通过“新增动态端口”步骤管理
-        if node_name in (SIGNAL_SEND_NODE_TITLE, SIGNAL_LISTEN_NODE_TITLE):
-            return None
-        node_def = self._name_to_node_def.get(node_name)
-        if not node_def:
+        semantic_id = str(getattr(node_def, "semantic_id", "") or "").strip()
+        if semantic_id in {"signal.send", "signal.listen"}:
             return None
 
         dynamic_port_type = str(getattr(node_def, "dynamic_port_type", "") or "")
@@ -265,6 +291,7 @@ class NodeTypeHelper:
                 return None
             return DynamicPortPlan(mode="flow_branch_outputs", add_count=add_count, port_tokens=tokens)
 
+        node_name = str(getattr(node_def, "name", "") or "")
         if node_name not in self._variadic_rules:
             return None
 

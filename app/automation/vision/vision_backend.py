@@ -5,12 +5,13 @@ from __future__ import annotations
 
 职责：
 - 统一客户区截图上的节点/端口识别、一步式识别缓存与标题近似映射；
-- 为运行时自动化与工具脚本提供共享实现，避免在 `tools/` 中承载核心逻辑。
+- 为运行时自动化与（可选的）内部诊断入口提供共享实现，避免把核心逻辑放到外置脚本里。
 
 说明：
 - 运行时代码与 CLI 均应通过门面 `app.automation.vision` 访问本模块提供的能力。
 """
 
+from dataclasses import dataclass
 from typing import List, Tuple, Optional, Dict
 import hashlib
 import numpy as np
@@ -19,37 +20,62 @@ from PIL import Image
 
 from pathlib import Path
 
-from tools.color_block_detector_internal import NodeDetected
 from app.automation.ports.port_types import PortDetected
-from tools.one_shot_scene_recognizer import recognize_scene, RecognizedNode, RecognizedPort
-from engine.nodes.port_index_mapper import map_port_index_to_name
+from app.automation.vision.scene_recognizer import (
+    SceneRecognizerTuning,
+    recognize_scene,
+    RecognizedNode,
+    RecognizedPort,
+)
 from app.automation import capture as editor_capture
 from engine.nodes import NodeDef
 from app.automation.vision.ocr_utils import extract_chinese
 from engine.utils.text.text_similarity import levenshtein_distance
 from app.automation.editor.node_library_provider import (
     get_node_library,
-    get_workspace_root,
+    get_default_workspace_root_or_none,
 )
+from engine.utils.workspace import resolve_workspace_root
 from app.automation.vision.ocr_template_profile import resolve_ocr_template_profile_name
-from app.automation.vision.ui_profile_params import get_port_header_height_px
+from app.automation.vision.ui_profile_params import (
+    get_port_header_height_px,
+    resolve_automation_ui_params,
+)
+
+WindowRect = Tuple[int, int, int, int]
 
 
-def _fallback_project_root() -> Path:
-    """在未设置默认 workspace 时，根据目录结构推断根目录。"""
-    current_file = Path(__file__).resolve()
-    for parent in current_file.parents:
-        if (parent / "assets").exists() and (parent / "tools").exists():
-            return parent
-    return current_file.parent.parent
+@dataclass(frozen=True)
+class RegionRecognizedNode:
+    """窗口 ROI 内的一步式识别结果（节点 + 端口），坐标已回写到窗口坐标系。"""
+
+    title_cn: str
+    bbox: Tuple[int, int, int, int]
+    center: Tuple[int, int]
+    ports: List[PortDetected]
+
+
+@dataclass
+class NodeDetected:
+    """节点检测结果（窗口坐标系）。
+
+    说明：
+    - 这是 `app.automation.vision` 对外稳定返回结构之一（list_nodes）。
+    - 仅作为数据载体，不承载识别/映射逻辑。
+    """
+
+    name_cn: str
+    bbox: Tuple[int, int, int, int]  # x, y, w, h
+    center: Tuple[int, int]
+    area: int
 
 
 def _resolve_workspace_root() -> Path:
-    """优先使用 node_library_provider 注册的 workspace，再退回旧推断策略。"""
-    try:
-        return get_workspace_root()
-    except ValueError:
-        return _fallback_project_root()
+    """优先使用已注册的默认 workspace；否则按统一规则推断。"""
+    default_root = get_default_workspace_root_or_none()
+    if default_root is not None:
+        return default_root.resolve()
+    return resolve_workspace_root(start_paths=[Path(__file__).resolve()])
 
 
 # ============================
@@ -297,12 +323,22 @@ def _ensure_cache(window_image: Image.Image) -> None:
     canvas_image = window_image.crop((region_x, region_y, region_x + region_w, region_y + region_h))
 
     template_dir = get_template_dir()
-    header_height_px = int(get_port_header_height_px(workspace_root=_get_workspace_path()))
+    workspace_root = _get_workspace_path()
+    header_height_px = int(get_port_header_height_px(workspace_root=workspace_root))
+    ui_params = resolve_automation_ui_params(workspace_root=workspace_root)
+    tuning = SceneRecognizerTuning(
+        port_same_row_y_tolerance_px=int(ui_params.port_same_row_y_tolerance_px),
+        port_template_nms_iou_threshold=float(ui_params.port_template_nms_iou_threshold),
+        color_scan_min_height_threshold_px=int(ui_params.color_scan_min_height_threshold_px),
+        color_scan_min_width_threshold_px=int(ui_params.color_scan_min_width_threshold_px),
+        color_merge_max_vertical_gap_px=int(ui_params.color_merge_max_vertical_gap_px),
+    )
     recognized_nodes_canvas = recognize_scene(
         canvas_image,
         template_dir,
         header_height=header_height_px,
         threshold=0.80,
+        tuning=tuning,
     )
 
     # 将坐标转回窗口相对坐标（加上画布偏移）
@@ -347,6 +383,7 @@ def _ensure_cache(window_image: Image.Image) -> None:
                 title_cn=mapped_title,
                 rect=shifted_rect,
                 ports=shifted_ports,
+                header_height_px=int(getattr(recognized, "header_height_px", 0) or 0),
             )
         )
 
@@ -441,13 +478,9 @@ def list_ports(image: Image.Image, node_bbox: Tuple[int, int, int, int]) -> List
     ports: List[PortDetected] = []
     for port in best_match.ports:
         port_x, port_y, port_w, port_h = port.bbox
-        # 名称映射：按节点名+侧别+序号求定义中的正式端口名
-        mapped_name: Optional[str] = None
-        if port.index is not None:
-            mapped_name = map_port_index_to_name(best_match.title_cn, port.side, int(port.index))
         ports.append(
             PortDetected(
-                name_cn=mapped_name or "",
+                name_cn="",
                 bbox=(int(port_x), int(port_y), int(port_w), int(port_h)),
                 center=(int(port.center[0]), int(port.center[1])),
                 side=port.side,
@@ -459,6 +492,160 @@ def list_ports(image: Image.Image, node_bbox: Tuple[int, int, int, int]) -> List
     # 按 y 排序，保持上到下的顺序
     ports.sort(key=lambda port_item: port_item.center[1])
     return ports
+
+
+def get_node_header_height_px(image: Image.Image, node_bbox: Tuple[int, int, int, int]) -> int:
+    """返回与给定节点矩形最匹配的“标题栏/顶部区域”高度（像素）。
+
+    说明：
+    - 数据来自一步式识别缓存（与 list_ports/list_nodes 同源）；
+    - 当底层识别链路提供了每个节点的动态标题栏高度时（色块检测阶段），此处会优先返回该值；
+      否则回退为 0，交由调用方决定是否使用 profile 的静态兜底高度。
+    """
+    _ensure_cache(image)
+    if _recognition_cache is None:
+        return 0
+
+    recognized_nodes: List[RecognizedNode] = _recognition_cache.get("recognized_nodes", [])
+    best_match: Optional[RecognizedNode] = None
+    best_iou = 0.0
+    for recognized in recognized_nodes:
+        score = _iou(recognized.rect, node_bbox)
+        if score > float(best_iou):
+            best_iou = float(score)
+            best_match = recognized
+    if best_match is None:
+        return 0
+
+    header_height_value = int(getattr(best_match, "header_height_px", 0) or 0)
+    return max(0, int(header_height_value))
+
+
+def recognize_nodes_with_ports_in_window_region(
+    window_image: Image.Image,
+    window_region: WindowRect,
+) -> List[RegionRecognizedNode]:
+    """在窗口截图的指定 ROI 内执行一次一步式识别，仅返回 ROI 内的节点与端口。
+
+    设计目的：
+    - 避免在“刚创建节点/目标已知位置”的场景下对整张画布做识别；
+    - 识别结果可用于创建验收与后续端口/参数步骤的快照预热。
+
+    注意：
+    - 输入 window_region 为窗口坐标系 (x, y, w, h)；
+    - 识别实际会被裁剪到“节点图布置区域”内；
+    - 返回的 bbox/端口坐标均为窗口坐标系。
+    """
+    win_left_px, win_top_px, win_width_px, win_height_px = (
+        int(window_region[0]),
+        int(window_region[1]),
+        int(window_region[2]),
+        int(window_region[3]),
+    )
+    if win_width_px <= 0 or win_height_px <= 0:
+        return []
+
+    # 仅允许在“节点图布置区域”内做识别，避免把 ROI 落在非画布 UI 上引入误检
+    graph_left, graph_top, graph_w, graph_h = editor_capture.get_region_rect(
+        window_image, "节点图布置区域"
+    )
+    graph_right = int(graph_left + graph_w)
+    graph_bottom = int(graph_top + graph_h)
+
+    roi_left_px = max(int(win_left_px), int(graph_left))
+    roi_top_px = max(int(win_top_px), int(graph_top))
+    roi_right_px = min(int(win_left_px + win_width_px), int(graph_right))
+    roi_bottom_px = min(int(win_top_px + win_height_px), int(graph_bottom))
+    roi_width_px = int(max(0, int(roi_right_px - roi_left_px)))
+    roi_height_px = int(max(0, int(roi_bottom_px - roi_top_px)))
+    if roi_width_px <= 0 or roi_height_px <= 0:
+        return []
+
+    roi_image = window_image.crop(
+        (int(roi_left_px), int(roi_top_px), int(roi_right_px), int(roi_bottom_px))
+    )
+
+    template_dir = get_template_dir()
+    workspace_root = _get_workspace_path()
+    header_height_px = int(get_port_header_height_px(workspace_root=workspace_root))
+    ui_params = resolve_automation_ui_params(workspace_root=workspace_root)
+    tuning = SceneRecognizerTuning(
+        port_same_row_y_tolerance_px=int(ui_params.port_same_row_y_tolerance_px),
+        port_template_nms_iou_threshold=float(ui_params.port_template_nms_iou_threshold),
+        color_scan_min_height_threshold_px=int(ui_params.color_scan_min_height_threshold_px),
+        color_scan_min_width_threshold_px=int(ui_params.color_scan_min_width_threshold_px),
+        color_merge_max_vertical_gap_px=int(ui_params.color_merge_max_vertical_gap_px),
+    )
+
+    recognized_nodes_roi = recognize_scene(
+        roi_image,
+        template_dir,
+        header_height=header_height_px,
+        threshold=0.80,
+        tuning=tuning,
+    )
+
+    output: List[RegionRecognizedNode] = []
+    for recognized in recognized_nodes_roi:
+        rect_x, rect_y, rect_w, rect_h = recognized.rect
+        shifted_rect = (
+            int(rect_x + roi_left_px),
+            int(rect_y + roi_top_px),
+            int(rect_w),
+            int(rect_h),
+        )
+
+        center_x = int(shifted_rect[0] + shifted_rect[2] / 2)
+        center_y = int(shifted_rect[1] + shifted_rect[3] / 2)
+
+        mapped_title, distance_value, used = _map_title_to_library(recognized.title_cn)
+        if used:
+            _title_mapping_logs.append(
+                {
+                    "input_title": str(recognized.title_cn),
+                    "mapped_title": str(mapped_title),
+                    "hamming": None if distance_value is None else int(distance_value),
+                    "distance": None if distance_value is None else int(distance_value),
+                }
+            )
+
+        ports: List[PortDetected] = []
+        for port in recognized.ports:
+            port_x, port_y, port_w, port_h = port.bbox
+            shifted_bbox = (
+                int(port_x + roi_left_px),
+                int(port_y + roi_top_px),
+                int(port_w),
+                int(port_h),
+            )
+            shifted_center = (
+                int(port.center[0] + roi_left_px),
+                int(port.center[1] + roi_top_px),
+            )
+            ports.append(
+                PortDetected(
+                    name_cn="",
+                    bbox=shifted_bbox,
+                    center=shifted_center,
+                    side=port.side,
+                    kind=str(port.kind or "unknown"),
+                    index=int(port.index) if port.index is not None else None,
+                    confidence=float(port.confidence)
+                    if getattr(port, "confidence", None) is not None
+                    else None,
+                )
+            )
+        ports.sort(key=lambda port_item: port_item.center[1])
+
+        output.append(
+            RegionRecognizedNode(
+                title_cn=str(mapped_title or ""),
+                bbox=shifted_rect,
+                center=(int(center_x), int(center_y)),
+                ports=ports,
+            )
+        )
+    return output
 
 
 def phase_correlation_delta(prev_image: Image.Image, next_image: Image.Image) -> Tuple[float, float]:
