@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """
-私有扩展：拼贴画（shape-editor）插件接入（入口文件）
+内置扩展：拼贴画（shape-editor）插件接入（入口文件；随仓库分发）
 
 目标：
 - 在主程序左侧导航栏底部注入“拼贴画”入口按钮；
@@ -9,7 +9,7 @@ from __future__ import annotations
 - 提供后端 API，用于将画布导出为“装饰物组挂空实体”的 .gia。
 
 约束：
-- 私有扩展会在 QApplication 创建前被 import，因此模块顶层禁止导入 PyQt6。
+- 扩展会在 QApplication 创建前被 import，因此模块顶层禁止导入 PyQt6。
 - 不使用 try/except 吞错：失败直接抛出，便于暴露问题。
 """
 
@@ -21,7 +21,7 @@ from app.common.private_extension_registry import register_main_window_hook
 
 def _ensure_backend_importable() -> None:
     plugin_dir = Path(__file__).resolve().parent
-    # 允许私有扩展之间复用代码：`private_extensions/ugc_file_tools` 等目录
+    # 允许扩展之间复用代码：`private_extensions/ugc_file_tools` 等目录
     # 以顶层包名 `ugc_file_tools` 被导入（无需写 `private_extensions.ugc_file_tools`）。
     private_ext_root = plugin_dir.parent
     plugin_dir_text = str(plugin_dir)

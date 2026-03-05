@@ -94,7 +94,7 @@ class _ShapeEditorBridge:
         if self._server is None:
             raise RuntimeError("shape editor server 未启动")
         port = int(getattr(self._server, "port"))
-        # 以 workspace_root 作为静态根目录，确保 `../../common.css` 等相对路径可正常加载
+        # 以 workspace_root 作为静态根目录，确保 `./common.css` 等相对路径可正常加载
         return f"http://127.0.0.1:{port}/private_extensions/shape-editor/index.html"
 
     # --------------------------------------------------------------------- open browser

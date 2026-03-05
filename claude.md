@@ -12,6 +12,7 @@
 - 项目存档（目录模式）校验：`python -X utf8 -m app.cli.graph_tools validate-project [--package-id <id>]`（`validate-package` 为兼容旧名）。
 - `README.md`：面向使用者的主入口文档，包含依赖安装说明、最小可运行版本矩阵，以及“第三方开源项目”汇总（便于审计与追溯）。
 - `LICENSES/`：第三方许可证文本副本（用于对外分发/开源发布时的审计与合规对照）。
+- `pyrightconfig.json` / `pytest.ini`：静态检查与测试收集的项目级配置（应随仓库分发）。
 - 项目导入/导出中心：推荐的落地方式（直接导出 `.gil` 写回 / `.gia` 导出）；UI 工具栏“导出/导入”入口依赖扩展 `private_extensions/ugc_file_tools`（未加载时会提示不可用）。
 - 临时产物与对比报告等统一落在 `tmp/`（例如 `tmp/artifacts/`、`tmp/agent_todos/`）；根目录应保持“入口/索引/配置”为主，临时产物以 `.gitignore` / `.cursorignore` 为准忽略与可清理。
 - Cursor 相关配置位于 `.cursor/`（本地规则与 hooks；默认被 ignore）。
@@ -25,6 +26,7 @@
 
 - PowerShell 不支持 `&&`，多条命令请逐行执行。
 - 根目录文件保持“入口/索引/配置”属性；诊断证据链请写入 `docs/diagnostics/`（本地留存，不随仓库上传）。
+- 根目录不放静态前端资源（HTML/CSS/JS）。Web 工具的静态资源应随工具目录分发，或落在 `assets/` 下的对应真源目录。
 - 上传前复核：即使 `.gitignore` 已覆盖产物目录，也应在上传前再次确认不存在临时/导出/缓存/归档数据被误加入（尤其是 `private_extensions/**/out/` 与 `assets/资源库/项目存档/_archive/`）。
 - 对外发布前建议再跑一次 `python -X utf8 -m tools.find_hardcoded_absolute_paths`，避免示例/工具脚本里残留本机绝对路径。
 - Git配置自身忽略：`.gitignore` 和 `.cursorignore` 已被配置为忽略上传，避免本机的配置文件变动被提交到仓库。
