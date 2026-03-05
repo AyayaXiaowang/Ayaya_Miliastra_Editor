@@ -17,6 +17,7 @@
   - 取消/并发控制统一由 `run_queue.js` 提供的 **token** 驱动（latest-wins + coalesce + session key）；`flatteningController` 本身不再维护第二套内部 token，只在关键 await 点检查外部 token 是否仍 active。
   - 导出 bundle 时会把 `dom_extract` 提取到的 `data-ui-variable-defaults` 合并写入 bundle 顶层 `variable_defaults`（用于写回端创建实体自定义变量的默认值）。
     - 约定：key 推荐使用 `lv.<变量名>`（关卡）/`ps.<变量名>`（玩家）；`ls` 前缀为旧写法，已禁用。
+  - 导出 bundle 的 `layout_id/template_id` 采用**稳定 hash**（基于归一化 HTML 的 `source_hash` + 页面前缀/布局名/画布尺寸），避免 `Date.now()` 导致同一源码重复导出产生噪声 diff。
   - UI 多状态导出策略固定为“整态打组”（`ui_state_consolidation_mode="full_state_groups"`），与 `ui_app_ui_preview` / 导出中心口径一致，避免两边导出结果不一致。
   - 支持 silent 生成：可在“批量预扁平化”场景下只生成缓存，不写入可视 UI 面板。
   - 扁平化 HTML 输出默认会**替换 `<body>...</body>` 的内容**为扁平层（不再残留原始 DOM），避免原稿结构干扰点选/遮挡诊断；兼容兜底可回退为“注入”方式（仅用于极端环境）。

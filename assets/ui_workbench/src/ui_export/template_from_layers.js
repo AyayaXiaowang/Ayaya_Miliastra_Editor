@@ -3,8 +3,42 @@ import { applyUiStateMetaToPayload } from "./ui_state.js";
 import { getShadowOverlayAlpha, isShadowOverlayColor, parsePxNumber } from "./color_font.js";
 import { buildItemDisplayWidget, buildProgressBarWidget, buildTextBoxWidget, buildWidgetId, isButtonLikeSource, normalizeIconAndTextLayer, pickIconSeatRect } from "./widgets.js";
 import { buildLayerKeyFromRect } from "../layer_key.js";
+import { hashTextFNV1a32Hex } from "../utils.js";
+
+var DEFAULT_TEMPLATE_ID_PREFIX = "template_html_import_";
+var DEFAULT_TEMPLATE_ID_SEED_PREFIX = "ui_template_from_layers_v1";
+var DEFAULT_TEMPLATE_ID_SEP = "|";
+
+var DETERMINISTIC_TIMESTAMP_ISO = "2000-01-01T00:00:00.000Z";
+
+function _normalizeIdSeedPart(v) {
+    return String(v !== undefined ? v : "").trim();
+}
+
+function _buildLayerListHash(layerList) {
+    return hashTextFNV1a32Hex(JSON.stringify(layerList || []));
+}
+
+function _buildDeterministicTemplateId(layerList, options) {
+    var opts = options || {};
+    var sourceHash = _normalizeIdSeedPart(opts.source_hash || "");
+    var stableHash = sourceHash || _buildLayerListHash(layerList);
+    var uiKeyPrefix = _normalizeIdSeedPart(opts.ui_key_prefix || "");
+    var templateName = _normalizeIdSeedPart(opts.template_name || "");
+    var seed = [
+        DEFAULT_TEMPLATE_ID_SEED_PREFIX,
+        uiKeyPrefix,
+        templateName,
+        stableHash
+    ].join(DEFAULT_TEMPLATE_ID_SEP);
+    return DEFAULT_TEMPLATE_ID_PREFIX + hashTextFNV1a32Hex(seed);
+}
 
 function nowIsoText() {
+    var opts = arguments.length > 0 ? arguments[0] : null;
+    if (opts && opts.deterministic_timestamps === true) {
+        return DETERMINISTIC_TIMESTAMP_ISO;
+    }
     return new Date().toISOString();
 }
 
@@ -138,7 +172,7 @@ function layerRectIntersectionArea(a, b) {
 export function buildUiControlGroupTemplateFromFlattenedLayers(layerList, options) {
     options = options || {};
     var templateName = String(options.template_name || "HTML导入_UI控件组");
-    var templateId = String(options.template_id || ("template_html_import_" + String(Date.now())));
+    var templateId = String(options.template_id || _buildDeterministicTemplateId(layerList, options));
     var idPrefix = sanitizeIdPart(options.id_prefix || templateId) || templateId;
     setStableUiKeyPrefix(options.ui_key_prefix || "");
 
@@ -650,7 +684,7 @@ export function buildUiControlGroupTemplateFromFlattenedLayers(layerList, option
         groupHeight = 100;
     }
 
-    var now = nowIsoText();
+    var now = nowIsoText(options);
     return {
         template: applyUiStateMetaToPayload({
             template_id: templateId,

@@ -8,8 +8,39 @@ import { ensureUniqueInteractiveKeybindsForPage } from "./bundle/interact_keys.j
 import { collectButtonAnchors, groupWidgetsByAnchors, pickAnchorLabel } from "./bundle/grouping.js";
 import { consolidateUiStateTemplates } from "./bundle/state_consolidation.js";
 import { expandUiStateFullGroups } from "./bundle/state_full_groups.js";
+import { hashTextFNV1a32Hex } from "../utils.js";
 
-function nowIsoText() {
+var DEFAULT_TEMPLATE_ID_PREFIX = "template_html_import_";
+var DEFAULT_LAYOUT_ID_PREFIX = "layout_html_import_";
+var DEFAULT_ID_SEED_PREFIX = "ui_bundle_default_id_v1";
+var DEFAULT_ID_SEP = "|";
+
+var DETERMINISTIC_TIMESTAMP_ISO = "2000-01-01T00:00:00.000Z";
+
+function _normalizeIdSeedPart(v) {
+    return String(v !== undefined ? v : "").trim();
+}
+
+function _buildDeterministicId(prefix, seedParts) {
+    var parts = Array.isArray(seedParts) ? seedParts : [];
+    var normalized = [];
+    for (var i = 0; i < parts.length; i++) {
+        normalized.push(_normalizeIdSeedPart(parts[i]));
+    }
+    var seed = normalized.join(DEFAULT_ID_SEP);
+    return String(prefix || "") + hashTextFNV1a32Hex(seed);
+}
+
+function _buildLayerListHash(layerList) {
+    // JS 对象 key 顺序通常保持插入顺序；layerList 由同一条管线构建，JSON.stringify 在同一输入下应稳定。
+    return hashTextFNV1a32Hex(JSON.stringify(layerList || []));
+}
+
+function nowIsoText(options) {
+    var opts = options || {};
+    if (opts && opts.deterministic_timestamps === true) {
+        return DETERMINISTIC_TIMESTAMP_ISO;
+    }
     return new Date().toISOString();
 }
 
@@ -151,10 +182,28 @@ function _ensureGlobalUniqueLayerIndexAcrossTemplates(templates) {
 
 export function buildUiLayoutBundleFromFlattenedLayers(layerList, options) {
     options = options || {};
-    var now = nowIsoText();
+    var now = nowIsoText(options);
+
+    // 稳定导出（diff 更干净）：
+    // - 优先使用上游传入的 `options.source_hash`（来自归一化 HTML 的稳定 hash）
+    // - 若缺失，则回退为 layerList 的 JSON hash（同一输入下应稳定）
+    var sourceHash = _normalizeIdSeedPart(options.source_hash || "");
+    var stableHash = sourceHash || _buildLayerListHash(layerList);
+
+    var uiKeyPrefixForId = _normalizeIdSeedPart(options.ui_key_prefix || "");
+    var layoutNameForId = _normalizeIdSeedPart(options.layout_name || "");
 
     // 1) 先复用既有导出：统一把 DOM 扁平层转成 widgets（保证规则一致）
-    var baseTemplateId = String(options.template_id || ("template_html_import_" + String(Date.now())));
+    var baseTemplateId = String(
+        options.template_id
+        || _buildDeterministicId(DEFAULT_TEMPLATE_ID_PREFIX, [
+            DEFAULT_ID_SEED_PREFIX,
+            "template",
+            uiKeyPrefixForId,
+            layoutNameForId,
+            stableHash
+        ])
+    );
     var baseTemplateName = String(options.template_name || "HTML导入_UI控件组");
     var baseIdPrefix = sanitizeIdPart(options.id_prefix || baseTemplateId) || baseTemplateId;
 
@@ -175,7 +224,16 @@ export function buildUiLayoutBundleFromFlattenedLayers(layerList, options) {
 
     // 2) 组装 UILayout + 多模板
     var layoutName = String(options.layout_name || "HTML导入_界面布局");
-    var layoutId = String(options.layout_id || ("layout_html_import_" + String(Date.now())));
+    var layoutId = String(
+        options.layout_id
+        || _buildDeterministicId(DEFAULT_LAYOUT_ID_PREFIX, [
+            DEFAULT_ID_SEED_PREFIX,
+            "layout",
+            uiKeyPrefixForId,
+            layoutNameForId || _normalizeIdSeedPart(layoutName),
+            stableHash
+        ])
+    );
     var layoutDescription = String(options.layout_description || "由 ui_html_workbench 导出。");
 
     var templates = [];

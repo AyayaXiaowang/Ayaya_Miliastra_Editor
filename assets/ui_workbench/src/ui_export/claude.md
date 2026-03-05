@@ -43,6 +43,7 @@
   - 迁移方式：在 HTML 中显式写出高亮底板 DOM，并用 `data-ui-state-group / data-ui-state / data-ui-state-default` 表达互斥状态（状态切换由节点图负责显隐）。
   - 性能优化（导出侧）：默认过滤“小字号 text-shadow 拆层”（仅影响导出 bundle/GIL，不影响预览扁平化画面），可通过 `min_text_shadow_font_size` 调整阈值（默认 18；设为 0 关闭过滤）。
 - `bundle_from_layers.js`：layers -> UILayout + 多模板 bundle（按钮打组、UI 多状态合并/整态打组、**全局 layer_index（zIndex）唯一化**、全局 `ui_key` 去重）。
+  - `layout_id/template_id` 默认生成改为**确定性**：优先使用上游透传的 `source_hash`（归一化 HTML 的稳定 hash），缺失时回退为 `layerList` 的 JSON hash；避免 `Date.now()` 导致同一输入重复导出产生噪声 diff。
 - `bundle/`：`bundle_from_layers.js` 的内部实现拆分目录（几何/按键码/按钮打组/状态整态合并等）。
   - 导出警告：导出链路会产生一组 warnings（例如进度条颜色映射偏差提示），Workbench 会将其统一转为结构化 Diagnostics warning 并汇总显示/写入 AI 修复包。
   - 状态策略（重要）：

@@ -1,6 +1,22 @@
 import { hashTextFNV1a32Hex } from "../utils.js";
 import { canFallbackToVisiblePreviewDocument, extractDisplayElementsDataPreferComputeWithOptionalVisibleFallback } from "./compute_fallback.js";
 
+var EXPORT_TEMPLATE_ID_PREFIX = "template_html_import_";
+var EXPORT_LAYOUT_ID_PREFIX = "layout_html_import_";
+var EXPORT_ID_SEED_PREFIX = "ui_bundle_export_v1";
+var EXPORT_ID_SEP = "|";
+
+function _buildDeterministicExportIdHash(parts) {
+    var list = Array.isArray(parts) ? parts : [];
+    var normalized = [];
+    for (var i = 0; i < list.length; i++) {
+        var s = String(list[i] !== undefined ? list[i] : "").trim();
+        normalized.push(s);
+    }
+    var seed = normalized.join(EXPORT_ID_SEP);
+    return hashTextFNV1a32Hex(seed);
+}
+
 export function createFlatteningController(opts) {
     var o = opts || {};
 
@@ -508,10 +524,33 @@ export function createFlatteningController(opts) {
             setFlattenGroupUiKeyPrefix(uiKeyPrefix);
         }
 
+        // 稳定导出：避免 Date.now() 导致同一源码重复导出产生噪声 diff（layout_id/template_id 漂移）。
+        // 该 ID 仅用于 bundle 内部引用与导入/写回的映射 key；最终 `.gil` 的 guid 由写回端决定。
+        var normalizedForIdHash = preview && preview.normalizeHtmlForSandboxedPreviewSrcDoc
+            ? preview.normalizeHtmlForSandboxedPreviewSrcDoc(originalHtmlText)
+            : originalHtmlText;
+        var sourceHashForExportIds = hashTextFNV1a32Hex(normalizedForIdHash);
+        var templateId = EXPORT_TEMPLATE_ID_PREFIX + _buildDeterministicExportIdHash([
+            EXPORT_ID_SEED_PREFIX,
+            "template",
+            uiKeyPrefix,
+            preferredLayoutName,
+            selectedCanvasSizeKey,
+            sourceHashForExportIds
+        ]);
+        var layoutId = EXPORT_LAYOUT_ID_PREFIX + _buildDeterministicExportIdHash([
+            EXPORT_ID_SEED_PREFIX,
+            "layout",
+            uiKeyPrefix,
+            preferredLayoutName,
+            selectedCanvasSizeKey,
+            sourceHashForExportIds
+        ]);
+
         var exportResult = buildUiLayoutBundleFromFlattenedLayers(layerList, {
-            template_id: "template_html_import_" + String(Date.now()),
+            template_id: templateId,
             template_name: "HTML导入_UI控件组_" + String(selectedCanvasSizeOption.label || selectedCanvasSizeKey),
-            layout_id: "layout_html_import_" + String(Date.now()),
+            layout_id: layoutId,
             layout_name: preferredLayoutName,
             layout_description: "由 ui_html_workbench 导出。尺寸: " + String(selectedCanvasSizeOption.label || selectedCanvasSizeKey),
             ui_key_prefix: uiKeyPrefix,
@@ -522,7 +561,10 @@ export function createFlatteningController(opts) {
             // UI 多状态策略：强制整态打组（与导出中心/预览工具保持一致）
             ui_state_consolidation_mode: "full_state_groups",
             description: "由 ui_html_workbench 导出。",
-            uniform_text_font_size_by_element_index: uniformTextFontSizeByElementIndex
+            uniform_text_font_size_by_element_index: uniformTextFontSizeByElementIndex,
+            // 透传：供下游在未显式传入 id 时也能生成确定性 id
+            source_hash: sourceHashForExportIds,
+            deterministic_timestamps: true
         });
 
         var bundlePayload = exportResult && exportResult.bundle ? exportResult.bundle : null;

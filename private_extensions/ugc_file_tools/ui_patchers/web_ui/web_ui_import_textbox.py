@@ -11,6 +11,37 @@ from .web_ui_import_constants import UI_SCHEMA_LABEL_TEXTBOX
 from .web_ui_import_rect import has_rect_transform_state, try_extract_textbox_text_node, try_extract_widget_name
 
 
+COMPONENT_SLOT_INDEX_TEXTBOX_STYLE = 1
+COMPONENT_SLOT_INDEX_TEXTBOX = 3
+
+# TextBox 的 component_list[3]（经验上为 TextBoxComponent）在不同模板来源下可能缺少 header 字段。
+# 实测：缺失时会导致导出网页/运行时文本渲染不一致，因此写回阶段显式补齐这些字段，避免依赖 schema library 的“富模板”。
+EMPTY_BINARY_DATA_TEXT = "<binary_data> "
+TEXTBOX_COMPONENT3_FIELD501_KIND = 9
+TEXTBOX_COMPONENT3_FIELD502_STYLE = 25
+TEXTBOX_COMPONENT3_FIELD503_KIND = 10
+TEXTBOX_COMPONENT3_FIELD503_STYLE = 25
+TEXTBOX_COMPONENT3_FIELD503_FLAG = 1
+
+
+def _has_non_empty_textbox_style_component_slot(record: Dict[str, Any]) -> bool:
+    """
+    TextBox record 约定：
+    - record['505'] 是 component_list（list）
+    - component_list[1] 通常为“样式/容器组件（component1）”，必须是结构化 dict
+
+    经验：当 component_list[1] 被写成 0 字节 bytes（或被序列化为 `<binary_data>`）时，
+    后续网页导出会出现文本/样式缺失或回退默认值。
+    """
+    comp_list = record.get("505")
+    if not isinstance(comp_list, list):
+        return False
+    if len(comp_list) <= COMPONENT_SLOT_INDEX_TEXTBOX_STYLE:
+        return False
+    slot = comp_list[COMPONENT_SLOT_INDEX_TEXTBOX_STYLE]
+    return isinstance(slot, dict) and bool(slot)
+
+
 def choose_textbox_record_template(ui_record_list: List[Any]) -> Optional[Dict[str, Any]]:
     """
     选择一个可作为“克隆模板”的 TextBox UI record：
@@ -25,6 +56,9 @@ def choose_textbox_record_template(ui_record_list: List[Any]) -> Optional[Dict[s
 
     for record in ui_record_list:
         if not isinstance(record, dict):
+            continue
+        # 必须具备非空 component1（样式/容器组件），否则 clone 会扩散“空槽位”
+        if not _has_non_empty_textbox_style_component_slot(record):
             continue
         if not has_rect_transform_state(record, state_index=0):
             continue
@@ -79,6 +113,31 @@ def write_textbox_text_and_style(
     """
     写回 TextBox 的文本与样式字段，并返回写入后的“raw code 摘要”（用于报告）。
     """
+    comp_list = record.get("505")
+    if not isinstance(comp_list, list) or len(comp_list) <= COMPONENT_SLOT_INDEX_TEXTBOX:
+        raise TypeError("record['505'] 缺失或不是 list，无法定位 TextBox component_list[3]")
+    component3 = comp_list[COMPONENT_SLOT_INDEX_TEXTBOX]
+    if not isinstance(component3, dict):
+        raise TypeError("record['505'][3] 不是 dict，无法写回 TextBox component3 header 字段")
+
+    # 补齐 component3 header（保持与“富模板”一致）
+    if "19" not in component3:
+        component3["19"] = EMPTY_BINARY_DATA_TEXT
+    if "501" not in component3:
+        component3["501"] = int(TEXTBOX_COMPONENT3_FIELD501_KIND)
+    if "502" not in component3:
+        component3["502"] = int(TEXTBOX_COMPONENT3_FIELD502_STYLE)
+    node503_component3 = component3.get("503")
+    if not isinstance(node503_component3, dict):
+        node503_component3 = {}
+        component3["503"] = node503_component3
+    if "501" not in node503_component3:
+        node503_component3["501"] = int(TEXTBOX_COMPONENT3_FIELD503_KIND)
+    if "502" not in node503_component3:
+        node503_component3["502"] = int(TEXTBOX_COMPONENT3_FIELD503_STYLE)
+    if "503" not in node503_component3:
+        node503_component3["503"] = int(TEXTBOX_COMPONENT3_FIELD503_FLAG)
+
     node19 = try_extract_textbox_text_node(record)
     if node19 is None:
         raise RuntimeError("record 不包含可识别的 TextBox 文本节点（node19）")

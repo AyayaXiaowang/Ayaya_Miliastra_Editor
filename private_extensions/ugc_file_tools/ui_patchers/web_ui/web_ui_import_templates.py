@@ -24,7 +24,7 @@ from .web_ui_import_textbox import choose_textbox_record_template, try_load_text
 
 BUILTIN_UI_TEMPLATE_DIR_NAME = "空的界面控件组"
 BUILTIN_PROGRESSBAR_TEMPLATE_FILE_NAME = "进度条样式.gil"
-BUILTIN_TEXTBOX_TEMPLATE_FILE_NAME = "文本框样式.gil"
+BUILTIN_TEXTBOX_TEMPLATE_FILE_NAME = "文本框样式_fixed.gil"
 BUILTIN_ITEM_DISPLAY_TEMPLATE_FILE_NAME = "道具展示.gil"
 
 

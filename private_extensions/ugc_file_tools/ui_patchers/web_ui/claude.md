@@ -9,6 +9,7 @@
   - 优先从输入 `.gil` 现有 record 选择可克隆模板；
   - 次选复用 `ui_schema_library` 中已标注模板（`progressbar` / `textbox` / `item_display`）；
   - 若仍缺失，会自动使用内置样本 seed（`ugc_file_tools/builtin_resources/空的界面控件组/{进度条样式.gil, 文本框样式.gil, 道具展示.gil}`）提取模板并沉淀到 schema library，再继续写回。
+  - TextBox 模板选择会跳过 `component_list[1]` 为空/非结构化的 record（避免克隆时扩散“空槽位 component1”导致网页文本/样式缺失）。
 - 组件打组：`web_ui_import_component_groups.py` / `web_ui_import_component_groups_finalize.py` / `web_ui_import_grouping.py`。
 - 固有控件初始显隐（HTML 真源）：支持从同级源码 HTML 读取 `data-ui-builtin-visibility`（JSON object，仅 5 个固有控件），并将对应固有控件 record 的初始隐藏标记落盘；缺失/不完整/包含未知键会 fail-fast 报错。
   - 允许“布局内不存在某些固有控件”的场景（例如空/极简 base `.gil` 或某些页面不含对应 HUD）：该次覆盖会在 report 中标记 `not_found`，但不抛错。
