@@ -4,8 +4,10 @@
 ## 当前状态
 - 覆盖最小夹具节点图 `tests/local_sim/fixture_graph_local_sim_minimal.py`：
   - `ui_key:` 占位符解析 → 稳定 index，并可回映射到原始 key（用于离线模拟 UI click/patch）。
+  - tutorial guide_0 “下一步”按钮索引变量名使用短名 `按钮索引_btn_tut_g0`（满足变量名长度约束），并应解析为对应 `ui_key:HTML导入_界面布局__tutorial_overlay__guide_0__btn_item` 的稳定 index。
   - “布局索引_*” fallback：从描述里的 `page_a.html/page_b.html` 推导稳定 layout_index。
   - click 注入：通过 `LocalGraphSimSession.trigger_ui_click(...)` 触发“界面控件组触发时”并写回图变量。
+  - 图变量命名遵循校验约束（例如节点图变量名长度上限），保证在 strict 校验下可被本地模拟服务器直接启动。
 - 覆盖多图挂载回归：
   - 夹具：`fixture_graph_local_sim_multi_a.py`（主图）+ `fixture_graph_local_sim_multi_b.py`（额外挂载图）
   - 用例：`test_local_graph_sim_multi_graph_mounts.py` 校验同一会话内挂载多图后，同一事件可触发多个回调，且额外挂载图能写入其 owner 实体自定义变量（用于断言挂载与执行链路）。
@@ -21,6 +23,7 @@
   - 单步：`/api/local_sim/step` 推进虚拟时间并最多触发 1 次定时器事件（用于逐步回归）
 - 覆盖选关页“开始关卡”信号参数回归：
   - `test_local_sim_level_select_start_level_param.py`：点击关卡按钮写入 `ui_sel_level`，点击 `投票此关` 后断言广播 `关卡大厅_开始关卡(第X关)` 参数与当前选中关卡一致（用例以 `rect_level_03` 作为样例；本地模拟需显式设置玩家当前布局为选关页）。
+  - 该用例会在触发 click 前显式预置关卡实体（`GUID实体_<关卡实体GUID>`）的自定义变量 `UI选关_文本` / `UI选关_投票`（最小 dict），避免节点图逻辑读取到 None。
 - 覆盖第七关真实节点图闭环（`tests/local_sim/test_local_sim_level7_gameplay.py`）：
   - 教程“下一步”逐步切换遮罩状态 + “完成”闭环、妈妈纸条线索写回、帮助按钮回顾教程。
   - 线索区：标题 + 6 条线索（标签/正文）逐条写回，确保与数据服务下发一致。

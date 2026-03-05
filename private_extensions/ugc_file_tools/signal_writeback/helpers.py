@@ -798,18 +798,22 @@ def _patch_signal_name_port_default_value_inplace(*, port_obj: Dict[str, Any], s
     port4["6"] = 1
 
 
+SERVER_SEND_BOOL_TYPE_DESCRIPTOR_FIELD_101_VALUE = 200001
+SERVER_SEND_DESCRIPTOR_TYPE_ID_FOR_SENDER_GUID = 14
+
+
 _SERVER_SIGNAL_DESCRIPTOR_TYPE_ID_BY_VAR_TYPE: Dict[int, int] = {
     # 对齐“可运行样本”中 server-send（向服务器节点图发送信号）参数描述类型号（field_4.field_3/field_4.field_4）
-    1: 1,   # 实体
-    2: 14,  # GUID（样本：发送者GUID）
-    3: 3,   # 整数
-    4: 5,   # 布尔值
-    5: 7,   # 浮点数
-    6: 9,   # 字符串
-    8: 4,   # 整数列表
-    9: 6,   # 布尔值列表
+    1: 1,  # 实体
+    2: SERVER_SEND_DESCRIPTOR_TYPE_ID_FOR_SENDER_GUID,  # GUID（样本：发送者GUID=14）
+    3: 3,  # 整数
+    4: 5,  # 布尔值
+    5: 7,  # 浮点数
+    6: 9,  # 字符串
+    8: 4,  # 整数列表
+    9: 6,  # 布尔值列表
     10: 8,  # 浮点数列表
-    11: 10, # 字符串列表
+    11: 10,  # 字符串列表
 }
 
 
@@ -842,7 +846,9 @@ def _build_server_scalar_type_descriptor(*, scalar_type_id_int: int, struct_id_i
 
     # server-send 的 bool 描述字段与 send/listen 不同：field_101 需要写 200001。
     if int(scalar_type_id_int) == 4:
-        descriptor["101"] = format_binary_data_hex_text(encode_message({"1": 200001}))
+        descriptor["101"] = format_binary_data_hex_text(
+            encode_message({"1": int(SERVER_SEND_BOOL_TYPE_DESCRIPTOR_FIELD_101_VALUE)})
+        )
 
     return descriptor
 

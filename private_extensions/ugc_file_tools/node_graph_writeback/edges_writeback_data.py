@@ -244,7 +244,7 @@ def write_data_edges_inplace(
             slot_index=int(dst_slot_index),
         )
         if bool(is_signal_meta_binding_node):
-            # 对齐真源 `.gil`：信号参数 pin 的 i2(index2/kernel) 与 shell index 一致（slot_index）。
+            # 对齐回归用例：信号 META binding 的参数端口 pin_index2(kernel) 必须与 pin_index(shell) 一致。
             dst_shell_index, dst_kernel_index = _resolve_signal_meta_binding_param_pin_indices(
                 slot_index=int(dst_slot_index)
             )
@@ -268,10 +268,6 @@ def write_data_edges_inplace(
                 fallback_index=int(dst_pin_fallback_index),
             )
 
-        # 兜底对齐真源：信号节点参数端口的 kernel index 必须与 shell index 一致（shell=kernel=slot）。
-        # 这是跨域契约；禁止依赖 NEP 的 KernelIndex（已观测存在“固定为 0”的画像，导致写出坏 record）。
-        if (bool(is_send_signal_node) or bool(is_listen_signal_node) or bool(is_server_send_signal_node)) and str(dst_port) != "信号名":
-            dst_kernel_index = int(dst_shell_index)
         should_enable_struct_modify_field = (
             str(dst_title) == "修改结构体"
             and str(dst_port) not in {"结构体名", "结构体实例"}

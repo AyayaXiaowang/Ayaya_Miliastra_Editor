@@ -15,6 +15,7 @@ from typing import Any, Dict, Mapping
 from ugc_file_tools.gil_dump_codec.protobuf_like_bridge import (
     binary_data_text_to_numeric_message,
 )
+from ugc_file_tools.gil_dump_codec.protobuf_like import parse_binary_data_hex_text
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -176,7 +177,21 @@ def summarize_signal_entries(payload_root: Mapping[str, Any]) -> list[Dict[str, 
 
     summaries: list[Dict[str, Any]] = []
     for entry in extract_signal_entry_dicts_from_payload_root(payload_root):
-        signal_name = str(entry.get("3") or "").strip()
+        raw_name = entry.get("3")
+        signal_name = ""
+        if isinstance(raw_name, str):
+            t = raw_name.strip()
+            if t.startswith("<binary_data>"):
+                # dump-json 形态：某些路径会把 utf8 string 强制保留为 raw bytes（例如 prefer_raw_hex_for_utf8=True）。
+                # 为了让诊断工具/回归测试稳定，需在扫描阶段将其解码回可读文本。
+                try:
+                    signal_name = parse_binary_data_hex_text(t).decode("utf-8", errors="replace").strip()
+                except Exception:
+                    signal_name = t
+            else:
+                signal_name = t
+        else:
+            signal_name = str(raw_name or "").strip()
         param_count = len([x for x in _as_list(entry.get("4")) if x is not None])
 
         signal_index_value = entry.get("6")

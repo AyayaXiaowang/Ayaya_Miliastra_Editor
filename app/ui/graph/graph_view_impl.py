@@ -244,7 +244,11 @@ class GraphView(QtWidgets.QGraphicsView):
     def scrollContentsBy(self, dx: int, dy: int) -> None:
         """滚动内容时触发更新 - 委托给交互控制器"""
         super().scrollContentsBy(dx, dy)
-        self.interaction_controller.handle_scroll_contents(dx, dy)
+        # Qt 在对象析构/窗口关闭等阶段仍可能触发 scrollContentsBy；
+        # 此时 Python wrapper 可能已进入“半销毁”状态，instance dict 字段不再可靠。
+        controller = getattr(self, "interaction_controller", None)
+        if controller is not None:
+            controller.handle_scroll_contents(dx, dy)
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         """按键事件 - 委托给交互控制器"""

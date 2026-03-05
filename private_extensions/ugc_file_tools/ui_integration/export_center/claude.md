@@ -7,7 +7,7 @@
 - `state.py` 也会记录 GIL 模式是否启用“使用内置空存档（默认布局）”选项，避免每次打开都要重复勾选。
 - `plans.py`：导出/写回/修复类动作的 plan 数据结构（dataclass）。
   - 导出中心的 `.gil` 写回固定跳过占位元件（`metadata.ugc.placeholder=true`），不在 UI/plan 中提供开关；如需启用仅通过 CLI 参数显式开启（不推荐）。
-  - `.gil` 写回采用 selection-json：支持按“勾选资源”写回 元件/实体摆放/节点图/信号/结构体/UI/关卡实体自定义变量（左侧勾选“关卡实体自定义变量（全部）”自动收集候选并全量补齐；而不是全量覆盖）。
+  - `.gil` 写回采用 selection-json：支持按“勾选资源”写回 元件/实体摆放/节点图/信号/结构体/UI/自定义变量（注册表解析后的 `custom_vars` 虚拟条目，按 owner_ref+variable_id 精确选择；并支持每组“（全部）”扩展）。
   - `.gil` 写回支持“使用内置空存档（默认布局）”作为 base：用于“导出为空存档”，无需用户手工提供空存档文件。
   - `.gil` 写回（UI Workbench bundle）支持可选“同名布局冲突策略”（用于导出中心交互）：可按布局名逐个指定 `overwrite/add/skip`（默认 overwrite 复用同名 GUID 覆盖写回；add 创建新布局并自动分配新名；skip 跳过该布局）。
   - `.gil` 写回（节点图 Graph Code）支持可选“同名节点图冲突策略”（用于导出中心交互）：按 `graph_code_file` 逐个指定 `overwrite/add/skip`（默认 overwrite；add 会为该图自动分配 `graph_name__new_1/...` 以写入为新图；skip 则不写回该图）。
@@ -15,7 +15,7 @@
   - `.gia` 导出/识别支持“基底 `.gil` + 可选占位符参考 `.gil` 覆盖”：用于 `entity_key/component_key` 的占位符回填（留空=使用基底；缺失同名默认回填为 0，但支持通过手动 overrides 覆盖为指定 ID）。
 - `dialog_runtime_state.py`：导出中心对话框运行期状态（显式 state），用于替代 controller 内分散的 nonlocal/闭包变量，降低顺序依赖与回归风险；并承载 IDRef 手动覆盖与候选缓存（缺失行双击选择）。
 - `write_ui_policy.py`：UI 写回策略单一真源：选择 `UI源码(ui_src)` 时强制开启 write_ui；非强制时由用户勾选决定（用于“强制→取消 UI源码→恢复用户选择”）。
-- `backfill_panel_models.py`：回填识别面板的纯逻辑模型（依赖清单 rows（待识别）与签名计算），供 controller 复用并便于单测锁行为。
+- `backfill_panel_models.py`：回填识别面板的纯逻辑模型（依赖清单 rows（待识别）/纯文本摘要（`format_backfill_deps_text`）与签名计算），供 controller 复用并便于单测锁行为。
 - `gil_backfill_analysis_cache.py`：导出中心“回填识别”的 `.gil` 分析结果缓存（base/id_ref 通用）。
   - 缓存落盘：`app/runtime/cache/ugc_file_tools/export_center/backfill_gil_analysis/`
   - 命中条件：同一路径的 `.gil` 文件 `size/mtime_ns` 未变化；命中时跳过 `.gil` decode，仅做“依赖清单 vs 缓存分析结果”的对比生成表格。
@@ -44,7 +44,7 @@
     - 当本次同时导出启用了 UI 写回（UI源码→Workbench bundle）时，识别会额外扫描 `UI源码/__workbench_out__/*.ui_bundle.json`，将能由 UI 写回提供的 key 标记为“一同导出”（避免误报缺失）。
   - “一同导出”语义：识别表会区分“来自 GIL”与“来自本次同时导出（写回会补齐）”。
     - UI 占位符变量（UI源码引用→自动同步）：当 base 缺失但已启用自动同步时标记为“一同导出”（写回会自动补齐）
-    - 关卡实体自定义变量（全部）：当 base 缺失时标记为“一同导出”（写回会补齐缺失项；同名不同类型仍为“类型不匹配”且默认不覆盖）
+    - 关卡实体自定义变量（全部）：回填识别阶段仅做“是否存在/类型是否匹配”的诊断；当 base 缺失时标记为“缺失”（写回是否补齐由导出计划与执行阶段决定）
   - 回填识别会复用 `gil_backfill_analysis_cache.py` 的运行期缓存，避免同一份 `.gil` 重复解码。
   - UI 展示：回填识别表按“缺失/待修复”和“已就绪”拆分为两个标签页；识别进度条位于步骤页底部固定区域，不随表格滚动。
 

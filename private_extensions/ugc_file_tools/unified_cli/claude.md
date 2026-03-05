@@ -14,6 +14,7 @@
     - `project import` 额外支持信号占位写回开关：`--signals-emit-reserved-placeholder-signal/--no-signals-emit-reserved-placeholder-signal`。
     - `project import` 支持 `--id-ref-overrides-json`：用于在 `entity_key/component_key` 按名称找不到时手动覆盖占位符 name→ID 映射（导出中心双击缺失行会自动生成并透传）。
     - `--dtype` 默认值指向 `ugc_file_tools/builtin_resources/dtype/dtype.json`（可通过参数覆盖）。
+    - selection-json 支持 `selected_custom_variable_refs`：按 `owner_ref + variable_id` 精确选择“注册表自定义变量”写回到输出 `.gil` 的 override_variables(group1)（关卡实体/玩家/第三方 owner 均可）。
   - `ui*.py`：UI dump/写回/roundtrip/web import 等能力（dump-json 为纯 Python，不依赖额外 DLL）。
   - `entity.py`：实体/装饰物 `.gia` 相关子命令（按需扩展；二维码实体导出已收敛到 `ugc_file_tools.gia_export.qrcode_entity`）。
   - `gui.py`：GUI 子命令入口（`python -m ugc_file_tools gui`，Tkinter）。

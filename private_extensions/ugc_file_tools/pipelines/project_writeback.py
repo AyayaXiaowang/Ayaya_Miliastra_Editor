@@ -62,6 +62,8 @@ class ProjectWritebackPlan:
     selected_struct_ids: list[str] | None = None
     selected_ingame_struct_ids: list[str] | None = None
     selected_signal_ids: list[str] | None = None
+    # 自定义变量（注册表）：按 owner_ref+variable_id 精确选择（可跨：关卡实体/玩家/第三方 owner）。
+    selected_custom_variable_refs: list[dict[str, str]] | None = None
     # 关卡实体（root4/5/1 name=关卡实体）需要写回的“自定义变量（LevelVariableDefinition.variable_id）”选择列表。
     # - selection-json 仅携带 variable_id 列表；写回阶段再按 variable_id 查表并写入实体 override_variables(group1)
     # - None/空：不做额外写回
@@ -520,7 +522,7 @@ def run_project_writeback_to_gil(
 
     # 计算步数：每个导出段 + 复制步骤（若需要 copy）
     need_copy = output_user_abs is not None and output_user_abs.resolve() != output_tool_path.resolve()
-    want_level_custom_variables = bool(plan.selected_level_custom_variable_ids)
+    want_custom_variables = bool(plan.selected_custom_variable_refs) or bool(plan.selected_level_custom_variable_ids)
     total_steps = 0
     if need_infrastructure_bootstrap:
         total_steps += 1
@@ -528,7 +530,7 @@ def run_project_writeback_to_gil(
         total_steps += 1
     if bool(effective_export_instances):
         total_steps += 1
-    if want_level_custom_variables:
+    if want_custom_variables:
         total_steps += 1
     if bool(plan.export_structs):
         if has_basic_structs:
@@ -644,24 +646,30 @@ def run_project_writeback_to_gil(
         report["steps"].append({"kind": "instances", "report": step_report})
         current_input = output_tool_path.resolve()
 
-    if want_level_custom_variables:
+    if want_custom_variables:
         current_step += 1
-        _emit_progress(progress_cb, current_step, total_steps, "正在写回关卡实体自定义变量…")
+        _emit_progress(progress_cb, current_step, total_steps, "正在写回自定义变量（注册表）…")
 
-        from ugc_file_tools.project_archive_importer.level_custom_variables_importer import (
-            LevelCustomVariablesImportOptions,
-            import_selected_level_custom_variables_from_project_archive_to_gil,
+        from ugc_file_tools.project_archive_importer.registry_custom_variables_importer import (
+            RegistryCustomVariablesImportOptions,
+            import_selected_registry_custom_variables_from_project_archive_to_gil,
         )
 
-        step_report = import_selected_level_custom_variables_from_project_archive_to_gil(
+        # 兼容旧字段：若 selection 未提供 owner_ref+variable_id，则按 level owner 兜底构造 refs。
+        refs = [dict(x) for x in list(plan.selected_custom_variable_refs or []) if isinstance(x, dict)]
+        if not refs:
+            refs = [{"owner_ref": "level", "variable_id": str(x)} for x in list(plan.selected_level_custom_variable_ids or [])]
+
+        step_report = import_selected_registry_custom_variables_from_project_archive_to_gil(
             project_archive_path=project_root,
             input_gil_file_path=current_input,
             output_gil_file_path=output_tool_path,
-            options=LevelCustomVariablesImportOptions(
-                selected_level_custom_variable_ids=list(plan.selected_level_custom_variable_ids or []),
+            options=RegistryCustomVariablesImportOptions(
+                selected_custom_variable_refs=list(refs),
+                overwrite_when_type_mismatched=False,
             ),
         )
-        report["steps"].append({"kind": "level_custom_variables", "report": step_report})
+        report["steps"].append({"kind": "custom_variables_registry", "report": step_report})
         current_input = output_tool_path.resolve()
 
     if bool(plan.export_structs):

@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="zh-CN"
+      data-ui-builtin-visibility='{"小地图":false,"技能区":false,"队伍信息":false,"角色生命值条":false,"摇杆":false}'
+      data-ui-variable-defaults='{"UI选关_文本":{"settle_tip_status":"","level_name":"","author_name":""},"UI选关_列表":{"cleared_count":0},"UI选关_投票":{"chosen_level_name":""}}'>
+<head>
+    <meta charset="UTF-8">
+    <title>关卡选择（直角版）</title>
+    <style>
+        /* =========================================
+           一、全局重置与基础设置
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: min(100%, var(--canvas-width, 100vw));
+            height: min(100%, var(--canvas-height, 100vh));
+            overflow: hidden !important;
+            overscroll-behavior: none;
+            /* 扁平化/截图管线中：root 背景若为透明，浏览器画布会回退为纯白。
+               本页主面板是白系，若无底色会表现为“整页纯白”。因此显式给出底色。 */
+            background-color: var(--c-bg);
+            font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+        }
+
+        /* 色板定义 */
+        :root {
+            --border-width: 4px;
+            /* 阴影规范：仅硬投影（blur/spread = 0），避免扁平化前后差异 */
+            --shadow-color: rgba(14, 14, 14, 0.45);
+            /* 浅阴影遮罩：Workbench 允许的 25% 档（对应 #0e0e0e40） */
+            --shadow-mask-25: rgba(14, 14, 14, 0.25);
+            --shadow-depth: 4px 4px 0px var(--shadow-color);
+            --shadow-depth-hover: 6px 6px 0px var(--shadow-color);
+            --shadow-depth-active: 0px 0px 0px var(--shadow-color);
+            --text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+
+            --radius-lg: 0px; --radius-md: 0px; --radius-sm: 0px; --radius-xs: 0px;
+
+            /* 语义色（与 1.html / 2.html / 3.html 统一） */
+            --c-green: #92CD21; --c-green-d: #577718; --c-green-d1: #719D1C; --c-green-d2: #577718;
+            --c-white: #FFFAF0; --c-white-d: #C2Beb6; --c-white-d1: #E6E1D6; --c-white-d2: #C2Beb6;
+            --c-yellow: #FFD700; --c-yellow-d: #B8860B; --c-yellow-d1: #ECC94B; --c-yellow-d2: #B8860B;
+            --c-blue: #36F3F3; --c-blue-d: #248C8C; --c-blue-d1: #2CBABA; --c-blue-d2: #248C8C;
+            --c-red: #FF6B6B; --c-red-d: #C92A2A; --c-red-d1: #FA5252; --c-red-d2: #C92A2A;
+
+            /* “黑色描边/黑块”替代色：使用调色板允许的 dark variant（避免 #000 写回失败） */
+            /* 注意：不要使用 dark1/2/3 变体当“黑色”，否则扁平化可能会拆出 `shade-*` 盖色层；
+               在某些写回/导出链路里，盖色层可能被误处理为 #000000。
+               因此这里直接使用调色板允许的“阴影遮罩”两档（#rrggbbaa）。 */
+            --c-ink: #0e0e0e73;      /* 45% shade overlay hex（允许） */
+            --c-ink-soft: #0e0e0e40; /* 25% shade overlay hex（允许） */
+
+            /* 状态语义色：置灰/禁用（全页面统一口径） */
+            --c-disabled: #e0e0e0;
+            --c-disabled-d1: #d0d0d0;
+            --c-disabled-d2: #c0c0c0;
+            --c-disabled-text: #777;
+            --c-disabled-border: var(--c-ink-soft);
+
+            --c-bg: var(--c-white-d);
+            --c-panel: var(--c-white);
+            --c-panel-border: var(--c-white-d);
+            --c-header: var(--c-yellow-d1);
+            --c-header-border: var(--c-yellow-d);
+
+            /* 布局变量 */
+            --corner-slot-size: clamp(48px, 3.33vw, 60px);
+            /* 左上角按钮整体上移一点点（更贴顶），保持各页面一致 */
+            --corner-slot-top: calc(clamp(16px, 1.5vh, 24px) - 6px);
+            --corner-slot-left: clamp(16px, 1.25vw, 24px);
+            --corner-slot-gap: clamp(10px, 0.9vw, 14px);
+            /* 左上角按钮文字微调：让“退出/关卡选择”等文本更靠上些 */
+            --corner-slot-text-nudge-y: -2px;
+
+            /* 文本字号（硬约束：固定 px，不允许随画布尺寸变化）
+               - 允许文本框/容器尺寸自适应（clamp/vw/vh 等），但文字本身必须恒定字号
+               - Workbench 会在 4 个画布尺寸下做 computedStyle 校验，字号变化会直接报错并阻断导出 */
+            --fs-title: 28px;
+            --fs-subtitle: 18px;
+            --fs-body: 16px;
+            --fs-body-sm: 14px;
+            --fs-caption: 13px;
+            --fs-tiny: 12px;
+            --fs-micro: 11px;
+            --fs-online-label: 10px;
+            --fs-badge: 15px;
+
+            /* 底部右下角“投票此关”按钮：不需要太大 */
+            --fs-action-btn: 20px;
+
+            --fs-vote-title: 26px;
+            --fs-vote-sub: 14px;
+            --fs-vote-level: 20px;
+            --fs-vote-countdown-label: 16px;
+            --fs-vote-countdown-value: 48px;
+            --fs-vote-countdown-unit: 16px;
+            --fs-vote-reject-btn: 20px;
+            --fs-vote-tip: 13px;
+            --fs-vote-cancel-tip: 18px;
+        }
+
+        /* =========================================
+           二、布局容器
+           ========================================= */
+        .screen-container {
+            width: var(--canvas-width, 100vw);
+            height: var(--canvas-height, 100vh);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background-color: transparent;
+        }
+
+        .screen-bg {
+            position: absolute; inset: 0; background-color: transparent; z-index: 0; pointer-events: none;
+        }
+
+        /* 主弹窗：增加多重边框效果，看起来更厚实 */
+        .game-panel {
+            width: clamp(880px, 78.125vw, 1500px);
+            height: clamp(540px, 78vh, 860px);
+            background-color: var(--c-panel);
+            border: var(--border-width) solid var(--c-ink); /* 避免 #000：用调色板允许的“墨色” */
+            outline: 4px solid var(--c-panel-border); /* 内层装饰边框 */
+            outline-offset: -8px;
+            box-shadow: 12px 12px 0px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            padding: clamp(20px, 1.5vw, 28px);
+            position: relative;
+            gap: clamp(12px, 0.9375vw, 16px);
+            z-index: 5;
+        }
+
+        /* =========================================
+           三、通用样式增强
+           ========================================= */
+        
+        /* 按钮与卡片的“高光倒角”效果 - 纯CSS模拟3D */
+        .tone-3 {
+            position: relative;
+            border-radius: 0;
+            overflow: hidden;
+            /* 语义底色优先：底色用“最亮语义色”，再用遮罩压暗出中/底两段 */
+            background-color: var(--tone-top, var(--tone-mid));
+            /* 内阴影模拟厚度 */
+            /* 全局取消 tone-3 左上角高光（避免扁平化/导出多余视觉层次） */
+            box-shadow: none;
+        }
+
+        /* tone-3 stripe（兼容结构：仅底部短唇边） */
+        .tone-3-stripe {
+            position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none;
+        }
+        .tone-3-stripe--top {
+            /* 顶部高光：用 1px “进度条”表达（便于后续用控件复刻） */
+            top: 0;
+            height: 1px;
+            background-color: var(--tone-top);
+        }
+        /* 扁平化导出优化：顶部 1px 高光几乎不可见，但会额外拆出图层/控件。
+           统一关闭顶部高光（保留中/底两段压暗以维持层次）。 */
+        /* 注意：不要用 display:none。
+           Workbench 扁平化时可能会把“无盒子”的 tone-3-stripe 误落成 (0,0) 的空 TextBox。 */
+        .tone-3-stripe--top { background-color: transparent !important; visibility: hidden !important; }
+        .tone-3-stripe--bottom {
+            /* 简单按钮皮肤：只保留“底部短唇边”，彻底移除 2/3 分段压暗 */
+            top: auto;
+            bottom: 0;
+            height: 6px;
+            background-color: var(--shadow-mask-25);
+        }
+        .tone-3-stripe--deep {
+            /* 彻底移除“底部二次加深”段：保留节点盒子（避免导出/扁平化误差），但不产生任何可见效果 */
+            bottom: 0;
+            height: 0;
+            background-color: transparent !important;
+            visibility: hidden !important;
+        }
+        .tone-3 > :not(.tone-3-stripe) { position: relative; z-index: 1; }
+
+        /* =========================================
+           四、界面组件
+           ========================================= */
+
+        /* 4.1 顶部信息栏 */
+        .header-section {
+            flex: 0 0 auto;
+            background-color: var(--c-header);
+            border: var(--border-width) solid var(--c-ink);
+            /* 扁平化友好：背景纹理会被忽略，避免“原稿有纹理，扁平化没纹理” */
+            padding: clamp(10px, 0.78vw, 14px) clamp(20px, 1.56vw, 32px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: clamp(60px, 7.5vh, 84px);
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
+        }
+
+        .header-left { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+
+        .level-title {
+            font-size: var(--fs-title);
+            font-weight: 900; line-height: 1; color: #000;
+            text-shadow: 2px 2px 0px rgba(255,255,255,0.5); /* 白色硬投影，增加立体感 */
+        }
+
+        .author-info {
+            font-size: var(--fs-body-sm);
+            color: #333; font-weight: 700;
+            /* 扁平化友好：不要用 opacity（会被忽略），用显式颜色替代 */
+            color: rgba(0,0,0,0.65);
+        }
+
+        .header-right { flex: 0 0 auto; display: flex; align-items: center; gap: 14px; }
+        .header-subtitle {
+            font-size: var(--fs-subtitle); font-weight: 900; color: #000;
+            background: var(--c-ink); color: var(--c-header); /* 反色设计（避免 #000） */
+            /* 固定高度 + flex 居中：确保水平/垂直都居中（避免扁平化后文本落左上） */
+            height: clamp(30px, 2.5vh, 36px);
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            /* 扁平化友好：transform 会被忽略，保持直角 */
+        }
+
+        .header-progress {
+            display: inline-flex; align-items: center; gap: 0;
+            height: clamp(30px, 2.5vh, 36px);
+            border: 3px solid var(--c-ink);
+            background-color: #fff;
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+        }
+        .header-progress-label {
+            background: var(--c-white-d); color: #fff; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 10px;
+            font-size: var(--fs-caption); font-weight: 900;
+            text-align: center;
+        }
+        .header-progress-value {
+            min-width: clamp(36px, 3.2vw, 48px);
+            display: flex; align-items: center; justify-content: center;
+            text-align: center;
+            font-size: 17px; font-weight: 900; color: #000;
+            padding: 0 8px;
+        }
+        .header-progress-suffix {
+            display: flex; align-items: center; justify-content: center;
+            font-size: var(--fs-caption); font-weight: 900; color: rgba(0,0,0,0.70);
+            padding: 0 8px 0 0;
+            text-align: center;
+        }
+
+        .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        /* text-truncate 会把 display 强制成 block；对 header-subtitle 必须保留 flex 才能垂直居中 */
+        .header-subtitle.text-truncate { display: flex; align-items: center; justify-content: center; }
+
+        /* 导出约束：按钮/标签文本必须可拉伸，避免导出 TextBox 宽度=字宽 */
+        .btn-text { flex: 1 1 auto; min-width: 0; width: 100%; display: block; text-align: center; }
+        /* 顶部角标按钮：中文两字在窄宽度下默认允许断行；这里强制不换行（例如“退出”）。 */
+        .top-actions .btn-exit-top .btn-text { white-space: nowrap; word-break: keep-all; }
+
+        /* 左上角按钮：文本垂直位置微调（避免视觉上偏下） */
+        .top-actions .btn-exit-top .btn-text,
+        .top-actions .btn-top .btn-text {
+            position: relative;
+            top: var(--corner-slot-text-nudge-y);
+        }
+
+        /* 4.2 中部内容区 */
+        .content-section {
+            flex: 1; min-height: 0;
+            display: flex; gap: clamp(16px, 1.2vw, 24px);
+        }
+
+        /* 左侧：关卡列表容器 */
+        .level-panel {
+            flex: 0 0 48%;
+            /* 扁平化友好：避免半透明底色叠加导致“变深/发灰” */
+            background-color: var(--c-white); /* 使用调色板色，减少量化偏差 */
+            border: 2px solid rgba(0,0,0,0.1);
+            padding: clamp(12px, 0.833vw, 16px);
+            display: flex; flex-direction: column; gap: 8px;
+            /* 增加内阴影制造凹陷感 */
+            box-shadow: inset 4px 4px 0px rgba(0,0,0,0.05);
+            position: relative;
+            z-index: 1;
+        }
+
+        .panel-title {
+            font-size: 20px; font-weight: 900; color: #000;
+            flex: 0 0 auto; display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+        }
+        .panel-title-deco {
+            width: 8px; height: 24px;
+            background-color: var(--c-red);
+            border: 2px solid var(--c-ink);
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+        }
+
+        /* 列表网格 */
+        .level-grid {
+            flex: 1; overflow: hidden;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: clamp(10px, 0.8vw, 14px);
+            padding-right: 4px; /* 防止阴影被裁切 */
+            padding-bottom: 4px;
+        }
+
+        .level-cell { position: relative; width: 100%; height: 100%; }
+        /* 性能优化结构：背景层（多状态）与文本层（共享）拆分。
+           目标：避免复制整块文字导致导出 widget 暴增；“已完成置灰”通过 disabled 蒙版实现。 */
+        .level-cell .level-content {
+            position: absolute;
+            inset: 0;
+            /* 视觉对齐：底部有“唇边”时，内容略向上提，避免看起来整体下坠 */
+            padding: 2px 10px 8px 10px;
+            z-index: 30;
+            pointer-events: none; /* 点击仍由 button 处理 */
+        }
+
+        /* 多状态导出规则（关键）：
+           - Workbench 扁平化/导出是基于浏览器计算样式提取几何信息；
+           - `display:none` 会导致元素完全没有盒子，从而被跳过（多状态也不例外）；
+           - 因此：非默认态需要隐藏时，必须用 `visibility:hidden`（保留几何）而不是 `display:none`。 */
+        .level-cell .level-skin[data-ui-state-group] { visibility: hidden; pointer-events: none; }
+        .level-cell .level-skin[data-ui-state-group][data-ui-state-default="1"] { visibility: visible; pointer-events: auto; }
+
+        /* 关卡卡片样式 */
+        .level-skin {
+            position: absolute; inset: 0;
+            border: 3px solid var(--c-ink); /* 加粗边框（避免 #000） */
+            display: flex; align-items: center;
+            padding: 4px 10px;
+            /* 默认状态下不需要阴影，因为 tone-3 已经加了 */
+        }
+
+        /* 未选中状态 */
+        .level-skin--unselected {
+            cursor: pointer;
+            /* 重新设计（更像游戏 UI）：
+               未选中保持“黄色语义”，但不再用覆盖 2/3 的分段压暗，改为“底部短唇边”阴影，
+               让文字始终落在同一底色上，保证可读性。 */
+            --tone-top: var(--c-yellow);
+            --tone-mid: var(--c-yellow-d1);
+            --tone-bottom: var(--c-yellow-d2);
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.12);
+            outline: none;
+        }
+        /* 仅用于网页预览：hover 提示（导出不依赖 hover） */
+        .level-skin--unselected:hover {
+            box-shadow: 5px 5px 0px rgba(0,0,0,0.16);
+        }
+
+        /* 关卡卡片专用：把 tone-3 的“分段压暗”改成“底部短唇边”，避免压暗大面积覆盖文本。 */
+        .level-skin .tone-3-stripe--bottom {
+            top: auto;
+            bottom: 0;
+            height: 6px;
+            background-color: var(--shadow-mask-25);
+        }
+        .level-skin .tone-3-stripe--deep {
+            /* 避免与外侧 box-shadow 叠成“双层底边”，关卡卡片不使用第二段加深 */
+            height: 0 !important;
+            background-color: transparent !important;
+            visibility: hidden !important;
+        }
+        
+        /* 选中状态 - 强化视觉 */
+        .level-skin--selected {
+            pointer-events: none;
+            --tone-top: var(--c-green);
+            --tone-mid: var(--c-green-d1);
+            --tone-bottom: var(--c-green-d2);
+            /* 仅颜色变化：保持与未选中完全一致的边框/阴影/唇边 */
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.12);
+            outline: none;
+            z-index: 10;
+        }
+
+        /* 已通关标记：改为倾斜的印章样式 */
+        .level-cleared-mark {
+            /* 注意：扁平化后 z-index 通常按 DOM/层序重新编号。
+               若这里用负偏移把印章“跨出”卡片，会被相邻卡片盖住。
+               因此保持印章完全落在卡片内部（不跨出边界）。 */
+            position: absolute; right: 6px; top: 6px;
+            height: clamp(22px, 2.0vw, 28px);
+            min-width: clamp(54px, 4.5vw, 72px);
+            padding: 0 10px;
+            border: 3px solid var(--c-ink);
+            /* 扁平化友好：transform 会被忽略，保持直角/不旋转 */
+            /* 单层投影：避免 inset 内框造成“多一层阴影” */
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.18);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: var(--fs-tiny);
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #fff;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.22);
+            z-index: 60;
+            pointer-events: none;
+            /* 覆盖原本的 tone 变量 */
+            --tone-top: var(--c-red);
+            --tone-mid: var(--c-red);
+            --tone-bottom: var(--c-red-d1);
+        }
+        .level-cleared-text { line-height: 1; }
+        /* 通关印章：多状态节点的“初始态/切换态”以 data-ui-state-default 为准。
+           - 为了避免同组两态在网页预览里叠在一起，这里只显示 default=1 的那一份；
+           - hidden 态本身必须是“空壳/占位”（不可见），否则即便选了 hidden 也会显示印章。 */
+        .level-cell .level-cleared-mark[data-ui-state-group] { visibility: hidden; pointer-events: none; }
+        .level-cell .level-cleared-mark[data-ui-state-group][data-ui-state-default="1"] { visibility: visible; }
+        .level-cleared-mark--placeholder {
+            /* hidden 态占位：保留状态节点存在，但不产生可见内容，也不抢交互 */
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: transparent !important;
+        }
+
+        .level-content {
+            width: 100%; display: flex; align-items: center; gap: 10px; min-width: 0;
+        }
+
+        /* 序号徽章 */
+        .level-index-badge {
+            flex: 0 0 auto;
+            width: clamp(26px, 2vw, 32px); height: clamp(26px, 2vw, 32px);
+            /* 高对比徽章：黑底白字，确保数字永远清晰 */
+            background-color: var(--c-ink);
+            color: #fff;
+            border: 3px solid var(--c-ink);
+            display: flex; justify-content: center; align-items: center;
+            font-size: var(--fs-badge); font-weight: 900;
+            box-shadow: 2px 2px 0px rgba(255,255,255,0.30);
+        }
+        
+        /* 序号徽章跟随“关卡卡片状态”（以 state-default=1 的那一份为准）
+           注意：level-index-badge 位于 .level-content（与皮肤是 sibling），因此使用 ~ 选择器关联。 */
+        .level-cell .level-skin--selected[data-ui-state-default="1"] ~ .level-content .level-index-badge {
+            background-color: var(--c-ink);
+            color: #fff;
+            border-color: var(--c-ink);
+            box-shadow: 2px 2px 0px rgba(255,255,255,0.30);
+        }
+        .level-cell .level-skin--disabled[data-ui-state-default="1"] ~ .level-content .level-index-badge {
+            background-color: var(--c-disabled-d2);
+            color: var(--c-disabled-text);
+            border-color: var(--c-disabled-border);
+            box-shadow: none;
+        }
+
+        /* 已完成（置灰禁用）状态：不可点 + 换色（做法与 selected 一致：独立皮肤换 tone 变量） */
+        .level-skin--disabled {
+            pointer-events: none;
+            cursor: default;
+            --tone-top: var(--c-disabled);
+            --tone-mid: var(--c-disabled-d1);
+            --tone-bottom: var(--c-disabled-d2);
+            box-shadow: none !important;
+            border-color: var(--c-disabled-border);
+            outline: none;
+        }
+
+        /* disabled 态不使用唇边：禁用项应“更平、更像不可交互” */
+        .level-skin--disabled .tone-3-stripe {
+            background-color: transparent !important;
+            visibility: hidden !important;
+        }
+
+        /* disabled 态文字显式置灰（禁止 opacity，使用显式颜色） */
+        .level-cell .level-skin--disabled[data-ui-state-default="1"] ~ .level-content .level-name {
+            color: var(--c-disabled-text);
+            text-shadow: none;
+        }
+        .level-cell .level-skin--disabled[data-ui-state-default="1"] ~ .level-content .level-author {
+            color: var(--c-disabled-text);
+        }
+        .level-cell .level-skin--disabled[data-ui-state-default="1"] ~ .level-content .level-online-count {
+            background-color: var(--c-disabled-d2);
+            color: var(--c-disabled-text);
+        }
+        .level-cell .level-skin--disabled[data-ui-state-default="1"] ~ .level-content .level-online-label {
+            color: var(--c-disabled-text);
+        }
+
+        /* disabled 态隐藏右侧“道具展示/投票条”（减少干扰，也避免导出无意义控件） */
+        .level-cell .level-skin--disabled[data-ui-state-default="1"] ~ .level-content .level-vote {
+            display: none !important;
+        }
+
+        .level-text-group { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+
+        .level-name {
+            font-size: var(--fs-body); font-weight: 900; color: #000;
+            text-align: left;
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.4);
+        }
+        .level-author {
+            font-size: var(--fs-micro); font-weight: 700; color: rgba(0,0,0,0.6);
+            text-align: left;
+        }
+
+        .level-vote {
+            flex: 0 0 auto;
+            margin-left: auto;
+            display: inline-flex;
+            /* 让子元素可“吃满高度”，避免扁平化后文字落左上 */
+            align-items: stretch;
+            gap: 6px;
+            min-width: 0;
+            height: clamp(22px, 2.2vh, 26px);
+        }
+        .level-online-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: clamp(36px, 3.2vw, 48px);
+            height: 100%;
+            padding: 0 10px;
+            /* 更像“计数徽章”：白底 + 细描边，避免发灰 */
+            background-color: #fff;
+            border: 2px solid var(--c-ink-soft);
+            border-radius: 0;
+            font-size: var(--fs-caption); font-weight: 900; color: #000;
+            text-align: center;
+            line-height: 1;
+        }
+        .level-online-label {
+            font-size: var(--fs-online-label);
+            font-weight: 800;
+            color: rgba(0,0,0,0.78);
+            /* 自身做 flex 居中：保证扁平化后的 TextBox 水平/垂直居中 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        /* 右侧预览面板 */
+        .preview-panel {
+            flex: 1;
+            background-color: var(--c-panel);
+            border: 2px solid rgba(0,0,0,0.1);
+            padding: 12px;
+            display: flex; flex-direction: column; gap: 8px;
+            /* 扁平化友好：阴影不要被父容器裁切；裁切应只发生在 cutout/stage 内部 */
+            position: relative;
+            overflow: visible;
+            z-index: 2;
+        }
+        
+        /* 预览外框：阴影/边框在外层，避免与 cutout 互相影响 */
+        .preview-stage-frame {
+            flex: 1;
+            position: relative;
+            /* 移除 margin 以实现严格居中（父容器 padding 已足够容纳阴影） */
+            /* 需求：预览区只保留 .game-cutout，不要任何边框/描边/阴影 */
+            border: none;
+            box-shadow: none;
+            background-color: transparent;
+        }
+
+        /* 预览舞台 */
+        .preview-stage {
+            position: absolute;
+            inset: 0;
+            background-color: transparent;
+            box-shadow: none;
+            overflow: hidden;
+            /* 增加 Flex 居中支持，确保内部内容（如图片/iframe）居中 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .game-cutout {
+            position: absolute; inset: 0; background-color: transparent;
+            /* 增加 Flex 居中支持 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /* 强制预览内容（图片/视频/Canvas）居中并适应容器 */
+        .game-cutout > * {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            object-position: center;
+            display: block;
+            margin: auto;
+        }
+
+        /* 底部操作栏 */
+        .action-section {
+            flex: 0 0 auto;
+            /* 只保留右下角一个主操作按钮（投票此关） */
+            height: clamp(64px, 7.5vh, 78px);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0;
+            padding-top: 8px;
+        }
+
+        /* 底部按钮：用“槽位”承载多状态按钮，避免 display:none 丢盒子 */
+        .action-btn-cell {
+            flex: 0 0 auto;
+            /* 右下角按钮不需要占满两列，也不需要那么大 */
+            width: clamp(200px, 22vw, 300px);
+            height: 100%;
+            position: relative;
+        }
+
+        .action-btn {
+            width: 100%;
+            height: 100%;
+            border: 4px solid var(--c-ink); /* 统一描边（避免 #000） */
+            display: flex; justify-content: center; align-items: center;
+            font-size: var(--fs-action-btn); font-weight: 900; color: #000;
+            cursor: pointer; position: relative; overflow: hidden;
+            text-shadow: 2px 2px 0px rgba(255,255,255,0.4);
+            letter-spacing: 2px;
+            /* 加硬投影：让“投票此关/未投票”更像按钮（非 blur，扁平化友好） */
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.14);
+        }
+
+        /* 底部按钮文本：强制水平/垂直居中（避免扁平化后出现左上对齐） */
+        .action-btn .btn-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 底部按钮：tone-3 stripe 改为“底部短唇边”，不覆盖正文区域 */
+        .action-btn .tone-3-stripe--bottom {
+            top: auto;
+            bottom: 0;
+            height: 6px;
+            background-color: var(--shadow-mask-25);
+        }
+        .action-btn .tone-3-stripe--deep {
+            height: 0 !important;
+            background-color: transparent !important;
+            visibility: hidden !important;
+        }
+
+        .action-btn.primary {
+            --tone-top: var(--c-green);
+            --tone-mid: var(--c-green-d1);
+            --tone-bottom: var(--c-green-d2);
+        }
+        .action-btn.secondary {
+            --tone-top: var(--c-white); /* 稍微改一下次要按钮颜色，避免全是红 */
+            --tone-mid: var(--c-white-d1);
+            --tone-bottom: var(--c-white-d2);
+        }
+        /* 悬停时字变白 */
+        .action-btn:hover { color: #fff; text-shadow: 2px 2px 0px var(--shadow-color); }
+
+        /* 底部按钮：多状态预览（避免同一 state-group 的按钮叠在一起）
+           注意：不能用 display:none（会丢盒子），因此用槽位 + absolute 叠放 + visibility 隐藏。 */
+        .action-section .action-btn-cell .action-btn[data-ui-state-group] {
+            position: absolute;
+            inset: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .action-section .action-btn-cell .action-btn[data-ui-state-group][data-ui-state-default="1"] {
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        /* 底部按钮：禁用态样式（用于“已投票/不可用”等） */
+        .action-btn.disabled {
+            cursor: default;
+            color: var(--c-disabled-text);
+            text-shadow: none;
+            --tone-top: var(--c-disabled);
+            --tone-mid: var(--c-disabled-d1);
+            --tone-bottom: var(--c-disabled-d2);
+            /* 禁用态也保留更轻的投影（用户要求“未投票”也有阴影），但层级更弱 */
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.10);
+        }
+        .action-btn.disabled:hover { color: var(--c-disabled-text); text-shadow: none; }
+        /* 禁用态仍保留盒子（visibility 隐藏），避免导出/扁平化出现异常控件 */
+        .action-btn.disabled .tone-3-stripe { visibility: hidden; }
+
+        /* 顶部悬浮按钮区 */
+        .top-actions {
+            /* 扁平化/导出时要求“永远贴顶”：不能受容器布局影响 */
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + var(--corner-slot-top));
+            left: calc(env(safe-area-inset-left, 0px) + var(--corner-slot-left));
+            display: flex;
+            align-items: center;
+            gap: var(--corner-slot-gap);
+            z-index: 1000;
+        }
+
+        .btn-exit-top {
+            width: var(--corner-slot-size); height: var(--corner-slot-size);
+            border: 3px solid var(--c-ink);
+            font-size: 16px; font-weight: 900; color: #fff;
+            cursor: pointer; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            --tone-top: var(--c-red);
+            --tone-mid: var(--c-red-d1);
+            --tone-bottom: var(--c-red-d2);
+        }
+
+        .btn-top {
+            height: var(--corner-slot-size);
+            padding: 0 clamp(16px, 1.5vw, 24px);
+            border: 3px solid var(--c-ink);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: 900; color: #000;
+            cursor: pointer; position: relative;
+            text-align: center;
+        }
+
+        .btn-level-select-top {
+            /* 与其它页面一致：关卡选择为黄色 */
+            --tone-top: var(--c-yellow);
+            --tone-mid: var(--c-yellow-d1);
+            --tone-bottom: var(--c-yellow-d2);
+        }
+
+        .top-actions button:hover {
+            color: #fff;
+            text-shadow: 2px 2px 0px var(--shadow-color, rgba(0,0,0,0.35));
+        }
+
+        /* 顶部按钮文本强制居中（导出更稳定，不依赖 text-align 的解析差异） */
+        .top-actions .btn-top .btn-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-settle-top {
+            --tone-top: var(--c-blue);
+            --tone-mid: var(--c-blue-d1);
+            --tone-bottom: var(--c-blue-d2);
+        }
+
+        /* =========================================
+           六、结算提示（默认隐藏，点击“进行结算”后短暂出现）
+           ========================================= */
+
+        .settle-wrap { position: relative; display: inline-flex; align-items: center; }
+
+        /* 结算提示也是多状态：默认态为 hidden（占位），show 态为可见提示框。
+           注意：不能用 display:none，否则 hidden/show 任一态会被扁平化跳过。 */
+        .settle-tip[data-ui-state-group] { visibility: hidden; pointer-events: none; }
+        .settle-tip[data-ui-state-group][data-ui-state-default="1"] { visibility: visible; pointer-events: auto; }
+
+        .settle-tip--placeholder {
+            /* hidden 态占位：保留状态节点存在，但不产生可见内容，也不抢交互 */
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: transparent !important;
+        }
+
+        .settle-tip--show {
+            position: absolute;
+            left: calc(100% + 10px);
+            top: 0;
+            height: var(--corner-slot-size);
+            width: clamp(260px, 22vw, 380px);
+            /* 提示框统一为“关卡按钮同款简单风格”：粗描边 + 硬投影（无 blur） */
+            border: 3px solid var(--c-ink);
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.12);
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            z-index: 60;
+            background-color: var(--c-white);
+        }
+
+        .settle-tip-status {
+            width: 100%;
+            font-size: var(--fs-badge);
+            font-weight: 800;
+
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: none;
+        }
+
+        /* 浏览器预览用：强制显示 show 态（不影响导出；只有点击时才加 class） */
+        .settle-tip--force-show { visibility: visible !important; pointer-events: auto !important; }
+
+        /* =========================================
+           五、投票倒计时遮罩（默认隐藏，运行期切换）
+           ========================================= */
+
+        /* 投票遮罩：默认隐藏；运行期切换状态组显示。
+           注意：不能用 display:none，否则 hidden/show 任一态会被扁平化跳过。 */
+        /* 投票遮罩也是多状态：只显示 default=1 的那一份（避免 preview 叠加）。 */
+        .vote-overlay[data-ui-state-group] { visibility: hidden; pointer-events: none; }
+        .vote-overlay[data-ui-state-group][data-ui-state-default="1"] { visibility: visible; }
+
+        .vote-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 80;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* 扁平化友好：不要用 opacity；使用显式 RGBA 遮罩色 */
+            background: rgba(14, 14, 14, 0.25);
+            pointer-events: auto;
+        }
+
+        .vote-overlay--placeholder {
+            /* hidden 态占位：不遮挡、不显示（但状态节点仍存在，可被导出枚举） */
+            background: transparent !important;
+            pointer-events: none !important;
+        }
+        .vote-overlay--show {
+            /* show 态：正常遮罩 + 居中弹窗 */
+            background: rgba(14, 14, 14, 0.25);
+            pointer-events: auto;
+        }
+
+        .vote-dialog {
+            width: clamp(520px, 48vw, 820px);
+            border: 4px solid var(--c-ink);
+            box-shadow: var(--shadow-depth);
+            padding: clamp(18px, 1.4vw, 26px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            /* 语义底色：用白系，保持与主弹窗一致 */
+            --tone-top: var(--c-white);
+            --tone-mid: var(--c-white-d1);
+            --tone-bottom: var(--c-white-d2);
+        }
+
+        .vote-dialog-title {
+            font-size: var(--fs-vote-title);
+            font-weight: 900;
+            color: #000;
+            /* 统一去掉文字阴影：提示类面板不做“立体字” */
+            text-shadow: none;
+        }
+
+        .vote-dialog-sub {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: var(--fs-vote-sub);
+            font-weight: 800;
+            color: rgba(0,0,0,0.75);
+        }
+
+        .vote-dialog-level {
+            margin-top: 4px;
+            padding: 10px 12px;
+            border: 3px solid var(--c-ink);
+            background: #fff;
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.12);
+            font-size: var(--fs-vote-level);
+            font-weight: 900;
+            color: #000;
+        }
+
+        .vote-dialog-countdown {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-top: 2px;
+        }
+
+        .vote-countdown-label {
+            font-size: var(--fs-vote-countdown-label);
+            font-weight: 900;
+            color: #000;
+        }
+
+        .vote-countdown-value {
+            font-size: var(--fs-vote-countdown-value);
+            font-weight: 900;
+            line-height: 1;
+            color: #000;
+            text-shadow: none;
+            min-width: 1.2em;
+            text-align: center;
+        }
+
+        .vote-countdown-unit {
+            font-size: var(--fs-vote-countdown-unit);
+            font-weight: 900;
+            color: rgba(0,0,0,0.65);
+        }
+
+        .vote-dialog-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 6px;
+        }
+
+        .vote-reject-btn {
+            height: clamp(46px, 6vh, 56px);
+            min-width: clamp(160px, 16vw, 220px);
+            border: 4px solid var(--c-ink);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--fs-vote-reject-btn);
+            font-weight: 900;
+            letter-spacing: 2px;
+            --tone-top: var(--c-red);
+            --tone-mid: var(--c-red-d1);
+            --tone-bottom: var(--c-red-d2);
+            color: #000;
+            /* 按钮文字不加阴影，保持“干净硬朗” */
+            text-shadow: none;
+        }
+
+        .vote-dialog-tip {
+            font-size: var(--fs-vote-tip);
+            font-weight: 800;
+            color: rgba(0,0,0,0.65);
+        }
+
+        /* =========================================
+           六、投票取消悬浮提示（默认隐藏，运行期切换）
+           ========================================= */
+        .vote-cancel-tip[data-ui-state-group] { visibility: hidden; pointer-events: none; }
+        .vote-cancel-tip[data-ui-state-group][data-ui-state-default="1"] { visibility: visible; pointer-events: auto; }
+
+        .vote-cancel-tip {
+            position: absolute;
+            left: 50%;
+            top: clamp(90px, 10vh, 130px);
+            transform: translateX(-50%);
+            /* 重要：
+               - 必须高于投票遮罩(80)
+               - 扁平化/导出链路可能按 DOM 顺序做层排序，因此本组件也应放在 screen-container 的 DOM 末尾 */
+            z-index: 1200;
+        }
+        .vote-cancel-tip-inner {
+            border: 4px solid var(--c-ink);
+            padding: clamp(10px, 1.1vh, 14px) clamp(18px, 1.6vw, 26px);
+            min-width: clamp(320px, 34vw, 520px);
+            text-align: center;
+            font-size: var(--fs-vote-cancel-tip);
+            font-weight: 900;
+            letter-spacing: 1px;
+            --tone-top: var(--c-red);
+            --tone-mid: var(--c-red-d1);
+            --tone-bottom: var(--c-red-d2);
+            color: #000;
+            text-shadow: none;
+            box-shadow: var(--shadow-depth);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="screen-container">
+        <div class="screen-bg" aria-hidden="true"></div>
+
+        <div class="top-actions">
+            <button class="btn-exit-top tone-3" type="button"
+                    data-ui-key="btn_exit" data-ui-role="button" data-ui-interact-key="10"
+                    data-ui-export-as="decor"
+                    data-ui-action="exit">
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                <span class="btn-text" data-ui-text-align="center" data-ui-text-valign="middle">退出</span>
+            </button>
+
+            <button class="btn-top btn-level-select-top tone-3" type="button"
+                    data-ui-key="btn_level_select" data-ui-role="button" data-ui-interact-key="11"
+                    data-ui-action="open_level_select">
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                <span class="btn-text" data-ui-text-align="center" data-ui-text-valign="middle">关卡选择</span>
+            </button>
+
+            <!-- 进行结算：往右挪（在关卡选择后面）
+                 运行期约定：
+                 - 点击结算按钮后，切换 settle_tip 到 show，若 cleared_count < required_cleared_count 则禁止结算并提示剩余关卡数；
+                 - settle_tip 显示数秒后自动回到 hidden（auto_hide_ms 可作为参考值）。 -->
+            <div class="settle-wrap">
+                <button class="btn-top btn-settle-top tone-3" type="button" data-ui-key="btn_settle" data-ui-role="button" data-ui-interact-key="14" data-ui-action="settle">
+                    <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                    <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                    <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                    <span class="btn-text">进行结算</span>
+                </button>
+
+                <div class="settle-tip settle-tip--placeholder"
+                     data-ui-key="settle_tip"
+                     data-ui-state-group="settle_tip" data-ui-state="hidden" data-ui-state-default="1"
+                     aria-hidden="true"></div>
+
+                <div class="settle-tip settle-tip--show"
+                     data-ui-key="settle_tip"
+                     data-ui-state-group="settle_tip" data-ui-state="show"
+                     aria-hidden="true">
+                    <div class="settle-tip-status"
+                         data-ui-key="settle_tip_status"
+                         data-ui-role="label"
+                         data-ui-text="{1:lv.UI选关_文本.settle_tip_status}">您还需要完成 3 关以进行结算</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-panel">
+            <!-- 顶部栏 -->
+            <div class="header-section">
+                <div class="header-left">
+                    <div class="level-title text-truncate"
+                         data-ui-text="{1:lv.UI选关_文本.level_name}"
+                         data-ui-text-align="left" data-ui-text-valign="middle">关卡选择</div>
+                    <div class="author-info text-truncate"
+                         data-ui-text="作者：{1:lv.UI选关_文本.author_name}"
+                         data-ui-text-align="left" data-ui-text-valign="middle">作者：示例作者</div>
+                </div>
+                <div class="header-right">
+                    <div class="header-progress" data-ui-key="level_cleared_count" data-ui-role="label">
+                        <span class="header-progress-label">已完成</span>
+                        <span class="header-progress-value" data-ui-text="{1:lv.UI选关_列表.cleared_count}">0</span>
+                        <span class="header-progress-suffix">/10</span>
+                    </div>
+                    <div class="header-subtitle text-truncate">关卡选择</div>
+                </div>
+            </div>
+
+            <!-- 中部内容 -->
+            <div class="content-section">
+                <!-- 左侧列表 -->
+                <div class="level-panel">
+                    <div class="panel-title">
+                        <span class="panel-title-deco" aria-hidden="true"></span>
+                        <span class="panel-title-text">关卡列表</span>
+                    </div>
+                    <div class="level-grid">
+                        <!-- 关卡 01 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_01" data-ui-role="button" data-ui-interact-key="1"
+                                    data-ui-state-group="rect_level_01" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_01"
+                                 data-ui-state-group="rect_level_01" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_01"
+                                 data-ui-state-group="rect_level_01" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_01_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">1</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_01_name}">第1关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_01_author_name}">作者A</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv01_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_01"
+                                  data-ui-state-group="level_cleared_mark_01" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_01"
+                                  data-ui-state-group="level_cleared_mark_01" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 02 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_02" data-ui-role="button" data-ui-interact-key="2"
+                                    data-ui-state-group="rect_level_02" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_02"
+                                 data-ui-state-group="rect_level_02" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_02"
+                                 data-ui-state-group="rect_level_02" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_02_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">2</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_02_name}">第2关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_02_author_name}">作者B</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv02_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_02"
+                                  data-ui-state-group="level_cleared_mark_02" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_02"
+                                  data-ui-state-group="level_cleared_mark_02" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 03 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_03" data-ui-role="button" data-ui-interact-key="3"
+                                    data-ui-state-group="rect_level_03" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_03"
+                                 data-ui-state-group="rect_level_03" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_03"
+                                 data-ui-state-group="rect_level_03" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_03_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">3</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_03_name}">第3关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_03_author_name}">作者C</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv03_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_03"
+                                  data-ui-state-group="level_cleared_mark_03" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_03"
+                                  data-ui-state-group="level_cleared_mark_03" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 04 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_04" data-ui-role="button" data-ui-interact-key="4"
+                                    data-ui-state-group="rect_level_04" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_04"
+                                 data-ui-state-group="rect_level_04" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_04"
+                                 data-ui-state-group="rect_level_04" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_04_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">4</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_04_name}">第4关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_04_author_name}">作者D</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv04_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_04"
+                                  data-ui-state-group="level_cleared_mark_04" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_04"
+                                  data-ui-state-group="level_cleared_mark_04" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 05 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_05" data-ui-role="button" data-ui-interact-key="5"
+                                    data-ui-state-group="rect_level_05" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_05"
+                                 data-ui-state-group="rect_level_05" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_05"
+                                 data-ui-state-group="rect_level_05" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_05_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">5</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_05_name}">第5关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_05_author_name}">作者E</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv05_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_05"
+                                  data-ui-state-group="level_cleared_mark_05" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_05"
+                                  data-ui-state-group="level_cleared_mark_05" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 06 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_06" data-ui-role="button" data-ui-interact-key="6"
+                                    data-ui-state-group="rect_level_06" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_06"
+                                 data-ui-state-group="rect_level_06" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_06"
+                                 data-ui-state-group="rect_level_06" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_06_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">6</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_06_name}">第6关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_06_author_name}">作者F</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv06_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_06"
+                                  data-ui-state-group="level_cleared_mark_06" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_06"
+                                  data-ui-state-group="level_cleared_mark_06" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 07 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_07" data-ui-role="button" data-ui-interact-key="7"
+                                    data-ui-state-group="rect_level_07" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_07"
+                                 data-ui-state-group="rect_level_07" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_07"
+                                 data-ui-state-group="rect_level_07" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_07_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">7</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_07_name}">第7关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_07_author_name}">作者G</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv07_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_07"
+                                  data-ui-state-group="level_cleared_mark_07" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_07"
+                                  data-ui-state-group="level_cleared_mark_07" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 08 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_08" data-ui-role="button" data-ui-interact-key="8"
+                                    data-ui-state-group="rect_level_08" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_08"
+                                 data-ui-state-group="rect_level_08" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_08"
+                                 data-ui-state-group="rect_level_08" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_08_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">8</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_08_name}">第8关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_08_author_name}">作者H</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv08_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_08"
+                                  data-ui-state-group="level_cleared_mark_08" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_08"
+                                  data-ui-state-group="level_cleared_mark_08" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 09 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_09" data-ui-role="button" data-ui-interact-key="9"
+                                    data-ui-state-group="rect_level_09" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_09"
+                                 data-ui-state-group="rect_level_09" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_09"
+                                 data-ui-state-group="rect_level_09" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_09_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">9</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_09_name}">第9关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_09_author_name}">作者I</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv09_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_09"
+                                  data-ui-state-group="level_cleared_mark_09" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_09"
+                                  data-ui-state-group="level_cleared_mark_09" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+
+                        <!-- 关卡 10 -->
+                        <div class="level-cell">
+                            <button class="level-skin level-skin--unselected tone-3" type="button"
+                                    data-ui-key="rect_level_10" data-ui-role="button" data-ui-interact-key="10"
+                                    data-ui-state-group="rect_level_10" data-ui-state="unselected" data-ui-state-default="1">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </button>
+                            <div class="level-skin level-skin--selected tone-3"
+                                 data-ui-key="rect_level_10"
+                                 data-ui-state-group="rect_level_10" data-ui-state="selected">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-skin level-skin--disabled tone-3"
+                                 data-ui-key="rect_level_10"
+                                 data-ui-state-group="rect_level_10" data-ui-state="disabled">
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                            </div>
+                            <div class="level-content" data-ui-key="rect_level_10_content">
+                                <span class="level-index-wrap">
+                                    <span class="level-index-badge">10</span>
+                                </span>
+                                <div class="level-text-group">
+                                    <span class="level-name" data-ui-text="{1:lv.UI选关_文本.level_10_name}">第10关</span>
+                                    <span class="level-author" data-ui-text="{1:lv.UI选关_文本.level_10_author_name}">作者J</span>
+                                </div>
+                                <span class="level-vote">
+                                    <span class="level-online-count" data-ui-text="{1:lv.UI选关_列表.lv10_online_cnt}">0</span>
+                                    <span class="level-online-label" aria-hidden="true"
+                                          data-ui-text-align="center" data-ui-text-valign="middle">人投票</span>
+                                </span>
+                            </div>
+                            <span class="level-cleared-mark level-cleared-mark--placeholder"
+                                  data-ui-key="level_cleared_mark_10"
+                                  data-ui-state-group="level_cleared_mark_10" data-ui-state="hidden" data-ui-state-default="1"
+                                  aria-hidden="true">
+                            </span>
+                            <span class="level-cleared-mark tone-3"
+                                  data-ui-key="level_cleared_mark_10"
+                                  data-ui-state-group="level_cleared_mark_10" data-ui-state="show"
+                                  aria-hidden="true">
+                                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                                <span class="level-cleared-text">完成</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧预览 -->
+                <div class="preview-panel">
+                    <div class="panel-title">
+                        <span class="panel-title-deco" aria-hidden="true"></span>
+                        <span class="panel-title-text">预览</span>
+                    </div>
+                    <div class="preview-stage-frame">
+                        <div class="preview-stage">
+                            <div class="game-cutout" data-game-area="LevelPreview"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部操作 -->
+            <div class="action-section">
+                <!-- 仅保留：投票此关（右下角主操作）
+                     仍保留 enabled/disabled 两态，避免 display:none 丢盒子 -->
+                <div class="action-btn-cell">
+                    <button class="action-btn primary tone-3" type="button"
+                            data-ui-key="rect_btn_start" data-ui-role="button"
+                            data-ui-state-group="rect_btn_start" data-ui-state="enabled" data-ui-state-default="1"
+                            data-ui-interact-key="12" data-ui-action="choose_level">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="btn-text text-truncate">投票此关</span>
+                    </button>
+
+                    <button class="action-btn primary tone-3 disabled" type="button"
+                            data-ui-key="rect_btn_start" data-ui-role="button"
+                            data-ui-state-group="rect_btn_start" data-ui-state="disabled"
+                            data-ui-interact-key="12" data-ui-action="choose_level"
+                            aria-disabled="true">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="btn-text text-truncate">已投票</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 投票倒计时遮罩（默认隐藏）
+             运行期约定：
+             - 仅当总玩家数量 >= 2 时才允许进入投票/倒计时流程（逻辑由运行期控制）
+             - 当“已投票人数 > 半数”或“同一关卡被半数玩家选择”时，切换到 vote_overlay=show，并驱动 countdown_sec 从 5 递减
+             - 点击“我拒绝”触发 reject_vote，运行期清空所有人的投票并回到 hidden -->
+        <div class="vote-overlay vote-overlay--placeholder"
+             data-ui-key="vote_overlay"
+             data-ui-state-group="vote_overlay" data-ui-state="hidden" data-ui-state-default="1"
+             aria-hidden="true">
+        </div>
+
+        <div class="vote-overlay vote-overlay--show"
+             data-ui-key="vote_overlay"
+             data-ui-state-group="vote_overlay" data-ui-state="show">
+            <div class="vote-dialog tone-3" data-ui-key="vote_dialog" data-ui-role="panel">
+                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+
+                <div class="vote-dialog-title">投票结果已达成</div>
+
+                <div class="vote-dialog-sub">
+                    <span data-ui-key="vote_total_players" data-ui-role="label" data-ui-text="在线 {1:lv.UI选关_投票.total_players} 人">在线 1 人</span>
+                    <span aria-hidden="true">·</span>
+                    <span data-ui-key="vote_voted_players" data-ui-role="label" data-ui-text="已投票 {1:lv.UI选关_投票.voted_players} 人">已投票 0 人</span>
+                    <span aria-hidden="true">·</span>
+                    <span data-ui-key="vote_majority_needed" data-ui-role="label" data-ui-text="达成门槛 {1:lv.UI选关_投票.majority_needed} 票">达成门槛 0 票</span>
+                </div>
+
+                <div class="vote-dialog-level text-truncate"
+                     data-ui-key="vote_chosen_level_name"
+                     data-ui-role="label"
+                     data-ui-text="{1:lv.UI选关_投票.chosen_level_name}">第一关</div>
+
+                <div class="vote-dialog-countdown">
+                    <span class="vote-countdown-label"
+                          data-ui-key="vote_countdown_label"
+                          data-ui-role="label"
+                          data-ui-text="{1:lv.UI选关_投票.countdown_label}">进入关卡倒计时</span>
+                    <span class="vote-countdown-value"
+                          data-ui-key="vote_countdown_sec"
+                          data-ui-role="label"
+                          data-ui-text="{1:lv.UI选关_投票.countdown_sec}">5</span>
+                    <span class="vote-countdown-unit">秒</span>
+                </div>
+
+                <div class="vote-dialog-actions">
+                    <button class="vote-reject-btn tone-3" type="button"
+                            data-ui-key="btn_vote_reject" data-ui-role="button" data-ui-interact-key="15"
+                            data-ui-action="reject_vote">
+                        <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                        <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                        <span class="btn-text">我拒绝</span>
+                    </button>
+                </div>
+
+                <div class="vote-dialog-tip">点击“我拒绝”将清空所有人的投票</div>
+            </div>
+        </div>
+
+        <!-- 投票取消悬浮提示（默认隐藏，多状态：hidden/show；运行期在收到“投票取消”广播时短暂显示）
+             注意：为确保扁平化/导出层级稳定，本组件放在 screen-container 的 DOM 末尾（在 vote_overlay 之后）。 -->
+        <div class="vote-cancel-tip"
+             data-ui-key="vote_cancel_tip"
+             data-ui-state-group="vote_cancel_tip" data-ui-state="hidden" data-ui-state-default="1"
+             aria-hidden="true"></div>
+
+        <div class="vote-cancel-tip"
+             data-ui-key="vote_cancel_tip"
+             data-ui-state-group="vote_cancel_tip" data-ui-state="show">
+            <div class="vote-cancel-tip-inner tone-3">
+                <span class="tone-3-stripe tone-3-stripe--top" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--bottom" aria-hidden="true"></span>
+                <span class="tone-3-stripe tone-3-stripe--deep" aria-hidden="true"></span>
+                <span data-ui-key="vote_cancel_tip_text"
+                      data-ui-role="label"
+                      data-ui-text="{1:lv.UI选关_投票.vote_cancel_rejecter_name} 拒绝了投票，将清空所有投票">某位玩家 拒绝了投票，将清空所有投票</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        (function () {
+            var REQUIRED_DEFAULT = 3;
+            var AUTO_HIDE_MS_DEFAULT = 2500;
+
+            function getClearedCountFromDom() {
+                var el = document.querySelector('[data-ui-key="level_cleared_count"] .header-progress-value');
+                if (!el) return null;
+                var n = parseInt((el.textContent || "").trim(), 10);
+                if (Number.isNaN(n)) return null;
+                return n;
+            }
+
+            function showSettleTip(payload) {
+                var tip = document.querySelector('.settle-tip--show[data-ui-state-group="settle_tip"]');
+                if (!tip) return;
+
+                var statusEl = tip.querySelector('[data-ui-key="settle_tip_status"]');
+
+                if (statusEl) statusEl.textContent = payload.statusText;
+
+                tip.classList.add("settle-tip--force-show");
+                window.setTimeout(function () {
+                    tip.classList.remove("settle-tip--force-show");
+                }, payload.autoHideMs);
+            }
+
+            document.addEventListener("DOMContentLoaded", function () {
+                var btn = document.querySelector('[data-ui-key="btn_settle"]');
+                if (!btn) return;
+
+                var required = REQUIRED_DEFAULT;
+                var autoHideMs = AUTO_HIDE_MS_DEFAULT;
+
+                btn.addEventListener("click", function (e) {
+                    var clearedDom = getClearedCountFromDom();
+                    var cleared = clearedDom != null ? clearedDom : 0;
+                    var remaining = Math.max(0, required - cleared);
+
+                    var ok = cleared >= required;
+                    var statusText = ok ? "正在结算…" : ("您还需要完成 " + remaining + " 关以进行结算");
+
+                    showSettleTip({
+                        statusText: statusText,
+                        autoHideMs: autoHideMs
+                    });
+
+                    if (!ok) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }, true);
+            });
+        })();
+    </script>
+
+</body>
+</html>
+

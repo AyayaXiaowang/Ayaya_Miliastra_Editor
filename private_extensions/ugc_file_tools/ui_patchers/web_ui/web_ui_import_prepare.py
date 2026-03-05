@@ -33,6 +33,8 @@ from .web_ui_import_guid_registry import dedup_ui_guid_registry_by_guid, load_ui
 from .web_ui_import_layout import should_skip_cloning_base_layout_child
 from .web_ui_import_grouping import is_group_container_record_shape
 
+_WEB_UI_IMPORT_SEED_GIL_RELATIVE_PATH: tuple[str, ...] = ("empty_base_samples", "empty_base_with_infra.gil")
+
 
 def prepare_web_ui_import_context(
     *,
@@ -166,6 +168,11 @@ def prepare_web_ui_import_context(
     payload_root = raw_dump_object.get("4")
     if not isinstance(payload_root, dict):
         raise ValueError("写回基底 gil payload 缺少根字段 '4'（期望为 dict）。")
+    # 兼容：部分 dump/桥接路径可能以 int 键返回 numeric_message；
+    # 本模块内部统一按“数值键字符串”处理，避免 `'10' in payload_root` 这类检查误判缺失。
+    if any(not isinstance(k, str) for k in payload_root.keys()):
+        payload_root = {str(k): v for k, v in dict(payload_root).items()}
+        raw_dump_object["4"] = payload_root
 
     seed_root: Optional[Dict[str, Any]] = None
     bootstrapped_missing_ui_section = False
@@ -197,23 +204,32 @@ def prepare_web_ui_import_context(
         from ugc_file_tools.repo_paths import ugc_file_tools_builtin_resources_root
 
         ugc_root = ugc_file_tools_builtin_resources_root()
-        seed_gil_path = (ugc_root / "空的界面控件组" / "进度条样式.gil").resolve()
+        seed_gil_path = (ugc_root / Path(*_WEB_UI_IMPORT_SEED_GIL_RELATIVE_PATH)).resolve()
         if not seed_gil_path.is_file():
             raise FileNotFoundError(str(seed_gil_path))
-        seed_dump = _dump_gil_to_raw_json_object(seed_gil_path)
-        seed_root0 = seed_dump.get("4")
+        # 关键：seed `.gil` 的读取必须是“纯 Python 解码”（numeric_message），不要复用本模块的
+        # `_dump_gil_to_raw_json_object`（该函数在测试中会被 monkeypatch，用于模拟 base `.gil` 的 dump 形态）。
+        from ugc_file_tools.gil_dump_codec.dump_json_tree import load_gil_payload_as_numeric_message
+
+        seed_root0 = load_gil_payload_as_numeric_message(seed_gil_path, max_depth=64, prefer_raw_hex_for_utf8=False)
         if not isinstance(seed_root0, dict):
             raise TypeError("seed gil payload_root is not dict")
-        seed_root = seed_root0
-        return seed_root0
+        if any(not isinstance(k, str) for k in seed_root0.keys()):
+            seed_root = {str(k): v for k, v in dict(seed_root0).items()}
+        else:
+            seed_root = seed_root0
+        return seed_root
 
     node9 = payload_root.get("9")
     if node9 is None:
         bootstrapped_missing_ui_section = True
         fixture_node9 = _try_load_min_ui_node9_fixture()
-        seed_node9 = None if fixture_node9 is not None else _load_seed_root().get("9")
-        if fixture_node9 is None and not isinstance(seed_node9, dict):
-            raise ValueError("seed gil 缺少字段 '4/9'（期望为 dict）。")
+        seed_node9: Optional[Dict[str, Any]] = None
+        if fixture_node9 is None:
+            seed_node9_obj = _load_seed_root().get("9")
+            if not isinstance(seed_node9_obj, dict):
+                raise ValueError("seed gil 缺少字段 '4/9'（期望为 dict）。")
+            seed_node9 = seed_node9_obj
 
         # ---------------------------------------------------------- 关键：最小 UI 段注入（避免 seed 污染）
         #
@@ -272,6 +288,8 @@ def prepare_web_ui_import_context(
             ]
             payload_root["9"] = node9_copy
         else:
+            if seed_node9 is None:
+                raise RuntimeError("seed_node9 is None（逻辑分支不应到达）。")
             seed_record_list = seed_node9.get("502")
             if isinstance(seed_record_list, dict):
                 seed_record_list = [seed_record_list]
@@ -357,6 +375,21 @@ def prepare_web_ui_import_context(
         if not isinstance(seed_node5, dict):
             raise ValueError("seed gil 缺少字段 '4/5'（期望为 dict）。")
         payload_root["5"] = copy.deepcopy(seed_node5)
+
+    # ---------------------------------------------------------- 关键：补齐极空存档缺失的 root4 段（即便 base 已有 UI 段）
+    #
+    # 背景：
+    # - `empty_base_vacuum.gil` 这类“极空 base”可能已包含 4/9(UI) 段，但仍缺失大量 root4 其它段；
+    # - 仅靠“UI 段存在”不足以保证编辑器/写回链路的行为稳定；
+    # - 本回归要求：至少补齐 root4 的若干关键段（10/11/12），否则编辑器侧常见表现为“布局切换异常/页面叠加”。
+    _REQUIRED_ROOT4_SECTION_KEYS_FOR_WEB_UI: tuple[str, ...] = ("10", "11", "12")
+    missing_root4_keys = [k for k in _REQUIRED_ROOT4_SECTION_KEYS_FOR_WEB_UI if k not in payload_root]
+    if missing_root4_keys:
+        seed_root_full = _load_seed_root()
+        for k in list(missing_root4_keys):
+            if k not in seed_root_full:
+                raise RuntimeError(f"seed gil 缺少 root4 段（无法补齐极空 base）：root4[{k!r}]")
+            payload_root[k] = copy.deepcopy(seed_root_full[k])
 
     ui_record_list = _extract_ui_record_list(raw_dump_object)
 

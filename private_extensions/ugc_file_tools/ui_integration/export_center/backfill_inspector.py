@@ -626,7 +626,7 @@ def identify_gil_backfill_comparison(
                 ),
             )
 
-    # -------------------- level custom variables (explicit picker) --------------------
+    # -------------------- level custom variables (explicit deps list) --------------------
     if required_level_custom_variables:
         step += 1
         _emit_progress(progress_cb, step, total_steps, "识别关卡实体自定义变量（全部）…")
@@ -649,9 +649,9 @@ def identify_gil_backfill_comparison(
                 _add_row(
                     category="自定义变量(关卡实体)",
                     key=str(display),
-                    value=f"type={want_type if want_type else vtype!r}（随导出补齐）",
-                    status="一同导出",
-                    note="来源：本次同时导出（关卡实体自定义变量：全量补齐写回缺失项）。",
+                    value=f"type={want_type if want_type else vtype!r}",
+                    status="缺失",
+                    note="来源：base .gil（关卡实体 override_variables 缺少该变量）。",
                 )
                 continue
             if int(existed_type) == int(want_type) or int(want_type) == 0:

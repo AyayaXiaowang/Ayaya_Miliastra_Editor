@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List, Tuple
 
 from engine.graph.models.package_model import LevelVariableDefinition
 from engine.resources.level_variable_registry_provider import (
@@ -37,6 +37,29 @@ from engine.utils.workspace import (
     looks_like_workspace_root,
     resolve_workspace_root,
 )
+
+
+_CHIP_SEPARATOR = "_chip_"
+_CHIP_INDEX_START = 1
+
+
+def _is_chip_variable_name(variable_name: str) -> bool:
+    """判断变量名是否符合 N_chip_M 约定格式。"""
+    text = variable_name.strip()
+    if _CHIP_SEPARATOR not in text:
+        return False
+    prefix, suffix = text.split(_CHIP_SEPARATOR, 1)
+    if not prefix or not suffix:
+        return False
+    if not prefix.isdigit() or not suffix.isdigit():
+        return False
+    return True
+
+
+def _parse_chip_variable_name(variable_name: str) -> Tuple[int, int]:
+    text = variable_name.strip()
+    prefix, suffix = text.split(_CHIP_SEPARATOR, 1)
+    return int(prefix), int(suffix)
 
 
 class LevelVariableSchemaService:
@@ -218,6 +241,8 @@ class LevelVariableSchemaService:
             category=category,
             existing_variable_names=existing_variable_names,
         )
+        if category == CATEGORY_INGAME_SAVE:
+            self._validate_ingame_save_chip_variable_names(variables, py_path=py_path)
 
         results[file_id] = VariableFileInfo(
             file_id=file_id,
@@ -227,6 +252,50 @@ class LevelVariableSchemaService:
             absolute_path=py_path,
             variables=variables,
         )
+
+    @staticmethod
+    def _validate_ingame_save_chip_variable_names(variables: List[Dict], *, py_path: Path) -> None:
+        """仅针对『自定义变量-局内存档变量』目录进行 chip 变量命名与序号校验。"""
+        chip_variable_names: List[str] = []
+        for payload in list(variables or []):
+            raw_name_value = payload.get("variable_name") or payload.get("name")
+            if not isinstance(raw_name_value, str):
+                raise ValueError(f"局内存档变量文件 {py_path} 中存在无效的变量名字段。")
+            name_text = raw_name_value.strip()
+            if not name_text:
+                raise ValueError(f"局内存档变量文件 {py_path} 中存在空变量名。")
+            if not _is_chip_variable_name(name_text):
+                raise ValueError(
+                    f"局内存档变量文件 {py_path} 中的变量名 {name_text!r} "
+                    f"不符合 '玩家槽位_chip_序号' 命名约定（例如 1_chip_1、1_chip_2）。"
+                )
+            chip_variable_names.append(name_text)
+
+        # 同一文件内禁止重复的 (槽位, 序号) 组合。
+        seen_slot_and_index: Dict[Tuple[int, int], str] = {}
+        for variable_name in chip_variable_names:
+            slot_index, chip_index = _parse_chip_variable_name(variable_name)
+            key = (slot_index, chip_index)
+            if key in seen_slot_and_index:
+                other_name = seen_slot_and_index[key]
+                raise ValueError(
+                    f"局内存档变量文件 {py_path} 中存在重复的 chip 槽位定义：{other_name!r} 与 {variable_name!r}。"
+                )
+            seen_slot_and_index[key] = variable_name
+
+        # 要求每个槽位内的 chip 序号必须从 1 开始连续递增（1, 2, 3, ...）。
+        slot_to_indices: Dict[int, List[int]] = {}
+        for variable_name in chip_variable_names:
+            slot_index, chip_index = _parse_chip_variable_name(variable_name)
+            slot_to_indices.setdefault(slot_index, []).append(chip_index)
+
+        for slot_index, indices in slot_to_indices.items():
+            sorted_indices = sorted(list(indices))
+            expected_indices = list(range(_CHIP_INDEX_START, _CHIP_INDEX_START + len(sorted_indices)))
+            if sorted_indices != expected_indices:
+                raise ValueError(
+                    f"局内存档变量文件 {py_path} 中槽位 {slot_index} 的 chip 序号必须从 1 开始连续递增，当前为 {sorted_indices}。"
+                )
 
     def _build_file_variable_payloads(
         self,
@@ -377,7 +446,49 @@ class LevelVariableSchemaService:
                 )
 
         self._validate_default_value(payload, variable_id=variable_id, variable_type=variable_type, py_path=py_path)
+        if variable_type == TYPE_DICT or bool(is_typed_dict):
+            self._validate_dictionary_default_value_no_nested_dicts(payload, variable_id=variable_id, py_path=py_path)
         return payload
+
+    @staticmethod
+    def _ensure_no_nested_dicts(value: Any, depth: int, *, py_path: Path, variable_id: str) -> None:
+        """递归检查字典型 default_value 中是否出现嵌套字典。
+
+        约定：
+        - depth == 0: 顶层字典本体，允许存在；
+        - depth >= 1: 不允许再次出现 dict（无论是直接 value 还是列表中的元素）。
+        """
+        if isinstance(value, dict):
+            if depth >= 1:
+                raise ValueError(
+                    f"关卡变量 default_value 存在嵌套字典（字典类型变量不允许包含字典值，请改用结构体或拆分为独立变量）："
+                    f"{variable_id}（{py_path}）"
+                )
+            for child_value in value.values():
+                LevelVariableSchemaService._ensure_no_nested_dicts(
+                    child_value,
+                    depth + 1,
+                    py_path=py_path,
+                    variable_id=variable_id,
+                )
+            return
+
+        if isinstance(value, list):
+            for item in value:
+                LevelVariableSchemaService._ensure_no_nested_dicts(
+                    item,
+                    depth + 1,
+                    py_path=py_path,
+                    variable_id=variable_id,
+                )
+            return
+
+    @staticmethod
+    def _validate_dictionary_default_value_no_nested_dicts(payload: dict, *, variable_id: str, py_path: Path) -> None:
+        default_value = payload.get("default_value")
+        if not isinstance(default_value, dict):
+            return
+        LevelVariableSchemaService._ensure_no_nested_dicts(default_value, 0, py_path=py_path, variable_id=variable_id)
 
     @staticmethod
     def _validate_default_value(payload: dict, *, variable_id: str, variable_type: str, py_path: Path) -> None:

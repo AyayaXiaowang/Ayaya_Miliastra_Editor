@@ -9,9 +9,12 @@ class ResourceSelectionItem:
     """资源选择条目（以相对路径为主键）。"""
 
     source_root: str  # "project" | "shared"
-    category: str  # "graphs" | "templates" | "instances" | "player_templates" | "ui_src" | "mgmt_cfg" | "level_entity_vars" | "resource_repo"
+    category: str  # "graphs" | "templates" | "instances" | "player_templates" | "ui_src" | "mgmt_cfg" | "custom_vars" | "resource_repo"
     relative_path: str  # relative to the source root directory
     absolute_path: Path
+    # 附加元信息（用于“虚拟资源条目”携带非文件语义，例如自定义变量 owner/variable_id）。
+    # 约束：必须为可 JSON 序列化的轻量 dict（str->str）。
+    meta: dict[str, str] | None = None
 
     @property
     def key(self) -> str:
@@ -588,7 +591,7 @@ def build_resource_selection_items(
         "instances": [],
         "player_templates": [],
         "ui_src": [],
-        "level_entity_vars": [],
+        "custom_vars": [],
         "mgmt_cfg": [],
         "resource_repo": [],
     }
@@ -619,16 +622,9 @@ def build_resource_selection_items(
         _scan_player_template_json_files(project_root / "战斗预设" / "玩家模板"),
     )
     _add_items("project", project_root, "ui_src", _scan_ui_source_files(project_root / "管理配置" / "UI源码"))
-    # 关卡实体自定义变量：导出中心 GIL 模式下可选的“自动全量补齐”写回项（非文件列表）。
-    # 这里放一个稳定的“虚拟资源条目”作为左侧勾选入口。
-    result["level_entity_vars"].append(
-        ResourceSelectionItem(
-            source_root="project",
-            category="level_entity_vars",
-            relative_path="关卡实体自定义变量（全部）",
-            absolute_path=(Path(project_root).resolve() / "管理配置" / "关卡变量").resolve(),
-        )
-    )
+    # 自定义变量（注册表）：导出中心 GIL 模式下的“可勾选写回项”（非文件列表）。
+    # 解析 `管理配置/关卡变量/自定义变量注册表.py` 生成虚拟条目：按 owner 分组，变量粒度可勾选。
+    result["custom_vars"].extend(_scan_custom_vars_virtual_items(project_root=Path(project_root)))
     _add_items("project", project_root, "mgmt_cfg", _scan_management_cfg_files(project_root / "管理配置"))
     _add_items(
         "project",
@@ -661,6 +657,136 @@ def build_resource_selection_items(
     for items in result.values():
         items.sort(key=lambda it: (it.source_root, it.relative_path.casefold()))
     return result
+
+
+_CUSTOM_VARS_GROUP_LEVEL = "关卡实体"
+_CUSTOM_VARS_GROUP_PLAYER = "玩家"
+_CUSTOM_VARS_GROUP_THIRD_PARTY = "第三方"
+_CUSTOM_VARS_SELECT_ALL_LEAF = "（全部）"
+
+
+def _custom_var_group_dir_name(owner_ref: str) -> str:
+    ref = str(owner_ref or "").strip()
+    lower = ref.lower()
+    if lower == "level":
+        return _CUSTOM_VARS_GROUP_LEVEL
+    if lower == "player":
+        return _CUSTOM_VARS_GROUP_PLAYER
+    return f"{_CUSTOM_VARS_GROUP_THIRD_PARTY}/{ref}"
+
+
+def build_custom_var_owner_select_all_item_key_for_project(
+    *,
+    owner_ref: str,
+    owner_display: str | None = None,
+) -> str:
+    """
+    构造 `custom_vars` 虚拟条目的稳定 key（用于程序化勾选）。
+
+    语义：按 owner 粒度整组选择（同一 owner 的变量必须一起导入），因此 key 恒指向该 owner 的 `（全部）` 叶子。
+
+    注意：仅用于广播 owner（player/level）。第三方 owner 的分组名包含 display（人类可读名），
+    若要自动勾选需走 catalog 内现有条目匹配（本工具脚本不做）。
+    """
+    owner_ref2 = str(owner_ref)
+    lower = owner_ref2.strip().lower()
+    if lower in {"level", "player"}:
+        group_dir = _custom_var_group_dir_name(owner_ref2)
+    else:
+        display = str(owner_display or "").strip() or owner_ref2.strip()
+        group_dir = f"{_CUSTOM_VARS_GROUP_THIRD_PARTY}/{display} ({owner_ref2.strip()})"
+    rel = f"{group_dir}/{_CUSTOM_VARS_SELECT_ALL_LEAF}"
+    return f"project:{rel}"
+
+
+def _scan_custom_vars_virtual_items(*, project_root: Path) -> list[ResourceSelectionItem]:
+    project_root = Path(project_root).resolve()
+    registry_path = (project_root / "管理配置" / "关卡变量" / "自定义变量注册表.py").resolve()
+    if not registry_path.is_file():
+        return []
+
+    from engine.resources.auto_custom_variable_registry import load_auto_custom_variable_registry_from_code
+    from engine.resources.auto_custom_variable_registry import normalize_owner_refs
+
+    decls = load_auto_custom_variable_registry_from_code(registry_path)
+    items: list[ResourceSelectionItem] = []
+
+    # 用索引为“第三方 owner 引用”提供更友好的展示名：第三方/<显示名>(<owner_ref>)
+    import json
+
+    instance_name_by_id: dict[str, str] = {}
+    instances_index_path = (project_root / "实体摆放" / "instances_index.json").resolve()
+    if instances_index_path.is_file():
+        obj = json.loads(instances_index_path.read_text(encoding="utf-8"))
+        if isinstance(obj, list):
+            for it in obj:
+                if not isinstance(it, dict):
+                    continue
+                iid = str(it.get("instance_id") or "").strip()
+                nm = str(it.get("name") or "").strip()
+                if iid and nm and iid not in instance_name_by_id:
+                    instance_name_by_id[iid] = nm
+
+    template_name_by_id: dict[str, str] = {}
+    templates_index_path = (project_root / "元件库" / "templates_index.json").resolve()
+    if templates_index_path.is_file():
+        obj2 = json.loads(templates_index_path.read_text(encoding="utf-8"))
+        if isinstance(obj2, list):
+            for it in obj2:
+                if not isinstance(it, dict):
+                    continue
+                tid = str(it.get("template_id") or "").strip()
+                nm = str(it.get("name") or "").strip()
+                if tid and nm and tid not in template_name_by_id:
+                    template_name_by_id[tid] = nm
+
+    owner_refs_seen: set[str] = set()
+    for d in decls:
+        vid = str(d.variable_id or "").strip()
+        vname = str(d.variable_name or "").strip()
+        vtype = str(d.variable_type or "").strip()
+        if vid == "" or vname == "" or vtype == "":
+            # 注册表 loader 本身会做强校验；这里不再补兜底逻辑。
+            continue
+
+        owner_refs = normalize_owner_refs(d.owner)
+        for owner_ref in owner_refs:
+            owner_ref_text = str(owner_ref or "").strip()
+            if owner_ref_text == "":
+                continue
+            owner_refs_seen.add(owner_ref_text)
+            # 重要：按 owner 粒度整组选（同一 owner 的变量不可拆开选择），
+            # 因此这里不生成“逐变量叶子”，仅记录 owner_refs_seen 供后续生成（全部）入口。
+
+    # 每个 owner 分组补一个“全选（全部变量）”虚拟叶子，方便快速勾选。
+    for owner_ref_text in sorted(owner_refs_seen, key=lambda s: str(s).casefold()):
+        owner_lower = owner_ref_text.lower()
+        if owner_lower == "level" or owner_lower == "player":
+            group_dir = _custom_var_group_dir_name(owner_ref_text)
+            owner_kind = owner_lower
+            target_display = group_dir
+        else:
+            display = instance_name_by_id.get(owner_ref_text) or template_name_by_id.get(owner_ref_text) or owner_ref_text
+            group_dir = f"{_CUSTOM_VARS_GROUP_THIRD_PARTY}/{display} ({owner_ref_text})"
+            owner_kind = "instance" if owner_ref_text in instance_name_by_id else ("template" if owner_ref_text in template_name_by_id else "ref")
+            target_display = display
+        rel = f"{group_dir}/{_CUSTOM_VARS_SELECT_ALL_LEAF}"
+        items.append(
+            ResourceSelectionItem(
+                source_root="project",
+                category="custom_vars",
+                relative_path=str(rel),
+                absolute_path=Path(registry_path),
+                meta={
+                    "owner_ref": str(owner_ref_text),
+                    "owner_kind": str(owner_kind),
+                    "owner_display": str(target_display),
+                    "select_all": "1",
+                },
+            )
+        )
+
+    return items
 
 
 _RESOURCE_PICKER_WIDGET_CLASS_CACHE: dict[str, type] = {}
@@ -829,6 +955,34 @@ def make_resource_picker_widget_cls(*, QtCore: object, QtWidgets: object, Colors
                 self.selection_changed.emit()
             return int(removed)
 
+        def add_keys(self, keys: list[str]) -> int:
+            """
+            按 key 批量追加已选条目（用于外部“自动勾选”的联动逻辑）。
+
+            约束：
+            - 仅追加存在于 catalog 的 key；
+            - 已选的不重复追加；
+            - 追加后会同步刷新树与右侧“已选”面板，并发出 selection_changed。
+            """
+            added = 0
+            for k in list(keys or []):
+                kk = str(k or "").strip()
+                if not kk:
+                    continue
+                if kk in self._selected_by_key:
+                    continue
+                it = self._items_by_key.get(kk)
+                if it is None:
+                    continue
+                self._selected_by_key[kk] = it
+                added += 1
+            if added > 0:
+                self._refresh_selected_list()
+                self._rebuild_tree()
+                self._apply_filters()
+                self.selection_changed.emit()
+            return int(added)
+
         def set_allowed_categories(self, allowed_categories: set[str] | None, *, prune_selection: bool = True) -> int:
             """切换可选分类，并按需自动裁剪已选条目。返回被裁剪的数量。"""
             self._allowed_categories = set(allowed_categories) if allowed_categories else None
@@ -960,6 +1114,19 @@ def make_resource_picker_widget_cls(*, QtCore: object, QtWidgets: object, Colors
                 human2 = self._get_json_name_cached(Path(it.absolute_path))
                 if human2 != "":
                     title = str(human2)
+            elif cat == "custom_vars":
+                meta = it.meta if isinstance(it.meta, dict) else {}
+                if str(meta.get("select_all") or "").strip() == "1":
+                    title = _CUSTOM_VARS_SELECT_ALL_LEAF
+                else:
+                    n = str(meta.get("variable_name") or "").strip()
+                    vid = str(meta.get("variable_id") or "").strip()
+                    if n and vid:
+                        title = f"{n} ({vid})"
+                    elif n:
+                        title = n
+                    elif vid:
+                        title = vid
 
             return title
 
@@ -1053,7 +1220,7 @@ def make_resource_picker_widget_cls(*, QtCore: object, QtWidgets: object, Colors
                     )
                     node.setExpanded(False)
 
-                    if str(category or "") in {"graphs", "templates", "instances", "player_templates", "mgmt_cfg", "ui_src"}:
+                    if str(category or "") in {"graphs", "templates", "instances", "player_templates", "mgmt_cfg", "ui_src", "custom_vars"}:
                         def _to_tree_rel(relative_path: str) -> str:
                             cat = str(category or "")
                             if cat == "graphs":
@@ -1196,7 +1363,7 @@ def make_resource_picker_widget_cls(*, QtCore: object, QtWidgets: object, Colors
                     "instances": "实体摆放（JSON）",
                     "player_templates": "玩家模板（战斗预设）",
                     "ui_src": "UI源码",
-                    "level_entity_vars": "关卡实体自定义变量",
+                    "custom_vars": "自定义变量（注册表）",
                     # 导出中心当前只消费“信号/结构体定义”这部分管理配置；其余杂项不应出现在候选列表中。
                     "mgmt_cfg": "管理配置（信号/结构体）",
                     "resource_repo": "其它资源文件",
@@ -1207,11 +1374,11 @@ def make_resource_picker_widget_cls(*, QtCore: object, QtWidgets: object, Colors
             enabled_categories = (
                 [
                     c
-                    for c in ["graphs", "templates", "instances", "player_templates", "ui_src", "level_entity_vars", "mgmt_cfg", "resource_repo"]
+                    for c in ["graphs", "templates", "instances", "player_templates", "ui_src", "custom_vars", "mgmt_cfg", "resource_repo"]
                     if self._allowed_categories is None or c in self._allowed_categories
                 ]
                 if self._allowed_categories is not None
-                else ["graphs", "templates", "instances", "player_templates", "ui_src", "level_entity_vars", "mgmt_cfg", "resource_repo"]
+                else ["graphs", "templates", "instances", "player_templates", "ui_src", "custom_vars", "mgmt_cfg", "resource_repo"]
             )
 
             self.tree.setUpdatesEnabled(False)

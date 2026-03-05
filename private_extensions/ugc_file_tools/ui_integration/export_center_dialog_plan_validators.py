@@ -214,21 +214,85 @@ def validate_gil_plan(
     instance_json_files.sort(key=lambda x: x.as_posix().casefold())
     signal_ids, basic_struct_ids, ingame_struct_ids = _collect_writeback_ids_from_mgmt_cfg_items(selected_items)
     ui_src_selected = any(it.category == "ui_src" for it in selected_items)
-    level_vars_enabled = any(it.category == "level_entity_vars" for it in selected_items)
-    if level_vars_enabled:
-        from .export_center_level_vars_picker import collect_all_level_entity_custom_variable_candidates
+    # 自定义变量（注册表）：来自左侧资源树的 `custom_vars` 虚拟条目（按 owner_ref 分组/变量粒度可勾选）
+    custom_var_items = [it for it in selected_items if str(getattr(it, "category", "")) == "custom_vars"]
+    selected_custom_variable_refs: list[dict[str, str]] = []
+    if custom_var_items:
+        from engine.resources.auto_custom_variable_registry import load_auto_custom_variable_registry_from_code
+        from engine.resources.auto_custom_variable_registry import normalize_owner_refs
 
-        res = collect_all_level_entity_custom_variable_candidates(
-            workspace_root=Path(workspace_root),
-            package_id=str(package_id),
-        )
-        selected_level_custom_variable_ids = list(res.picked_ids or [])
-        # 同步回写到页面状态：供“回填分析/预览文本”展示
-        gil.selected_level_custom_variable_ids[:] = list(selected_level_custom_variable_ids)
-        gil.level_custom_variable_meta_by_id.clear()
-        gil.level_custom_variable_meta_by_id.update(dict(res.meta_by_id))
-    else:
-        selected_level_custom_variable_ids = []
+        package_root = (Path(workspace_root).resolve() / "assets" / "资源库" / "项目存档" / str(package_id)).resolve()
+        registry_path = (package_root / "管理配置" / "关卡变量" / "自定义变量注册表.py").resolve()
+        if not registry_path.is_file():
+            raise FileNotFoundError(str(registry_path))
+        decls = load_auto_custom_variable_registry_from_code(registry_path)
+
+        # owner_ref -> [variable_id...]
+        all_ids_by_owner_cf: dict[str, list[str]] = {}
+        for d in decls:
+            vid = str(d.variable_id or "").strip()
+            if not vid:
+                continue
+            for ref in normalize_owner_refs(d.owner):
+                key = str(ref).strip().casefold()
+                if not key:
+                    continue
+                all_ids_by_owner_cf.setdefault(key, []).append(vid)
+
+        # expand selection (select_all / explicit)
+        for it in custom_var_items:
+            meta = getattr(it, "meta", None)
+            m = meta if isinstance(meta, dict) else {}
+            owner_ref = str(m.get("owner_ref") or "").strip()
+            if owner_ref == "":
+                continue
+            owner_kind = str(m.get("owner_kind") or "").strip()
+            owner_display = str(m.get("owner_display") or "").strip()
+            if str(m.get("select_all") or "").strip() == "1":
+                vids = all_ids_by_owner_cf.get(owner_ref.casefold(), [])
+                for vid in vids:
+                    selected_custom_variable_refs.append(
+                        {
+                            "owner_ref": str(owner_ref),
+                            "owner_kind": str(owner_kind),
+                            "owner_display": str(owner_display),
+                            "variable_id": str(vid),
+                        }
+                    )
+                continue
+            vid = str(m.get("variable_id") or "").strip()
+            if vid == "":
+                continue
+            selected_custom_variable_refs.append(
+                {
+                    "owner_ref": str(owner_ref),
+                    "owner_kind": str(owner_kind),
+                    "owner_display": str(owner_display),
+                    "variable_id": str(vid),
+                }
+            )
+
+        # dedupe (keep order)
+        seen_pairs: set[tuple[str, str]] = set()
+        deduped_refs: list[dict[str, str]] = []
+        for r in selected_custom_variable_refs:
+            o = str(r.get("owner_ref") or "").casefold()
+            v = str(r.get("variable_id") or "").casefold()
+            if not o or not v:
+                continue
+            k = (o, v)
+            if k in seen_pairs:
+                continue
+            seen_pairs.add(k)
+            deduped_refs.append(dict(r))
+        selected_custom_variable_refs = list(deduped_refs)
+
+    # 兼容：旧 UI 预览/识别面板仍以“关卡实体变量 id 列表”展示
+    selected_level_custom_variable_ids = [
+        str(r.get("variable_id") or "").strip()
+        for r in selected_custom_variable_refs
+        if str(r.get("owner_ref") or "").strip().lower() == "level"
+    ]
     selected_ui_html_files = [
         Path(it.absolute_path).resolve()
         for it in selected_items
@@ -295,24 +359,13 @@ def validate_gil_plan(
         or basic_struct_ids
         or ingame_struct_ids
         or write_ui
-        or selected_level_custom_variable_ids
+        or selected_custom_variable_refs
     ):
-        if bool(level_vars_enabled):
-            dialog_utils.show_warning_dialog(
-                main_window,
-                "提示",
-                "已勾选『关卡实体自定义变量（全部）』，但未找到任何候选变量。\n"
-                "请确认：\n"
-                "- `实体摆放/*.json` 的关卡实体实例满足 `metadata.is_level_entity=true`\n"
-                "- 该实例的 `metadata.custom_variable_file` 指向的 VARIABLE_FILE_ID 对应变量文件存在（`管理配置/关卡变量/自定义变量/**/*.py`）且包含 LEVEL_VARIABLES\n"
-                "- 或存在稳定回退文件 `VARIABLE_FILE_ID=auto_custom_vars__level__<package_id>`",
-            )
-        else:
-            dialog_utils.show_warning_dialog(
-                main_window,
-                "提示",
-                "请至少勾选 1 类可写回内容（元件/实体摆放/节点图/信号/结构体/UI/关卡实体自定义变量）。",
-            )
+        dialog_utils.show_warning_dialog(
+            main_window,
+            "提示",
+            "请至少勾选 1 类可写回内容（元件/实体摆放/节点图/信号/结构体/UI/自定义变量）。",
+        )
         return None
 
     id_ref_text2 = str(gil.gil_id_ref_edit.text() or "").strip()
@@ -346,6 +399,7 @@ def validate_gil_plan(
         node_graph_conflict_resolutions=[],
         template_conflict_resolutions=[],
         instance_conflict_resolutions=[],
+        selected_custom_variable_refs=list(selected_custom_variable_refs),
         selected_level_custom_variable_ids=list(selected_level_custom_variable_ids),
         selected_template_json_files=list(template_json_files),
         selected_instance_json_files=list(instance_json_files),

@@ -110,6 +110,15 @@ def _open_import_export_center_dialog(
     root_layout.setContentsMargins(Sizes.PADDING_LARGE, Sizes.PADDING_LARGE, Sizes.PADDING_LARGE, Sizes.PADDING_LARGE)
     root_layout.setSpacing(Sizes.SPACING_LARGE)
 
+    # ===== 标题行（保持极简，但提供可测/可定位的标题控件） =====
+    title_row = QtWidgets.QHBoxLayout()
+    title_text = "导入/导出中心" if show_import else "导出中心"
+    title_label = QtWidgets.QLabel(title_text, dialog)
+    title_label.setStyleSheet(ThemeManager.heading(level=3))
+    title_row.addWidget(title_label)
+    title_row.addStretch(1)
+    root_layout.addLayout(title_row)
+
     # ===== 导入（可选显示） =====
     if show_import:
         from .read_gia import on_read_clicked as on_read_gia_clicked

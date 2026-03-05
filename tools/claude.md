@@ -26,6 +26,18 @@
   - 预演（不写盘）：`python -X utf8 -m tools.migrate_registry_owner_entity_ref`
   - 写回：`python -X utf8 -m tools.migrate_registry_owner_entity_ref --apply`
 
+### validate_level_variables.py
+- **功能**：载入关卡变量 Schema 并触发引擎侧的 fail-fast 校验（例如局内存档 chip 命名规则、字典默认值嵌套约束）。
+- **运行**：
+  - 全库（共享+全部项目存档）：`python -X utf8 -m tools.validate_level_variables`
+  - 仅某个存档：`python -X utf8 -m tools.validate_level_variables --package-id <id>`
+
+### validate_custom_variable_registry.py
+- **功能**：自定义变量注册表校验（静态加载 `自定义变量注册表.py`，不执行代码）：提前定位“写回阶段会崩”的问题（例如 typed dict alias 与 default_value 类型不一致、默认值无法按 VarType 解析、第三方 owner_ref 无法在索引中找到）。
+- **运行**：
+  - 全部项目存档：`python -X utf8 -m tools.validate_custom_variable_registry`
+  - 仅某个存档：`python -X utf8 -m tools.validate_custom_variable_registry --package-id <id>`
+
 ### claude_md_audit.py
 - **功能**：扫描仓库内所有 `claude.md`，生成可勾选的巡检 TODO 清单（会合并旧清单的勾选状态）。
 - **运行**：`python -X utf8 -m tools.claude_md_audit [--scope private_extensions] [--output claude_md_audit_todolist.md]`

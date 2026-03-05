@@ -44,9 +44,11 @@
 
 - `conftest.py` 仅将项目根目录加入 `sys.path`，确保可稳定导入 `app.*` / `engine.*`。
 - **不要将 `<repo>/app` 加入 `sys.path`**：否则会导致 `ui.*` 与 `app.ui.*` 并存、同名类被加载两份而出现 `isinstance` 异常；因此测试代码应统一使用 `app.ui.*` 导入路径，而不是 `ui.*`。
+- Windows 下的导入顺序约束：若环境存在 `rapidocr_onnxruntime`，tests 根 `conftest.py` 会在任何可能的 UI 导入前优先预热 RapidOCR，避免 PyQt6 / onnxruntime DLL 冲突导致随机崩溃。
 - `conftest.py` 会调用 `settings.set_config_path(PROJECT_ROOT)` 并 `settings.load()`，为依赖 workspace_root 的引擎模块（如布局/节点库）提供单一真源，避免测试环境出现隐式路径回退导致的不稳定行为。
 - 路径推导：测试中如需仓库根目录请使用 `tests._helpers.project_paths.get_repo_root()`，避免依赖 `Path(__file__).parents[...]`（测试分目录后深度会变化）。
 - `tests/` 作为 Python package（包含 `__init__.py`）：确保 `tests._helpers.*` 在不同 pytest import-mode / site-packages 环境下都能稳定解析为本仓库目录（避免被外部同名包遮蔽）。
+- 临时跳过清单：`tests/conftest.py` 内维护 `DISABLED_TEST_MODULES_REL`，会在 collection 后将对应测试模块统一标记为 `skip`，用于按需求暂时不执行“依赖本机样本/资源路径或口径未收敛”的用例；删除名单条目即可恢复执行。
 
 ---
 注意：本文件不记录任何修改历史，仅描述 tests 目录的用途、当前状态与使用注意事项。

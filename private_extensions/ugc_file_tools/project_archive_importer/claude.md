@@ -12,6 +12,7 @@
 
 - 已覆盖的写回段（按 plan/selection 可选启用）：
   - **元件库模板**（`元件库/*.json`）：支持 `merge/overwrite`；当 base `.gil` 缺少目标 `type_code` 的模板样本时（空存档常见仅含 UI 模板），会从 seed `builtin_resources/seeds/template_instance_exemplars.gil` 获取“物件模板形态”的克隆原型（优先 `type_code=10005018`），避免“拿 UI 模板强改 type_code”导致结构不匹配；默认跳过占位模板（`metadata.ugc.placeholder=true`）。
+    - base `.gil` 名称字段解码口径：从 dump-json 抽取模板名/实例名时，统一对 name 文本做归一化（支持 `"<binary_data> 0A .."` 与控制前缀误判形态），避免冲突扫描/同名判断把 `<binary_data>` 当作真实名字。
     - 写回模板后会同步补齐模板页签/索引段（`root4/6`）：将本次触及到的模板 `template_id_int` 注册到“未分类页签”的索引表（kind=400/100），避免新增模板在编辑器元件库列表中不可见/不稳定。
     - 模板 `metadata.custom_variable_file` 引用变量文件（`VARIABLE_FILE_ID`）时，会加载对应 `LEVEL_VARIABLES` 并写回模板自定义变量 group1（对齐真源：`root4/4/1[*].8(group_list).group1['11']['1']=variable_items`）。
     - 模板包含 `metadata.common_inspector.model.decorations` 时，会同步写回到 `.gil` 的装饰物段 `payload_root['27']`（root27）：
@@ -26,6 +27,7 @@
       - attachment_id 分配会避开 `.gil` 内其它段已经占用的 `0x400000xx`（例如 UI/布局索引等），减少跨段冲突风险。
       - 若本次写回确实触及到模板/装饰物（含 root8 父实例自举与 root6 页签索引补丁），会同步刷新 `payload_root['40']`（时间戳），避免官方侧潜在的缓存/刷新不一致导致“写入了但不可见”。
   - **实体摆放**（`实体摆放/*.json`）：支持 `merge/overwrite`；当所选 `instance_id` 在 base `.gil` 中不存在时，会按“克隆样本 entry 并替换关键字段”的策略新增写回（用于导出到空存档/增量补齐）。
+    - base `.gil` 名称字段解码口径：同模板段；同名冲突识别以“归一化后的可读名称”为准。
     - `instance_id/template_id` 支持 **非数字**：写回 `.gil` 时会按 `.gia` 导出同口径映射到稳定的 `0x4040xxxx`（low16<0x8000）ID；新增时若发生哈希冲突会做 low16 bump。
     - 新增实例会优先按 `template_id` / `template_type_code(entry['8'])` 选择可克隆样本；若 base `.gil` 无可用样本，会回退到 `ugc_file_tools/builtin_resources/seeds/template_instance_exemplars.gil` 的 seed exemplar（避免随意克隆导致“进游戏不可见”）。
     - 新增路径不强制要求提供 `metadata.ugc_guid_int`：若缺失则会从目标存档扫描已有实体 GUID，并按 **max+1** 顺序分配一个不冲突 GUID；如提供了 `metadata.guid` 也会作为 GUID 来源（用于保持与真源/既有引用一致）。
@@ -51,7 +53,10 @@
     - 次选：`管理配置/UI控件模板/原始解析/*.raw.json`（raw_template）
     - 空/极简 base 会 bootstrap 最小 UI 段后再写回；同名布局冲突支持 `overwrite/add/skip`。
     - 导出中心链路（项目存档→写回 `.gil`）当前默认不接入“固有控件（HUD）初始显隐覆盖”，避免 base `.gil` 的布局内缺少固有控件时 fail-fast 阻断整次导出（report 会标记 skipped）。
-  - **关卡实体自定义变量**（可选）：按 `selected_level_custom_variable_ids` 补齐到 `root4/5/1(name=关卡实体).override_variables(group1)`；当变量定义的 `owner` 不为 `level` 时会 fail-fast（避免误把玩家/第三方变量写入关卡实体）。
+  - **注册表自定义变量**（可选）：按 `selected_custom_variable_refs`（owner_ref+variable_id）补齐写入输出 `.gil` 的 override_variables(group1)。
+    - 声明真源：项目存档 `管理配置/关卡变量/自定义变量注册表.py`（AutoCustomVariableDeclaration，AST 静态提取，不执行代码）。
+    - 语义：仅补齐缺失；同名但类型不同默认不覆盖（报告列出）；可覆盖时需显式开启 overwrite（默认关闭）。
+    - owner 覆盖范围：关卡实体(level)、玩家(player)、以及第三方 owner（优先按 owner_display 匹配实体/模板 name 写回）。
 
 - 统一入口：`python -X utf8 -m ugc_file_tools project import --dangerous ...`（以及 `import-ingame-save-structs` 等子命令）。
 

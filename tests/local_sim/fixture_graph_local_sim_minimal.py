@@ -41,7 +41,7 @@ GRAPH_VARIABLES: list[GraphVariableConfig] = [
         is_exposed=False,
     ),
     GraphVariableConfig(
-        name="按钮索引_btn_tutorial_next_guide_0",
+        name="按钮索引_btn_tut_g0",
         variable_type="整数",
         default_value="ui_key:HTML导入_界面布局__tutorial_overlay__guide_0__btn_item",
         description="本地测试用：tutorial_overlay.guide_0 的稳定伪索引（ui_key 占位符）。",

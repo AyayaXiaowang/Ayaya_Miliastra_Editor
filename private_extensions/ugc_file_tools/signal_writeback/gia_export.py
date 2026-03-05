@@ -316,7 +316,7 @@ def _build_node_def_meta_dict(*, node_def_id_int: int, scope_code_int: int) -> D
 _SERVER_SIGNAL_DESCRIPTOR_TYPE_ID_BY_VAR_TYPE: Dict[int, int] = {
     # 与“可运行样本”对齐的 server-send 参数描述类型号（field_4.field_3/field_4.field_4）
     1: 1,   # 实体
-    2: 14,  # GUID（样本：发送者GUID）
+    2: 2,   # GUID
     3: 3,   # 整数
     4: 5,   # 布尔值
     5: 7,   # 浮点数

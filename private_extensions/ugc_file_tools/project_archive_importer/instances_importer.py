@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from engine.resources.custom_variable_file_refs import normalize_custom_variable_file_refs
 from ugc_file_tools.gia_export.templates import build_component_template_root_id_int
+from ugc_file_tools.gil.name_unwrap import normalize_dump_json_name_text
 from ugc_file_tools.gil_dump_codec.protobuf_like_bridge import binary_data_text_to_numeric_message
 from ugc_file_tools.gil_dump_codec.gil_container import build_gil_file_bytes_from_payload, read_gil_container_spec
 from ugc_file_tools.gil_dump_codec.protobuf_like import encode_message
@@ -515,11 +516,15 @@ def _try_extract_instance_name(entry: Dict[str, Any]) -> str:
             continue
         v11 = item.get("11")
         if isinstance(v11, str):
-            return _unwrap_protobuf_field1_string_from_misdecoded_text(v11)
+            name = normalize_dump_json_name_text(v11)
+            if name != "":
+                return str(name)
         if isinstance(v11, dict):
             name_val = v11.get("1")
             if isinstance(name_val, str):
-                return _unwrap_protobuf_field1_string_from_misdecoded_text(name_val)
+                name = normalize_dump_json_name_text(name_val)
+                if name != "":
+                    return str(name)
     return ""
 
 

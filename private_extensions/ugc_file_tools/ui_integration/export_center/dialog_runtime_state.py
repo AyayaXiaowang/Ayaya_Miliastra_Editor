@@ -29,6 +29,14 @@ class ExportCenterDialogRuntimeState:
     # ---- UI choice caches ----
     write_ui_user_choice: bool = False
 
+    # ---- UI→自定义变量联动（资源树自动勾选）----
+    # 当用户勾选 UI源码 时，UI 中引用到的自定义变量必须在“已选资源”里一同勾选；
+    # 这里缓存“由 UI 自动勾选”的 custom_vars 条目 key 集合，以便在 UI 取消勾选时撤销。
+    ui_auto_selected_custom_var_keys: set[str] = field(default_factory=set)
+    # 当用户勾选 元件库/实体摆放 时，这些资源所绑定的（第三方 owner）自定义变量需要一同写回；
+    # 这里缓存“由 元件/实体 自动勾选”的 custom_vars 条目 key 集合，以便在资源取消勾选时撤销。
+    asset_auto_selected_custom_var_keys: set[str] = field(default_factory=set)
+
     # ---- backfill/repair caches ----
     repair_last_auto_output: str = ""
     backfill_last_signature_gia: tuple = field(default_factory=tuple)

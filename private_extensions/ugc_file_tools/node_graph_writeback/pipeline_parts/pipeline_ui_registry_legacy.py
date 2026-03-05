@@ -6,7 +6,8 @@ from typing import Dict, Optional, Tuple
 
 
 def _try_load_ui_key_to_guid_registry_for_graph_model(
-    *,
+    # legacy compatibility: allow positional call
+    # (older callers/tests use `_try_load_ui_key_to_guid_registry_for_graph_model(Path(...))`)
     graph_model_json_path: Path,
     required_ui_keys: set[str] | None = None,
 ) -> Optional[Tuple[Dict[str, int], Path]]:

@@ -29,29 +29,21 @@ def _prune_data_edges_like_after_game_for_known_nodes(
 
     说明：
     - 该裁剪会显著影响 payload Graph IR diff 的“extra edges”噪声；
-    - 但**必须保证语义不变**（不能把唯一的数据供给裁掉，否则会导致运行时入参取默认值、端口类型回退等问题）；
-    - 因此这里采取“语义安全裁剪”：仅当目标端口仍有其它 data 入边时才裁剪该边；
+    - 本函数以 after_game 导出的实际 wire 行为为真源：当命中该模式且“目标端口仍有其它数据供给”时才裁剪，
+      避免裁剪掉唯一入边导致语义/类型推断退化（例如数据类型转换输出端口被错误回退为模板默认类型）。
     - 这里按节点中文 title + 端口名做保守匹配（避免依赖 node_type_id 映射/样本覆盖差异）。
     """
     if not edges:
         return []
 
-    incoming_sources_by_dst_node_and_port: Dict[tuple[str, str], set[tuple[str, str]]] = {}
-    for e0 in list(edges):
-        if not isinstance(e0, dict):
-            continue
-        src_node0 = str(e0.get("src_node") or "").strip()
-        dst_node0 = str(e0.get("dst_node") or "").strip()
-        src_port0 = str(e0.get("src_port") or "").strip()
-        dst_port0 = str(e0.get("dst_port") or "").strip()
-        if not src_node0 or not dst_node0:
-            continue
-        if not src_port0 or not dst_port0:
-            continue
-        incoming_sources_by_dst_node_and_port.setdefault((dst_node0, dst_port0), set()).add((src_node0, src_port0))
+    _TITLE_DATA_TYPE_CONVERSION = "数据类型转换"
+    _TITLE_DICT_SET = "对字典设置或新增键值对"
+    _SRC_PORT_OUTPUT = "输出"
+    _DST_PORT_VALUE = "值"
 
     pruned: List[Dict[str, Any]] = []
-    for e in list(edges):
+    edges_list = list(edges)
+    for edge_index, e in enumerate(edges_list):
         if not isinstance(e, dict):
             continue
         src_node = str(e.get("src_node") or "").strip()
@@ -66,16 +58,25 @@ def _prune_data_edges_like_after_game_for_known_nodes(
         dst_title = str(node_title_by_graph_node_id.get(dst_node) or "").strip()
 
         should_drop = (
-            src_title == "数据类型转换"
-            and src_port == "输出"
-            and dst_title == "对字典设置或新增键值对"
-            and dst_port == "值"
+            src_title == _TITLE_DATA_TYPE_CONVERSION
+            and src_port == _SRC_PORT_OUTPUT
+            and dst_title == _TITLE_DICT_SET
+            and dst_port == _DST_PORT_VALUE
         )
         if should_drop:
-            incoming_sources = incoming_sources_by_dst_node_and_port.get((dst_node, dst_port)) or set()
-            src_key = (src_node, src_port)
-            has_other_source = any(s != src_key for s in incoming_sources)
-            if has_other_source:
+            # 仅当目标端口仍有其它数据入边时才裁剪（避免裁剪唯一入边改变语义/类型推断证据）。
+            has_other_incoming = False
+            for other_i, other in enumerate(edges_list):
+                if int(other_i) == int(edge_index):
+                    continue
+                if not isinstance(other, dict):
+                    continue
+                other_dst_node = str(other.get("dst_node") or "").strip()
+                other_dst_port = str(other.get("dst_port") or "").strip()
+                if other_dst_node == dst_node and other_dst_port == dst_port:
+                    has_other_incoming = True
+                    break
+            if has_other_incoming:
                 continue
         pruned.append(e)
     return list(pruned)

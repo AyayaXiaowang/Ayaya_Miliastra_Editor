@@ -16,6 +16,7 @@
   - project 节点图冲突策略回归：selection-json 可携带 `node_graph_conflict_resolutions`，支持对同名图选择 `overwrite/add/skip`（add 写入新图名；skip 不导出且可在 report 的 skipped_graphs 中看到）
   - project 节点图写回回归：单图 strict 解析失败（`GraphParseError`）应跳过并记录到 `skipped_graphs`（不中断整次写回，供导出中心提示）。
   - selection-json 解析（模板 JSON / 实体摆放 JSON 列表）
+  - 模板/实体同名冲突策略回归：断言“同名模板/实例 + action=add”会生成 `__new_1` 等新名字时，测试对 dump-json 的名字字段先做归一化（支持 `"<binary_data> 0A .."` 与控制前缀误判形态），避免 `<binary_data>` 噪音导致误报。
   - 关卡实体自定义变量写回护栏回归：当变量定义的 `owner` 不为 `level` 时，写回应 fail-fast，避免误把玩家/第三方变量写入关卡实体。覆盖：`test_level_custom_variables_importer.py`
   - 元件模板 importer（非纯数字 template_id 的稳定映射）
   - 元件模板 `.gia` 导出 ID 回归：`template_root_id_int(0x4040xxxx)` 的 low16 必须 <0x8000（当前固定为 0x4000~0x7FFF），避免真源/工具链把 low16 当作 int16 负数导致“不识别/不可见”
@@ -77,6 +78,7 @@
   - pin_rules 回归：字典泛型节点 `Query_Dictionary_Value_by_Key(1158)` 的 OUT_PARAM/indexOfConcrete 必须可从 node_data TypeMappings(`S<K:...,V:...>`) 推断（无 genshin-ts concrete_map 时也可用）。见 `test_pin_rules_query_dict_value_by_key_index_of_concrete.py`。
   - 节点图写回 pipeline 输入加载回归：scope 一致性校验报错信息稳定；纯 JSON 写回禁止 `component_key:/entity_key:` 占位符（避免误以为支持 IDRef 回填）。
   - 口径契约层回归：TypeMappings 解析与 concrete/indexOfConcrete 映射统一由 `ugc_file_tools/contracts/node_graph_type_mappings.py` 提供；测试应优先引用该契约层（而不是导出/写回侧的私有函数）。
+  - `.gil` 写回 after_game 对齐裁剪回归：`数据类型转换.输出 -> 对字典设置或新增键值对.值` 仅当 **dst 端口仍有其它数据入边** 时才裁剪，避免裁剪唯一入边改变语义/丢失类型推断证据。覆盖：`test_edges_writeback_prunes_data_type_conversion_to_dict_set_value_edges_like_after_game.py`
   - `.gia` 解析语义回归：VarBase 的 StringBaseValue/嵌套 message 在 protobuf-like 解码被误判为 utf8 时，仍应能从 raw_hex 反解并正确抽取字符串/字典默认值
   - protobuf-like 解码护栏回归：length-delimited bytes 若 sanitize 需要剔除控制字符，则不输出 `utf8`（仅保留 raw_hex），避免写回重编码导致 `.gil` payload 漂移/存档拒识
   - 写回保真回归：node_graph_writeback / signal_writeback 写回时必须 **不触碰** base `.gil` 的其它 payload_root 段 bytes（使用 wire-level 只替换 `field_10`），避免 UI base 下 templates 段发生 payload drift。见 `test_writeback_preserves_unrelated_payload_sections_wire_bytes.py`。

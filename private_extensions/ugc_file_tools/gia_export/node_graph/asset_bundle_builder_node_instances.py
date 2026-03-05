@@ -70,7 +70,6 @@ from .asset_bundle_builder_proto_helpers import (
 from .asset_bundle_builder_positions import build_node_positions
 from .asset_bundle_builder_types import GiaAssetBundleGraphExportHints
 
-
 def _try_resolve_t_dict_concrete_mapping(
     *,
     node_entry_by_id: dict[int, dict[str, Any]],
@@ -675,6 +674,33 @@ def build_node_instances(
             # - 只有“反射端口（R<T>/L<R<T>>）”或少数已知反射特例才需要 ConcreteBase/indexOfConcrete。
             _ = declared_type_text  # 保留变量：用于解释性注释（避免误用“泛型”判断）
             wrap_as_concrete_base = bool(is_nep_reflection) or bool(force_reflection_concrete)
+
+            # 对齐回归：当类型 Plan 已能稳定给出该端口的 indexOfConcrete 时，说明该端口属于“泛型家族/需要 ConcreteBase”。
+            # 典型：对字典设置或新增键值对(948) 的 键/值 端口（GraphModel 仍为泛型，但连线已收敛到具体 dict(K,V)）。
+            if (not bool(is_signal_meta_binding_node)) and isinstance(forced_index_of_concrete_by_port, dict):
+                if str(raw_port_key) in forced_index_of_concrete_by_port:
+                    wrap_as_concrete_base = True
+
+            # NodeEditorPack 缺失时（repo 未包含第三方 node_data/data.json），仍需尽可能对齐真源：
+            # - GraphModel 端口可能标注为“泛型”，但通过连线/常量/类型推断已收敛出具体 VarType；
+            # - 若该端口能稳定推断出 indexOfConcrete，则说明它属于“反射/泛型端口”族（需要 ConcreteBase），
+            #   否则导入到编辑器会显示为“泛型”并与金样快照不一致。
+            if (not bool(wrap_as_concrete_base)) and (not bool(is_signal_meta_binding_node)):
+                # NodeEditorPack 缺失时：用“能否稳定推断 indexOfConcrete”反推出该端口是否属于泛型家族。
+                node_type_id_int3_for_hint = int(node_type_id_int_by_graph_node_id.get(str(graph_node_id), 0))
+                port_name_for_concrete_hint = (
+                    str(raw_port_name) if int(node_type_id_int) == 3 else str(resolved_port_name)
+                )
+                inferred_hint_index = _infer_index_of_concrete_for_generic_pin(
+                    node_title=str(title),
+                    port_name=str(port_name_for_concrete_hint),
+                    is_input=True,
+                    var_type_int=int(server_vt),
+                    node_type_id_int=int(node_type_id_int3_for_hint),
+                    pin_index=int(pin_shell_index),
+                )
+                if isinstance(inferred_hint_index, int):
+                    wrap_as_concrete_base = True
             index_of_concrete = None
             if bool(wrap_as_concrete_base):
                 node_type_id_int3 = int(node_type_id_int_by_graph_node_id.get(str(graph_node_id), 0))
@@ -693,9 +719,12 @@ def build_node_instances(
                 if isinstance(forced_index, int):
                     index_of_concrete = int(forced_index)
                 else:
+                    port_name_for_concrete = (
+                        str(raw_port_name) if int(node_type_id_int) == 3 else str(resolved_port_name)
+                    )
                     index_of_concrete = _infer_index_of_concrete_for_generic_pin(
                         node_title=str(title),
-                        port_name=str(raw_port_name),
+                        port_name=str(port_name_for_concrete),
                         is_input=True,
                         var_type_int=int(server_vt),
                         node_type_id_int=int(node_type_id_int3),
@@ -707,7 +736,7 @@ def build_node_instances(
 
             if int(node_type_id_int) == 18 and str(raw_port_key) == "初始值":
                 get_local_var_value_vt = int(server_vt)
-            if bool(is_nep_reflection) and isinstance(server_vt, int):
+            if bool(wrap_as_concrete_base) and isinstance(server_vt, int):
                 # Multiple_Branches(type_id=3)：
                 # - slot_index=0: R<T>（基础类型 Int/Str）
                 # - slot_index=1: L<R<T>>（list 类型，不能作为 T）
@@ -724,7 +753,7 @@ def build_node_instances(
                 "4": int(pin_type_id),
             }
             # 真源对齐：对“已连线”的 InParam，部分节点（尤其是信号 meta binding）会省略 field_3(VarBase)。
-            # 我们在这里按“有默认值才写 VarBase”的口径落盘，以避免游戏侧把默认值判定为无效从而清空输入框。
+            # 我们在这里按“有默认值或反射端口才写 VarBase”的口径落盘，以避免游戏侧把默认值判定为无效从而清空输入框。
             if value_for_var_base is not None or bool(wrap_as_concrete_base):
                 pin_msg["3"] = dict(var_base)
 
@@ -782,13 +811,23 @@ def build_node_instances(
                 nep_ordinal=int(out_index),
             )
             pin_type_id = int(server_vt)
+            # Get_Local_Variable(type_id=18)：真源端口顺序为：
+            # - OUT_PARAM(index=0): Loc（固定句柄）
+            # - OUT_PARAM(index=1): 值
+            #
+            # GraphModel 常只携带“值”端口。为保证导出稳定，需要把“值”的 fallback_index 提升为 1，
+            # 让后续补齐的 Loc 占用 index=0（与回归用例/真源一致）。
+            out_fallback_index = int(out_index)
+            if int(node_type_id_int) == 18 and str(port_name).strip() == "值":
+                out_fallback_index = 1
+
             out_shell_index, out_kernel_index = _resolve_pin_indices(
                 node_record,
                 is_flow=False,
                 direction="Out",
                 port_name=str(port_name),
                 ordinal=int(out_index),
-                fallback_index=int(out_index),
+                fallback_index=int(out_fallback_index),
             )
             declared_out_type_text = _get_port_declared_type_text(payload, str(port_name), is_input=False)
             is_declared_generic_out = "泛型" in declared_out_type_text
@@ -932,13 +971,16 @@ def build_node_instances(
                     fallback_index=int(flow_out_index),
                 )
                 conns = flow_conns_by_src_pin.get((int(node_index_int), int(flow_shell_index))) or []
-                if not conns:
+                # 真源对齐：信号节点（发送/监听）在无连线时常省略 OUT_FLOW pin；
+                # 导出侧不主动补齐（避免与金样快照漂移）。
+                if (not conns) and (bool(is_send_signal_node) or bool(is_listen_signal_node)):
                     continue
                 out_flow_pin = {
                     "1": _make_pin_sig(kind_int=2, index_int=int(flow_shell_index)),  # OUT_FLOW
                     "2": _make_pin_sig(kind_int=2, index_int=int(flow_kernel_index)),
-                    "5": list(conns),
                 }
+                if conns:
+                    out_flow_pin["5"] = list(conns)
                 if bool(is_composite):
                     _maybe_set_composite_pin_index(out_flow_pin, kind_int=2, port_name=str(port_name))
                 pins.append(out_flow_pin)
@@ -994,10 +1036,20 @@ def build_node_instances(
         pins.sort(key=_pin_sort_key)
 
         effective_runtime_id = int(node_type_id_int)
-        # Send_Signal(300000)：保持通用 runtime_id，不要替换为 send_node_def_id(0x6000xxxx)。
-        # 信号静态绑定应通过 META pin 的 source_ref + compositePinIndex 实现（single source of truth：signal_binding.py）。
+        # 真源对齐：
+        # - Send_Signal(300000) 的 NodeInstance.runtime_id 必须保持 builtin runtime_id（300000）；
+        #   send_node_def_id(0x6000xxxx) 仅用于 META pin 的 PinSignature.source_ref 去歧义。
+        # - Listen_Signal(300001) 在命中“自包含 listen node_def_id(0x6000xxxx)”时，
+        #   允许将 NodeInstance.runtime_id 替换为该 node_def_id，并将 kind 置为 22001（对齐开源工具/真源样本）。
         if bool(is_listen_signal_node) and isinstance(listen_node_def_id_int, int) and int(listen_node_def_id_int) > 0:
             effective_runtime_id = int(listen_node_def_id_int)
+            node_kind_int = 22001
+
+        # 真源对齐（golden snapshot）：
+        # 当节点已被“信号规格/基底存档”提升为 signal-specific runtime_id（0x4000xxxx/0x4080xxxx）时，
+        # 该节点在 `.gia` 中属于“自包含 NodeDef(kind=22001)”，而不是普通 builtin Node(kind=22000)。
+        # 否则编辑器/工具链可能按 builtin 端口表解释，出现端口索引错位与快照漂移。
+        if 0x40000000 <= int(effective_runtime_id) < 0x50000000:
             node_kind_int = 22001
 
         # Get_Local_Variable：补齐 NodeInstance.concrete_id（field_3）

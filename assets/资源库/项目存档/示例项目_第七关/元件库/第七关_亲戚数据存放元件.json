@@ -1450,8 +1450,8 @@
     "object_model_name": "空模型",
     "purpose": "level7_relatives_round_data_store",
     "custom_variable_file": [
-      "auto_custom_vars__data__e46ffe4c__测试项目",
-      "auto_custom_vars__ref__25b835d1__测试项目"
+      "auto_custom_vars__data__e46ffe4c__示例项目_第七关",
+      "auto_custom_vars__ref__25b835d1__示例项目_第七关"
     ]
   },
   "graph_variable_overrides": {},

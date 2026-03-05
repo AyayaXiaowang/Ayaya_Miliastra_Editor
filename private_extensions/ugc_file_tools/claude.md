@@ -26,6 +26,7 @@
   - `inspect_gil_signals`：提取 `.gil` 的 signal entries 与节点图信号节点摘要
 - `export_center_scan_base_gil_conflicts` / `export_center_scan_gil_id_ref_candidates` / `export_center_identify_gil_backfill_comparison`：导出中心 UI 专用子进程 helper（冲突扫描/缺失 ID 候选/回填识别）。
   - 回填识别会对 base/id_ref `.gil` 的“可复用分析结果”做运行期缓存（`app/runtime/cache/ugc_file_tools/export_center/backfill_gil_analysis/`），重复识别优先复用缓存以避免再次 decode `.gil`。
+- 注册表桥接：`auto_custom_variable_registry_bridge.py` 用于将项目存档 `自定义变量注册表.py`（AutoCustomVariableDeclaration）静态提取并转换为自定义变量 payload 索引（owner=level/player），供导出中心做 UI 勾选联动与写回阶段按 variable_id 查表；完整写回由 `project_archive_importer/registry_custom_variables_importer.py` 承载（支持多 owner）。
 - **常用补丁工具（危险写盘）**
   - `patch_gil_add_motioner`：为指定实体实例补齐“运动器(Motioner)”组项（实例段 `root4/5/1[*].7` 追加 `{1:4,2:1,14:{505:1}}`），输出新 `.gil` 到 `out/`。
 - **目录策略**

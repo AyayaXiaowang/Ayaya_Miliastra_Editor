@@ -1,0 +1,37 @@
+{
+  "template_id": "builtin_小地图__测试基础内容",
+  "template_name": "小地图",
+  "is_combination": false,
+  "widgets": [
+    {
+      "widget_id": "builtin_小地图_widget__测试基础内容",
+      "widget_type": "小地图",
+      "widget_name": "小地图",
+      "position": [
+        50,
+        50
+      ],
+      "size": [
+        200,
+        200
+      ],
+      "initial_visible": true,
+      "layer_index": 0,
+      "is_builtin": true,
+      "settings": {}
+    }
+  ],
+  "group_position": [
+    50,
+    50
+  ],
+  "group_size": [
+    200,
+    200
+  ],
+  "supports_layout_visibility_override": true,
+  "description": "固有内容：小地图",
+  "created_at": "2025-10-14T15:41:59.320620",
+  "updated_at": "2025-10-14T15:41:59.320620",
+  "name": "小地图"
+}

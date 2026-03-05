@@ -148,13 +148,17 @@ def apply_builtin_visibility_overrides_to_layout(
     if duplicated:
         raise RuntimeError(f"布局内存在重名固有控件，无法确定要改哪一个：{duplicated!r}")
 
+    # 允许“布局内不存在某些固有控件”的场景：例如空/极简 base `.gil` 或某些页面本身不包含对应 HUD。
+    # 约束仍保持 fail-fast：
+    # - 若布局内出现同名固有控件（duplicated）则无法消歧义，必须抛错
+    # - 若固有控件存在则必须能被精确定位并写入显隐覆盖
     not_found = sorted([n for n, guids in matched_by_name.items() if not guids])
-    if not_found:
-        raise RuntimeError(f"布局内未找到这些固有控件（无法应用初始显隐覆盖）：{not_found!r}")
 
     changed_total = 0
     applied: Dict[str, Dict[str, Any]] = {}
     for name, visible in overrides.items():
+        if name in not_found:
+            continue
         guid = int(matched_by_name[name][0])
         rec = record_by_guid.get(guid)
         if not isinstance(rec, dict):
@@ -163,5 +167,9 @@ def apply_builtin_visibility_overrides_to_layout(
         changed_total += changed
         applied[name] = {"guid": int(guid), "initial_visible": bool(visible), "changed": int(changed)}
 
-    return {"visibility_changed_total": int(changed_total), "applied": applied}
+    return {
+        "visibility_changed_total": int(changed_total),
+        "applied": applied,
+        "not_found": not_found,
+    }
 

@@ -17,7 +17,6 @@ from .node_graph_type_mappings import (  # noqa: F401
     try_resolve_t_dict_concrete_mapping,
 )
 from .signal_meta_binding import (  # noqa: F401
-    SIGNAL_META_BINDING_PARAM_KERNEL_INDEX,
     resolve_signal_meta_binding_param_pin_indices,
 )
 
@@ -26,7 +25,6 @@ __all__ = [
     "try_resolve_dict_kv_concrete_mapping",
     "try_resolve_t_concrete_mapping",
     "try_resolve_t_dict_concrete_mapping",
-    "SIGNAL_META_BINDING_PARAM_KERNEL_INDEX",
     "resolve_signal_meta_binding_param_pin_indices",
 ]
 

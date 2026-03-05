@@ -12,6 +12,7 @@ from tests._helpers.project_paths import get_repo_root
 
 _GRAPH_REL = "tests/local_sim/fixture_graph_local_sim_minimal.py"
 _UI_HTML_REL = "tests/local_sim/fixture_ui_local_sim_minimal.html"
+_TUTORIAL_GUIDE0_BTN_VAR_NAME = "按钮索引_btn_tut_g0"
 
 
 def _graph_file(repo_root: Path) -> Path:
@@ -35,7 +36,7 @@ def test_local_sim_minimal_graph_validation_and_registry_contracts() -> None:
     assert isinstance(allow_btn, int) and allow_btn > 0
     assert session.ui_registry.try_get_key(int(allow_btn)) == "HTML导入_界面布局__btn_allow__btn_item"
 
-    tutorial_guide0 = session.game.graph_variables.get("按钮索引_btn_tutorial_next_guide_0")
+    tutorial_guide0 = session.game.graph_variables.get(_TUTORIAL_GUIDE0_BTN_VAR_NAME)
     assert isinstance(tutorial_guide0, int) and tutorial_guide0 > 0
     assert (
         session.ui_registry.try_get_key(int(tutorial_guide0))

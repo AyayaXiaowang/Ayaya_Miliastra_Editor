@@ -7,6 +7,7 @@
 - **门面 + 分服务**：`ResourceManager` 负责对外 API 与跨服务编排；索引/图/缓存/文件操作分别由 `ResourceIndexService` / `GraphResourceService` / `ResourceCacheService` / `ResourceFileOps` 等实现类承担。
 - **作用域（共享 + 当前存档）**：索引与代码级 Schema（结构体/信号/关卡变量/局内存档模板等）统一按 `active_package_id` 聚合【共享根】或【共享根 + 当前项目存档根】；同 ID 以项目存档覆盖共享，重复 ID 由校验工具定位修复。
 - **代码级 Schema 载入**：结构体/信号/关卡变量/局内存档模板等“声明型” `.py` 定义文件使用 AST 静态提取（不执行顶层代码；关卡变量保留子进程 `compile` 语法预检用于热重载容错）；其余确需运行期语义的代码资源通过 `engine.utils.module_loader` 或专用 loader 动态加载，并按各子服务的规则选择“跳过非法文件”或 fail-fast。
+- **关卡变量载入校验**：局内存档变量（`自定义变量-局内存档变量`）的 `variable_name` 必须符合 `玩家槽位_chip_序号` 且同槽位序号从 1 开始连续；字典/typed dict 变量的 `default_value` 禁止出现嵌套 dict（需要复杂结构请改用结构体/结构体列表）。
 - **代码级资源加载**：`ResourceManager.load_resource` 对 `SIGNAL/STRUCT_DEFINITION` 直接从 `.py` 文件静态提取 `*_PAYLOAD`（不 import 执行），并仍按 `(type,id,mtime)` 做缓存。
 - **自定义变量注册表（单一真源）**：`管理配置/关卡变量/自定义变量注册表.py` 通过 AST 静态提取声明与 data store 绑定（`load_auto_custom_variable_registry_from_code`），并默认接入关卡变量 Schema：当注册表存在时，Schema 会派生虚拟变量文件（稳定 `file_id`，`absolute_path` 指向注册表）；同时跳过磁盘上的派生变量文件（`自动分配_*`、`UI_*_自动生成`）以避免与虚拟变量文件产生 ID 冲突与多处真源。变量类型支持 typed dict alias（如 `字符串-整数字典`），并在 schema 载入阶段校验 key/value 类型名合法性。
 - **注册表 contract 严格化（字段白名单）**：注册表声明条目必须为 `AutoCustomVariableDeclaration(...)` 常量写法，禁止 dict/运行期拼装；并对 `metadata` 执行严格白名单校验（仅允许明确约定的 keys，例如 `sources`），不允许随意增删字段导致真源漂移。

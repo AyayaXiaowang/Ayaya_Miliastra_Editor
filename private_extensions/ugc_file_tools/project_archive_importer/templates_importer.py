@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 
 from engine.resources.custom_variable_file_refs import normalize_custom_variable_file_refs
 from ugc_file_tools.gia_export.templates import build_component_template_root_id_int
+from ugc_file_tools.gil.name_unwrap import normalize_dump_json_name_text
 from ugc_file_tools.project_archive_importer.custom_variable_writeback import (
     load_level_variable_payloads_by_file_id,
     upsert_custom_variables_from_level_variable_payloads,
@@ -722,11 +723,15 @@ def _try_extract_template_name(entry: Dict[str, Any]) -> str:
             continue
         v11 = item.get("11")
         if isinstance(v11, str):
-            return _unwrap_protobuf_field1_string_from_misdecoded_text(v11)
+            name = normalize_dump_json_name_text(v11)
+            if name != "":
+                return str(name)
         if isinstance(v11, dict):
             name_val = v11.get("1")
             if isinstance(name_val, str):
-                return _unwrap_protobuf_field1_string_from_misdecoded_text(name_val)
+                name = normalize_dump_json_name_text(name_val)
+                if name != "":
+                    return str(name)
     return ""
 
 

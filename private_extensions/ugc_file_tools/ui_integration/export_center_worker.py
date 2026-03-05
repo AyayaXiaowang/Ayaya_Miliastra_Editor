@@ -253,6 +253,7 @@ def make_export_center_worker_cls(*, QtCore: object):
                     "selected_struct_ids": [str(x) for x in list(self._plan.selected_struct_ids)],
                     "selected_ingame_struct_ids": [str(x) for x in list(self._plan.selected_ingame_struct_ids)],
                     "selected_signal_ids": [str(x) for x in list(self._plan.selected_signal_ids)],
+                    "selected_custom_variable_refs": [dict(x) for x in list(self._plan.selected_custom_variable_refs)],
                     "selected_level_custom_variable_ids": [str(x) for x in list(self._plan.selected_level_custom_variable_ids)],
                     "selected_graph_code_files": [str(Path(p).resolve()) for p in list(self._plan.selected_graph_code_files)],
                     "selected_template_json_files": [str(Path(p).resolve()) for p in list(self._plan.selected_template_json_files)],

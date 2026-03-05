@@ -1,0 +1,82 @@
+{
+  "template_id": "ui_widget_template_sample_all_fields_01__测试基础内容",
+  "template_name": "示例_UI控件模板_全字段",
+  "is_combination": true,
+  "widgets": [
+    {
+      "widget_id": "sample_widget_text_01__测试基础内容",
+      "widget_type": "文本框",
+      "widget_name": "示例_文本框",
+      "position": [
+        1060.0,
+        420.0
+      ],
+      "size": [
+        320,
+        60
+      ],
+      "initial_visible": true,
+      "layer_index": 1,
+      "is_builtin": false,
+      "settings": {
+        "font_size": 18,
+        "text": "示例文本：{{当前钻石数}}",
+        "alignment": "left"
+      }
+    },
+    {
+      "widget_id": "sample_widget_button_01__测试基础内容",
+      "widget_type": "交互按钮",
+      "widget_name": "示例_交互按钮",
+      "position": [
+        1060.0,
+        500.0
+      ],
+      "size": [
+        200,
+        64
+      ],
+      "initial_visible": true,
+      "layer_index": 2,
+      "is_builtin": false,
+      "settings": {
+        "label": "示例按钮",
+        "on_click_event": "event_sample_click"
+      }
+    },
+    {
+      "widget_id": "sample_widget_progress_01__测试基础内容",
+      "widget_type": "进度条",
+      "widget_name": "示例_进度条",
+      "position": [
+        1060.0,
+        580.0
+      ],
+      "size": [
+        360,
+        24
+      ],
+      "initial_visible": true,
+      "layer_index": 0,
+      "is_builtin": false,
+      "settings": {
+        "min": 0,
+        "max": 100,
+        "value": 30,
+        "color": "#33CCFF"
+      }
+    }
+  ],
+  "group_position": [
+    1240.0,
+    520.0
+  ],
+  "group_size": [
+    420,
+    240
+  ],
+  "description": "示例 UI 控件模板：组合控件组，包含文本框/按钮/进度条，展示 widgets/settings 的典型结构。",
+  "created_at": "2025-12-18T12:10:00.000000",
+  "updated_at": "2025-12-18T14:13:27.420430",
+  "name": "示例_UI控件模板_全字段"
+}

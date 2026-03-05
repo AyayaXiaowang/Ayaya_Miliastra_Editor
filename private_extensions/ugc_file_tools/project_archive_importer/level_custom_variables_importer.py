@@ -463,6 +463,37 @@ def _load_level_variable_payloads_by_id_from_custom_variables_dir(custom_variabl
     return out
 
 
+def _try_load_level_variable_payloads_by_id_from_registry_py(registry_py_path: Path) -> Dict[str, Dict[str, Any]]:
+    """
+    从 `自定义变量注册表.py`（AutoCustomVariableDeclaration）构建关卡变量 payload 映射：
+      {variable_id: payload}
+
+    说明：
+    - 仅加载广播 owner（player/level）的声明；第三方 owner（instance_id/template_id）不作为“关卡实体自定义变量”候选来源。
+    - payload 的 owner 字段会被规范化为 "player"/"level"（小写）。
+    """
+    from ugc_file_tools.auto_custom_variable_registry_bridge import (
+        try_load_auto_custom_variable_registry_index_from_project_root,
+    )
+
+    registry_path = Path(registry_py_path).resolve()
+    if not registry_path.is_file():
+        return {}
+    project_root = registry_path.parent.parent.parent  # .../管理配置/关卡变量/自定义变量注册表.py
+    index = try_load_auto_custom_variable_registry_index_from_project_root(project_root=project_root)
+    if index is None:
+        return {}
+    out: Dict[str, Dict[str, Any]] = {}
+    for payload in list(index.payloads_by_id.values()):
+        vid = str(payload.get("variable_id") or "").strip()
+        if vid == "":
+            continue
+        if vid in out:
+            raise ValueError(f"重复的关卡变量 ID（来自注册表）：{vid!r}（file={str(registry_path)}）")
+        out[vid] = dict(payload)
+    return out
+
+
 def import_selected_level_custom_variables_from_project_archive_to_gil(
     *,
     project_archive_path: Path,
@@ -504,8 +535,13 @@ def import_selected_level_custom_variables_from_project_archive_to_gil(
         }
 
     # 1) 加载变量定义（project scope + shared scope）
-    project_custom_dir = (project_root / "管理配置" / "关卡变量" / "自定义变量").resolve()
-    project_vars = _load_level_variable_payloads_by_id_from_custom_variables_dir(project_custom_dir)
+    # 优先：注册表（单文件真源）；若不存在则回退到旧变量文件体系（管理配置/关卡变量/自定义变量/**/*.py）
+    project_registry_py = (project_root / "管理配置" / "关卡变量" / "自定义变量注册表.py").resolve()
+    if project_registry_py.is_file():
+        project_vars = _try_load_level_variable_payloads_by_id_from_registry_py(project_registry_py)
+    else:
+        project_custom_dir = (project_root / "管理配置" / "关卡变量" / "自定义变量").resolve()
+        project_vars = _load_level_variable_payloads_by_id_from_custom_variables_dir(project_custom_dir)
 
     # shared scope（可选）
     shared_vars: Dict[str, Dict[str, Any]] = {}

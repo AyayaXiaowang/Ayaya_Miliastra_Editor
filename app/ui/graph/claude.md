@@ -8,6 +8,7 @@
 - **性能策略**：超大图加载采用增量装配（time-budget）；渲染侧支持 LOD、常量控件虚拟化、批量边层等策略，组合判定下沉到 `app.runtime.services.graph_scene_policy`。
 - **调试叠加**：布局 YDebug 等调试叠加依赖的 `_layout_y_debug_info` 缓存在场景加载/重建阶段准备，叠加层只读消费，避免在绘制路径做重计算；布局层流程语义以端口类型真源驱动，不再依赖“临时端口改名”补丁。
 - **NodeDef 真源**：UI 侧解析 NodeDef 以 `NodeModel.node_def_ref` 为唯一真源；除 `kind="event"` 的确定性 `category/title -> builtin_key` 映射兼容规则外，禁止 `title/category/#scope` 猜测式 fallback；语义绑定由 `engine.graph.semantic.GraphSemanticPass` 覆盖式生成。
+ - **Qt 生命周期稳定性**：少数 Qt 回调（例如 `GraphView.scrollContentsBy`）可能在窗口关闭/析构阶段仍被触发；此时 Python wrapper 可能已进入半销毁状态，回调内需通过 `getattr(self, "...", None)` 容忍字段缺失，避免测试/关闭阶段出现进程级崩溃。
 
 ## 注意事项
 - UI 不直接 `open()` 读写资源；图/资源加载通过 `ResourceManager`、runtime services 与控制器。

@@ -28,6 +28,8 @@ class _ProjectWritebackSelection:
     selected_struct_ids: list[str]
     selected_ingame_struct_ids: list[str]
     selected_signal_ids: list[str]
+    # 自定义变量（注册表）：按 owner_ref+variable_id 精确选择（可跨：关卡实体/玩家/第三方 owner）。
+    selected_custom_variable_refs: list[dict[str, str]]
     # 关卡实体自定义变量：selection-json 仅携带 variable_id 列表；写回阶段再按 variable_id 查表并写入 root4/5/1(关卡实体).override_variables(group1)。
     selected_level_custom_variable_ids: list[str]
     selected_graph_code_files: list[Path]
@@ -116,6 +118,45 @@ def _load_project_writeback_selection(*, selection_json_file: Path) -> _ProjectW
             seen.add(k)
             deduped_paths.append(p)
         return deduped_paths
+
+    def _read_custom_variable_refs(key: str) -> list[dict[str, str]]:
+        raw = data.get(key, None)
+        if raw is None:
+            return []
+        if not isinstance(raw, list):
+            raise TypeError(f"selection-json field {key!r} must be list[dict]")
+        out: list[dict[str, str]] = []
+        for idx, item in enumerate(raw):
+            if item is None:
+                continue
+            if not isinstance(item, dict):
+                raise TypeError(f"selection-json field {key!r}[{idx}] must be dict")
+            owner_ref = str(item.get("owner_ref") or "").strip()
+            variable_id = str(item.get("variable_id") or "").strip()
+            if owner_ref == "" or variable_id == "":
+                continue
+            owner_kind = str(item.get("owner_kind") or "").strip()
+            owner_display = str(item.get("owner_display") or "").strip()
+            out.append(
+                {
+                    "owner_ref": owner_ref,
+                    "variable_id": variable_id,
+                    "owner_kind": owner_kind,
+                    "owner_display": owner_display,
+                }
+            )
+        # 去重（保持顺序）：按 (owner_ref, variable_id)
+        seen: set[tuple[str, str]] = set()
+        deduped: list[dict[str, str]] = []
+        for it in out:
+            k = (str(it.get("owner_ref") or "").casefold(), str(it.get("variable_id") or "").casefold())
+            if not k[0] or not k[1]:
+                continue
+            if k in seen:
+                continue
+            seen.add(k)
+            deduped.append(dict(it))
+        return deduped
 
     def _read_layout_conflict_resolutions(key: str) -> list[dict[str, str]]:
         raw = data.get(key, None)
@@ -275,6 +316,7 @@ def _load_project_writeback_selection(*, selection_json_file: Path) -> _ProjectW
         selected_struct_ids=_read_str_list("selected_struct_ids"),
         selected_ingame_struct_ids=_read_str_list("selected_ingame_struct_ids"),
         selected_signal_ids=_read_str_list("selected_signal_ids"),
+        selected_custom_variable_refs=_read_custom_variable_refs("selected_custom_variable_refs"),
         selected_level_custom_variable_ids=_read_str_list("selected_level_custom_variable_ids"),
         selected_graph_code_files=_read_abs_path_list("selected_graph_code_files"),
         selected_template_json_files=_read_abs_path_list("selected_template_json_files"),
@@ -415,7 +457,7 @@ def _command_project_import(arguments: argparse.Namespace) -> None:
         # 选择式写回：只写回 selection-json 指定的内容（struct/signal/graphs/templates/instances/ui/level_vars）。
         want_templates = bool(selection.selected_template_json_files)
         want_instances = bool(selection.selected_instance_json_files)
-        want_level_custom_variables = bool(selection.selected_level_custom_variable_ids)
+        want_level_custom_variables = bool(selection.selected_custom_variable_refs) or bool(selection.selected_level_custom_variable_ids)
         want_structs = bool(selection.selected_struct_ids or selection.selected_ingame_struct_ids)
         want_signals = bool(selection.selected_signal_ids)
         want_graphs = bool(selection.selected_graph_code_files)
@@ -555,6 +597,11 @@ def _command_project_import(arguments: argparse.Namespace) -> None:
             else None
         ),
         selected_signal_ids=(list(selection.selected_signal_ids) if (selection is not None and selection.selected_signal_ids) else None),
+        selected_custom_variable_refs=(
+            list(selection.selected_custom_variable_refs)
+            if (selection is not None and selection.selected_custom_variable_refs)
+            else None
+        ),
         selected_level_custom_variable_ids=(
             list(selection.selected_level_custom_variable_ids)
             if (selection is not None and selection.selected_level_custom_variable_ids)

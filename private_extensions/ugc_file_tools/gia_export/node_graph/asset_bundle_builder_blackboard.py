@@ -14,6 +14,9 @@ from ugc_file_tools.node_graph_semantics.var_base import (
     map_server_port_type_to_var_type_id as _map_server_port_type_to_var_type_id,
 )
 
+_ID_LIKE_VAR_TYPES: tuple[int, ...] = (1, 2, 16, 17, 20, 21)
+_ID_LIKE_ZERO_VALUE: int = 0
+
 
 def build_blackboard_entries(*, graph_model: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
@@ -75,9 +78,22 @@ def build_blackboard_entries(*, graph_model: Dict[str, Any]) -> List[Dict[str, A
             )
         elif default_value is None:
             typed_value = build_var_base_message_server_empty(var_type_int=int(server_vt))
+            # 真源对齐：blackboard 上的 id-like（GUID/Config/Prefab...）默认值为 0 时，常以 `{field_1=0}` 表达，
+            # 而不是 empty bytes（empty bytes 更常用于 pins 的“类型载体/未设置”语义）。
+            if int(server_vt) in _ID_LIKE_VAR_TYPES and isinstance(typed_value, dict):
+                typed_value = dict(typed_value)
+                typed_value["101"] = {"1": int(_ID_LIKE_ZERO_VALUE)}
         else:
             coerced_default = _coerce_constant_value_for_var_type(var_type_int=int(server_vt), raw_value=default_value)
             typed_value = build_var_base_message_server(var_type_int=int(server_vt), value=coerced_default)
+            if (
+                int(server_vt) in _ID_LIKE_VAR_TYPES
+                and isinstance(coerced_default, int)
+                and int(coerced_default) == int(_ID_LIKE_ZERO_VALUE)
+                and isinstance(typed_value, dict)
+            ):
+                typed_value = dict(typed_value)
+                typed_value["101"] = {"1": int(_ID_LIKE_ZERO_VALUE)}
 
         entry: Dict[str, Any] = {
             "2": name,

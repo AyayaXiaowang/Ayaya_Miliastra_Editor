@@ -79,6 +79,9 @@ class _ExportGilPlan:
     # - action: "overwrite" | "add" | "skip"
     # - new_instance_name: str（仅 action="add" 时需要；写回输出将使用该新名字）
     instance_conflict_resolutions: list[dict[str, str]]
+    # 自定义变量（注册表）：按 owner_ref+variable_id 精确选择（可跨：关卡实体/玩家/第三方 owner）。
+    # - selection-json 仅携带该选择集合；写回阶段再按注册表查表并写入对应条目的 override_variables(group1)。
+    selected_custom_variable_refs: list[dict[str, str]]
     # 关卡实体（root4/5/1 name=关卡实体）需要补齐写入的关卡变量（LevelVariableDefinition.variable_id）列表。
     selected_level_custom_variable_ids: list[str]
     selected_template_json_files: list[Path]

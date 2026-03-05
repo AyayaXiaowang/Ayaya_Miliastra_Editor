@@ -28,9 +28,6 @@ def collect_all_level_entity_custom_variable_candidates(
       - meta_by_id：用于 UI 预览/识别表展示（variable_name/type/source）
       - picked_ids：稳定排序后的“全部候选 variable_id”（可能为空列表）
     """
-    from importlib.machinery import SourceFileLoader
-
-    from engine.graph.models.package_model import LevelVariableDefinition
     from engine.resources.custom_variable_file_refs import normalize_custom_variable_file_refs
 
     ws_root = Path(workspace_root).resolve()
@@ -39,7 +36,7 @@ def collect_all_level_entity_custom_variable_candidates(
         raise ValueError("package_id 不能为空")
 
     package_root = (ws_root / "assets" / "资源库" / "项目存档" / pkg_id).resolve()
-    shared_root = (ws_root / "assets" / "资源库" / "共享").resolve()
+    stable_level_file_id = f"auto_custom_vars__level__{pkg_id}"
 
     # 1) 关卡实体绑定的变量文件（VARIABLE_FILE_ID）集合
     allowed_file_ids: set[str] = set()
@@ -59,7 +56,58 @@ def collect_all_level_entity_custom_variable_candidates(
                 if text != "":
                     allowed_file_ids.add(text)
 
-    # 2) 加载变量文件：shared + project
+    # 2) 优先：从项目存档的“自定义变量注册表.py”加载（单文件真源）
+    from ugc_file_tools.auto_custom_variable_registry_bridge import OWNER_LEVEL
+    from ugc_file_tools.auto_custom_variable_registry_bridge import (
+        try_load_auto_custom_variable_registry_index_from_project_root,
+    )
+
+    registry_index = try_load_auto_custom_variable_registry_index_from_project_root(project_root=package_root)
+    if registry_index is not None:
+        # 注册表语义：关卡实体变量的稳定 file_id 视为 auto_custom_vars__level__<package_id>。
+        # 若实例显式绑定了其它 VARIABLE_FILE_ID，则属于“旧变量文件体系”，此处不做静默混用。
+        if allowed_file_ids and stable_level_file_id not in allowed_file_ids:
+            raise ValueError(
+                "关卡实体实例 metadata.custom_variable_file 指向的 VARIABLE_FILE_ID 与注册表体系不一致："
+                f"expected={stable_level_file_id!r} actual={sorted(allowed_file_ids)}"
+            )
+        level_payloads = list(registry_index.payloads_by_owner_and_name.get(OWNER_LEVEL, {}).values())
+        candidates: list[tuple[str, str, str, str]] = []
+        meta_by_id: dict[str, dict[str, str]] = {}
+        for payload in level_payloads:
+            vid = str(payload.get("variable_id") or "").strip()
+            vname = str(payload.get("variable_name") or "").strip()
+            vtype = str(payload.get("variable_type") or "").strip()
+            if vid == "" or vname == "":
+                continue
+            source_text = str(stable_level_file_id)
+            candidates.append((vname, vtype, vid, source_text))
+            meta_by_id[vid] = {
+                "variable_id": vid,
+                "variable_name": vname,
+                "variable_type": vtype,
+                "source": str(registry_index.registry_path),
+                "source_file_id": str(stable_level_file_id),
+            }
+        candidates.sort(key=lambda t: (t[0].casefold(), t[2].casefold()))
+        picked_ids = [vid for _vname, _vtype, vid, _source in candidates]
+        # 去重（保持顺序）
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for vid in picked_ids:
+            k = str(vid).casefold()
+            if k in seen:
+                continue
+            seen.add(k)
+            deduped.append(str(vid))
+        return LevelCustomVariablePickResult(meta_by_id=dict(meta_by_id), picked_ids=list(deduped))
+
+    # 3) 旧体系：加载变量文件（shared + project）
+    from importlib.machinery import SourceFileLoader
+    from engine.graph.models.package_model import LevelVariableDefinition
+
+    shared_root = (ws_root / "assets" / "资源库" / "共享").resolve()
+
     def _load_variable_file_payloads_by_file_id(*, base_dir: Path) -> dict[str, list[dict]]:
         base_dir = Path(base_dir).resolve()
         if not base_dir.is_dir():
@@ -108,13 +156,12 @@ def collect_all_level_entity_custom_variable_candidates(
             raise ValueError(f"变量文件 VARIABLE_FILE_ID 在 shared 与 project 中重复：{fid!r}")
         payloads_by_file_id[str(fid)] = list(payloads)
 
-    # 3) 选择策略
+    # 4) 选择策略
     if not allowed_file_ids:
-        stable_level_file_id = f"auto_custom_vars__level__{pkg_id}"
         if stable_level_file_id in payloads_by_file_id:
             allowed_file_ids.add(stable_level_file_id)
 
-    # 4) 构建 candidates（稳定排序：按 variable_name, variable_id）
+    # 5) 构建 candidates（稳定排序：按 variable_name, variable_id）
     candidates: list[tuple[str, str, str, str]] = []
     meta_by_id: dict[str, dict[str, str]] = {}
 

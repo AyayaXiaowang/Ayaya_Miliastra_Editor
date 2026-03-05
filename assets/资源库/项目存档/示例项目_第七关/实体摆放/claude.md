@@ -3,6 +3,7 @@
 
 ## 当前状态
 - 目录用于示例与回归；实例引用以业务 ID/GUID 等为准（不在本文档维护清单）。
+- 当项目存档启用 `管理配置/关卡变量/自定义变量注册表.py` 时，关卡实体实例需在 `metadata.custom_variable_file` 引用稳定变量文件 ID：`auto_custom_vars__level__示例项目_第七关`（由 `sync-custom-vars` 维护）。
 
 ## 注意事项
 - 通过 ResourceManager/编辑器维护，避免手工改字段导致引用悬空。

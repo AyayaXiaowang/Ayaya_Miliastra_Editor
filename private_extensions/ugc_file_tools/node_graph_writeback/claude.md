@@ -54,7 +54,9 @@
   - 复合节点实例（host graph 的 composite node）端口类型会强制对齐到复合节点接口 virtual pins 的 `pin_type`，并写入到 GraphModel 的 `input_port_types/output_port_types`，避免端口名退化为“列表/字典”时写回沿用模板默认值导致“列表全变整数列表、字典全变泛型”。
     - 当复合节点实例的 `inputs/outputs` ports 列表被上游标准化阶段清空时，会基于 virtual pins 的顺序与名称补齐 ports 列表；若 ports 非空但长度不匹配则直接 fail-fast。
 - 诊断/二分：环境变量 `UGC_WB_DISABLE="flag1,flag2"`（含 `all`）用于禁用部分补丁点以做二分定位。
-- after_game 对齐补丁：可选裁剪少量“真源 after_game 导出会消失”的冗余 data edges（例如 `数据类型转换.输出 -> 对字典设置或新增键值对.值`），但仅在目标端口仍有其它数据供给时才会执行，避免改变语义与导致端口类型回退。
+- UI 源码占位符变量同步：当项目存档存在 `管理配置/关卡变量/自定义变量注册表.py` 时，UI 写回阶段会按注册表声明为单一真源补齐 UI 引用到的变量（不覆盖已存在同名变量值；类型不匹配会在报告中列出）；未启用注册表的存档则保持旧行为：按 UI 默认值/占位符推断并创建字符串/字典变量。
+  - 同时提供按“已选 HTML 文件集”扫描的入口（用于导出中心 UI 勾选联动）：`scan_ui_html_files_for_placeholder_variable_refs_and_defaults`。
+- after_game 对齐补丁：可选裁剪少量“真源 after_game 导出会消失”的冗余 data edges（例如 `数据类型转换.输出 -> 对字典设置或新增键值对.值`）；写回侧会先检查目标端口是否仍有其它 data 入边，仅在不改变语义的前提下裁剪，避免端口类型推断证据丢失导致类型回退。
 - 落盘归一化：最终会将每个节点的 pins(records) 按 `(kind,index)` 稳定排序，减少阶段 append 导致的顺序漂移。
   - 节点坐标写回对齐真源：当坐标分量为 `0.0` 时省略对应字段（NodeInstance.field_5/field_6），避免无意义的 0 值字段造成 dump diff 噪声，并更贴近官方导出编码。
 
@@ -65,6 +67,7 @@
 - data-link 编码护栏：`pin_index.index=0` 时省略 `field_2`；字典端口必须写入 K/V；模板 record 若显式存在 `field_2=0` 需规范化为“省略 field_2”，避免编辑器忽略连线。
 - 信号节点：静态绑定判定以 `__signal_id` 或“信号名为字符串常量且无 data 入边”为准；监听信号事件节点（GraphModel: `node_def_ref.kind=event` 且 outputs 含 `信号来源实体`）允许仅依赖 `node_def_ref.key/title` 做信号名绑定；当 base `.gil` 信号表可提供映射时会提升为 signal-specific runtime_id，并补齐 `node.field_9(signal_index)` 与 META/flow 的 compositePinIndex，避免端口错位/信号名串号。
   - 补充：信号节点的 type_id 提升（generic 300000/300001/300002 → signal-specific node_def_id）同样不应依赖 `__signal_id`；只要满足“信号名为字符串常量且无 data 入边”并且 base 映射可用，即可提升，以保证编辑器能展开动态端口。
+  - 信号 META binding 参数端口口径：参数 InParam 的 `pin_index2(kernel)` 必须与 `pin_index(shell)` 相等（`kernel_index = slot_index`），并且写回侧必须**显式写入 index2(field_2)**；禁止省略 field_2 让其默认成 0，否则会导致参数端口对齐漂移与回归用例失败。
 - 复合节点依赖注入使用引擎 `composite_node_manager` 按需加载子图；缺失/解析失败会直接抛错（fail-fast）。
 - section10 merge 口径：
   - 默认仍优先保留 base 中已存在的 NodeInterface/CompositeGraph（避免覆盖真源中存在但写回侧尚未建模的字段）。

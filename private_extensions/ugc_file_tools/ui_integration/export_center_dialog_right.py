@@ -1146,7 +1146,7 @@ def _build_gil_page(
     selected_level_custom_variable_ids: list[str] = []
     level_custom_variable_meta_by_id: dict[str, dict[str, str]] = {}
 
-    gil_level_vars_box = QtWidgets.QGroupBox("关卡实体自定义变量（全部）", gil_page)
+    gil_level_vars_box = QtWidgets.QGroupBox("关卡实体自定义变量（注册表）", gil_page)
     gil_level_vars_box.setStyleSheet(ThemeManager.group_box_style())
     gil_level_vars_layout = QtWidgets.QVBoxLayout(gil_level_vars_box)
     gil_level_vars_layout.setContentsMargins(
@@ -1158,7 +1158,7 @@ def _build_gil_page(
     gil_level_vars_layout.setSpacing(Sizes.SPACING_SMALL)
 
     level_vars_hint = QtWidgets.QLabel(
-        "在左侧资源树勾选『关卡实体自定义变量（全部）』后，将自动全量补齐写入输出 .gil 的【关卡实体】override_variables（group_id=1）。\n"
+        "在左侧资源树勾选『自定义变量（注册表）/关卡实体/...』后，将按勾选补齐写入输出 .gil 的【关卡实体】override_variables（group_id=1）。\n"
         "- 仅补齐缺失变量；不修改已存在同名变量的当前值\n"
         "- 若存档中已存在同名但类型不同的变量：默认不覆盖（会在报告中列出）",
         gil_level_vars_box,

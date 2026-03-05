@@ -199,6 +199,9 @@ def build_minimal_data_link_record_text(
     index2 = None
     if str(dst_title) == "修改结构体":
         index2 = 0 if int(dst_shell_index) <= 0 else int(dst_shell_index) - 1
+    elif isinstance(signal_param_composite_pin_index, int):
+        # 信号 META binding 参数端口：必须显式写入 kernel index（即便与 shell 相同），禁止依赖“省略 field_2 的默认 0”。
+        index2 = int(dst_kernel_index)
     elif int(dst_kernel_index) != int(dst_shell_index):
         index2 = int(dst_kernel_index)
     pin_msg = _build_node_pin_message(
@@ -337,6 +340,9 @@ def build_template_data_link_record_text(
             )
     if isinstance(signal_param_composite_pin_index, int):
         dump_json_message["7"] = int(signal_param_composite_pin_index)
+        # 信号 META binding 参数端口：确保写入 pin_index2(kernel) 与 shell 一致（并显式落盘）。
+        # 模板 record 可能缺失该字段，若省略则会默认成 0，导致端口对齐漂移。
+        dump_json_message["2"] = {"1": 3, "2": int(dst_shell_index)}
     # 字典入参：若能确定 key/value 类型，则强制覆盖模板中的默认值（常见为 entity-entity）
     vt_template = dump_json_message.get("4")
     if isinstance(vt_template, int) and int(vt_template) == 27 and isinstance(dict_kv_vts, tuple) and len(dict_kv_vts) == 2:

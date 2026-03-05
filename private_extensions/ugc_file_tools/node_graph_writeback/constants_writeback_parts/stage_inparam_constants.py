@@ -200,7 +200,7 @@ def write_input_constants_inplace(
         resolved_port_name = _resolve_input_port_name_for_type(node_def=state.node_def, port_name=str(port_name))
 
         if state.signal_binding_role != "":
-            # 对齐真源 `.gil`：信号参数 pin 的 i2(index2/kernel) 与 shell index 一致（slot_index）。
+            # 对齐回归用例：信号 META binding 的参数端口 pin_index2(kernel) 必须与 pin_index(shell) 一致。
             pin_index, pin_index2 = _resolve_signal_meta_binding_param_pin_indices(slot_index=int(slot_index))
         elif int(node_type_id_int_for_pin) == 3:
             # 真源对齐：Multiple_Branches 的 InParam 为 0/1（shell=kernel=slot）
@@ -221,11 +221,6 @@ def write_input_constants_inplace(
                 ordinal=int(slot_index),
                 fallback_index=int(pin_fallback_index),
             )
-
-        # 兜底对齐真源：信号节点参数端口的 kernel index 必须与 shell index 一致（shell=kernel=slot）。
-        # 避免 NEP 画像或旧逻辑导致 pin_index2 固定为 0，从而出现“多参数端口错位/串号”。
-        if str(state.title) in {"发送信号", "监听信号", "发送信号到服务端", "向服务器节点图发送信号"} and str(port_name) != "信号名":
-            pin_index2 = int(pin_index)
 
         # Create_Prefab：对齐真源样本的 kernel index（PinIndex2）。
         if str(state.title) == CREATE_PREFAB_WRAPPER_NODE_TITLE and str(port_name) == CREATE_PREFAB_PORT_NAME_OVERRIDE_LEVEL:
@@ -612,7 +607,12 @@ def write_input_constants_inplace(
                 pin_index=int(pin_index),
                 var_type_int=int(var_type_int),
                 var_base_message=dict(var_base),
-                index2=(int(pin_index2) if int(pin_index2) != int(pin_index) else None),
+                # 信号 META binding 参数端口需要显式写入 index2（即便 index2==index），禁止依赖“省略 field_2 的默认 0”。
+                index2=(
+                    int(pin_index2)
+                    if state.signal_binding_role != ""
+                    else (int(pin_index2) if int(pin_index2) != int(pin_index) else None)
+                ),
                 record_id_int=desired_field_7,
             )
 

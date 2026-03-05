@@ -25,6 +25,9 @@
 - NodeDef 定位唯一真源为 GraphModel(JSON) 的 `node_def_ref`（builtin→canonical key；composite→composite_id）；导出侧禁止通过 `title` 反查节点类型/节点定义。
 - GraphModel 的事件入口节点（`node_def_ref.kind="event"`）需要映射回真实 NodeDef（按约定口径统一处理），避免把“事件实例 key/信号名”误当作 NodeDef key。
 - 当 GraphModel 类型快照缺失或保持泛型时，优先使用 NodeEditorPack 画像作为兜底证据，避免导出后导入出现端口错位/类型退化。
+- 当仓库未包含 NodeEditorPack（`third_party/.../data.json` 缺失）时，导出侧仍会对“GraphModel 声明为泛型且可稳定推断 indexOfConcrete”的端口写入 ConcreteBase（field_110），避免导入后显示为“泛型”并与金样快照漂移；但 **信号 meta binding 参数端口** 仍禁止误包 ConcreteBase（会导致默认值被清空）。
+- 信号 meta binding：`send_node_def_id(0x6000xxxx)` 仅用于写入 META pin 的 `PinSignature.source_ref` 去歧义；**Send_Signal 的 NodeInstance.runtime_id 必须保持 builtin(300000)**。Listen_Signal 在命中自包含 `listen_node_def_id` 时可替换 runtime_id 并将 kind 置为 22001。
+- Get_Local_Variable(type_id=18)：真源端口顺序为 `OUT_PARAM(index=0)=Loc`、`OUT_PARAM(index=1)=值`；即便 GraphModel 仅携带 `outputs=["值"]`，导出侧也必须补齐/对齐该索引，避免 Loc 与 值 端口互相抢占 index=0。
 - 字典端口（VarType=27）的 K/V 类型证据链优先级：GraphModel 具体类型文本（别名字典）→ 常量默认值推断 → NodeEditorPack `TypeExpr(D<...>)` → 端口名携带语义（如 `字典_字符串到整数`）→ **节点级类型 Plan（从同节点键/值端口/连线推断得到的 dict(K,V)）**；缺失则 fail-fast 抛错。
  - `node_def_ref.kind="event"` 的事件节点：当 GraphModel 以 `category=事件节点,title=<信号名>` 表达“监听信号事件”时，builtin key 不存在；导出侧需回退到 `事件节点/监听信号` NodeDef（让后续 signal binding/端口补齐继续生效）。
   - 对 event 节点：信号名通常不经由 `信号名` 端口常量/入边提供；导出侧会从 `node_def_ref.key`（或 title）注入到 `input_constants['信号名']`，供 META pins 绑定计划使用。

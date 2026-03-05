@@ -217,6 +217,11 @@ def apply_gil_infrastructure_bootstrap_inplace(
     bootstrap_payload_root: Mapping[str, Any],
     infra_seed_payload_root: Mapping[str, Any],
 ) -> GilInfrastructureBootstrapReport:
+    # 兼容：部分调用侧/桥接层可能以 int 键传入 numeric_message。
+    # 本模块内部统一按“数值键字符串”处理，避免 `.get("11")` 在 int-key dict 上误判为缺失。
+    bootstrap_payload_root = {str(k): v for k, v in dict(bootstrap_payload_root).items()}
+    infra_seed_payload_root = {str(k): v for k, v in dict(infra_seed_payload_root).items()}
+
     gaps = detect_gil_infrastructure_gaps_in_payload_root(payload_root=base_payload_root)
 
     # 不需要 bootstrap：直接返回空报告（由上层决定是否写盘）

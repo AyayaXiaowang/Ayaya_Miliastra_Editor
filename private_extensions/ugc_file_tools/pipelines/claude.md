@@ -6,6 +6,7 @@
 
 ## 当前状态
 - `project_writeback.py`：项目存档 → 写回生成 `.gil`（模板/实体/结构体/信号/节点图/UI 等），统一 out→用户目录复制策略与进度回调；支持 selection-json 的选择式写回与若干高级策略（同名冲突策略、`prefer_signal_specific_type_id`、`entity_key/component_key` 手动 overrides 等）。
+  - 自定义变量（注册表）写回：支持 selection-json 的 `selected_custom_variable_refs`（owner_ref+variable_id）将变量补齐写入输出 `.gil` 的 override_variables(group1)；仅补齐缺失，同名类型不一致默认不覆盖并在报告列出。
   - out→用户目录复制使用“临时文件 + `os.replace`”的原子覆盖：避免大文件复制过程中被其它进程读到半文件（表现为无法解析/导入失败），也避免复制中断直接写坏目标文件。
   - 模板写回阶段会同步写回模板 `decorations` 到 `.gil` 的装饰物段 `payload_root['27']`（root27）；不再通过“自动启用实例写回闭包”的方式绕写到实体摆放段。
   - 实体摆放写回：当所选 `instance_id` 在 base `.gil` 中不存在时，会按“新增实例（克隆样本 entry）”策略写入输出；模板类型/样本不足时会 fail-fast 报错，避免产物进游戏不可见。

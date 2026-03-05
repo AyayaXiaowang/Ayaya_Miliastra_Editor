@@ -1,0 +1,37 @@
+{
+  "template_id": "builtin_摇杆__测试基础内容",
+  "template_name": "摇杆",
+  "is_combination": false,
+  "widgets": [
+    {
+      "widget_id": "builtin_摇杆_widget__测试基础内容",
+      "widget_type": "摇杆",
+      "widget_name": "摇杆",
+      "position": [
+        150,
+        800
+      ],
+      "size": [
+        180,
+        180
+      ],
+      "initial_visible": true,
+      "layer_index": 4,
+      "is_builtin": true,
+      "settings": {}
+    }
+  ],
+  "group_position": [
+    150,
+    800
+  ],
+  "group_size": [
+    180,
+    180
+  ],
+  "supports_layout_visibility_override": true,
+  "description": "固有内容：摇杆",
+  "created_at": "2025-10-14T15:41:59.320620",
+  "updated_at": "2025-10-14T15:41:59.320620",
+  "name": "摇杆"
+}

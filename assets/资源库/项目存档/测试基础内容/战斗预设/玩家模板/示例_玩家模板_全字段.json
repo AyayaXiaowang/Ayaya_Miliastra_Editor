@@ -1,0 +1,36 @@
+{
+  "id": "player_template_sample_all_fields_01__测试基础内容",
+  "template_id": "player_template_sample_all_fields_01__测试基础内容",
+  "template_name": "示例_玩家模板_全字段",
+  "name": "示例_玩家模板_全字段",
+  "description": "示例玩家模板：展示玩家模板的字段结构与 metadata.player_editor 的典型写法（含玩家层/角色层节点图挂载与变量覆盖入口）。",
+  "level": 15,
+  "default_profession_id": "player_class_sample_all_fields_01__测试基础内容",
+  "metadata": {
+    "custom_variable_file": "auto_custom_vars__level__测试基础内容",
+    "ingame_save_variable_file": "sample_ingame_save_variables_all_types__测试基础内容",
+    "player_editor": {
+      "player": {
+        "graphs": [
+          "server_template_local_variable_counter__测试基础内容"
+        ],
+        "graph_variable_overrides": {
+          "server_template_local_variable_counter": {
+            "初始计数": 1,
+            "最大计数": 3
+          }
+        },
+        "ingame_save": {
+          "template_id": "ingame_template_sample_all_fields_01__测试基础内容"
+        },
+        "custom_variables": []
+      },
+      "role": {
+        "graphs": [],
+        "graph_variable_overrides": {}
+      }
+    }
+  },
+  "updated_at": "2025-12-18T12:00:00.000000",
+  "last_modified": "2025-12-18 12:00:00"
+}

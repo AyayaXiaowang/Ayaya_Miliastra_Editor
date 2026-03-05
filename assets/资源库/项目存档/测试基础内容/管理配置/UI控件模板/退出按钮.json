@@ -1,0 +1,37 @@
+{
+  "template_id": "builtin_退出按钮__测试基础内容",
+  "template_name": "退出按钮",
+  "is_combination": false,
+  "widgets": [
+    {
+      "widget_id": "builtin_退出按钮_widget__测试基础内容",
+      "widget_type": "退出按钮",
+      "widget_name": "退出按钮",
+      "position": [
+        1820,
+        20
+      ],
+      "size": [
+        80,
+        80
+      ],
+      "initial_visible": true,
+      "layer_index": 6,
+      "is_builtin": true,
+      "settings": {}
+    }
+  ],
+  "group_position": [
+    1820,
+    20
+  ],
+  "group_size": [
+    80,
+    80
+  ],
+  "supports_layout_visibility_override": false,
+  "description": "固有内容：退出按钮",
+  "created_at": "2025-10-14T15:41:59.320620",
+  "updated_at": "2025-10-14T15:41:59.320620",
+  "name": "退出按钮"
+}

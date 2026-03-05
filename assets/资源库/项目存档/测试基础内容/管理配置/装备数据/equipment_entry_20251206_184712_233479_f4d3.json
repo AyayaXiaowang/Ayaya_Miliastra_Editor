@@ -1,0 +1,21 @@
+{
+  "entry_name": "词条1",
+  "config_id": "0",
+  "effect_timing": "获取时生效",
+  "entry_type": "基础属性加成",
+  "attribute_type": "",
+  "bonus_type": "固定值",
+  "random_range": [
+    0.0,
+    0.0
+  ],
+  "fixed_bonus": 0.0,
+  "description_type": "固定描述",
+  "custom_description": "",
+  "related_node_graph": "",
+  "related_unit_state": "",
+  "metadata": {},
+  "updated_at": "2025-12-06T18:47:12.785632",
+  "equipment_id": "equipment_entry_20251206_184712_233479_f4d3__测试基础内容",
+  "name": "equipment_entry_20251206_184712_233479_f4d3"
+}

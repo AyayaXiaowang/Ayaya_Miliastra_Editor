@@ -582,38 +582,220 @@ def wire_export_center_dialog(
         player_templates_count = sum(1 for it in selected_items if it.category == "player_templates")
         mgmt_count = sum(1 for it in selected_items if it.category == "mgmt_cfg")
         ui_src_count = sum(1 for it in selected_items if it.category == "ui_src")
+        custom_vars_count = sum(1 for it in selected_items if it.category == "custom_vars")
 
         signal_ids, basic_struct_ids, ingame_struct_ids = _collect_writeback_ids_from_mgmt_cfg_items(selected_items)
 
         fmt = str(format_combo.currentData() or "gia")
         gia.player_template_base_gia_row.setVisible(bool(fmt == "gia") and int(player_templates_count) > 0)
-        level_vars_enabled = bool(fmt == "gil") and any(getattr(it, "category", None) == "level_entity_vars" for it in selected_items)
+        # === UI 勾选联动：UI 引用到的自定义变量必须在“已选资源”里一同勾选 ===
         if fmt == "gil":
-            if level_vars_enabled:
-                from .export_center_level_vars_picker import collect_all_level_entity_custom_variable_candidates
+            DEFER_SELECTION_UPDATE_DELAY_MS = 0
+            selected_ui_html_files = [
+                Path(it.absolute_path).resolve()
+                for it in selected_items
+                if str(getattr(it, "category", "") or "") == "ui_src"
+                and str(getattr(it, "source_root", "") or "") == "project"
+                and str(Path(it.absolute_path).suffix).lower() in {".html", ".htm"}
+            ]
+            selected_ui_html_files.sort(key=lambda x: x.as_posix().casefold())
 
-                res = collect_all_level_entity_custom_variable_candidates(
-                    workspace_root=Path(workspace_root),
-                    package_id=str(package_id),
-                )
-                gil.selected_level_custom_variable_ids[:] = list(res.picked_ids or [])
-                gil.level_custom_variable_meta_by_id.clear()
-                gil.level_custom_variable_meta_by_id.update(dict(res.meta_by_id))
+            from ugc_file_tools.auto_custom_variable_registry_bridge import OWNER_LEVEL, OWNER_PLAYER
+            from ugc_file_tools.auto_custom_variable_registry_bridge import (
+                try_load_auto_custom_variable_registry_index_from_project_root,
+            )
+            from ugc_file_tools.node_graph_writeback.ui_custom_variable_sync import (
+                scan_ui_html_files_for_placeholder_variable_refs_and_defaults,
+            )
+            from ugc_file_tools.ui_integration.resource_picker import build_custom_var_owner_select_all_item_key_for_project
+
+            package_root = (Path(workspace_root).resolve() / "assets" / "资源库" / "项目存档" / str(package_id)).resolve()
+
+            # UI 未勾选：撤销自动勾选的变量条目（只移除“自动添加”的集合）
+            if not selected_ui_html_files:
+                if getattr(rt, "ui_auto_selected_custom_var_keys", None):
+                    # 重要：不要在资源树 itemChanged/selection_changed 的回调栈内直接修改 selection，
+                    # 避免 Qt 侧 re-entrancy 导致的崩溃（用户反馈“勾选 UI 立即闪退”）。
+                    keys_to_remove = list(rt.ui_auto_selected_custom_var_keys)
+                    rt.ui_auto_selected_custom_var_keys = set()
+                    if keys_to_remove:
+                        QtCore.QTimer.singleShot(
+                            DEFER_SELECTION_UPDATE_DELAY_MS,
+                            lambda keys=keys_to_remove: picker.remove_keys(list(keys)),
+                        )
+                        return
             else:
-                # 若未启用“关卡实体自定义变量（全部）”，确保清空（避免误用上次缓存）
-                gil.selected_level_custom_variable_ids[:] = []
-                gil.level_custom_variable_meta_by_id.clear()
-        else:
-            gil.selected_level_custom_variable_ids[:] = []
-            gil.level_custom_variable_meta_by_id.clear()
+                idx = try_load_auto_custom_variable_registry_index_from_project_root(project_root=package_root)
+                if idx is not None:
+                    scan = scan_ui_html_files_for_placeholder_variable_refs_and_defaults(selected_ui_html_files)
+                    required: set[tuple[str, str]] = set()
+                    for g, n, _path in set(scan.variable_refs or set()):
+                        gg = str(g or "").strip()
+                        nn = str(n or "").strip()
+                        if gg and nn:
+                            required.add((gg, nn))
+                    for full_name in dict(scan.normalized_variable_defaults or {}).keys():
+                        full = str(full_name or "").strip()
+                        if "." not in full:
+                            continue
+                        g, _, n = full.partition(".")
+                        if str(g).strip() and str(n).strip():
+                            required.add((str(g).strip(), str(n).strip()))
 
-        level_vars_count = len(list(getattr(gil, "selected_level_custom_variable_ids", []) or [])) if fmt == "gil" else 0
-        # 右侧 GIL 页预览文案同步（避免用户只勾左侧但右侧仍显示“未选择”造成误解）
+                    group_to_owner = {"关卡": OWNER_LEVEL, "玩家自身": OWNER_PLAYER}
+                    auto_keys: set[str] = set()
+                    for group_name, var_name in sorted(required, key=lambda t: (t[0].casefold(), t[1].casefold())):
+                        owner = group_to_owner.get(str(group_name))
+                        if owner is None:
+                            continue
+                        # 按 owner 粒度整组选：只要 UI 引用到任一变量，就勾选该 owner 的（全部）。
+                        auto_keys.add(build_custom_var_owner_select_all_item_key_for_project(owner_ref=str(owner)))
+
+                    # 同步缓存 + 程序化勾选（缺少条目会被 add_keys 忽略；写回阶段仍会 fail-fast）
+                    rt.ui_auto_selected_custom_var_keys = set(auto_keys)
+                    to_add = sorted(set(auto_keys) - set(picker.get_selected_keys()), key=lambda s: str(s).casefold())
+                    if to_add:
+                        # 同上：避免在回调栈内做“选中集变更 → rebuild_tree”导致 re-entrancy 崩溃
+                        QtCore.QTimer.singleShot(
+                            DEFER_SELECTION_UPDATE_DELAY_MS,
+                            lambda keys=to_add: picker.add_keys(list(keys)),
+                        )
+                        return
+
+            # === 元件/实体勾选联动：选中资源后，资源绑定的自定义变量 owner 也必须一同勾选（整组） ===
+            def _load_json_index_map(*, index_path: Path, id_key: str) -> dict[str, tuple[str, str]]:
+                """
+                返回：abs_path_cf -> (owner_ref(id), display_name)
+                """
+                if not index_path.is_file():
+                    return {}
+                obj = json.loads(index_path.read_text(encoding="utf-8"))
+                if not isinstance(obj, list):
+                    return {}
+                out: dict[str, tuple[str, str]] = {}
+                for item in obj:
+                    if not isinstance(item, dict):
+                        continue
+                    rid = str(item.get(id_key) or "").strip()
+                    nm = str(item.get("name") or "").strip()
+                    rel_out = str(item.get("output") or "").replace("\\", "/").strip()
+                    if not rid or not rel_out:
+                        continue
+                    abs_path = (package_root / rel_out).resolve()
+                    out[str(abs_path).casefold()] = (rid, nm)
+                return out
+
+            import json  # local import: avoid adding weight to module import time
+
+            templates_map = _load_json_index_map(
+                index_path=(package_root / "元件库" / "templates_index.json").resolve(),
+                id_key="template_id",
+            )
+            instances_map = _load_json_index_map(
+                index_path=(package_root / "实体摆放" / "instances_index.json").resolve(),
+                id_key="instance_id",
+            )
+
+            desired_asset_keys: set[str] = set()
+            for it in selected_items:
+                cat = str(getattr(it, "category", "") or "")
+                if cat not in {"templates", "instances"}:
+                    continue
+                if str(getattr(it, "source_root", "") or "") != "project":
+                    continue
+                abs_cf = str(Path(it.absolute_path).resolve()).casefold()
+                if cat == "templates":
+                    ref = templates_map.get(abs_cf)
+                    if ref is None:
+                        continue
+                    owner_ref, display = ref
+                    desired_asset_keys.add(
+                        build_custom_var_owner_select_all_item_key_for_project(owner_ref=str(owner_ref), owner_display=str(display))
+                    )
+                else:
+                    ref = instances_map.get(abs_cf)
+                    if ref is None:
+                        continue
+                    owner_ref, display = ref
+                    desired_asset_keys.add(
+                        build_custom_var_owner_select_all_item_key_for_project(owner_ref=str(owner_ref), owner_display=str(display))
+                    )
+
+            current_asset_auto = set(getattr(rt, "asset_auto_selected_custom_var_keys", set()) or set())
+            # remove stale
+            to_remove_asset = sorted(current_asset_auto - set(desired_asset_keys), key=lambda s: str(s).casefold())
+            if to_remove_asset:
+                rt.asset_auto_selected_custom_var_keys = set(desired_asset_keys)
+                QtCore.QTimer.singleShot(
+                    DEFER_SELECTION_UPDATE_DELAY_MS,
+                    lambda keys=to_remove_asset: picker.remove_keys(list(keys)),
+                )
+                return
+
+            # add missing
+            rt.asset_auto_selected_custom_var_keys = set(desired_asset_keys)
+            to_add_asset = sorted(set(desired_asset_keys) - set(picker.get_selected_keys()), key=lambda s: str(s).casefold())
+            if to_add_asset:
+                QtCore.QTimer.singleShot(
+                    DEFER_SELECTION_UPDATE_DELAY_MS,
+                    lambda keys=to_add_asset: picker.add_keys(list(keys)),
+                )
+                return
+
+        # === 右侧 GIL 页“关卡实体变量”预览：复用旧字段（仅用于展示与回填识别） ===
         if fmt == "gil":
-            if not bool(level_vars_enabled):
-                gil.level_vars_preview.setText("未启用：请在左侧资源树勾选『关卡实体自定义变量（全部）』。")
-            elif int(level_vars_count) <= 0:
-                gil.level_vars_preview.setText("已启用：未找到任何关卡实体自定义变量候选（将不会修改关卡实体变量）。")
+            level_ids: list[str] = []
+            level_meta: dict[str, dict[str, str]] = {}
+            for it in selected_items:
+                if str(getattr(it, "category", "")) != "custom_vars":
+                    continue
+                meta = getattr(it, "meta", None)
+                m = meta if isinstance(meta, dict) else {}
+                owner_ref = str(m.get("owner_ref") or "").strip().lower()
+                if owner_ref != "level":
+                    continue
+                if str(m.get("select_all") or "").strip() == "1":
+                    # 扩展：全选关卡 owner（按注册表真源）
+                    from ugc_file_tools.auto_custom_variable_registry_bridge import (
+                        try_load_auto_custom_variable_registry_index_from_project_root,
+                    )
+
+                    package_root = (Path(workspace_root).resolve() / "assets" / "资源库" / "项目存档" / str(package_id)).resolve()
+                    idx2 = try_load_auto_custom_variable_registry_index_from_project_root(project_root=package_root)
+                    if idx2 is not None:
+                        for payload in idx2.payloads_by_owner_and_name.get("level", {}).values():
+                            vid = str(payload.get("variable_id") or "").strip()
+                            vname = str(payload.get("variable_name") or "").strip()
+                            vtype = str(payload.get("variable_type") or "").strip()
+                            if vid:
+                                level_ids.append(vid)
+                                level_meta[vid] = {"variable_id": vid, "variable_name": vname, "variable_type": vtype, "source": str(idx2.registry_path)}
+                    continue
+                vid = str(m.get("variable_id") or "").strip()
+                if vid:
+                    level_ids.append(vid)
+                    level_meta[vid] = {
+                        "variable_id": vid,
+                        "variable_name": str(m.get("variable_name") or ""),
+                        "variable_type": str(m.get("variable_type") or ""),
+                        "source": str(getattr(it, "absolute_path", "")),
+                    }
+            # 去重保持顺序
+            seen: set[str] = set()
+            level_ids_dedup: list[str] = []
+            for vid in level_ids:
+                k = str(vid).casefold()
+                if k in seen:
+                    continue
+                seen.add(k)
+                level_ids_dedup.append(str(vid))
+            gil.selected_level_custom_variable_ids[:] = list(level_ids_dedup)
+            gil.level_custom_variable_meta_by_id.clear()
+            gil.level_custom_variable_meta_by_id.update(dict(level_meta))
+
+            level_vars_count = len(list(gil.selected_level_custom_variable_ids or []))
+            if int(level_vars_count) <= 0:
+                gil.level_vars_preview.setText("未选择任何关卡实体自定义变量。导出时不会修改关卡实体 override_variables。")
             else:
                 names: list[str] = []
                 for vid in list(gil.selected_level_custom_variable_ids or []):
@@ -622,8 +804,10 @@ def wire_export_center_dialog(
                     names.append(n if n != "" else str(vid))
                 shown = ", ".join(names[:8])
                 suffix = "" if len(names) <= 8 else f" …（共 {len(names)} 个）"
-                gil.level_vars_preview.setText(f"已启用：{len(names)} 个（{shown}{suffix}）")
+                gil.level_vars_preview.setText(f"已选择：{len(names)} 个（{shown}{suffix}）")
         else:
+            gil.selected_level_custom_variable_ids[:] = []
+            gil.level_custom_variable_meta_by_id.clear()
             gil.level_vars_preview.setText("")
 
         # 左侧“已选资源”摘要：只展示“已选条目统计”，避免把写回细节/强制策略塞进中间栏造成视觉噪音。
@@ -641,8 +825,8 @@ def wire_export_center_dialog(
             summary_parts.append(f"UI源码={int(ui_src_count)}")
         if int(mgmt_count) > 0:
             summary_parts.append(f"信号/结构体={int(mgmt_count)}")
-        if bool(level_vars_enabled):
-            summary_parts.append(f"关卡实体变量={int(level_vars_count)}")
+        if int(custom_vars_count) > 0:
+            summary_parts.append(f"自定义变量={int(custom_vars_count)}")
         summary_text = ("已选：" + "  ".join(list(summary_parts))) if summary_parts else "未选择任何资源。"
         summary_tooltip = ""
 
@@ -830,7 +1014,7 @@ def wire_export_center_dialog(
         elif fmt == "gil":
             stacked.setCurrentWidget(gil.page)
             removed = picker.set_allowed_categories(
-                {"graphs", "templates", "instances", "ui_src", "level_entity_vars", "mgmt_cfg"},
+                {"graphs", "templates", "instances", "ui_src", "custom_vars", "mgmt_cfg"},
                 prune_selection=True,
             )
             if int(removed) > 0:

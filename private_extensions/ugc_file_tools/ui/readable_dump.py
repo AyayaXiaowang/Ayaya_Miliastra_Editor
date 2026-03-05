@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeGuard
 
 
 @dataclass(frozen=True)
@@ -279,7 +279,32 @@ def _extract_ui_record_list(dll_dump_object: Dict[str, Any]) -> List[Any]:
     record_list = field9.get("502")
     if not isinstance(record_list, list):
         raise ValueError("DLL dump JSON 缺少字段 '4/9/502'（期望为 list）。")
-    return record_list
+
+    # 兼容：写回链路的 lossless dump 可能把 record list 的单条 record 也表示成 "<binary_data> .."。
+    # 若不解码，后续 GUID 收集/查找/唯一性校验会漏掉这些 record，进而导致 GUID 复用与串页问题。
+    from ugc_file_tools.gil_dump_codec.protobuf_like_bridge import binary_data_text_to_numeric_message
+
+    normalized: List[Any] = []
+    for item in list(record_list):
+        if isinstance(item, dict):
+            normalized.append(item)
+            continue
+        if isinstance(item, str) and item.startswith("<binary_data>"):
+            decoded_item = binary_data_text_to_numeric_message(item)
+            if not isinstance(decoded_item, dict):
+                raise TypeError(
+                    "DLL dump JSON 字段 '4/9/502' 的 record 解码后不是 dict："
+                    f"type={type(decoded_item).__name__}"
+                )
+            normalized.append(decoded_item)
+            continue
+        raise TypeError(
+            "DLL dump JSON 字段 '4/9/502' 的 record 不是 dict 或 '<binary_data>'："
+            f"type={type(item).__name__} value={item!r}"
+        )
+
+    field9["502"] = normalized
+    return normalized
 
 
 def _build_readable_instance(record: Dict[str, Any], record_list_index: int) -> Dict[str, Any]:
@@ -536,7 +561,7 @@ def _parse_rect_transform_state_list(candidate_list: List[Any]) -> List[Dict[str
     return parsed_states
 
 
-def _looks_like_rect_transform_dict(candidate: Any) -> bool:
+def _looks_like_rect_transform_dict(candidate: Any) -> TypeGuard[Dict[str, Any]]:
     if not isinstance(candidate, dict):
         return False
     required_keys = {"501", "502", "503", "504", "505", "506"}
@@ -696,39 +721,39 @@ def _choose_best_rect_transform_state(state_list: List[Dict[str, Any]]) -> Optio
     return best_transform
 
 
-def extract_ui_record_list(dll_dump_object: Dict[str, Any]) -> List[Any]:
+def _extract_ui_record_list_public_api__duplicate(dll_dump_object: Dict[str, Any]) -> List[Any]:
     """Public API. See `_extract_ui_record_list` for implementation details."""
     return _extract_ui_record_list(dll_dump_object)
 
 
-def extract_primary_name(record: Dict[str, Any]) -> Optional[str]:
+def _extract_primary_name_public_api__duplicate(record: Dict[str, Any]) -> Optional[str]:
     """Public API. See `_extract_primary_name` for implementation details."""
     return _extract_primary_name(record)
 
 
-def extract_primary_guid(record: Dict[str, Any]) -> Optional[int]:
+def _extract_primary_guid_public_api__duplicate(record: Dict[str, Any]) -> Optional[int]:
     """Public API. See `_extract_primary_guid` for implementation details."""
     return _extract_primary_guid(record)
 
 
-def extract_visibility_flag_values(record: Dict[str, Any]) -> List[int]:
+def _extract_visibility_flag_values_public_api__duplicate(record: Dict[str, Any]) -> List[int]:
     """Public API. See `_extract_visibility_flag_values` for implementation details."""
     return _extract_visibility_flag_values(record)
 
 
-def find_rect_transform_state_lists(record: Dict[str, Any]) -> List[Tuple[str, List[Dict[str, Any]]]]:
+def _find_rect_transform_state_lists_public_api__duplicate(record: Dict[str, Any]) -> List[Tuple[str, List[Dict[str, Any]]]]:
     """Public API. See `_find_rect_transform_state_lists` for implementation details."""
     return _find_rect_transform_state_lists(record)
 
 
-def choose_best_rect_transform_states(
+def _choose_best_rect_transform_states_public_api__duplicate(
     candidates: List[Tuple[str, List[Dict[str, Any]]]],
 ) -> Tuple[Optional[str], List[Dict[str, Any]]]:
     """Public API. See `_choose_best_rect_transform_states` for implementation details."""
     return _choose_best_rect_transform_states(candidates)
 
 
-def choose_best_rect_transform_state(state_list: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def _choose_best_rect_transform_state_public_api__duplicate(state_list: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Public API. See `_choose_best_rect_transform_state` for implementation details."""
     return _choose_best_rect_transform_state(state_list)
 

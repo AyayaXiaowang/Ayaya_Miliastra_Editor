@@ -1115,6 +1115,8 @@ def start_export_center_action(
             plan_obj.selected_instance_json_files
         ) or bool(plan_obj.selected_struct_ids) or bool(plan_obj.selected_ingame_struct_ids) or bool(plan_obj.selected_signal_ids) or bool(
             plan_obj.selected_level_custom_variable_ids
+        ) or bool(
+            plan_obj.selected_custom_variable_refs
         )
         if not bool(has_any_gil):
             lines2: list[str] = ["没有可写回/可导出的内容（预检后为空）。"]
