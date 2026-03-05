@@ -1,5 +1,5 @@
 {
-  "include": ["."],
+  "include": [ "." ],
   "exclude": [
     "assets/资源库/**/节点图",
     "assets/资源库/**/复合节点库"
