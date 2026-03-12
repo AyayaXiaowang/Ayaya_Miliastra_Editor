@@ -12,7 +12,8 @@
   - `asset_bundle_decorations.py`：资产包结构（Root.field_1 为 GraphUnit 列表）下的装饰物生成。
   - `decorations_variants.py`：批量导出变体用于二分定位真源导入约束。
   - `wire_decorations_bundle.py`：wire-level 保真克隆/生成装饰物 bundle（最小补丁思路）。
-  - `wire_decorations_transform.py`：wire-level 装饰物变换（居中/多 parent 合并为同一空物体；`keep_world` 按完整 TRS(position/rotation/scale) 计算与补偿，保证旋转/缩放存在时装饰物世界变换不变；尽量保持真源可见性）。
+  - `wire_decorations_transform.py`：对外稳定入口（薄门面），转发到 `wire_decorations_transform_impl/` 的拆分实现。
+  - `wire_decorations_transform_impl/`：`wire_decorations_transform` 的内部实现拆分（wire-level 解析/补丁、TRS 数学、GraphUnit/Accessory 操作、`keep_world`/`move_decorations` 策略）。
   - `entity_decorations_writer.py`：wire-level 生成“带装饰物的实体类” `.gia`（含 relatedIds + packed accessories id 列表补丁等）。
 - `wire_preview_pack_processor.py`：wire-level 处理“打包 .gia”内预览实体（居中/同关合并/可选实体化）。
   - 对 Root.field_2 的 instances(GraphUnit class=1,type=14,which=28) 使用 **instance 专用的 Transform 路径** 提取/补丁 position，避免 payload 内其它 Vector3-like message 被 DFS 误读/误写导致真源不可见。

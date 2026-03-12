@@ -16,6 +16,11 @@ from ugc_file_tools.integrations.graph_generater.type_registry_bridge import par
 from ugc_file_tools.repo_paths import repo_root
 from ugc_file_tools.var_type_map import map_server_port_type_text_to_var_type_id_or_raise
 
+_DICT_VAR_TYPE_INT = 27
+_STRING_VAR_TYPE_INT = 6
+_INT_LIKE_VAR_TYPES: set[int] = {1, 2, 3, 14, 17, 21}
+_COLOR_HEX_PREFIX = "#"
+
 
 def _coerce_section_message(value: Any, *, max_depth: int) -> Optional[Dict[str, Any]]:
     if isinstance(value, dict):
@@ -89,6 +94,17 @@ def load_level_variable_payloads_by_file_id(*, project_root: Path) -> Dict[str, 
     return dict(out)
 
 
+def _find_color_hex_text_in_dict_values(default_map: Mapping[Any, Any]) -> tuple[Any, str] | None:
+    """在字典默认值 values 中查找形如 '#RRGGBB' 的颜色文本。"""
+    for k, v in (default_map or {}).items():
+        if not isinstance(v, str):
+            continue
+        s = v.strip()
+        if s.startswith(_COLOR_HEX_PREFIX):
+            return (k, s)
+    return None
+
+
 def build_custom_variable_item_from_level_variable_payload(payload: Mapping[str, Any]) -> Tuple[dict[str, Any], dict[str, Any]]:
     """
     将 LevelVariableDefinition.serialize() 结果转为 `.gil` 元件/实体自定义变量 group1 的 variable_item。
@@ -110,18 +126,29 @@ def build_custom_variable_item_from_level_variable_payload(payload: Mapping[str,
     default_value = payload.get("default_value")
 
     vt = map_server_port_type_text_to_var_type_id_or_raise(type_text)
-    if int(vt) == 27:
+    if int(vt) == _DICT_VAR_TYPE_INT:
         is_typed_dict, key_type_text, value_type_text = parse_typed_dict_alias(type_text)
         if is_typed_dict:
             key_vt = map_server_port_type_text_to_var_type_id_or_raise(key_type_text)
             val_vt = map_server_port_type_text_to_var_type_id_or_raise(value_type_text)
         else:
-            key_vt = 6
+            key_vt = _STRING_VAR_TYPE_INT
             if isinstance(default_value, dict):
                 val_vt = int(infer_dict_value_type_int(default_value))
             else:
-                val_vt = 6
+                val_vt = _STRING_VAR_TYPE_INT
         default_map = default_value if isinstance(default_value, dict) else {}
+
+        if int(val_vt) in _INT_LIKE_VAR_TYPES:
+            bad = _find_color_hex_text_in_dict_values(default_map)
+            if bad is not None:
+                bad_key, bad_value = bad
+                raise ValueError(
+                    "注册表自定义变量默认值与类型声明不一致："
+                    f"variable_id={variable_id!r} variable_name={name!r} variable_type={type_text!r} "
+                    f"dict_value_type_int={int(val_vt)} bad_key={bad_key!r} bad_value={bad_value!r}。"
+                    "该默认值看起来是颜色字符串（#RRGGBB），请将变量类型声明为“字符串-字符串字典”。"
+                )
         item = build_dict_custom_variable_item(
             variable_name=name,
             dict_key_type_int=int(key_vt),

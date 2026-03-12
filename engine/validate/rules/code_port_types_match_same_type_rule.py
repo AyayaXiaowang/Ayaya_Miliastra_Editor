@@ -106,7 +106,7 @@ class SameTypeInputsRule(ValidationRule):
         issues: List[EngineIssue] = []
 
         for _, method in _iter_methods(tree):
-            var_types: Dict[str, str] = _collect_var_types(method, func_names, out_types)
+            var_types: Dict[str, str] = _collect_var_types(method, func_names, out_types, module_tree=tree)
 
             for call in _iter_calls_to_nodes(method, func_names):
                 func = getattr(call, "func", None)

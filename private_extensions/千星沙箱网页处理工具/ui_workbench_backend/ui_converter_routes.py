@@ -270,7 +270,8 @@ def _handle_import_ui_page(*, handler: object, bridge: object | None) -> None:
         send_json(handler, {"ok": False, "error": "bundle.templates 为空，无法导入（未识别到可导入的控件模板）"}, status=400)
         return
 
-    ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle, autofix_missing_lv_variables=True)
+    # 方案 S：autofix_missing_lv_variables 已移除，保持 fail-fast（缺失变量要求在注册表补齐）。
+    ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle, autofix_missing_lv_variables=False)
     if not ok:
         send_json(handler, {"ok": False, "error": error}, status=400)
         return
@@ -317,7 +318,8 @@ def _handle_import_layout(*, handler: object, bridge: object | None) -> None:
             send_json(handler, {"ok": False, "error": "bundle.templates 为空，无法导入（未识别到可导入的控件模板）"}, status=400)
             return
 
-        ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle, autofix_missing_lv_variables=True)
+        # 方案 S：autofix_missing_lv_variables 已移除，保持 fail-fast（缺失变量要求在注册表补齐）。
+        ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle, autofix_missing_lv_variables=False)
         if not ok:
             send_json(handler, {"ok": False, "error": error}, status=400)
             return
@@ -341,7 +343,8 @@ def _handle_import_layout(*, handler: object, bridge: object | None) -> None:
         send_json(handler, {"ok": False, "error": "bundle/template is required"}, status=400)
         return
 
-    ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(template, autofix_missing_lv_variables=True)
+    # 方案 S：autofix_missing_lv_variables 已移除，保持 fail-fast（缺失变量要求在注册表补齐）。
+    ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(template, autofix_missing_lv_variables=False)
     if not ok:
         send_json(handler, {"ok": False, "error": error}, status=400)
         return
@@ -441,7 +444,8 @@ def _handle_export_gil(*, handler: object, bridge: object | None) -> None:
                 )
                 return
 
-            ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle_payload, autofix_missing_lv_variables=True)
+            # 方案 S：autofix_missing_lv_variables 已移除，保持 fail-fast（缺失变量要求在注册表补齐）。
+            ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle_payload, autofix_missing_lv_variables=False)
             if not ok:
                 send_json(handler, {"ok": False, "error": str(error)}, status=400)
                 return
@@ -565,7 +569,8 @@ def _handle_export_gil(*, handler: object, bridge: object | None) -> None:
         )
         return
 
-    ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle, autofix_missing_lv_variables=True)
+    # 方案 S：autofix_missing_lv_variables 已移除，保持 fail-fast（缺失变量要求在注册表补齐）。
+    ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle, autofix_missing_lv_variables=False)
     if not ok:
         send_json(handler, {"ok": False, "error": error}, status=400)
         return
@@ -626,7 +631,8 @@ def _handle_export_gia(*, handler: object, bridge: object | None) -> None:
         send_json(handler, {"ok": False, "error": "bundle.templates 为空，无法导出（未识别到可写回的控件模板）"}, status=400)
         return
 
-    ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle, autofix_missing_lv_variables=True)
+    # 方案 S：autofix_missing_lv_variables 已移除，保持 fail-fast（缺失变量要求在注册表补齐）。
+    ok, error = getattr(b, "try_validate_text_placeholders_in_ui_payload")(bundle, autofix_missing_lv_variables=False)
     if not ok:
         send_json(handler, {"ok": False, "error": error}, status=400)
         return

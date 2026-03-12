@@ -156,7 +156,9 @@ class SceneOverlayMixin:
                     color = QtGui.QColor(block.color)
                     
                     # 绘制基本块编号标签
-                    self._draw_block_label(painter, block_rect, block_index + 1, color)
+                    stable_order_index = int(getattr(block, "order_index", 0) or 0)
+                    label_index = stable_order_index if stable_order_index > 0 else (block_index + 1)
+                    self._draw_block_label(painter, block_rect, label_index, color)
             
             painter.restore()
             if monitor is not None:

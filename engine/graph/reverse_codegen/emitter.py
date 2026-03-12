@@ -1576,3 +1576,21 @@ def _finalize_output_var_names(raw_names: Sequence[str], *, used: set[str]) -> L
         finalized.append(candidate)
     return finalized
 
+
+# --------------------------------------------------------------------------------------
+# 拆分实现的兼容 re-export：对外导入路径保持为 `engine.graph.reverse_codegen.emitter`。
+#
+# 注意：实现细节已迁移到 `engine.graph.reverse_codegen._emitter` 子包，本文件保留为兼容入口。
+# --------------------------------------------------------------------------------------
+from engine.graph.reverse_codegen._emitter.call_args import _render_node_call_args as _render_node_call_args  # noqa: E402,F401
+from engine.graph.reverse_codegen._emitter.constants import (  # noqa: E402,F401
+    _ARITHMETIC_OPERATOR_BY_TITLE as _ARITHMETIC_OPERATOR_BY_TITLE,
+    _NUMERIC_TYPES as _NUMERIC_TYPES,
+)
+from engine.graph.reverse_codegen._emitter.naming import (  # noqa: E402,F401
+    _finalize_output_var_names as _finalize_output_var_names,
+    _pick_call_name_for_node as _pick_call_name_for_node,
+)
+from engine.graph.reverse_codegen._emitter.structured_event_emitter import (  # noqa: E402,F401
+    _StructuredEventEmitter as _StructuredEventEmitter,
+)

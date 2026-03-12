@@ -6,7 +6,7 @@
 - **块内上下文**：`BlockLayoutContext` 以 `LayoutContext` 为全局只读索引来源；在跨块复制/增量写边场景可切换为 copy-on-write 边索引视图（`EdgeListProxy` 等），避免整图深拷贝并保证后续块能看到前序变更。
 - **共享图语义**：流程口/数据口判定、事件流遍历与数据链查询统一复用 `engine.utils.graph.*` 与 `engine.layout.utils.graph_query_utils`，本目录只保留块级编排与最少必要状态。
 - **数据节点归属原则**：数据节点分配到“首次实际消费它的块”；跨块共享通过复制/重定向实现，语义敏感的查询节点可被列入禁止复制集合。
-- **确定性**：块识别采用 BFS 生成稳定块序号；所有会影响对齐/收敛的遍历必须稳定排序（如按 `LayoutBlock.order_index`）。
+- **确定性**：块识别采用 **严格 DFS（深度优先）** 按端口顺序生成稳定块序号：仅依赖 visited 去重，不做“入栈去重”，确保沿当前路径优先走到不能再往下走为止；所有会影响对齐/收敛的遍历必须稳定排序（如按 `LayoutBlock.order_index`）。
 
 ## 注意事项
 - 仅关注块抽象与布局算法，不引入 `app/*`、`plugins/*`、`assets/*` 依赖；基础类型统一从 `engine.layout.internal` 导入。

@@ -144,6 +144,7 @@ def serialize_graph(graph: "GraphModel") -> dict:
                 "nodes": basic_block.nodes,
                 "color": basic_block.color,
                 "alpha": basic_block.alpha,
+                "order_index": int(getattr(basic_block, "order_index", 0) or 0),
             }
             for basic_block in (graph.basic_blocks or [])
         ],
@@ -292,7 +293,10 @@ def deserialize_graph(data: dict) -> "GraphModel":
             nodes_list = list(block_data.get("nodes", [])) if isinstance(block_data.get("nodes", []), list) else []
             color_value = str(block_data.get("color", "#FF5E9C"))
             alpha_value = float(block_data.get("alpha", 0.2))
-            parsed_blocks.append(BasicBlock(nodes=nodes_list, color=color_value, alpha=alpha_value))
+            order_index_value = int(block_data.get("order_index", 0) or 0)
+            parsed_blocks.append(
+                BasicBlock(nodes=nodes_list, color=color_value, alpha=alpha_value, order_index=order_index_value)
+            )
         graph.basic_blocks = parsed_blocks
 
     # ----------------------------------------------------------------------

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import string
 import tokenize
 import zlib
 from dataclasses import dataclass, field
@@ -33,6 +34,91 @@ _REGISTRY_DECL_FIELDS_ALLOWED: set[str] = set(_REGISTRY_DECL_FIELDS_ORDERED)
 _REGISTRY_DECL_METADATA_ALLOWED_KEYS: set[str] = {
     "sources",
 }
+
+_COLOR_HEX_PREFIX: str = "#"
+_COLOR_HEX_DIGITS: int = 6
+_COLOR_HEX_TOTAL_LEN: int = len(_COLOR_HEX_PREFIX) + _COLOR_HEX_DIGITS
+_HEX_DIGITS: frozenset[str] = frozenset(string.hexdigits)
+
+
+def _is_color_hex_text(value: object) -> bool:
+    """Return True if value looks like a #RRGGBB color string."""
+    if not isinstance(value, str):
+        return False
+    s = value.strip()
+    if len(s) != _COLOR_HEX_TOTAL_LEN:
+        return False
+    if not s.startswith(_COLOR_HEX_PREFIX):
+        return False
+    return all(ch in _HEX_DIGITS for ch in s[len(_COLOR_HEX_PREFIX):])
+
+
+def _is_int_like(value: object) -> bool:
+    """Return True if value can be losslessly parsed as an integer."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return True
+    if isinstance(value, str):
+        s = value.strip()
+        if s.startswith(("+", "-")):
+            s = s[1:]
+        return s.isdigit() and s != ""
+    return False
+
+
+def _validate_typed_dict_alias_default_value(
+    *,
+    registry_path: Path,
+    variable_id: str,
+    variable_name: str,
+    variable_type: str,
+    default_value: object,
+) -> None:
+    """Validate typed dict alias default_value against the declared key/value types."""
+    from engine.type_registry import TYPE_INTEGER, TYPE_STRING, parse_typed_dict_alias
+
+    is_alias, key_type, value_type = parse_typed_dict_alias(variable_type)
+    if not is_alias:
+        return
+    if default_value is None:
+        return
+    if not isinstance(default_value, dict):
+        raise ValueError(
+            f"{registry_path}: 注册表自定义变量默认值与类型声明不一致："
+            f"variable_id={variable_id!r} variable_name={variable_name!r} variable_type={variable_type!r} "
+            f"default_value_type={type(default_value).__name__!r}。"
+            "typed dict alias 的 default_value 必须为 dict。"
+        )
+
+    # key：本项目 UI 字典类变量的实践约定为“字符串键”。
+    if key_type == TYPE_STRING:
+        for k in default_value.keys():
+            if not isinstance(k, str):
+                raise ValueError(
+                    f"{registry_path}: 注册表自定义变量默认值与类型声明不一致："
+                    f"variable_id={variable_id!r} variable_name={variable_name!r} variable_type={variable_type!r} "
+                    f"bad_key={k!r}。"
+                    "该默认值的 key 不是字符串，请修正 default_value 的键类型。"
+                )
+
+    # value：最常见的错配是“整数字典里塞 #RRGGBB”，这里直接对齐写回链路的 fail-fast 提示。
+    if value_type == TYPE_INTEGER:
+        for k, v in default_value.items():
+            if _is_color_hex_text(v):
+                raise ValueError(
+                    f"{registry_path}: 注册表自定义变量默认值与类型声明不一致："
+                    f"variable_id={variable_id!r} variable_name={variable_name!r} variable_type={variable_type!r} "
+                    f"bad_key={k!r} bad_value={v!r}。"
+                    "该默认值看起来是颜色字符串（#RRGGBB），请将变量类型声明为“字符串-字符串字典”。"
+                )
+            if not _is_int_like(v):
+                raise ValueError(
+                    f"{registry_path}: 注册表自定义变量默认值与类型声明不一致："
+                    f"variable_id={variable_id!r} variable_name={variable_name!r} variable_type={variable_type!r} "
+                    f"bad_key={k!r} bad_value={v!r}。"
+                    "该默认值无法解析为整数，请修正 default_value 或变量类型声明。"
+                )
 
 
 def normalize_owner_refs(owner: object) -> list[str]:
@@ -242,6 +328,13 @@ def load_auto_custom_variable_registry_from_code(
             validate_owner_ref(ref, registry_path=registry_path)
         meta = d.metadata if isinstance(d.metadata, dict) else {}
         _validate_registry_decl_metadata(meta, registry_path=registry_path, variable_name=name)
+        _validate_typed_dict_alias_default_value(
+            registry_path=registry_path,
+            variable_id=vid,
+            variable_name=name,
+            variable_type=str(d.variable_type or "").strip(),
+            default_value=d.default_value,
+        )
     return decls
 
 

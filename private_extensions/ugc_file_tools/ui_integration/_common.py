@@ -201,6 +201,8 @@ def _iter_python_string_literals_from_file(*, file_path: Path) -> list[str]:
 def scan_id_ref_placeholders_in_graph_code_file(*, graph_code_file: Path) -> IdRefPlaceholderUsage:
     """
     扫描单个节点图源码文件内的 entity/component 占位符，并做缓存（按 mtime_ns）。
+
+    额外覆盖：Graph Code 头部 metadata 的 `mount: entity_key/...` / `mount: component_key/...`。
     """
     p = Path(graph_code_file).resolve()
     if not p.is_file():
@@ -241,6 +243,15 @@ def scan_id_ref_placeholders_in_graph_code_file(*, graph_code_file: Path) -> IdR
             if key != "":
                 component_names.add(key)
             continue
+
+    # Graph Code 头部 mount 声明（用于节点图挂载写回）也属于 entity_key/component_key 的回填依赖。
+    from ugc_file_tools.project_archive_importer.node_graphs_importer_parts.graph_mounts import (
+        scan_graph_mount_usage_from_graph_code_file,
+    )
+
+    mount_usage = scan_graph_mount_usage_from_graph_code_file(graph_code_file=p)
+    entity_names.update([str(x) for x in list(mount_usage.entity_names or []) if str(x).strip() != ""])
+    component_names.update([str(x) for x in list(mount_usage.component_names or []) if str(x).strip() != ""])
 
     usage = IdRefPlaceholderUsage(
         entity_names=frozenset(entity_names),

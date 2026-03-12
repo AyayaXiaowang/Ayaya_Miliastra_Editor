@@ -102,8 +102,24 @@ def _scan_ui_key_candidates_from_workbench_bundles(
         for w in widgets:
             if not isinstance(w, dict):
                 continue
-            _bump(w.get("ui_key"))
+            ui_key = w.get("ui_key")
+            _bump(ui_key)
             _bump(w.get("widget_id"))
+
+            # 组合控件组占位符：节点图侧常用 `...__group` 来匹配事件 `界面控件组组合索引`；
+            # 但 Workbench bundle 里通常只导出 `...__btn_item`（交互控件）而不包含显式 `...__group`。
+            # 这里从 `...__btn_item` 衍生一条 `...__group` 作为“本次同时导出”的候选 key，
+            # 让回填识别能正确标记其为“一同导出”，避免误报缺失。
+            if isinstance(ui_key, str):
+                parts = [p for p in str(ui_key).split("__") if str(p).strip() != ""]
+                if len(parts) >= 3:
+                    last_btn_item_idx = -1
+                    for i, token in enumerate(parts):
+                        if str(token) == "btn_item":
+                            last_btn_item_idx = int(i)
+                    if last_btn_item_idx >= 2:
+                        derived_group_key = "__".join(parts[:last_btn_item_idx] + ["group"])
+                        _bump(derived_group_key)
 
     alias_conflicts: set[str] = set()
     for bf in list(bundle_files):
@@ -263,7 +279,7 @@ def identify_gil_backfill_comparison(
     - rows: list[{category,key,value,status,note}]
     - summary: {total, ok, bundled, missing, mismatch, ambiguous}
     """
-    from ugc_file_tools.ui.guid_resolution import resolve_ui_key_guid_from_output_gil
+    from .backfill_ui_guid_resolution import resolve_ui_key_guid_from_output_gil_for_backfill
     from ugc_file_tools.ui.export_records import load_ui_guid_registry_snapshot, try_get_ui_export_record_by_id
 
     required_entity_list = sorted(
@@ -561,7 +577,7 @@ def identify_gil_backfill_comparison(
         attempted_hints: list[str | None] = [None] + hint_list
         resolved: list[tuple[int, str | None]] = []
         for hint in attempted_hints:
-            got = resolve_ui_key_guid_from_output_gil(
+            got = resolve_ui_key_guid_from_output_gil_for_backfill(
                 ui_key=str(key),
                 layout_name_hint=(str(hint).strip() if hint is not None else None),
                 ui_index=ui_index,

@@ -11,6 +11,7 @@
     - 兼容端口名形态：`字典_字符串到整数` / `字符串到整数`（用于 GraphModel 类型快照缺失但端口命名携带语义时的 K/V 提取）。
   - `enum_codec.py`：枚举常量（中文选项→enum item id）解析。
   - `signal_binding.py`：发送/监听/向服务器发送信号的 META binding 规则与导出/写回计划（single source of truth）。
+- `signal_usage.py`：从 GraphModel.payload 收集“静态绑定”的信号名（支持 set/list/count 三种口径），供写回/导出/分析等统一复用。
   - `pin_rules.py`：端口 index/ConcreteBase.indexOfConcrete 等规则（含少量节点特例）；indexOfConcrete 推断优先 genshin-ts ConcreteMap，缺失/未命中时回退 node_data TypeMappings（`S<T:...>`）；并兼容 `L<R<T>>` 列表反射端口在仅拿到“列表容器 VarType(L<T>)”时回退到“元素 VarType(T)”以命中映射（例如【拼装列表】字符串列表的 indexOfConcrete=1 来自 TypeMappings(S<T:Str>)）。
   - slot_index→pin_index 映射包含少量“端口布局不一致”的节点特例：例如【创建元件】在 `.gil` 底层端口布局存在隐藏输入槽，GraphModel 端口从“是否覆写等级”开始需整体偏移以避免 pins 错位。
 - `type_inference.py`：基于连线的端口类型兜底推断（兼容 GraphModel 仅携带 `effective_input_types/effective_output_types` 快照或缺失 `*_port_types` 时的反推证据读取）。

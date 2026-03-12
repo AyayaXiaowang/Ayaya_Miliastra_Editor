@@ -6,6 +6,7 @@
 
 ## 当前状态
 - 所有函数使用 `@node_spec` 声明端口类型与相关元数据（包含泛型约束与枚举候选项等），与 `plugins.nodes.shared.server_执行节点_impl_helpers` 等辅助库配合。
+- 节点端口定义（`@node_spec(inputs/outputs)`）可通过离线工具脚本从官网“节点介绍”页抓取并对齐：`python -X utf8 -m tools.sync_ugc_tutorial_node_specs`（可选 `--apply` 写回端口表；不改函数体实现）。
 - 部分节点会在 `@node_spec` 中声明 `input_defaults`（输入端口默认值），用于让特定数据输入端口在 Graph Code/图模型中允许省略；对应实现函数需提供匹配的 Python 默认参数值，确保运行期调用不因缺参报错。
 - `创建元件` 的 `旋转` 端口允许省略：通过 `input_defaults` 提供缺省值，Graph Code 不需要显式传入旋转。
 - 部分关键语义节点会在 `@node_spec` 中声明 `semantic_id`（稳定语义标识符），供校验/工具链定位语义节点，避免依赖显示名字符串（例如信号发送、自定义变量写入、结构体修改等）。

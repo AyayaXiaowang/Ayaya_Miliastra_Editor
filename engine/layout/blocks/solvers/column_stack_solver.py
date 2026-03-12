@@ -4,11 +4,24 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
 from ...internal.layout_models import LayoutBlock
+from ...internal.constants import UI_HEADER_EXTRA, UI_NODE_PADDING, UI_ROW_HEIGHT
 from ..block_relationship_analyzer import BlockShiftPlan
+
+from ...utils.graph_query_utils import build_input_port_layout_plan, is_flow_edge
 
 from .overlap_buckets import iter_overlap_candidates, register_block_in_buckets
 from .tight_spacing_x_solver import compute_final_block_left_x, compute_min_left_from_port_gap
 from .types import PositioningEngineConfig, PositioningRuntimeState
+
+
+MAX_Y_RELAXATION_ROUNDS: int = 32
+Y_RELAXATION_EPSILON: float = 1e-6
+MAX_POST_CENTERING_PROJECTION_ROUNDS: int = 16
+
+HALF_ROW_HEIGHT_PX: int = int(UI_ROW_HEIGHT) // 2
+NODE_HEADER_HEIGHT_PX: int = int(UI_ROW_HEIGHT) + int(UI_HEADER_EXTRA)
+PORT_START_Y_PX: int = int(NODE_HEADER_HEIGHT_PX) + int(UI_NODE_PADDING)
+MAX_PORT_INDEX_SENTINEL: int = 10**9
 
 
 @dataclass(frozen=True)
@@ -160,9 +173,160 @@ def solve_stack_blocks_in_columns(
     def _center(block: LayoutBlock) -> float:
         return float(current_top_y.get(block, current_group_top_y)) + float(block.height) * 0.5
 
+    # === 端口锚点（用于“视觉居中”：以连线端口Y为准，而不是块矩形中心） ===
+    layout_context = config.global_context
+    model = getattr(layout_context, "model", None) if layout_context is not None else None
+    registry_context = getattr(layout_context, "registry_context", None) if layout_context is not None else None
+
+    # 端口行号缓存：node_id -> row_index_by_port
+    _input_row_index_cache: Dict[str, Dict[str, int]] = {}
+
+    def _connected_input_ports(node_id: str) -> Set[str]:
+        if model is None:
+            return set()
+        edges = getattr(model, "edges", None)
+        if not isinstance(edges, dict):
+            return set()
+        ports: Set[str] = set()
+        for edge in edges.values():
+            if str(getattr(edge, "dst_node", "") or "") != str(node_id):
+                continue
+            dst_port = str(getattr(edge, "dst_port", "") or "")
+            if dst_port:
+                ports.add(dst_port)
+        return ports
+
+    def _get_input_row_index(*, node_obj: object, node_id: str, port_name: str) -> int:
+        cached = _input_row_index_cache.get(node_id)
+        if cached is None:
+            if registry_context is None:
+                raise AssertionError("缺少 LayoutRegistryContext：无法按 UI 口径计算输入端口行号")
+            connected = _connected_input_ports(node_id)
+            plan = build_input_port_layout_plan(node_obj, connected, registry_context=registry_context)
+            cached = {str(k): int(v) for k, v in dict(getattr(plan, "row_index_by_port", {}) or {}).items()}
+            _input_row_index_cache[node_id] = cached
+        return int(cached.get(port_name, 0))
+
+    def _node_global_y(*, block: LayoutBlock, node_id: str) -> float:
+        # node_local_pos 为 block 内相对坐标（以 node top-left 为基准）
+        local = getattr(block, "node_local_pos", None)
+        if not isinstance(local, dict):
+            return float(current_top_y.get(block, current_group_top_y))
+        pos = local.get(node_id)
+        if not isinstance(pos, (list, tuple)) or len(pos) < 2:
+            return float(current_top_y.get(block, current_group_top_y))
+        return float(current_top_y.get(block, current_group_top_y)) + float(pos[1])
+
+    def _port_y_output(*, node_y: float, output_index: int) -> float:
+        local_y = float(PORT_START_Y_PX + int(output_index) * int(UI_ROW_HEIGHT) + int(HALF_ROW_HEIGHT_PX))
+        return float(node_y) + local_y
+
+    def _port_y_input(*, node_y: float, row_index: int) -> float:
+        local_y = float(PORT_START_Y_PX + int(row_index) * int(UI_ROW_HEIGHT) + int(HALF_ROW_HEIGHT_PX))
+        return float(node_y) + local_y
+
+    # parent->child 的“代表性 flow 边”缓存：用于从端口坐标推导块间居中约束
+    # 选择策略：同一 parent->child 若存在多条边，优先选择 src 输出端口 index 更小的那条（更符合 UI 端口从上到下顺序）。
+    edge_ref_by_pair: Dict[tuple[LayoutBlock, LayoutBlock], object] = {}
+
+    if (layout_context is not None) and (model is not None):
+        edges = getattr(model, "edges", None)
+        nodes = getattr(model, "nodes", None)
+        out_index_by_node = getattr(layout_context, "portIndexByNodeOut", None)
+        if isinstance(edges, dict) and isinstance(nodes, dict) and isinstance(out_index_by_node, dict):
+            # 快速判定：只保留 ordered_children 中真实存在的 parent->child 对
+            allowed_child_set_by_parent: Dict[LayoutBlock, Set[LayoutBlock]] = {
+                p: set(cs) for p, cs in unique_children_map.items()
+            }
+            for edge in edges.values():
+                if not is_flow_edge(model, edge):
+                    continue
+                src_node_id = str(getattr(edge, "src_node", "") or "")
+                dst_node_id = str(getattr(edge, "dst_node", "") or "")
+                if not src_node_id or not dst_node_id:
+                    continue
+                parent_block = config.block_map.get(src_node_id)
+                child_block = config.block_map.get(dst_node_id)
+                if parent_block is None or child_block is None:
+                    continue
+                if parent_block not in group_blocks_set or child_block not in group_blocks_set:
+                    continue
+                if child_block not in allowed_child_set_by_parent.get(parent_block, set()):
+                    continue
+                src_port = str(getattr(edge, "src_port", "") or "")
+                if not src_port:
+                    continue
+                out_index_map = out_index_by_node.get(src_node_id)
+                if not isinstance(out_index_map, dict):
+                    continue
+                out_index = out_index_map.get(src_port)
+                if out_index is None:
+                    continue
+                key = (parent_block, child_block)
+                prev = edge_ref_by_pair.get(key)
+                if prev is None:
+                    edge_ref_by_pair[key] = edge
+                    continue
+                prev_src = str(getattr(prev, "src_node", "") or "")
+                prev_port = str(getattr(prev, "src_port", "") or "")
+                prev_map = out_index_by_node.get(prev_src, {}) if isinstance(out_index_by_node.get(prev_src), dict) else {}
+                prev_index = prev_map.get(prev_port, MAX_PORT_INDEX_SENTINEL)
+                if int(out_index) < int(prev_index):
+                    edge_ref_by_pair[key] = edge
+
+    def _exclusive_children(parent_block: LayoutBlock) -> List[LayoutBlock]:
+        children = unique_children_map.get(parent_block, [])
+        if not children:
+            return []
+        result: List[LayoutBlock] = []
+        for child in children:
+            ps = parents_from_edges.get(child, set())
+            if len(ps) == 1 and parent_block in ps:
+                result.append(child)
+        return result
+
+    def _pair_port_anchor_y(*, parent_block: LayoutBlock, child_block: LayoutBlock) -> Optional[tuple[float, float]]:
+        """
+        返回 (src_port_y, dst_port_y)，分别为 parent->child 代表性 flow 边的端口中心点 Y（全局坐标）。
+        """
+        if model is None or layout_context is None:
+            return None
+        edge = edge_ref_by_pair.get((parent_block, child_block))
+        if edge is None:
+            return None
+        nodes = getattr(model, "nodes", None)
+        if not isinstance(nodes, dict):
+            return None
+        src_node_id = str(getattr(edge, "src_node", "") or "")
+        dst_node_id = str(getattr(edge, "dst_node", "") or "")
+        src_port = str(getattr(edge, "src_port", "") or "")
+        dst_port = str(getattr(edge, "dst_port", "") or "")
+        if not src_node_id or not dst_node_id or not src_port or not dst_port:
+            return None
+        src_node = nodes.get(src_node_id)
+        dst_node = nodes.get(dst_node_id)
+        if src_node is None or dst_node is None:
+            return None
+        out_index_by_node = getattr(layout_context, "portIndexByNodeOut", None)
+        if not isinstance(out_index_by_node, dict):
+            return None
+        out_index_map = out_index_by_node.get(src_node_id)
+        if not isinstance(out_index_map, dict):
+            return None
+        out_index = out_index_map.get(src_port)
+        if out_index is None:
+            return None
+
+        src_node_y = _node_global_y(block=parent_block, node_id=src_node_id)
+        dst_node_y = _node_global_y(block=child_block, node_id=dst_node_id)
+        src_port_y = _port_y_output(node_y=src_node_y, output_index=int(out_index))
+        dst_row_index = _get_input_row_index(node_obj=dst_node, node_id=dst_node_id, port_name=dst_port)
+        dst_port_y = _port_y_input(node_y=dst_node_y, row_index=int(dst_row_index))
+        return float(src_port_y), float(dst_port_y)
+
     # 迭代次数：复杂图也能收敛，同时避免过大开销
-    max_rounds = 12
-    epsilon = 0.5
+    max_rounds = MAX_Y_RELAXATION_ROUNDS
+    epsilon = Y_RELAXATION_EPSILON
     # 性能优化：若该事件组内不存在任何需要“对齐/居中”的目标约束，则跳过迭代松弛。
     # 在这种情况下，迭代阶段最终会收敛到“初始紧凑堆叠”的同一解，跳过不会改变排版结果，只减少开销。
     should_relax_y = False
@@ -215,8 +379,18 @@ def solve_stack_blocks_in_columns(
                 if len(parents) >= 2:
                     parent_centers = [_center(parent) for parent in parents if parent in current_top_y]
                     if len(parent_centers) >= 2:
-                        avg_parent_center = sum(parent_centers) / float(len(parent_centers))
-                        desired_top[block] = float(avg_parent_center) - float(block.height) * 0.5
+                        # 用户期望：居中不必严格等于均值；只要落在“父中心点范围”之内即可。
+                        # 因此这里采用 clamp：仅当当前中心点在范围外时，才把它拉回到边界（最小移动）。
+                        current_center = float(_center(block))
+                        lo_parent = float(min(parent_centers))
+                        hi_parent = float(max(parent_centers))
+                        if current_center < lo_parent:
+                            desired_center = float(lo_parent)
+                        elif current_center > hi_parent:
+                            desired_center = float(hi_parent)
+                        else:
+                            desired_center = float(current_center)
+                        desired_top[block] = float(desired_center) - float(block.height) * 0.5
                         has_target[block] = True
                         continue
 
@@ -225,21 +399,44 @@ def solve_stack_blocks_in_columns(
                 # 这里采用阈值策略：冲突过大时优先维持兄弟分支紧凑，避免出现“兄弟分支之间大片空白带”。
                 multi_child_target_top: Optional[float] = None
                 if len(children) >= 2:
-                    child_centers = [_center(child) for child in children if child in current_top_y]
-                    if len(child_centers) >= 2:
-                        avg_child_center = sum(child_centers) / float(len(child_centers))
-                        multi_child_target_top = float(avg_child_center) - float(block.height) * 0.5
+                    # 优先使用“端口锚点”口径（更贴近用户看到的连线扇出位置）：
+                    exclusive_children = _exclusive_children(block)
+                    anchors: List[tuple[float, float]] = []
+                    for ch in exclusive_children:
+                        a = _pair_port_anchor_y(parent_block=block, child_block=ch)
+                        if a is not None:
+                            anchors.append(a)
+                    if len(anchors) >= 2:
+                        src_mean = sum(a[0] for a in anchors) / float(len(anchors))
+                        dst_ys = [a[1] for a in anchors]
+                        lo_child = float(min(dst_ys))
+                        hi_child = float(max(dst_ys))
+                        # 只在越界时才拉回（紧密优先）。注意：这里只能通过下移父块来修正“父块过高”。
+                        if float(src_mean) < lo_child:
+                            delta = float(lo_child) - float(src_mean)
+                            multi_child_target_top = float(current) + float(delta)
+                        else:
+                            multi_child_target_top = float(current)
+                    else:
+                        # 回退：缺少端口锚点（例如无 layout_context / 边缺失），使用块中心点范围 clamp。
+                        child_centers = [_center(child) for child in children if child in current_top_y]
+                        if len(child_centers) >= 2:
+                            current_center = float(_center(block))
+                            lo_child = float(min(child_centers))
+                            hi_child = float(max(child_centers))
+                            if current_center < lo_child:
+                                desired_center = float(lo_child)
+                            elif current_center > hi_child:
+                                desired_center = float(hi_child)
+                            else:
+                                desired_center = float(current_center)
+                            multi_child_target_top = float(desired_center) - float(block.height) * 0.5
 
                 if split_child_target_top is not None:
                     if multi_child_target_top is not None:
-                        # 冲突阈值：差距过大说明下游太深，把本层兄弟分支拉开得难看，应优先紧凑
-                        conflict_threshold = 500.0
-                        if abs(float(split_child_target_top) - float(multi_child_target_top)) >= conflict_threshold:
-                            desired_top[block] = float(split_child_target_top)
-                            has_target[block] = True
-                            continue
-                        # 差距不大：折中（保持稳定，不会剧烈摇摆）
-                        desired_top[block] = 0.5 * float(split_child_target_top) + 0.5 * float(multi_child_target_top)
+                        # 冲突场景：该块既是“某父块的分叉子块”，又是“自己的分叉父块”。
+                        # 用户期望：保持紧凑堆叠，不追求严格均值；因此仍优先使用“落在范围内”的子块 clamp 目标。
+                        desired_top[block] = float(multi_child_target_top)
                         has_target[block] = True
                         continue
 
@@ -410,6 +607,67 @@ def solve_stack_blocks_in_columns(
             for later in blocks_in_column[start_idx:]:
                 current_top_y[later] = float(current_top_y.get(later, current_group_top_y)) + float(delta)
 
+    # 1.5) 居中“范围夹紧”投影（确定性；只做向下平移；保持紧凑）：
+    # 居中口径：按“连线端口锚点Y”判断，而不是块矩形中心点。
+    #
+    # 对 parent->children（exclusive children, 且数量>=2）：
+    # - parent_anchor = mean(src_port_y(parent->child_i))
+    # - children_range = [min(dst_port_y_i), max(dst_port_y_i)]
+    #
+    # 仅当 parent_anchor 越界时做最小修正：
+    # - parent_anchor < lo：下移 parent（同列后续一起下移）直到 parent_anchor == lo
+    # - parent_anchor > hi：下移所有 children（各自列后续一起下移）直到 hi == parent_anchor
+
+    for _ in range(MAX_POST_CENTERING_PROJECTION_ROUNDS):
+        any_shift = False
+        for parent_block in stable_group_blocks:
+            children = _exclusive_children(parent_block)
+            if len(children) < 2:
+                continue
+            anchors: List[tuple[float, float]] = []
+            for child in children:
+                a = _pair_port_anchor_y(parent_block=parent_block, child_block=child)
+                if a is not None:
+                    anchors.append(a)
+            if len(anchors) < 2:
+                # 无端口锚点时不做投影（保持旧行为：靠迭代松弛 + 列内堆叠）
+                continue
+            parent_anchor = sum(a[0] for a in anchors) / float(len(anchors))
+            child_anchor_ys = [a[1] for a in anchors]
+            lo = float(min(child_anchor_ys))
+            hi = float(max(child_anchor_ys))
+
+            if parent_anchor < lo - epsilon:
+                delta = float(lo - parent_anchor)
+                col = column_by_block.get(parent_block)
+                if col is None:
+                    continue
+                blocks_in_column = column_to_blocks.get(int(col), [])
+                if not blocks_in_column:
+                    continue
+                start_idx = index_in_column.get(parent_block, 0)
+                for later in blocks_in_column[start_idx:]:
+                    current_top_y[later] = float(current_top_y.get(later, current_group_top_y)) + float(delta)
+                any_shift = True
+                continue
+
+            if parent_anchor > hi + epsilon:
+                delta = float(parent_anchor - hi)
+                for child_block in children:
+                    col = column_by_block.get(child_block)
+                    if col is None:
+                        continue
+                    blocks_in_column = column_to_blocks.get(int(col), [])
+                    if not blocks_in_column:
+                        continue
+                    start_idx = index_in_column.get(child_block, 0)
+                    for later in blocks_in_column[start_idx:]:
+                        current_top_y[later] = float(current_top_y.get(later, current_group_top_y)) + float(delta)
+                any_shift = True
+
+        if not any_shift:
+            break
+
     # 2) 基于收敛后的 top_y 再做一次“X 贴近 + 避免重叠”放置（保持几何一致性）
     # 注意：不要清空 runtime.positioned_blocks / runtime.bucket_map。
     # 块间排版是按事件组逐组放置的，前序事件组已经放置的块必须保留在集合中：
@@ -423,50 +681,8 @@ def solve_stack_blocks_in_columns(
             continue
         column_left = column_left_x.get(column_index, config.initial_x)
 
-        # 小范围“避开轻微纵向擦边导致的巨大 X 推开”：
-        # 若某块在当前 top_y 下仅与某个左侧已放置块发生很小的纵向重叠，
-        # 但这会触发 compute_min_left_from_overlap 的巨大右移（例如某个左侧块过宽导致后继块被推远），
-        # 则将该块及其后续同列块整体向下微调，消除纵向重叠，从而允许更贴近左侧。
-        #
-        # 该规则只做“向下微调”（保持列内顺序与不重叠），并限制在很小的重叠量内，避免对整体布局造成扰动。
-        max_nudge_overlap = 20.0
-        min_x_improvement = 120.0
-
         for index, block in enumerate(blocks_in_column):
             top_y = float(current_top_y.get(block, current_group_top_y))
-
-            if config.enable_tight_block_spacing and config.global_context is not None:
-                port_left = compute_min_left_from_port_gap(config, runtime, block)
-                if port_left is None:
-                    port_left = float(column_left)
-
-                current_top = float(top_y)
-                current_bottom = current_top + float(block.height)
-                max_right: Optional[float] = None
-                overlap_amount = 0.0
-                for placed in iter_overlap_candidates(runtime, current_top, current_bottom):
-                    if placed is block:
-                        continue
-                    placed_left = float(placed.top_left_pos[0])
-                    placed_top = float(placed.top_left_pos[1])
-                    placed_right = placed_left + float(placed.width)
-                    placed_bottom = placed_top + float(placed.height)
-                    if placed_bottom <= current_top or placed_top >= current_bottom:
-                        continue
-                    overlap_height = min(current_bottom, placed_bottom) - max(current_top, placed_top)
-                    if overlap_height <= 0.0:
-                        continue
-                    if (max_right is None) or (placed_right > max_right):
-                        max_right = placed_right
-                        overlap_amount = float(overlap_height)
-
-                if max_right is not None and overlap_amount > 0.0 and overlap_amount <= max_nudge_overlap:
-                    required_from_overlap = float(max_right) + float(config.block_x_spacing)
-                    if (required_from_overlap - float(port_left)) >= min_x_improvement:
-                        delta = float(overlap_amount) + 1.0
-                        for later in blocks_in_column[index:]:
-                            current_top_y[later] = float(current_top_y.get(later, current_group_top_y)) + delta
-                        top_y = float(current_top_y.get(block, current_group_top_y))
             base_left_x = column_left
             if config.enable_tight_block_spacing:
                 left_x = compute_final_block_left_x(config, runtime, block, base_left_x, top_y)

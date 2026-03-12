@@ -11,9 +11,16 @@
   - out→用户目录复制使用“临时文件 + `os.replace`”的原子覆盖：避免大文件复制过程中被其它进程读到半文件（表现为无法解析/导入失败），也避免复制中断直接写坏目标文件。
   - 模板写回阶段会同步写回模板 `decorations` 到 `.gil` 的装饰物段 `payload_root['27']`（root27）；不再通过“自动启用实例写回闭包”的方式绕写到实体摆放段。
   - 实体摆放写回：当所选 `instance_id` 在 base `.gil` 中不存在时，会按“新增实例（克隆样本 entry）”策略写入输出；模板类型/样本不足时会 fail-fast 报错，避免产物进游戏不可见。
-  - 节点图写回可自动启用信号定义写回：从 GraphModel 收集 `__signal_id` 与“静态绑定的信号名”，并兼容监听信号事件节点（`node_def_ref.kind=event`）的 `key/title` 形态，避免仅导出节点图时产出缺信号定义的 `.gil`。
+  - 节点图写回可自动启用信号定义写回：从 GraphModel 收集 `__signal_id` 与“静态绑定的信号名”（直接复用 `node_graph_semantics/signal_usage.py` 的公开函数），并兼容监听信号事件节点（`node_def_ref.kind=event`）的 `key/title` 形态，避免仅导出节点图时产出缺信号定义的 `.gil`。
+  - 节点图写回支持实时的导入进度反馈：通过下发子进度回调，向前端界面报告当前正在处理的节点图文件和处理进度（形如 `正在写回节点图… [当前/总数] 图文件名`），用于提升批处理时的过程可见性。
+  - 节点图挂载（mount）预检：当计划写回节点图时，准备阶段会扫描 Graph Code 头部 `mount:` metadata 并结合当前 id_ref 映射做解析预检；若发现缺失映射会通过 progress 输出 WARN，并在 report 中写入 `graph_mount_preflight`（不阻断写回）。
   - 信号写回支持“占位无参信号”写入开关：`signals_emit_reserved_placeholder_signal` 控制是否将 0x6000/0x6080 口径的保留位占位信号写入产物（默认关闭：不写 entry，但预留其 node_def_id/端口块）。
-- 写回前可按需补齐 base `.gil` 的基础设施段：当检测到 `root4/11` 初始阵营互斥字段缺失（entries 缺 key=13）或 `root4/35` 默认分组列表缺失时，会先从 bootstrap `.gil`（默认：`ugc_file_tools/builtin_resources/seeds/infrastructure_bootstrap.gil`）复制缺失字段（只补缺失、不覆盖 base 其它业务段），降低官方侧更严格校验失败的风险；当 bootstrap 判定无需写盘（`changed=False`）时，pipeline 会继续沿用原始 input_gil 作为后续步骤输入，避免引用不存在的中间产物。
+  - 写回耗时可观测：写回 report 会携带 `timings_sec`，并在 `steps[*]` 里记录每个步骤的 `duration_sec`（用于定位 UI/节点图/信号等阶段的耗时瓶颈）。
+  - 支持就地覆盖：当 `output_gil_file` 与 `input_gil_file` 为同一路径时，产物先写入 `ugc_file_tools/out/`，最后用原子 `os.replace` 覆盖目标文件。
+- 写回前可按需补齐 base `.gil` 的基础设施段：当检测到基础设施缺口（如 `root4/11` 初始阵营 entries 缺 key=13、`root4/35` 默认分组列表缺失、以及常见口径缺口 `root4/6`/`root4/22`/`root4/2`）时，会在需要时从 bootstrap/seed `.gil` 复制缺失字段（只补缺失、不覆盖 base 其它业务段），降低官方侧更严格校验失败的风险。
+  - 仅写回节点图（以及为节点图自动启用的信号写回）时：为避免改动 base 其它段，pipeline 只展示“扫描到的缺口列表”，不执行基础设施补齐写盘。
+  - 进度可观测：当执行 bootstrap 时，会通过进度回调输出“扫描到的缺口列表”与“实际补齐项 + 数量摘要”（例如 key=13 补齐条数、默认分组补齐组数）。
+  - bootstrap 判定无需写盘（`changed=False`）时，pipeline 会继续沿用原始 input_gil 作为后续步骤输入，避免引用不存在的中间产物。
 - `gil_to_project_archive.py`：`.gil` → 项目存档导入（可选 codegen/validate），支持选择性导入与资源段开关（跳过大段解析以加速）。
 - `project_export_gia.py`：项目存档 → 导出节点图 `.gia`（含依赖 bundle），支持多图 pack、bundle 模式、UIKey/entity_key/component_key 回填（含手动 overrides），以及可选“导出后注入到目标 `.gil`”。
   - 导出默认尽量 **自包含**（复合节点/信号依赖随图打包），避免导入到空存档时缺依赖而无法展开。

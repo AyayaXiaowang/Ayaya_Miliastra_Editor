@@ -1,7 +1,7 @@
 # LICENSES
 
 ## 目录用途
-
+    
 - 归档第三方许可证文本（license texts），用于对外分发/开源发布时的审计与合规对照。
 - 与根目录 `LICENSE`（本项目 GPLv3）并存：`LICENSE` 描述本项目许可，`LICENSES/` 仅承载第三方项目的原始许可证副本。
 

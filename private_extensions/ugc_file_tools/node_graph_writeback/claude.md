@@ -57,6 +57,7 @@
 - UI 源码占位符变量同步：当项目存档存在 `管理配置/关卡变量/自定义变量注册表.py` 时，UI 写回阶段会按注册表声明为单一真源补齐 UI 引用到的变量（不覆盖已存在同名变量值；类型不匹配会在报告中列出）；未启用注册表的存档则保持旧行为：按 UI 默认值/占位符推断并创建字符串/字典变量。
   - 同时提供按“已选 HTML 文件集”扫描的入口（用于导出中心 UI 勾选联动）：`scan_ui_html_files_for_placeholder_variable_refs_and_defaults`。
 - after_game 对齐补丁：可选裁剪少量“真源 after_game 导出会消失”的冗余 data edges（例如 `数据类型转换.输出 -> 对字典设置或新增键值对.值`）；写回侧会先检查目标端口是否仍有其它 data 入边，仅在不改变语义的前提下裁剪，避免端口类型推断证据丢失导致类型回退。
+- 模板库性能优化：`template_library.build_template_library(...)` 会对 `template_library_dir` 的扫描与解码结果做进程内缓存（基于目录 *.gil 的轻量指纹），避免批量写回多张图时重复 decode 模板库导致耗时爆炸。
 - 落盘归一化：最终会将每个节点的 pins(records) 按 `(kind,index)` 稳定排序，减少阶段 append 导致的顺序漂移。
   - 节点坐标写回对齐真源：当坐标分量为 `0.0` 时省略对应字段（NodeInstance.field_5/field_6），避免无意义的 0 值字段造成 dump diff 噪声，并更贴近官方导出编码。
 

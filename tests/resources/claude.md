@@ -15,10 +15,12 @@
 - `test_level_variable_schema_view_ast_loading.py`：回归关卡变量代码资源加载契约：从示例包的 `自定义变量注册表.py` 派生虚拟变量文件（`stable_variable_file_id_for`），并断言浮点/向量默认值可被正确静态提取，避免动态 import 执行顶层代码回流。
 - `test_ingame_save_template_schema_view_ast_loading.py`：回归局内存档模板代码资源加载契约：从示例包中加载 `SAVE_POINT_ID/SAVE_POINT_PAYLOAD` 并断言 entries/struct_id 等关键字段可被正确静态提取。
 - `test_resource_manager_load_code_py_resources_static_extract.py`：回归 `ResourceManager.load_resource` 读取 `SIGNAL/STRUCT_DEFINITION` 的 `.py` 资源时不执行顶层代码（文件内刻意放置 `raise` 作为护栏），并断言 payload 静态提取结果正确。
+- `test_resource_manager_init_does_not_create_default_unclassified_package_dir.py`：回归 `ResourceManager` 初始化阶段不应隐式创建“默认未归属项目存档”目录（避免只读场景/测试环境对仓库 assets 产生意外落盘）。
 - `test_auto_custom_variable_registry_ast_extract.py`：回归“自定义变量注册表”静态加载：从 `.py` 中提取 `CUSTOM_VARIABLE_DECLARATIONS/DATA_STORES` 并保证文件内顶层 `raise` 不会被执行（禁止动态 import）。
 - 自定义变量注册表声明 contract 约束：声明条目必须为 `AutoCustomVariableDeclaration(...)` 常量写法；`owner` 使用实体级语法 `player|level|data:<store_key>`；禁止旧字段 `per_player/ui_visible/frontend_read/data_store_key` 与非白名单 metadata keys。
 - `test_package_view_shared_visibility.py`：回归 `PackageView` 在具体存档视图下的“可见资源集合”语义：应同时包含共享根目录与当前存档根目录下的模板资源，并支持通过 `get_template()` 直接访问共享模板。
 - `test_index_disk_consistency.py`：回归“索引（PackageIndex 视图）vs 磁盘（项目存档目录扫描）”一致性报告：覆盖孤儿/缺失/磁盘重复 ID 的统计口径与可复现最小输入。
+- `test_resource_manager_rebuild_index_when_graph_path_is_stale.py`：回归节点图文件移动/重命名导致索引路径失效时，`ResourceManager.load_graph_metadata/load_resource` 会重建索引并继续加载（不要求 UI 手动刷新）。
 
 ## 注意事项
 - 需要文件系统时优先在 `tmp_path` 下构造最小资源目录与样例文件，避免污染仓库工作区。

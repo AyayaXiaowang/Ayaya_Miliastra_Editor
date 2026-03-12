@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from PyQt6 import QtCore, QtWidgets
 
 from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.graph.graph_view.top_right.controls_manager import TopRightControlsManager
 from app.models.todo_generator import TodoGenerator
 from app.models import TodoItem
@@ -78,6 +79,8 @@ class _TodoGenerateWorker(QtCore.QThread):
 class TodoEventsMixin:
     """负责任务清单刷新、勾选状态变更，以及与图编辑器联动的事件处理逻辑。"""
 
+    _CANNOT_NAVIGATE_TO_EXEC_TOAST_TYPE = "warning"
+
     def _mark_pending_todo_refresh_request(
         self,
         *,
@@ -146,7 +149,12 @@ class TodoEventsMixin:
             if graph_config is None:
                 error_text = graph_data_service.get_graph_load_error(current_graph_id)
                 message = error_text or f"节点图 '{current_graph_id}' 不存在或已被删除。"
-                show_warning_dialog(self, "无法前往执行", message)
+                # 缺失节点图：不使用模态弹窗打断用户，改为轻量提示。
+                ToastNotification.show_message(
+                    self,
+                    f"无法前往执行：{message}",
+                    self._CANNOT_NAVIGATE_TO_EXEC_TOAST_TYPE,
+                )
                 return
 
         context: Optional[Dict[str, Any]] = getattr(self, "_graph_editor_todo_context", None)

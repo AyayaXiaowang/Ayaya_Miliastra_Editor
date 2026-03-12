@@ -17,9 +17,11 @@ from .node_index import (
     input_enum_options_by_func,
 )
 from .ui_key_registry_utils import (
+    extract_ui_key_placeholder_raw_key,
     parse_ui_key_placeholder,
     try_format_invalid_ui_state_group_placeholder_message,
     try_load_ui_html_ui_keys_for_ctx,
+    try_load_ui_workbench_ui_keys_for_ctx,
 )
 from .component_registry_utils import (
     parse_component_key_placeholder,
@@ -56,6 +58,9 @@ from .code_port_types_match_shared import (
     single_target_name as _single_target_name,
     unique_data_output_type as _unique_data_output_type,
 )
+
+
+_UI_KEY_SUGGESTION_PREVIEW_LIMIT = 8
 
 
 def _is_composite_instance_method_call(call: ast.Call) -> bool:
@@ -282,6 +287,8 @@ class PortTypesMatchRule(ValidationRule):
         module_numeric_constant_names = _collect_module_numeric_constant_names(tree)
         ui_view = try_load_ui_html_ui_keys_for_ctx(ctx)
         ui_key_set = set(ui_view.ui_keys) if ui_view is not None else set()
+        workbench_view = try_load_ui_workbench_ui_keys_for_ctx(ctx)
+        workbench_ui_key_set = set(workbench_view.ui_keys) if workbench_view is not None else set()
         scope = infer_graph_scope(ctx)
         func_names = node_function_names(ctx.workspace_path, scope)
         in_types = input_types_by_func(ctx.workspace_path, scope)
@@ -299,7 +306,7 @@ class PortTypesMatchRule(ValidationRule):
 
         for class_def, method in _iter_methods(tree):
             annotated_vars: Set[str] = _collect_annotated_vars(method)
-            var_types: Dict[str, str] = _collect_var_types(method, func_names, out_types)
+            var_types: Dict[str, str] = _collect_var_types(method, func_names, out_types, module_tree=tree)
 
             # 1) 泛型输出需注解（仅针对简单“单变量 = 调用()”的赋值）
             for node in ast.walk(method):
@@ -695,6 +702,7 @@ class PortTypesMatchRule(ValidationRule):
                     ):
                         placeholder_text = str(getattr(kw.value, "value", "")).strip()
                         ui_key = parse_ui_key_placeholder(placeholder_text)
+                        raw_ui_key = extract_ui_key_placeholder_raw_key(placeholder_text)
                         if ui_key is not None:
                             # 仅当节点图位于资源库目录结构下时，才做“真实存在性”校验；
                             # tests/ 临时文件等不做强制存在性约束（否则无法定义“当前项目”的 registry）。
@@ -729,6 +737,31 @@ class PortTypesMatchRule(ValidationRule):
                                         "CODE_UI_KEY_NOT_FOUND_IN_UI_HTML",
                                         f"{line_span_text(kw.value)}: 端口期望类型『{expected}』时使用的 ui_key 占位符不存在：{placeholder_text!r}。"
                                         "请检查 HTML 中是否声明了该 ui_key（data-ui-key / data-ui-state-group），或修正占位符 key。",
+                                    )
+                                )
+                                continue
+
+                            if (
+                                workbench_view is not None
+                                and workbench_ui_key_set
+                                and isinstance(raw_ui_key, str)
+                                and raw_ui_key != ""
+                                and (not str(raw_ui_key).startswith("UI_STATE_GROUP__"))
+                                and str(raw_ui_key) not in workbench_ui_key_set
+                            ):
+                                candidates = list(workbench_view.ui_keys_by_data_ui_key.get(str(ui_key), ()))
+                                preview = candidates[:_UI_KEY_SUGGESTION_PREVIEW_LIMIT]
+                                hint = f"；候选={preview}" if preview else ""
+                                issues.append(
+                                    self._issue(
+                                        file_path,
+                                        kw.value,
+                                        "CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE",
+                                        (
+                                            f"{line_span_text(kw.value)}: 端口期望类型『{expected}』时使用的 ui_key 占位符未命中 UI Workbench bundle：{placeholder_text!r}。"
+                                            "当前项目存在 `管理配置/UI源码/__workbench_out__/*.ui_bundle.json`，写回/导出将以 bundle 的 `ui_key` 为准；"
+                                            f"请改用 bundle 内真实存在的 ui_key{hint}。"
+                                        ),
                                     )
                                 )
                                 continue
@@ -776,6 +809,7 @@ class PortTypesMatchRule(ValidationRule):
                                     continue
                                 text = str(getattr(elem, "value", "")).strip()
                                 ui_key = parse_ui_key_placeholder(text)
+                                raw_ui_key = extract_ui_key_placeholder_raw_key(text)
                                 if ui_key is None:
                                     entity_name = parse_entity_key_placeholder(text)
                                     if entity_name is not None:
@@ -812,6 +846,31 @@ class PortTypesMatchRule(ValidationRule):
                                             "CODE_UI_KEY_NOT_FOUND_IN_UI_HTML",
                                             f"{line_span_text(elem)}: 端口期望类型『{expected}』的列表元素占位符不存在：{text!r}。"
                                         "请检查 HTML 中是否声明了该 ui_key（data-ui-key / data-ui-state-group），或修正占位符 key。",
+                                        )
+                                    )
+                                    continue
+
+                                if (
+                                    workbench_view is not None
+                                    and workbench_ui_key_set
+                                    and isinstance(raw_ui_key, str)
+                                    and raw_ui_key != ""
+                                    and (not str(raw_ui_key).startswith("UI_STATE_GROUP__"))
+                                    and str(raw_ui_key) not in workbench_ui_key_set
+                                ):
+                                    candidates = list(workbench_view.ui_keys_by_data_ui_key.get(str(ui_key), ()))
+                                    preview = candidates[:_UI_KEY_SUGGESTION_PREVIEW_LIMIT]
+                                    hint = f"；候选={preview}" if preview else ""
+                                    issues.append(
+                                        self._issue(
+                                            file_path,
+                                            elem,
+                                            "CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE",
+                                            (
+                                                f"{line_span_text(elem)}: 端口期望类型『{expected}』的列表元素 ui_key 占位符未命中 UI Workbench bundle：{text!r}。"
+                                                "当前项目存在 `管理配置/UI源码/__workbench_out__/*.ui_bundle.json`，写回/导出将以 bundle 的 `ui_key` 为准；"
+                                                f"请改用 bundle 内真实存在的 ui_key{hint}。"
+                                            ),
                                         )
                                     )
                             # 无论是否存在占位符，拼装列表 的类型匹配仍由后续逻辑负责

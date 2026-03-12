@@ -3,23 +3,34 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ugc_file_tools.gil.graph_variable_scanner import scan_gil_file_graph_variables
 from ugc_file_tools.graph.node_graph.pos_scale import ensure_positive_finite_node_pos_scale
-from ugc_file_tools.node_graph_writeback.writer import write_graph_model_to_gil
+from ugc_file_tools.node_graph_writeback.pipeline_parts.pipeline_batch_template_clone import (
+    apply_graph_model_json_template_clone_inplace,
+    create_template_clone_batch_context,
+    finalize_template_clone_batch_and_write_output,
+)
 from ugc_file_tools.output_paths import resolve_output_dir_path_in_out_dir, resolve_output_file_path_in_out_dir
 
 from .export_graph_model import export_graph_model_json_from_graph_code_with_context
 from .gg_context import _prepare_graph_generater_context, _resolve_graph_generater_root
 from .constants import CLIENT_SCOPE_MASK, SCOPE_MASK, SERVER_SCOPE_MASK
+from .graph_mounts import (
+    apply_graph_mounts_to_payload_root,
+    apply_graph_mounts_to_payload_root_best_effort,
+    infer_graph_category_int_from_graph_code_file,
+    resolve_graph_mount_targets,
+    resolve_graph_mount_targets_best_effort,
+    scan_graph_mount_usage_from_graph_code_file,
+)
 from .specs import (
     _build_graph_specs,
-    _build_graph_specs_by_scanning_roots,
+    _build_graph_specs_from_explicit_graph_code_files,
     _build_overview_object_by_scanning_node_graph_dir,
     _extract_graph_id_int_from_graph_key,
     _pick_template_graph_id_int,
-    _select_explicit_graph_specs,
 )
 from .types import NodeGraphsImportOptions
 from .ui_scan import _collect_required_ui_keys_from_graph_code_files, _infer_required_ui_layout_names_from_graph_code_files
@@ -36,6 +47,7 @@ def import_node_graphs_from_project_archive_to_gil(
     client_template_library_dir: Path,
     mapping_json_path: Path,
     options: NodeGraphsImportOptions,
+    progress_cb: Callable[[str], None] | None = None,
 ) -> Dict[str, Any]:
     from engine.graph.graph_code_parser import GraphParseError
 
@@ -225,19 +237,12 @@ def import_node_graphs_from_project_archive_to_gil(
     explicit_files = [Path(p).resolve() for p in list(getattr(options, "graph_code_files", None) or []) if p is not None]
     explicit_files = [p for p in explicit_files if str(p)]
     if explicit_files:
-        roots = [Path(project_path).resolve()]
-        extra_roots = [Path(p).resolve() for p in list(getattr(options, "graph_source_roots", None) or []) if p is not None]
-        for r in extra_roots:
-            if r not in roots:
-                roots.append(r)
-
-        all_specs = _build_graph_specs_by_scanning_roots(
-            graph_source_roots=roots,
+        specs = _build_graph_specs_from_explicit_graph_code_files(
+            explicit_graph_code_files=explicit_files,
             include_server=bool(include_server),
             include_client=bool(include_client),
             strict_graph_code_files=bool(options.strict_graph_code_files),
         )
-        specs = _select_explicit_graph_specs(all_specs=all_specs, explicit_files=explicit_files)
     else:
         if bool(options.scan_all):
             overview_object = _build_overview_object_by_scanning_node_graph_dir(package_root=project_path)
@@ -393,7 +398,44 @@ def import_node_graphs_from_project_archive_to_gil(
             overrides=overrides,
         )
 
-    for spec in specs:
+    batch_ctx = create_template_clone_batch_context(
+        template_gil_by_scope=(
+            {"server": server_template_gil, "client": client_template_gil}
+            if include_server and include_client
+            else ({"server": server_template_gil} if include_server else {"client": client_template_gil})
+        ),
+        template_graph_id_int_by_scope=(
+            {"server": int(server_template_graph_id_int), "client": int(client_template_graph_id_int)}
+            if include_server and include_client
+            else (
+                {"server": int(server_template_graph_id_int)}
+                if include_server
+                else {"client": int(client_template_graph_id_int)}
+            )
+        ),
+        template_library_dir_by_scope=(
+            {"server": server_template_dir, "client": client_template_dir}
+            if include_server and include_client
+            else ({"server": server_template_dir} if include_server else {"client": client_template_dir})
+        ),
+        base_gil_path=current_base,
+        mapping_path=mapping_path,
+        graph_generater_root=gg_root,
+        prefer_signal_specific_type_id=bool(getattr(options, "prefer_signal_specific_type_id", False)),
+        auto_sync_ui_custom_variable_defaults=True,
+        auto_fill_graph_variable_defaults_from_ui_registry=True,
+        ui_registry_autofill_excluded_graph_variable_names=None,
+        preloaded_ui_key_to_guid_for_writeback=effective_ui_key_to_guid_for_writeback,
+        preloaded_component_name_to_id=preloaded_component_name_to_id,
+        preloaded_entity_name_to_guid=preloaded_entity_name_to_guid,
+    )
+    include_section5_for_graph_mounts = False
+
+    total_specs = len(specs)
+    for idx, spec in enumerate(specs):
+        if progress_cb is not None:
+            progress_cb(f"[{idx+1}/{total_specs}] {spec.graph_code_file.name}")
+
         scope_text = str(spec.scope)
         template_gil = server_template_gil if scope_text == "server" else client_template_gil
         template_library_dir = server_template_dir if scope_text == "server" else client_template_dir
@@ -505,27 +547,82 @@ def import_node_graphs_from_project_archive_to_gil(
             else:
                 requested_graph_id_for_write = None
 
-        write_report = write_graph_model_to_gil(
+        applied = apply_graph_model_json_template_clone_inplace(
+            ctx=batch_ctx,
             graph_model_json_path=Path(export_report["output_json"]),
-            template_gil_path=template_gil,
-            base_gil_path=current_base,
-            template_library_dir=template_library_dir,
-            output_gil_path=output_gil,
             template_graph_id_int=int(template_graph_id_int),
             new_graph_name=str(new_graph_name_for_write),
             new_graph_id_int=(int(requested_graph_id_for_write) if requested_graph_id_for_write is not None else None),
-            mapping_path=mapping_path,
-            graph_generater_root=gg_root,
-            preloaded_ui_key_to_guid_for_writeback=effective_ui_key_to_guid_for_writeback,
-            preloaded_component_name_to_id=preloaded_component_name_to_id,
-            preloaded_entity_name_to_guid=preloaded_entity_name_to_guid,
-            prefer_signal_specific_type_id=bool(getattr(options, "prefer_signal_specific_type_id", False)),
+            output_gil_path=output_gil,
         )
+        write_report = dict(applied["write_report"])
 
         written_graph_id_int = int(write_report.get("new_graph_id_int"))
         existing_graph_id_ints.add(int(written_graph_id_int))
         if graph_name_for_match != "" and scope_text in existing_graph_id_int_by_scope_and_name:
             existing_graph_id_int_by_scope_and_name[scope_text][str(graph_name_for_match)] = int(written_graph_id_int)
+
+        # ===== 节点图挂载写回（可选，来自 Graph Code 头部 metadata）=====
+        mount_usage: Any = None
+        mount_scan_error: str | None = None
+        try:
+            mount_usage = scan_graph_mount_usage_from_graph_code_file(graph_code_file=Path(spec.graph_code_file))
+        except Exception as e:
+            mount_scan_error = f"{type(e).__name__}: {str(e)}"
+
+        if mount_scan_error is not None:
+            write_report["graph_mounts"] = []
+            write_report["graph_mount_unresolved_targets"] = []
+            write_report["graph_mount_apply_failures"] = []
+            write_report["graph_mount_scan_error"] = str(mount_scan_error)
+            if progress_cb is not None:
+                progress_cb(f"[WARN] mount 预检失败，已跳过挂载：{str(mount_scan_error)}")
+        elif getattr(mount_usage, "is_used", False):
+            graph_category_error: str | None = None
+            try:
+                graph_category_int = infer_graph_category_int_from_graph_code_file(graph_code_file=Path(spec.graph_code_file))
+            except Exception as e:
+                graph_category_error = f"{type(e).__name__}: {str(e)}"
+                graph_category_int = None
+
+            resolved_targets, unresolved_targets = resolve_graph_mount_targets_best_effort(
+                usage=mount_usage,
+                entity_name_to_guid=preloaded_entity_name_to_guid,
+                component_name_to_id=preloaded_component_name_to_id,
+            )
+            write_report["graph_mount_unresolved_targets"] = [
+                {"kind": str(t.kind), "name": str(t.name), "reason": str(t.reason)} for t in unresolved_targets
+            ]
+
+            if graph_category_error is not None:
+                write_report["graph_mounts"] = []
+                write_report["graph_mount_apply_failures"] = []
+                write_report["graph_mount_category_error"] = str(graph_category_error)
+                if progress_cb is not None:
+                    progress_cb(f"[WARN] mount 路径推断 GraphCategory 失败，已跳过挂载：{str(graph_category_error)}")
+            elif resolved_targets and graph_category_int is not None:
+                mount_applied, mount_apply_failures = apply_graph_mounts_to_payload_root_best_effort(
+                    payload_root=batch_ctx.payload_root,
+                    targets=resolved_targets,
+                    graph_id_int=int(written_graph_id_int),
+                    graph_category_int=int(graph_category_int),
+                )
+                write_report["graph_mounts"] = list(mount_applied)
+                write_report["graph_mount_apply_failures"] = list(mount_apply_failures)
+                if mount_applied:
+                    include_section5_for_graph_mounts = True
+            else:
+                write_report["graph_mounts"] = []
+                write_report["graph_mount_apply_failures"] = []
+
+            if progress_cb is not None:
+                unresolved_count = len(list(unresolved_targets))
+                apply_fail_count = len(list(write_report.get("graph_mount_apply_failures") or []))
+                if unresolved_count or apply_fail_count:
+                    progress_cb(
+                        "[WARN] mount 存在未解析/写入失败项，已尽力写回："
+                        f"unresolved={int(unresolved_count)} apply_failed={int(apply_fail_count)}"
+                    )
 
         reports.append(
             {
@@ -546,7 +643,12 @@ def import_node_graphs_from_project_archive_to_gil(
                 "write_report": dict(write_report),
             }
         )
-        current_base = output_gil
+    if reports:
+        finalize_template_clone_batch_and_write_output(
+            ctx=batch_ctx,
+            output_gil_path=output_gil,
+            include_section5=bool(include_section5_for_graph_mounts),
+        )
 
     summary_path = resolve_output_file_path_in_out_dir(model_dir / "writeback_summary.json")
     summary_path.write_text(

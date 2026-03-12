@@ -8,7 +8,6 @@ from engine.configs.resource_types import ResourceType
 from engine.resources.resource_index_builder import ResourceIndexData
 from engine.utils.logging.logger import log_debug, log_warn
 from engine.utils.resource_library_layout import (
-    get_default_unclassified_package_root_dir,
     get_packages_root_dir,
     get_shared_root_dir,
 )
@@ -38,10 +37,6 @@ class ResourceManagerIndexMixin:
         packages_root = get_packages_root_dir(self.resource_library_dir)
         shared_root.mkdir(parents=True, exist_ok=True)
         packages_root.mkdir(parents=True, exist_ok=True)
-
-        # 默认归档项目存档：用于承载未归属资源与“新建资源”的默认落点
-        default_unclassified_pkg_root = get_default_unclassified_package_root_dir(self.resource_library_dir)
-        default_unclassified_pkg_root.mkdir(parents=True, exist_ok=True)
 
         for resource_type in ResourceType:
             # 彻底包化：不在 legacy 根（assets/资源库/）创建按类型目录；只在共享根创建“目录骨架”。

@@ -289,6 +289,7 @@ class PortGraphicsItem(QtWidgets.QGraphicsItem):
             painter.save()
 
             # 获取引脚编号
+            scene = scene_ref_for_perf
             context = get_composite_edit_context(scene) if isinstance(scene, QtWidgets.QGraphicsScene) else None
             virtual_pin_for_number = None
             if context is not None:

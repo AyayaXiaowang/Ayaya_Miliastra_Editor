@@ -15,9 +15,11 @@ from engine.type_registry import (
 )
 from engine.validate.id_digits import is_digits_1_to_10
 from ..ui_key_registry_utils import (
+    extract_ui_key_placeholder_raw_key,
     parse_ui_key_placeholder,
     try_format_invalid_ui_state_group_placeholder_message,
     try_load_ui_html_ui_keys_for_ctx,
+    try_load_ui_workbench_ui_keys_for_ctx,
 )
 from ..component_registry_utils import (
     parse_component_key_placeholder,
@@ -31,6 +33,7 @@ from ..ast_utils import create_rule_issue, get_cached_module, line_span_text
 
 _ID_TYPES: set[str] = {TYPE_GUID, TYPE_CONFIG_ID, TYPE_COMPONENT_ID}
 _ID_LIST_TYPES: set[str] = {TYPE_GUID_LIST, TYPE_CONFIG_ID_LIST, TYPE_COMPONENT_ID_LIST}
+_UI_KEY_SUGGESTION_PREVIEW_LIMIT = 8
 
 def _is_ui_key_placeholder(value: object) -> bool:
     if not isinstance(value, str):
@@ -95,6 +98,8 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
         tree = get_cached_module(ctx)
         ui_view = try_load_ui_html_ui_keys_for_ctx(ctx)
         ui_key_set = set(ui_view.ui_keys) if ui_view is not None else set()
+        workbench_view = try_load_ui_workbench_ui_keys_for_ctx(ctx)
+        workbench_ui_key_set = set(workbench_view.ui_keys) if workbench_view is not None else set()
 
         issues: List[EngineIssue] = []
         list_nodes = _iter_graph_variables_list_nodes(tree)
@@ -158,6 +163,7 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                     # 工程化：GUID 图变量允许 ui_key 占位符（编译期替换为真实整数 ID）
                     if variable_type_text == TYPE_GUID and _is_ui_key_placeholder(extracted):
                         ui_key = parse_ui_key_placeholder(str(extracted))
+                        raw_ui_key = extract_ui_key_placeholder_raw_key(str(extracted))
                         if ui_key is not None:
                             if ui_view is not None and (not ui_view.html_files):
                                 issues.append(
@@ -203,6 +209,34 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                                             f"{('『' + name_text + '』') if name_text else ''} 的类型为『{variable_type_text}』时，"
                                             f"占位符不存在：{str(extracted)!r}。"
                                             "请检查 HTML 中是否声明了该 ui_key（data-ui-key / data-ui-state-group），或修正占位符 key。"
+                                        ),
+                                    )
+                                )
+                                continue
+
+                            if (
+                                workbench_view is not None
+                                and workbench_ui_key_set
+                                and isinstance(raw_ui_key, str)
+                                and raw_ui_key != ""
+                                and (not str(raw_ui_key).startswith("UI_STATE_GROUP__"))
+                                and str(raw_ui_key) not in workbench_ui_key_set
+                            ):
+                                candidates = list(workbench_view.ui_keys_by_data_ui_key.get(str(ui_key), ()))
+                                preview = candidates[:_UI_KEY_SUGGESTION_PREVIEW_LIMIT]
+                                hint = f"；候选={preview}" if preview else ""
+                                issues.append(
+                                    create_rule_issue(
+                                        self,
+                                        file_path,
+                                        default_value_node,
+                                        "CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE",
+                                        (
+                                            f"{line_span_text(default_value_node)}: GRAPH_VARIABLES 中图变量"
+                                            f"{('『' + name_text + '』') if name_text else ''} 的类型为『{variable_type_text}』时，"
+                                            f"ui_key 占位符未命中 UI Workbench bundle：{str(extracted)!r}。"
+                                            "当前项目存在 `管理配置/UI源码/__workbench_out__/*.ui_bundle.json`，写回/导出将以 bundle 的 `ui_key` 为准；"
+                                            f"请改用 bundle 内真实存在的 ui_key{hint}。"
                                         ),
                                     )
                                 )
@@ -257,12 +291,14 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                     items = list(extracted)
                     invalid_items: List[object] = []
                     missing_ui_keys: List[str] = []
+                    missing_workbench_ui_keys: List[str] = []
                     if variable_type_text == TYPE_GUID_LIST:
                         for item in items:
                             if is_digits_1_to_10(item):
                                 continue
                             if _is_ui_key_placeholder(item):
                                 ui_key = parse_ui_key_placeholder(str(item))
+                                raw_ui_key = extract_ui_key_placeholder_raw_key(str(item))
                                 if ui_key is None:
                                     invalid_items.append(item)
                                     continue
@@ -284,6 +320,7 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                                     )
                                     invalid_items = []
                                     missing_ui_keys = []
+                                    missing_workbench_ui_keys = []
                                     break
                                 if ui_view is not None and ui_key not in ui_key_set:
                                     invalid_msg2 = try_format_invalid_ui_state_group_placeholder_message(str(item))
@@ -303,8 +340,19 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                                         )
                                         invalid_items = []
                                         missing_ui_keys = []
+                                        missing_workbench_ui_keys = []
                                         break
                                     missing_ui_keys.append(str(item))
+
+                                if (
+                                    workbench_view is not None
+                                    and workbench_ui_key_set
+                                    and isinstance(raw_ui_key, str)
+                                    and raw_ui_key != ""
+                                    and (not str(raw_ui_key).startswith("UI_STATE_GROUP__"))
+                                    and str(raw_ui_key) not in workbench_ui_key_set
+                                ):
+                                    missing_workbench_ui_keys.append(str(item))
                                 continue
                             if _is_entity_key_placeholder(item):
                                 continue
@@ -334,6 +382,27 @@ class GraphVarsDefaultIdDigitsRule(ValidationRule):
                                     "default_value 中存在未在 UI源码(HTML) 中声明的 ui_key 占位符："
                                     f"{preview_keys}{more_keys}。"
                                     "请检查 HTML 中是否声明了对应 data-ui-key / data-ui-state-group，或修正占位符 key。"
+                                ),
+                            )
+                        )
+                        continue
+
+                    if missing_workbench_ui_keys:
+                        preview_keys = ", ".join(repr(x) for x in missing_workbench_ui_keys[:6])
+                        more_keys = "..." if len(missing_workbench_ui_keys) > 6 else ""
+                        issues.append(
+                            create_rule_issue(
+                                self,
+                                file_path,
+                                default_value_node,
+                                "CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE",
+                                (
+                                    f"{line_span_text(default_value_node)}: GRAPH_VARIABLES 中图变量"
+                                    f"{('『' + name_text + '』') if name_text else ''} 的类型为『{variable_type_text}』时，"
+                                    "default_value 中存在未命中 UI Workbench bundle 的 ui_key 占位符："
+                                    f"{preview_keys}{more_keys}。"
+                                    "当前项目存在 `管理配置/UI源码/__workbench_out__/*.ui_bundle.json`，写回/导出将以 bundle 的 `ui_key` 为准；"
+                                    "请改用 bundle 内真实存在的 ui_key。"
                                 ),
                             )
                         )

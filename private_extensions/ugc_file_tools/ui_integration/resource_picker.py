@@ -928,6 +928,10 @@ def make_resource_picker_widget_cls(*, QtCore: object, QtWidgets: object, Colors
         def get_selected_keys(self) -> set[str]:
             return set(self._selected_by_key.keys())
 
+        def get_all_items(self) -> list[ResourceSelectionItem]:
+            """返回当前资源 catalog 的全部条目（不受过滤器影响）。"""
+            return sorted(list(self._items_by_key.values()), key=lambda it: str(getattr(it, "key", "")).casefold())
+
         def clear_selection(self) -> None:
             """清空已选，并刷新 UI。"""
             if not self._selected_by_key:
@@ -1153,6 +1157,9 @@ def make_resource_picker_widget_cls(*, QtCore: object, QtWidgets: object, Colors
             return out
 
         def _rebuild_tree(self) -> None:
+            prev_expanded_node_ids = set(self.get_expanded_node_ids())
+            prev_scroll_value = int(self.tree.verticalScrollBar().value())
+
             class _DirTreeNode:
                 __slots__ = ("subdirs", "files", "total", "selected")
 
@@ -1395,6 +1402,8 @@ def make_resource_picker_widget_cls(*, QtCore: object, QtWidgets: object, Colors
                         items=items,
                     )
                 )
+            self.set_expanded_node_ids(prev_expanded_node_ids)
+            self.tree.verticalScrollBar().setValue(int(prev_scroll_value))
             self.tree.blockSignals(False)
             self.tree.setUpdatesEnabled(True)
 

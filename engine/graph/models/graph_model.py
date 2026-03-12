@@ -58,6 +58,8 @@ class BasicBlock:
     nodes: List[str] = field(default_factory=list)  # 节点ID列表
     color: str = "#FF5E9C"  # RGB颜色（如 "#FF5E9C"）
     alpha: float = 0.2  # 透明度 (0.0-1.0)
+    # 稳定块编号：用于 UI 显示与调试对齐（应等于布局阶段 LayoutBlock.order_index；纯数据图同样赋值）
+    order_index: int = 0
 
 
 @dataclass
@@ -555,7 +557,8 @@ class GraphModel:
         cloned.event_flow_titles = list(self.event_flow_titles)
         # 基本块：重建对象 + 列表浅复制
         cloned.basic_blocks = [
-            BasicBlock(nodes=list(b.nodes), color=b.color, alpha=b.alpha) for b in self.basic_blocks
+            BasicBlock(nodes=list(b.nodes), color=b.color, alpha=b.alpha, order_index=int(getattr(b, "order_index", 0) or 0))
+            for b in self.basic_blocks
         ]
         return cloned
 

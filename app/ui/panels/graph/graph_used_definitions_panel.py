@@ -16,6 +16,7 @@ from app.runtime.services.graph_data_service import (
 )
 from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.foundation.theme_manager import Colors, Sizes, ThemeManager
 from app.ui.panels.graph.graph_async_loader import GraphAsyncLoader, get_shared_graph_loader
 from app.ui.panels.panel_scaffold import PanelScaffold
@@ -41,6 +42,19 @@ _USED_DEFINITIONS_EXECUTOR = ThreadPoolExecutor(
     thread_name_prefix="graph-used-definitions",
 )
 atexit.register(_USED_DEFINITIONS_EXECUTOR.shutdown, False)
+
+_MISSING_GRAPH_TOAST_TYPE = "info"
+_MISSING_GRAPH_KEYWORDS = ("不存在", "已被删除", "FileNotFoundError", "No such file")
+
+
+def _is_missing_graph_error_text(*, graph_id: str, error_text: str) -> bool:
+    graph_id_text = str(graph_id or "").strip()
+    message = str(error_text or "").strip()
+    if not graph_id_text or not message:
+        return False
+    if graph_id_text not in message:
+        return any(keyword in message for keyword in _MISSING_GRAPH_KEYWORDS)
+    return any(keyword in message for keyword in _MISSING_GRAPH_KEYWORDS)
 
 
 def _safe_text(value: object) -> str:
@@ -560,7 +574,15 @@ class GraphUsedDefinitionsPanel(PanelScaffold):
             )
             return
         if payload.error:
-            show_warning_dialog(self, "加载失败", payload.error)
+            # 缺失/已删除节点图：避免模态弹窗打断用户；面板直接进入空态并给出轻量提示。
+            if _is_missing_graph_error_text(graph_id=str(graph_id or ""), error_text=str(payload.error or "")):
+                ToastNotification.show_message(
+                    self,
+                    f"节点图已被删除或不可用：{str(graph_id or '').strip()}（已清空面板）",
+                    _MISSING_GRAPH_TOAST_TYPE,
+                )
+            else:
+                show_warning_dialog(self, "加载失败", payload.error)
             self.set_empty_state()
             return
         if payload.graph_model is None or payload.graph_config is None:

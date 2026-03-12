@@ -10,6 +10,7 @@ from engine.layout.utils.graph_query_utils import is_flow_edge
 
 
 PROJECT_ROOT = get_repo_root()
+X_FOLDBACK_EPS: float = 1e-6
 
 
 def test_template_validation_edge_native_expr_mix_has_no_foldback_edges() -> None:
@@ -66,7 +67,7 @@ def test_template_validation_edge_native_expr_mix_has_no_foldback_edges() -> Non
 
         src_x = float(src_node.pos[0])
         dst_x = float(dst_node.pos[0])
-        if dst_x < src_x - 1e-6:
+        if dst_x < src_x - X_FOLDBACK_EPS:
             foldback_edges.append(
                 (
                     src_node_id,

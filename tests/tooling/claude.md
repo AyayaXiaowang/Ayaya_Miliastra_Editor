@@ -56,6 +56,7 @@
 - `test_ui_state_group_missing_show_optional_writeback_policy.py`：节点图写回 UIKey 预检契约：缺失 UIKey 默认不再阻断写回，缺失项回填为 0（包含 `UI_STATE_GROUP__*__*__group` 与普通 UIKey）。
 - `test_gia_export_ui_state_group_missing_optional_policy.py`：节点图 `.gia` 导出 UIKey 回填契约：`UI_STATE_GROUP__*__*__group` 缺失默认放行并回填为 0；但非状态组 UIKey 仍保持缺失即报错（除非显式开启 allow_unresolved）。
 - `test_writeback_id_ref_placeholders_missing_optional_policy.py`：节点图写回占位符契约：`entity_key:` / `component_key:` 在缺失映射时允许继续写回并回填为 0（不阻断流程）。
+- `test_export_claude_md_paths.py`：工具脚本回归：`tools.export_claude_md_paths` 应能在 `tmp_path` 构造的最小目录中正确收集 `claude.md`（大小写无关、排序稳定），并输出包含绝对路径的 Markdown。
 
 ## 注意事项
 

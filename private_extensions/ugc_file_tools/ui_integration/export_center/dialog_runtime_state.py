@@ -60,6 +60,13 @@ class ExportCenterDialogRuntimeState:
     id_ref_template_candidates_by_gil_cf: dict[str, list[tuple[str, int]]] = field(default_factory=dict)
     id_ref_instance_candidates_by_gil_cf: dict[str, list[tuple[str, int]]] = field(default_factory=dict)
 
+    # ---- 执行页诊断快照（用于失败复现信息展示/复制）----
+    last_execute_fmt: str = ""
+    last_execute_plan_obj: object | None = None
+    last_execute_selection_snapshot: list[dict[str, str]] = field(default_factory=list)
+    last_execute_precheck_skipped_inputs: list[dict[str, str]] = field(default_factory=list)
+    last_execute_precheck_warnings: list[dict[str, str]] = field(default_factory=list)
+
 
 __all__ = ["ExportCenterDialogRuntimeState"]
 

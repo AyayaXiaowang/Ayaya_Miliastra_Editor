@@ -77,6 +77,7 @@ def layout_pure_data_graph(
     basic_blocks = []
     color_index = 0
 
+    order_index = 0
     for component in components:
         if not component.nodes:
             continue
@@ -114,9 +115,11 @@ def layout_pure_data_graph(
             if node:
                 node.pos = (x_local, initial_y + y_local)
 
+        order_index += 1
         block = build_basic_block(
             node_ids=component.nodes,
             color=block_colors[color_index % len(block_colors)],
+            order_index=order_index,
         )
         color_index += 1
         basic_blocks.append(block)

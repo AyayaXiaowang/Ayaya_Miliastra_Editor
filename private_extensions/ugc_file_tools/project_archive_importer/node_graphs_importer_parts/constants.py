@@ -14,6 +14,7 @@ SCAN_HEAD_CHARS = 8192
 GRAPH_ID_LINE_RE = re.compile(r"(?m)^\s*graph_id\s*:\s*(\S+)\s*$")
 GRAPH_NAME_LINE_RE = re.compile(r"(?m)^\s*graph_name\s*:\s*(.+?)\s*$")
 GRAPH_TYPE_LINE_RE = re.compile(r"(?m)^\s*graph_type\s*:\s*(\S+)\s*$")
+MOUNT_LINE_RE = re.compile(r"(?m)^\s*mount\s*:\s*(.+?)\s*$")
 
 UI_SOURCE_HTML_HINT_RE = re.compile(r"管理配置[\\/]+UI源码[\\/]+([^\\/`\"']+?)\.html")
 UI_KEY_PLACEHOLDER_RE = re.compile(r"(?:ui_key:|ui:)(?P<key>[^\s\"']+)")
