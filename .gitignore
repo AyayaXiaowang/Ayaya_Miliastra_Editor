@@ -73,19 +73,23 @@ runtime/name_sync_state.json
 # `assets/资源库/` 需要被程序员开发与协作：不做默认忽略。
 # 编译产物与缓存仍应忽略（已由全局规则覆盖：__pycache__/ *.pyc 等）。
 
-# 项目存档：默认全部忽略；仅白名单放行示例与测试夹具（以及目录规则文件）
+# 项目存档：默认全部忽略；仅白名单放行示例/模板与测试夹具（以及目录规则文件）
 assets/资源库/项目存档/**
 !assets/资源库/项目存档/claude.md
 !assets/资源库/项目存档/示例项目_第七关/
 !assets/资源库/项目存档/示例项目_第七关/**
 !assets/资源库/项目存档/测试项目/
 !assets/资源库/项目存档/测试项目/**
+!assets/资源库/项目存档/示例项目模板/
+!assets/资源库/项目存档/示例项目模板/**
 
 # 白名单目录内也必须忽略 Python 字节码/缓存（避免被上面的 !.../** 反向放行）
 assets/资源库/项目存档/示例项目_第七关/**/__pycache__/
 assets/资源库/项目存档/示例项目_第七关/**/*.py[cod]
 assets/资源库/项目存档/测试项目/**/__pycache__/
 assets/资源库/项目存档/测试项目/**/*.py[cod]
+assets/资源库/项目存档/示例项目模板/**/__pycache__/
+assets/资源库/项目存档/示例项目模板/**/*.py[cod]
 
 # UI Workbench bundle 输出（构建产物；写回端会读取，但应由 HTML 重新生成，避免把旧产物提交进仓库）
 assets/资源库/项目存档/**/管理配置/UI源码/__workbench_out__/*.ui_bundle.json
@@ -168,6 +172,10 @@ tools/patch_level7_*.py
 # ---------- plugins（版本化） ----------
 # `plugins/` 需要程序员协作开发与维护：不做默认忽略。
 # 编译产物与缓存仍应忽略（已由全局规则覆盖：__pycache__/ *.pyc 等）。
+
+# Cursor agent 错误记录（临时诊断证据链，不进仓库；需放在放行规则之后）
+_ERROR_DUMP.md
+@_ERROR_DUMP.md
 
 # Git config
 
