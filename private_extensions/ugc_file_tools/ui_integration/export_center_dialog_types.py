@@ -78,6 +78,7 @@ class ExportCenterExecuteTab:
     result_text: Any
     clear_log_btn: Any
     clear_result_btn: Any
+    copy_result_btn: Any
 
 
 @dataclass(frozen=True, slots=True)

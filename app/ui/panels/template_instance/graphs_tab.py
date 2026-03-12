@@ -234,7 +234,12 @@ class GraphsTab(TemplateInstanceTabBase):
             self.graph_selected.emit(graph_id, graph_config.data)
             return
         if graph_id in self._graph_details and graph_config is None:
-            show_warning_dialog(self, "错误", f"节点图 '{graph_id}' 已被删除或无法读取。")
+            # 节点图缺失/不可读：不弹模态框打断用户，改为轻量提示。
+            ToastNotification.show_message(
+                self,
+                f"节点图已被删除或无法读取：{graph_id}",
+                "info",
+            )
             return
         show_info_dialog(self, "提示", "节点图正在加载，请稍后再试。")
         self._request_graph_details(graph_id)

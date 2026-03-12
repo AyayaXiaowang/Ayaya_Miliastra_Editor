@@ -170,6 +170,67 @@ def _select_explicit_graph_specs(
     return _reassign_compact_graph_id_ints_for_selected_specs(specs=selected_specs)
 
 
+def _build_graph_specs_from_explicit_graph_code_files(
+    *,
+    explicit_graph_code_files: Sequence[Path],
+    include_server: bool,
+    include_client: bool,
+    strict_graph_code_files: bool,
+) -> List[_GraphSpec]:
+    """
+    仅基于显式 graph_code_files 构造 specs（避免全量扫描 roots）。
+
+    说明：
+    - selection-json 场景通常只需要写回少量图；全量扫描会在大项目下耗时显著。
+    - 返回结果仍会走 `_reassign_compact_graph_id_ints_for_selected_specs` 做紧凑 id 分配。
+    """
+    files = [Path(p).resolve() for p in list(explicit_graph_code_files or []) if p is not None]
+    if not files:
+        return []
+
+    out: List[_GraphSpec] = []
+    for p in files:
+        if not p.is_file():
+            raise FileNotFoundError(str(p))
+
+        with p.open("r", encoding="utf-8") as f:
+            head = f.read(SCAN_HEAD_CHARS)
+
+        m_id = GRAPH_ID_LINE_RE.search(head)
+        if not m_id:
+            if bool(strict_graph_code_files):
+                raise ValueError(f"显式写回的 graph_code_file 缺少 graph_id metadata：{str(p)}")
+            raise ValueError(f"显式写回的 graph_code_file 无法识别为节点图（缺少 graph_id metadata）：{str(p)}")
+        graph_key = str(m_id.group(1) or "").strip()
+        if graph_key == "":
+            raise ValueError(f"graph_id 为空：{str(p)}")
+
+        m_name = GRAPH_NAME_LINE_RE.search(head)
+        graph_name = str(m_name.group(1) if m_name else "").strip() or p.stem
+
+        m_type = GRAPH_TYPE_LINE_RE.search(head)
+        graph_type_hint = str(m_type.group(1) if m_type else "").strip()
+        scope = _infer_scope_from_graph_code_file(graph_code_file=p, graph_type_hint=graph_type_hint)
+        if scope == "server" and not bool(include_server):
+            raise ValueError(f"显式写回的节点图 scope=server 但当前未启用 server：{str(p)}")
+        if scope == "client" and not bool(include_client):
+            raise ValueError(f"显式写回的节点图 scope=client 但当前未启用 client：{str(p)}")
+
+        reserved = _extract_graph_id_int_from_graph_key(str(graph_key))
+        assigned_hint = int(reserved) if reserved is not None else 0
+        out.append(
+            _GraphSpec(
+                scope=str(scope),
+                graph_key=str(graph_key),
+                graph_name_hint=str(graph_name),
+                graph_code_file=Path(p).resolve(),
+                assigned_graph_id_int=int(assigned_hint),
+            )
+        )
+
+    return _reassign_compact_graph_id_ints_for_selected_specs(specs=out)
+
+
 def _infer_scope_from_folder_key(folder_key: str) -> str:
     t = str(folder_key or "")
     if "/client" in t.replace("\\", "/"):

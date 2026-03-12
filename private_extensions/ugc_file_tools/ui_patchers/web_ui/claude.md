@@ -10,6 +10,7 @@
   - 次选复用 `ui_schema_library` 中已标注模板（`progressbar` / `textbox` / `item_display`）；
   - 若仍缺失，会自动使用内置样本 seed（`ugc_file_tools/builtin_resources/空的界面控件组/{进度条样式.gil, 文本框样式.gil, 道具展示.gil}`）提取模板并沉淀到 schema library，再继续写回。
   - TextBox 模板选择会跳过 `component_list[1]` 为空/非结构化的 record（避免克隆时扩散“空槽位 component1”导致网页文本/样式缺失）。
+- TextBox 写回会显式补齐 `component_list[3]` 的 header 字段（`19/501/502` 与 `503/501/502/503`），避免因模板来源不同（schema library/seed）导致文本渲染不一致。
 - 组件打组：`web_ui_import_component_groups.py` / `web_ui_import_component_groups_finalize.py` / `web_ui_import_grouping.py`。
 - 固有控件初始显隐（HTML 真源）：支持从同级源码 HTML 读取 `data-ui-builtin-visibility`（JSON object，仅 5 个固有控件），并将对应固有控件 record 的初始隐藏标记落盘；缺失/不完整/包含未知键会 fail-fast 报错。
   - 允许“布局内不存在某些固有控件”的场景（例如空/极简 base `.gil` 或某些页面不含对应 HUD）：该次覆盖会在 report 中标记 `not_found`，但不抛错。
@@ -25,6 +26,8 @@
   - 兼容键类型：prepare 阶段会将 payload_root/seed_root 的 numeric_message 顶层键归一化为 `str(key)`，避免不同 dump/桥接路径返回 int-key dict 导致“缺段误判/seed 缺段误报”。
 - 新建布局 clone_children 过滤：克隆 base_layout 的“固有 children”时会跳过**纯组容器**record（`is_group_container_record_shape`），避免把上一页组件组容器连同旧 children GUID 一起带到新布局导致串页/parent mismatch。
 - 写回前不变量（fail-fast）：`web_ui_import_main.py` 在写回前校验 `4/9/502` GUID 唯一、layout.children→child.parent(504) 一致；不做“写回后去重/修剪”。
+- overwrite/add 的 layout_name 冲突判定支持“同一次 decode 内解析”：`import_web_ui_control_group_template_to_gil_layout` 可选在 prepare 阶段按 `new_layout_name` 解析/复用 existing layout（overwrite）或要求 name 不存在（add），避免上层额外 dump-decode 扫描 `.gil`。
+- 导出中心链路（项目存档→写回 `.gil`）支持 UI 批处理写回：复用同一份 `raw_dump_object` 在内存中依次导入多个 bundle，最后只做一次最小 wire-level 写盘，避免每页重复 dump+写盘造成线性放大耗时。
 
 ## 注意事项
 - 不使用 try/except；失败直接抛错（fail-fast）。

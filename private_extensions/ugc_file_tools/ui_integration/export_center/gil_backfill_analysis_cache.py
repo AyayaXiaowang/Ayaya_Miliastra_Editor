@@ -6,10 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from ugc_file_tools.ui.guid_resolution import UiRecordIndex, build_ui_record_index_from_record_list
+from .backfill_ui_guid_resolution import BackfillUiRecordIndex, build_backfill_ui_record_index_from_record_list
 
 _CACHE_SCHEMA_VERSION = 1
-_ANALYSIS_VERSION = 2
+_ANALYSIS_VERSION = 3
+_GIL_PAYLOAD_DECODE_DEPTH_TEMPLATES = 32
+_GIL_PAYLOAD_DECODE_DEPTH_INSTANCES = 32
+_GIL_PAYLOAD_DECODE_DEPTH_UI = 32
+_WIRE_TYPE_LENGTH_DELIMITED = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,8 +30,80 @@ class GilBackfillAnalysis:
     component_name_to_id: dict[str, int]
     entity_name_to_guid: dict[str, int]
     ui_records_total: int
-    ui_index: UiRecordIndex | None
+    ui_index: BackfillUiRecordIndex | None
     custom_vars_by_entity_name: dict[str, dict[str, int]]
+
+
+def _extract_length_delimited_field_bytes_or_none(*, chunks: list[tuple[bytes, bytes]], field_number: int) -> bytes | None:
+    """Extract a length-delimited field raw bytes from wire chunks (first match)."""
+    from ugc_file_tools.wire.patch import parse_tag_raw, split_length_delimited_value_raw
+
+    want = int(field_number)
+    for tag_raw, value_raw in list(chunks):
+        parsed = parse_tag_raw(tag_raw)
+        if int(parsed.field_number) != want:
+            continue
+        if int(parsed.wire_type) != int(_WIRE_TYPE_LENGTH_DELIMITED):
+            continue
+        _len_raw, inner = split_length_delimited_value_raw(value_raw)
+        return bytes(inner)
+    return None
+
+
+def _decode_length_delimited_message_or_none(*, message_bytes: bytes | None, remaining_depth: int) -> dict[str, Any] | None:
+    """Decode bytes into numeric_message dict with a bounded depth."""
+    if message_bytes is None:
+        return None
+    if not isinstance(message_bytes, (bytes, bytearray, memoryview)):
+        raise TypeError("message_bytes must be bytes-like or None")
+
+    from ugc_file_tools.gil_dump_codec.protobuf_like import decode_message_to_field_map
+    from ugc_file_tools.gil_dump_codec.protobuf_like_bridge import decoded_field_map_to_numeric_message
+
+    data = bytes(message_bytes)
+    field_map, consumed = decode_message_to_field_map(
+        data_bytes=data,
+        start_offset=0,
+        end_offset=len(data),
+        remaining_depth=int(remaining_depth),
+    )
+    if int(consumed) != len(data):
+        raise ValueError("wire message 未能完整解码为单个 message（存在 trailing bytes）")
+    obj = decoded_field_map_to_numeric_message(field_map, prefer_raw_hex_for_utf8=False)
+    if not isinstance(obj, dict):
+        raise TypeError("decoded numeric_message is not dict")
+    if any(not isinstance(k, str) for k in obj.keys()):
+        obj = {str(k): v for k, v in dict(obj).items()}
+    return dict(obj)
+
+
+def _build_min_payload_root_from_gil_payload_bytes(*, payload_bytes: bytes) -> dict[str, Any]:
+    """Decode only required sections (4/5/9) from `.gil` payload bytes."""
+    from ugc_file_tools.wire.codec import decode_message_to_wire_chunks
+
+    chunks, consumed = decode_message_to_wire_chunks(
+        data_bytes=bytes(payload_bytes),
+        start_offset=0,
+        end_offset=len(payload_bytes),
+    )
+    if int(consumed) != len(payload_bytes):
+        raise ValueError("gil payload wire decode 未能完整消费（存在 trailing bytes）")
+
+    node4_bytes = _extract_length_delimited_field_bytes_or_none(chunks=list(chunks), field_number=4)
+    node5_bytes = _extract_length_delimited_field_bytes_or_none(chunks=list(chunks), field_number=5)
+    node9_bytes = _extract_length_delimited_field_bytes_or_none(chunks=list(chunks), field_number=9)
+
+    out: dict[str, Any] = {}
+    node4 = _decode_length_delimited_message_or_none(message_bytes=node4_bytes, remaining_depth=int(_GIL_PAYLOAD_DECODE_DEPTH_TEMPLATES))
+    node5 = _decode_length_delimited_message_or_none(message_bytes=node5_bytes, remaining_depth=int(_GIL_PAYLOAD_DECODE_DEPTH_INSTANCES))
+    node9 = _decode_length_delimited_message_or_none(message_bytes=node9_bytes, remaining_depth=int(_GIL_PAYLOAD_DECODE_DEPTH_UI))
+    if node4 is not None:
+        out["4"] = dict(node4)
+    if node5 is not None:
+        out["5"] = dict(node5)
+    if node9 is not None:
+        out["9"] = dict(node9)
+    return dict(out)
 
 
 def _export_center_backfill_cache_dir(*, workspace_root: Path) -> Path:
@@ -63,9 +139,8 @@ def _cache_file_path(*, workspace_root: Path, gil_file_path: Path) -> Path:
     return (cache_dir / f"gil_{key}.json").resolve()
 
 
-def _serialize_ui_index(ui_index: UiRecordIndex) -> dict[str, object]:
+def _serialize_ui_index(ui_index: BackfillUiRecordIndex) -> dict[str, object]:
     return {
-        "guid_set": sorted([int(x) for x in set(ui_index.guid_set) if int(x) > 0]),
         "name_by_guid": {str(int(k)): str(v) for k, v in dict(ui_index.name_by_guid).items() if isinstance(v, str)},
         "parent_by_guid": {
             str(int(k)): (int(v) if isinstance(v, int) else None) for k, v in dict(ui_index.parent_by_guid).items()
@@ -74,24 +149,18 @@ def _serialize_ui_index(ui_index: UiRecordIndex) -> dict[str, object]:
             str(int(k)): [int(x) for x in list(v or []) if isinstance(x, int) and int(x) > 0]
             for k, v in dict(ui_index.children_by_parent).items()
         },
-        "component_type_ids_by_guid": {
-            str(int(k)): sorted([int(x) for x in set(v or set()) if isinstance(x, int) and int(x) > 0])
-            for k, v in dict(ui_index.component_type_ids_by_guid).items()
-        },
         "guids_by_name": {
             str(k): [int(x) for x in list(v or []) if isinstance(x, int) and int(x) > 0] for k, v in dict(ui_index.guids_by_name).items()
         },
+        "button_component_guids": sorted([int(x) for x in set(ui_index.button_component_guids) if isinstance(x, int) and int(x) > 0]),
     }
 
 
-def _deserialize_ui_index(obj: object) -> UiRecordIndex | None:
+def _deserialize_ui_index(obj: object) -> BackfillUiRecordIndex | None:
     if obj is None:
         return None
     if not isinstance(obj, dict):
         return None
-
-    guid_set_raw = obj.get("guid_set")
-    guid_set = set(int(x) for x in (guid_set_raw if isinstance(guid_set_raw, list) else []) if isinstance(x, int) and int(x) > 0)
 
     name_by_guid: dict[int, str] = {}
     raw_name_by_guid = obj.get("name_by_guid")
@@ -151,16 +220,18 @@ def _deserialize_ui_index(obj: object) -> UiRecordIndex | None:
                 continue
             guids_by_name[name] = [int(x) for x in v if isinstance(x, int) and int(x) > 0]
 
-    if not guid_set:
+    raw_button_guids = obj.get("button_component_guids")
+    button_component_guids = {int(x) for x in (raw_button_guids if isinstance(raw_button_guids, list) else []) if isinstance(x, int) and int(x) > 0}
+
+    if not name_by_guid and not parent_by_guid and not guids_by_name:
         return None
 
-    return UiRecordIndex(
-        guid_set=set(guid_set),
+    return BackfillUiRecordIndex(
         name_by_guid=dict(name_by_guid),
         parent_by_guid=dict(parent_by_guid),
         children_by_parent=dict(children_by_parent),
-        component_type_ids_by_guid=dict(component_type_ids_by_guid),
         guids_by_name=dict(guids_by_name),
+        button_component_guids=set(button_component_guids),
     )
 
 
@@ -319,15 +390,15 @@ def compute_gil_backfill_analysis(*, gil_file_path: Path) -> GilBackfillAnalysis
         raise FileNotFoundError(str(p))
 
     from ugc_file_tools.id_ref_from_gil import build_id_ref_mappings_from_payload_root
-    from ugc_file_tools.node_graph_writeback.gil_dump import dump_gil_to_raw_json_object, get_payload_root
+    from ugc_file_tools.gil_dump_codec.gil_container import read_gil_payload_bytes
 
-    raw_dump_object = dump_gil_to_raw_json_object(p)
-    payload_root = get_payload_root(raw_dump_object)
+    payload_bytes = read_gil_payload_bytes(Path(p))
+    payload_root = _build_min_payload_root_from_gil_payload_bytes(payload_bytes=bytes(payload_bytes))
 
     component_name_to_id, entity_name_to_guid = build_id_ref_mappings_from_payload_root(payload_root=payload_root)
 
     ui_records = extract_ui_record_list_from_payload_root(payload_root)
-    ui_index = build_ui_record_index_from_record_list(list(ui_records)) if ui_records else None
+    ui_index = build_backfill_ui_record_index_from_record_list(list(ui_records)) if ui_records else None
 
     custom_vars_by_entity_name = collect_custom_variables_by_entity_name_from_payload_root(payload_root)
 

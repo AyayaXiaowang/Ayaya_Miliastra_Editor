@@ -8,6 +8,7 @@
 - **组件标签页**：`components_tab.py` 提供 Inspector 风格组件卡片列表与 `ComponentPickerDialog`；允许组件集合由 `engine.configs.rules.get_entity_allowed_components()` 推导；表单实现由 `component_form_factory.py` 路由并通过 `on_settings_changed` 上抛保存请求。
 - **战斗标签页**：`combat_tab.py` 管理战斗相关字段（写入 `entity_config["battle"]`）。
 - **通用基类/控件**：`tab_base.py` 提供 `TemplateInstanceTabBase`（上下文注入、工具栏、集合聚合、只读切换）；`vector3_editor.py` 提供可复用三维向量编辑控件。
+- 缺失/已删除节点图在交互中不再使用模态弹窗提示：使用轻量提示（Toast/控制台）并保持面板可继续操作。
 
 ## 注意事项
 - 所有 tab 必须通过 `set_context()` 接收 `current_object/object_type/package`，不要直接依赖面板内部字段或全局单例。

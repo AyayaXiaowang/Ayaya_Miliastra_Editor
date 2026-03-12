@@ -3,7 +3,8 @@
 
 ## 当前状态
 - **语法糖改写与字面量约束**
-  - `test_syntax_sugar_rewrite_rule.py`：回归常见语法糖在校验入口统一改写为等价节点调用（含列表/字典下标读写、常见内置函数、比较/逻辑/复合运算、以及 `%` 正模语义（改写为共享复合节点/回退节点链）等）。
+  - `test_syntax_sugar_rewrite_rule.py`：语法糖改写回归测试的统一入口（用例已拆分到 `syntax_sugar/_cases_*.py`，入口通过 import 汇总执行）。
+  - `syntax_sugar/`：存放语法糖改写回归用例的拆分子模块，按列表/字典/运算符/bit-fold/mod/time&datetime&random/数值内置等主题分组。
   - `test_if_condition_inline_compare_rule.py`：回归 if 条件允许写可归一化的比较/逻辑表达式（语法糖改写后进入布尔规则），同时保持“不支持的 Compare 形态”（如链式比较）仍会在改写阶段 fail-closed。
   - `test_list_literal_rewrite_rule.py`：回归列表字面量与列表相关语法糖改写规则（含下标赋值/删除、append/pop/extend 等）与禁止用法边界。
   - `test_dict_literal_rewrite_rule.py`：回归字典字面量改写为【拼装字典】节点调用的规则与禁止用法边界（空 dict、展开写法、超长等）。
@@ -33,7 +34,7 @@
   - `test_typed_list_element_type_enforced.py`：回归“强类型列表端口/注解变量”逐元素类型校验：例如 `浮点数列表` 中出现 `整数` 元素必须报错，避免 `拼装列表→泛型列表` 被连线规则放行导致漏报。
   - `test_unknown_node_call_rule.py`：回归“疑似节点调用但节点不存在/拼写错误”必须在校验期报错。
   - `test_edge_port_reference_must_exist.py`：回归“边引用的端口必须存在于节点 inputs/outputs”：对非动态端口节点传入不存在的关键字参数时，应在校验期报错，避免写回阶段才以低层异常暴露。
-- `test_guid_ui_key_placeholder.py`：工程化回归：GUID/整数（含列表类型）的常量输入与 `GRAPH_VARIABLES.default_value` 允许 `ui_key:<key>` / `ui:<key>` 占位符；当节点图位于资源库目录结构下时，校验会要求占位符 key 必须存在于 `管理配置/UI源码/**/*.html` 的 `data-ui-key` 集合中（缺失 UI源码 或缺失 key 均应报错）。
+- `test_guid_ui_key_placeholder.py`：工程化回归：GUID/整数（含列表类型）的常量输入与 `GRAPH_VARIABLES.default_value` 允许 `ui_key:<key>` / `ui:<key>` 占位符；当节点图位于资源库目录结构下时，校验会要求占位符 key 必须存在于 `管理配置/UI源码/**/*.html` 的 `data-ui-key` 集合中（缺失 UI源码 或缺失 key 均应报错）；若项目存在 `管理配置/UI源码/__workbench_out__/*.ui_bundle.json`，则进一步要求占位符使用的完整 ui_key 必须能命中 bundle（避免导出/回填阶段 UIKey 缺失）。
 - `test_component_key_placeholder.py`：工程化回归：元件ID（含列表类型）的常量输入与 `GRAPH_VARIABLES.default_value` 允许 `component_key:<元件名>` / `component:<元件名>` 占位符；校验阶段仅做占位符非空语法校验（不做“元件名是否存在”校验），写回/导出阶段由 `ugc_file_tools` 通过 registry/参考 `.gil` 回填真实元件ID；若允许缺失则回填为 0。
 - `test_entity_key_placeholder.py`：工程化回归：GUID/整数（含列表类型）的常量输入与 `GRAPH_VARIABLES.default_value` 允许 `entity_key:<实体名>` / `entity:<实体名>` 占位符；校验阶段仅做占位符非空语法校验（不做实体名存在性校验），写回/导出阶段由 `ugc_file_tools` 从参考 `.gil` 回填真实实体 GUID/ID（同名取第一个）；若允许缺失则回填为 0。
 - `test_ui_level_custom_var_target_entity_rule.py`：工程化回归：UI源码占位符引用到的自定义变量必须写到正确的目标实体；并支持通过 docstring `mount_entity_type: 关卡/玩家` 明确 `self.owner_entity` 的归属。

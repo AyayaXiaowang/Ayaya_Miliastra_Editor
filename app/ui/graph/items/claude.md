@@ -6,6 +6,7 @@
 - **布局一致性**：端口布局与输入行规划复用 `engine.layout.utils.graph_query_utils.build_input_port_layout_plan`，确保 UI 与布局层高度估算/换行策略一致。
 - **常量与类型展示**：行内常量控件统一由 `app.ui.widgets.constant_editors` 创建；端口“⚙ 类型气泡”通过 `port_type_resolver` 解析展示级有效类型，并与自动化侧共享同一套 EffectivePortTypeResolver 口径。
 - **事件节点诊断**：当 `node_def_ref.kind="event"` 时，端口 tooltip 会附带 `event_key/mapped_builtin_key` 与映射命中状态（hit/miss），便于定位 event 映射口径与缺口原因。
+- **复合节点虚拟引脚**：`PortGraphicsItem.paint` 在绘制“已暴露端口”的编号标签时，通过 `self.scene()` 获取场景上下文并调用 `get_composite_edit_context` 查询虚拟引脚编号口径。
 - **大图性能路径**：支持 LOD（按缩放隐藏端口/文字/连线命中）、行内常量控件虚拟化（占位→按需 materialize→释放）、邻接索引驱动的局部连线刷新；fast preview 模式提供轻量节点/边图元，并可选“批量边层”降低 item 数量。
 - **批量边层与插桩**：`batched_edge_layer.py` 在只读/fast preview 场景将大量边合并为单一图元绘制；性能面板启用时，图元在 `paint/shape` 等高频路径按帧聚合采样，便于定位卡顿来源。
 

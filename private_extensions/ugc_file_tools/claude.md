@@ -42,6 +42,7 @@
 - fail-fast：不使用 try/except；结构/模板不符合预期直接抛错。
 - Windows 用户目录相关路径通过 `Path.home()` 推导，不在源码中写死盘符/用户名。
 - 占位符参考映射：`id_ref_from_gil.build_id_ref_mappings_from_payload_root(...)` 支持从已解码的 payload_root 构建映射，供上层复用并避免重复解码；并会对名字字段的 `<binary_data> 0A ..`（嵌套 message bytes）做解包，输出可读名称供回填识别/候选列表匹配。
+  - 性能：元件映射优先定向扫描模板段 `root4/4/1`（而非递归遍历全树），降低“无缓存回填识别”的冷启动开销。
 - `.gia` VarBase 语义提取：优先复用 `gia/varbase_semantics.py`；泛型/反射端口常见 `ConcreteBase(10000)` 包裹需先解包再读 inner。
 - `gil_dump_codec/protobuf_like.py` 会优先判定 utf8 文本；遇到 `{raw_hex, utf8}` 形态时按需从 `raw_hex` 反解嵌套 message，避免字符串/字典默认值被误判为空。
 - `.gil` 装饰物（模板 `metadata.common_inspector.model.decorations`）写回不走实体摆放段：当前落盘到 `payload_root['27']`（root27，定义+挂载两表结构），由 `project_archive_importer/templates_importer.py` 负责。

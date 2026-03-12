@@ -121,9 +121,8 @@ def _open_import_export_center_dialog(
 
     # ===== 导入（可选显示） =====
     if show_import:
-        from .read_gia import on_read_clicked as on_read_gia_clicked
-        from .read_gil import on_read_clicked as on_read_gil_clicked
-        from .read_gil_selected import on_read_clicked as on_read_gil_selected_clicked
+        from .import_center import open_import_center_dialog
+        from .analysis_center import open_analysis_center_dialog
 
         import_frame = QtWidgets.QFrame(dialog)
         import_frame.setStyleSheet(ThemeManager.card_style())
@@ -136,25 +135,29 @@ def _open_import_export_center_dialog(
         import_gil_btn = QtWidgets.QPushButton("读取 .gil 文件…", import_frame)
         import_gil_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         import_gil_btn.setToolTip("选择一个 .gil 文件导入为项目存档（后台执行）")
-        import_gil_btn.clicked.connect(lambda: (dialog.accept(), on_read_gil_clicked(main_window)))
+        import_gil_btn.clicked.connect(lambda: open_import_center_dialog(main_window, preferred_task="gil_full"))
 
         import_gil_selected_btn = QtWidgets.QPushButton("读取 .gil（选择）…", import_frame)
         import_gil_selected_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         import_gil_selected_btn.setToolTip("选择一个 .gil 文件→分析节点图清单→勾选导入（适合只导入部分图）")
-        import_gil_selected_btn.clicked.connect(
-            lambda: (dialog.accept(), on_read_gil_selected_clicked(main_window))
-        )
+        import_gil_selected_btn.clicked.connect(lambda: open_import_center_dialog(main_window, preferred_task="gil_selected"))
 
         import_gia_btn = QtWidgets.QPushButton("导入 .gia 文件…", import_frame)
         import_gia_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         import_gia_btn.setToolTip("选择一个 .gia 文件并导入到项目存档（元件/实体摆放/玩家模板）")
-        import_gia_btn.clicked.connect(lambda: (dialog.accept(), on_read_gia_clicked(main_window)))
+        import_gia_btn.clicked.connect(lambda: open_import_center_dialog(main_window, preferred_task="gia"))
+
+        analysis_btn = QtWidgets.QPushButton("分析中心…", import_frame)
+        analysis_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        analysis_btn.setToolTip("搜索节点/复合节点/信号名在节点图中的使用位置，并可构建索引（后台执行）")
+        analysis_btn.clicked.connect(lambda: open_analysis_center_dialog(main_window))
         
         import_layout.addWidget(import_info)
         import_layout.addStretch(1)
         import_layout.addWidget(import_gil_btn)
         import_layout.addWidget(import_gil_selected_btn)
         import_layout.addWidget(import_gia_btn)
+        import_layout.addWidget(analysis_btn)
         
         root_layout.addWidget(import_frame)
 

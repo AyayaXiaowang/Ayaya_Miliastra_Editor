@@ -13,7 +13,7 @@
   - `.gil` 写回（节点图 Graph Code）支持可选“同名节点图冲突策略”（用于导出中心交互）：按 `graph_code_file` 逐个指定 `overwrite/add/skip`（默认 overwrite；add 会为该图自动分配 `graph_name__new_1/...` 以写入为新图；skip 则不写回该图）。
   - `.gil` 写回支持可选信号策略 `prefer_signal_specific_type_id`：当信号节点静态绑定且 base 映射可用时，允许将信号节点 runtime type_id 切换为 signal-specific runtime_id（常见 0x6000xxxx/0x6080xxxx；由 base `.gil` 的 node_def_id 0x4000xxxx/0x4080xxxx 推导）。
   - `.gia` 导出/识别支持“基底 `.gil` + 可选占位符参考 `.gil` 覆盖”：用于 `entity_key/component_key` 的占位符回填（留空=使用基底；缺失同名默认回填为 0，但支持通过手动 overrides 覆盖为指定 ID）。
-- `dialog_runtime_state.py`：导出中心对话框运行期状态（显式 state），用于替代 controller 内分散的 nonlocal/闭包变量，降低顺序依赖与回归风险；并承载 IDRef 手动覆盖与候选缓存（缺失行双击选择）。
+- `dialog_runtime_state.py`：导出中心对话框运行期状态（显式 state），用于替代 controller 内分散的 nonlocal/闭包变量，降低顺序依赖与回归风险；并承载 IDRef 手动覆盖与候选缓存（缺失行双击选择），以及最近一次执行的 plan/预检/选择快照（用于失败复现信息展示与复制）。
 - `write_ui_policy.py`：UI 写回策略单一真源：选择 **project scope** 的 `UI源码(ui_src)` 时强制开启 write_ui；非强制时由用户勾选决定（用于“强制→取消 UI源码→恢复用户选择”）。
   - selection-json 支持 `selected_ui_layout_names`：当用户明确勾选了若干 `UI源码/*.html` 页面时，UI 写回范围会收敛到这些页面对应的 Workbench bundle（避免未选页面被一并写入 `.gil`）。
 - `backfill_panel_models.py`：回填识别面板的纯逻辑模型（依赖清单 rows（待识别）/纯文本摘要（`format_backfill_deps_text`）与签名计算），供 controller 复用并便于单测锁行为。
@@ -21,9 +21,11 @@
   - 缓存落盘：`app/runtime/cache/ugc_file_tools/export_center/backfill_gil_analysis/`
   - 命中条件：同一路径的 `.gil` 文件 `size/mtime_ns` 未变化；命中时跳过 `.gil` decode，仅做“依赖清单 vs 缓存分析结果”的对比生成表格。
   - 分析结果会将名字字段中形如 `<binary_data> 0A ..` 的“嵌套 message bytes”解包为可读名称（例如 `飞机头`），避免识别表误判缺失；当分析口径变化时通过 `analysis_version` 自动使旧缓存失效并重建。
+  - 冷启动优化：未命中缓存时不再对整份 `.gil` 做 dump-json 全量解码；改为 wire-level 仅抽取并解码需要的段（模板/实体/UI：root4 field_4/5/9），显著降低“无缓存”时的识别耗时。
+  - UI 索引优化：回填识别使用 `backfill_ui_guid_resolution.py` 的瘦索引（仅 parent/name/children/name->guid + “按钮组件 guid 集合”），避免为每条 UI record 构建完整组件类型集合。
 - `preview_models.py`：计划预览文本的纯逻辑生成（.gia/.gil/修复信号/合并信号条目 四分支），供“执行页（步骤3）”展示与 tooltip/摘要复用。
   - GIL 预览会显示“关卡实体自定义变量（全部）”已选数量，避免误以为只在右侧选择器生效。
-- `dialog_actions.py`：导出中心对话框的动作编排（开始导出/开始修复、回填识别启动）：负责 busy/progress/worker/历史与提示等 UI 编排；并支持将 progress/succeeded/failed 事件回调给 UI（用于执行页进度与结果展示）。
+- `dialog_actions.py`：导出中心对话框的动作入口（薄转发层）；实现拆分在 `dialog_actions_parts/`（开始导出/开始修复、回填识别启动）：负责 busy/progress/worker/历史与提示等 UI 编排；并支持将 progress/succeeded/failed 事件回调给 UI（用于执行页进度与结果展示）。
   - 回填识别（“识别”按钮）支持进度条：识别逻辑在子进程执行（`tool export_center_identify_gil_backfill_comparison --manifest ... --report ...`），UI 通过解析 stderr 进度行更新 `progress_bar`。
   - 回填识别完成不再输出冗长的“OK/缺失/…汇总文本”；结果通过“缺失/已就绪”两个表格标签页的计数体现（进度条仅用于过程反馈）。
   - 交互收敛：回填分析不提供“清空结果”按钮；需要刷新时直接再次点击“识别”。
@@ -33,7 +35,11 @@
     - 节点图：同名节点图冲突（按图文件选择 overwrite/add/skip；add 自动生成新图名）
     - 元件模板：同名模板冲突（按模板文件选择 overwrite/add/skip；add 自动分配新模板名并写回为新增条目）
     - 实体摆放：同名实体冲突（按实体文件选择 overwrite/add/skip；add 自动分配新实体名并写回为新增条目）
-  - 稳定性：冲突扫描涉及 base `.gil` 解码，放在子进程执行（`tool export_center_scan_base_gil_conflicts --report ...`），避免 UI 进程因解码触发 Windows access violation（闪退）。若子进程扫描失败，仍可进入“手动策略选择”（基础GIL ID 列可能为空）。
+  - 稳定性：冲突扫描涉及 base `.gil` 解码，放在子进程执行（`tool export_center_scan_base_gil_conflicts --report ...`），避免 UI 进程因解码触发 Windows access violation（闪退）。若子进程扫描失败，仍会自动继续进入“手动策略选择”（基础GIL ID 列可能为空），并将失败信息写入导出中心历史/报告供追溯。
+  - 诊断：base `.gil` 冲突扫描启动时会在主进程日志打印 python/输入 base/scan flags/report 路径，便于定位“子进程 exit=1 且输出为空”的根因。
+  - 交互与进度：base `.gil` 冲突扫描由 `base_gil_conflicts_scan.py` 在 QThread 中启动并转发进度到执行页进度条，避免同步等待导致 UI 卡死。
+- 扫描结果判定：`base_gil_conflicts_scan.py` 会正确保留 `exit_code=0` 的成功结果（避免把 0 当成 falsy 误判为失败）。
+  - 常见误区（已修复）：不要用 `exit_code_raw or 1` 这类写法做兜底；因为成功码 `0` 会被当成 false，导致“实际成功（report 已生成）但 UI 误报 exit=1 / stderr 为空”，进而触发不必要的冲突策略弹窗与误导性告警。
   - GIL 模式（UI 写回）：导出前会比较 `UI源码/*.html` 与 `UI源码/__workbench_out__/*.ui_bundle.json` 的更新时间；当用户选择了 `UI源码` 且 bundle 落后/缺失（或 bundle 的 `_ui_state_consolidation_mode` 不是 `full_state_groups`）时，会在后台优先自动生成/更新 bundle（依赖 Playwright/Chromium）再继续导出，从根源避免“导出旧页面/漏页/导出口径不一致”；缺少依赖时会明确提示并阻止缺页场景继续。
   - 导出完成弹窗会汇总关键产物路径，并在存在 `node_graphs.skipped_graphs` 时提示“哪些节点图被跳过”（例如 strict 解析失败/冲突策略 skip）；同时在存在 `precheck_skipped_inputs` 时提示“哪些输入文件在预检阶段被自动跳过”（例如误选索引 JSON）。
   - GIA 模式的“元件导出”允许混合产出：可保真切片的模板走 `export_project_templates_instances_bundle_gia`（输出 templates+instances 的 bundle.gia，以保留装饰物实例），其余模板走 `export_project_templates_to_gia`（模板导出：仅模板/自定义变量）。完成弹窗/执行页会分别显示两类数量与输出目录；仅当模板包含装饰物但无法保真切片时，提示“装饰物实例未随导出”。
@@ -43,6 +49,7 @@
   - 支持 base `.gil`（用于 UI records/自定义变量）与占位符参考 `.gil`（用于实体/元件映射）分离
   - UIKey 判定优先使用 UI 回填记录快照（可选）；对 `UI_STATE_GROUP__*` 支持 `_state` 后缀别名互转命中；缺失时回退到 base UI records 反查。
     - 当本次同时导出启用了 UI 写回（UI源码→Workbench bundle）时，识别会额外扫描 `UI源码/__workbench_out__/*.ui_bundle.json`，将能由 UI 写回提供的 key 标记为“一同导出”（避免误报缺失）。
+    - 组合控件组占位符：扫描 Workbench bundle 时会从 `...__btn_item` 衍生 `...__group` 候选 key，用于匹配事件 `界面控件组组合索引` 的回填识别。
   - “一同导出”语义：识别表会区分“来自 GIL”与“来自本次同时导出（写回会补齐）”。
     - UI 占位符变量（UI源码引用→自动同步）：当 base 缺失但已启用自动同步时标记为“一同导出”（写回会自动补齐）
     - 关卡实体自定义变量（全部）：回填识别阶段仅做“是否存在/类型是否匹配”的诊断；当 base 缺失时标记为“缺失”（写回是否补齐由导出计划与执行阶段决定）

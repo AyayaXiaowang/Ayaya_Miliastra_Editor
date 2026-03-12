@@ -139,7 +139,7 @@ def _save_last_repair_input_gil_path(*, workspace_root: Path, input_gil_path: Pa
     )
 
 
-def _load_last_resource_picker_expanded_node_ids(*, workspace_root: Path) -> list[str]:
+def load_last_resource_picker_expanded_node_ids(*, workspace_root: Path) -> list[str]:
     """
     资源选择器（左侧树）的“展开状态”持久化。
 
@@ -167,7 +167,7 @@ def _load_last_resource_picker_expanded_node_ids(*, workspace_root: Path) -> lis
     return dedup
 
 
-def _save_last_resource_picker_expanded_node_ids(*, workspace_root: Path, node_ids: list[str]) -> None:
+def save_last_resource_picker_expanded_node_ids(*, workspace_root: Path, node_ids: list[str]) -> None:
     ids: list[str] = []
     for x in list(node_ids or []):
         s = str(x or "").strip()

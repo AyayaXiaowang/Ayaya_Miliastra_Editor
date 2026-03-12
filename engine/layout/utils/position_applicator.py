@@ -96,6 +96,7 @@ class PositionApplicator:
             basic_block = build_basic_block(
                 node_ids=layout_block.flow_nodes + effective_data_nodes,
                 color=layout_block.color,
+                order_index=int(getattr(layout_block, "order_index", 0) or 0),
             )
             basic_blocks.append(basic_block)
 

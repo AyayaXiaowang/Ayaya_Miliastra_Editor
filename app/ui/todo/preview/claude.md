@@ -4,6 +4,7 @@
 ## 当前状态
 - `TodoPreviewController` 负责聚焦/高亮的公共编排；具体 detail_type 的“选哪些节点/边、怎么组合动作”由 handler 模块分发。
 - 预览使用共享画布（GraphView 租约）时，需遵循租约 acquire/release 约束，确保与图编辑器切页时不发生画布归属错乱。
+- 预览加载缺失/已删除节点图时不弹模态弹窗：保持预览空态，并给出轻量提示（Toast/控制台），避免打断用户当前操作。
 
 ## 注意事项
 - handler 只能依赖 controller 的公开 API（无下划线方法）；需要新增能力时先在 controller 暴露稳定接口。

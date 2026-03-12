@@ -3,6 +3,7 @@
 
 ## 当前状态
 - `project_paths.py`：提供稳定的仓库根目录定位方法，统一委托 `engine.utils.workspace.resolve_workspace_root` 推断 workspace_root（源码仓库形态即 repo root），避免测试文件移动分组后因手写 `Path(__file__).parents[...]` 规则漂移。
+- `workspace_materializer.py`：测试资源物化工具：在需要“构造最小资源库骨架”或将仓库内公开 `assets/资源库/{共享,项目存档/<package_id>}` 拷贝到临时目录时复用，避免在测试代码中散落手拼路径与 copytree 逻辑。
 - `ui_preview_mock_server.py`：UI Web 预览页（`ui_app_ui_preview.html`）的 mock `/api/ui_converter/*` 服务器：
   - 用于在不启动主程序的情况下，直接读取 `assets/资源库/项目存档/<package_id>/管理配置/UI源码/` 并驱动预览页运行；
   - 仅实现预览页所需的最小接口（status / ui_source_catalog / ui_source / ui_source_raw），其余接口明确返回“不支持”以避免静默误用。

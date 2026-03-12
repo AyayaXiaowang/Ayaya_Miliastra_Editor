@@ -11,12 +11,14 @@
 - `bridge_catalog_ui.py`：UI 布局/模板清单与 UI 源码读取/写回相关 API。
 - `bridge_placeholder_validation.py`：UI 文本占位符 `{{...}}` 扫描与校验（lv/ps 作用域与字段路径规则）。
   - 方案 S：不再支持 `autofix_missing_lv_variables` 的写盘补齐；缺失变量/字段路径将直接失败并给出“注册表补齐”指引。
+- `/api/ui_converter/*`：导入/导出相关接口始终以“仅校验、不补齐”的口径调用占位符校验（不再传 `autofix_missing_lv_variables=true`）。
 - `bridge_import_variable_defaults.py`：将前端给出的 `variable_defaults` 写回当前项目的 `自定义变量注册表.py`（lv/ps 作用域）：
   - `lv.*` 更新 owner="level" 的声明 default_value
   - `ps.*` 更新 owner="player" 的声明 default_value
   - 不再生成 `UI_*_网页默认值.py`；HTML 也不再以 `data-ui-variable-defaults` 作为真源。
 - `bridge_export.py`：导出 `.gil/.gia`（含进度条颜色调色板归一化、bundle→inline widgets 转换、token 下载映射）。
   - 方案 S：导出前仅执行 `validate-ui` 等价校验；若 UI 占位符引用闭包不成立则直接失败，要求在注册表补齐变量声明/默认结构。
+  - 写回端固有控件显隐覆盖依赖 sibling HTML：导出时会将 bundle JSON 写入当前包 `管理配置/UI源码/__workbench_out__/<stem>.ui_bundle.json`，以便按约定读取 `管理配置/UI源码/<stem>.html` 的 `data-ui-builtin-visibility`。
   - 支持导出 `.gil` 时按需将“按钮组件组”同步保存为【自定义模板】（默认关闭；由前端/调用方显式传参启用）。
   - **HTML 显式模板沉淀**：作者可在 HTML 组件根元素标注 `data-ui-save-template`，导出 `.gil` 时会将该组件组保存为“控件组库自定义模板”；若基底 `.gil` 已存在同名模板则复用并跳过创建。
   - 支持**批量导出**：当调用方传入多个 bundle 时，会依次写回多个布局到同一份输出 `.gil`（用于预览页多选导出）。

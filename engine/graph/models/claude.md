@@ -15,6 +15,7 @@
   - 实体摆放变换：`InstanceConfig` 维护 `position/rotation/scale` 三个 Vector3 字段（`scale` 默认 `1,1,1`），用于属性面板与序列化一致展示。
   - 模板/实例扩展配置：`TemplateConfig.entity_config` 与 `InstanceConfig.entity_config` 对齐，用于承载实例级与模板级的扩展配置段落（例如战斗标签页字段）。
 - **实体类型视图**：`entity_templates.py` 聚合规则层实体类型信息与 UI 展示信息（图标/分类/说明）；变量类型清单以 `engine/type_registry.py` 为单一真源。
+- **基本块序号对齐**：`BasicBlock` 现在携带 `order_index`（稳定块编号），用于让 UI 红色块标签与布局内部 `LayoutBlock.order_index / block_<n>` 语义一致；序列化与反序列化会读写该字段以便会话恢复时保持编号一致。
 
 ## 注意事项
 - 本目录禁止引入 PyQt、文件读写或网络请求。

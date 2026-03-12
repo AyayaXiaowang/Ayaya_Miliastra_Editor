@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Dict, List
 
 from ugc_file_tools.output_paths import resolve_output_file_path_in_out_dir
+from ugc_file_tools.ui_patchers.layout.layout_templates_parts.shared import (
+    dump_gil_to_raw_json_object as _dump_gil_to_raw_json_object,
+    write_back_modified_gil_by_reencoding_payload as _write_back_modified_gil_by_reencoding_payload,
+)
+
+
+_UI_LAYOUT_SCAN_DECODE_MAX_DEPTH = 16
+_UI_RECORD_PARENT_FIELD = "504"
 
 
 def _iter_ui_workbench_bundle_files(project_root: Path) -> List[Path]:
@@ -33,14 +42,8 @@ def _infer_layout_name_from_bundle_file(bundle_path: Path) -> str:
 
 
 def _try_find_existing_layout_guid_by_name(gil_file_path: Path, *, layout_name: str) -> int | None:
-    """
-    若 base .gil 已存在同名布局 root，则优先复用该布局 GUID（写入同一布局，用户才“看得到变化”）。
-
-    注意：
-    - 这里只做“尽力而为”的匹配：命中则复用，未命中则返回 None 走新建布局流程；
-    - 不在这里做复杂推断（避免引入错误匹配导致覆盖不该覆盖的布局）。
-    """
-    from ugc_file_tools.ui_patchers.layout.layout_templates_parts.shared import dump_gil_to_raw_json_object
+    """在 base .gil 中按 layout_name 找到唯一布局 root GUID（找不到返回 None，多命中抛错）。"""
+    from ugc_file_tools.gil_dump_codec.dump_json_tree import load_gil_payload_as_dump_json_object
     from ugc_file_tools.ui.readable_dump import (
         extract_primary_guid as _extract_primary_guid,
         extract_primary_name as _extract_primary_name,
@@ -51,10 +54,14 @@ def _try_find_existing_layout_guid_by_name(gil_file_path: Path, *, layout_name: 
     if target == "":
         return None
 
-    raw_dump = dump_gil_to_raw_json_object(Path(gil_file_path).resolve())
-    payload_root = raw_dump.get("4")
+    dump_obj = load_gil_payload_as_dump_json_object(
+        Path(gil_file_path).resolve(),
+        max_depth=int(_UI_LAYOUT_SCAN_DECODE_MAX_DEPTH),
+        prefer_raw_hex_for_utf8=False,
+    )
+    payload_root = dump_obj.get("4")
     if not isinstance(payload_root, dict):
-        raise ValueError("DLL dump JSON 缺少根字段 '4'（期望为 dict）。")
+        raise TypeError("decoded payload_root is not dict")
 
     # 兼容：空/极简基底 .gil 可能缺失 UI 段（root4/9=None），此时视为“没有可复用布局”，
     # 继续走后续新建布局/写回 bootstrap（由 web_ui_import_prepare 负责注入最小 UI 段）。
@@ -62,20 +69,36 @@ def _try_find_existing_layout_guid_by_name(gil_file_path: Path, *, layout_name: 
     if node9 is None:
         return None
 
-    ui_record_list = _extract_ui_record_list(raw_dump)
+    ui_record_list = _extract_ui_record_list(dump_obj)
+    matched_guids: List[int] = []
     for record in ui_record_list:
         if not isinstance(record, dict):
             continue
         # 布局 root：无 parent（504）
-        if "504" in record:
+        if _UI_RECORD_PARENT_FIELD in record:
             continue
         name_text = _extract_primary_name(record)
-        if str(name_text or "").strip() != target:
+        if not isinstance(name_text, str) or str(name_text).strip() != target:
             continue
         guid = _extract_primary_guid(record)
         if isinstance(guid, int):
-            return int(guid)
-    return None
+            matched_guids.append(int(guid))
+
+    # 未命中：按“无可复用布局”处理，由后续新建布局流程写回。
+    if not matched_guids:
+        return None
+
+    # 多命中：overwrite 语义不明确（会导致“看起来覆盖了但仍有同名布局残留”），因此 fail-fast。
+    unique: List[int] = []
+    seen: set[int] = set()
+    for g in matched_guids:
+        if int(g) in seen:
+            continue
+        seen.add(int(g))
+        unique.append(int(g))
+    if len(unique) == 1:
+        return int(unique[0])
+    raise ValueError(f"base .gil 存在多个同名布局 root，无法确定 overwrite 目标：layout_name={target!r}, guids={unique!r}")
 
 
 def import_ui_from_workbench_bundles_to_gil(
@@ -95,6 +118,7 @@ def import_ui_from_workbench_bundles_to_gil(
     - 不依赖 raw_template（record bundle），直接走 web import 生成/更新 UI record；
     - 每个 bundle 会写回一次，按顺序链式叠加到输出 .gil（即 output 作为下一轮 input）。
     """
+    started_at = perf_counter()
     project_root = Path(project_archive_path).resolve()
     input_path = Path(input_gil_file_path).resolve()
     output_path = resolve_output_file_path_in_out_dir(Path(output_gil_file_path))
@@ -136,6 +160,8 @@ def import_ui_from_workbench_bundles_to_gil(
         raise FileNotFoundError(
             f"未找到 UI Workbench bundle：{str(project_root / '管理配置' / 'UI源码' / '__workbench_out__')}/*.ui_bundle.json"
         )
+
+    timings_sec: Dict[str, float] = {}
 
     # 可选：按 layout_name 过滤写回范围（由导出中心 selection-json 提供）。
     # 说明：
@@ -181,7 +207,11 @@ def import_ui_from_workbench_bundles_to_gil(
     merged_ui_key_to_guid_for_writeback: Dict[str, int] = {}
     merged_conflicts: List[Dict[str, Any]] = []
     skipped_total = 0
+
+    raw_dump_object = _dump_gil_to_raw_json_object(Path(current_input))
+    any_applied = False
     for bundle_path in bundle_files:
+        bundle_started_at = perf_counter()
         layout_name = _infer_layout_name_from_bundle_file(bundle_path)
         resolution = resolution_by_layout_name.get(layout_name)
         action = str(resolution.get("action") if isinstance(resolution, dict) else "" or "").strip().lower()
@@ -197,36 +227,38 @@ def import_ui_from_workbench_bundles_to_gil(
                     "layout_name_written": None,
                     "action": "skip",
                     "skipped": True,
+                    "timings_sec": {"total_sec": float(perf_counter() - bundle_started_at)},
                 }
             )
             continue
 
         layout_name_written = str(layout_name)
         target_layout_guid: int | None = None
+        scan_existing_layout_guid_sec = 0.0
         if action == "add":
             layout_name_written = str(resolution.get("new_layout_name") or "").strip() if isinstance(resolution, dict) else ""
             if layout_name_written == "":
                 raise ValueError(f"layout_conflict_resolutions 缺少 new_layout_name（layout_name={layout_name!r}）")
-            # guard：避免误生成“同名新增”导致编辑器里两条同名布局难以区分
-            existing_guid = _try_find_existing_layout_guid_by_name(Path(current_input), layout_name=layout_name_written)
-            if existing_guid is not None:
-                raise ValueError(
-                    f"新增布局名与目标 gil 已存在布局冲突：new_layout_name={layout_name_written!r}, existing_guid={int(existing_guid)}"
-                )
+            # 冲突检查下沉到 import_web_ui_control_group_template_to_gil_layout（复用其 decode 结果，避免二次 dump-decode 扫描）。
             target_layout_guid = None
         elif action == "overwrite":
-            target_layout_guid = _try_find_existing_layout_guid_by_name(Path(current_input), layout_name=layout_name_written)
+            # overwrite：不再预扫描 layout_guid（会导致每页额外 decode 一次 base `.gil`）。
+            # 目标 layout 的解析下沉到 import_web_ui_control_group_template_to_gil_layout（同一次 decode 内完成）。
+            target_layout_guid = None
         else:
             raise ValueError(f"unsupported layout conflict action: {action!r}")
 
         step_output = output_path
         step_output.parent.mkdir(parents=True, exist_ok=True)
+        t0 = perf_counter()
         report = import_web_ui_control_group_template_to_gil_layout(
-            input_gil_file_path=Path(current_input),
+            input_gil_file_path=Path(input_path),
             output_gil_file_path=Path(step_output),
             template_json_file_path=Path(bundle_path),
             target_layout_guid=(int(target_layout_guid) if target_layout_guid is not None else None),
             new_layout_name=str(layout_name_written),
+            resolve_existing_layout_by_name=(action == "overwrite"),
+            require_new_layout_name=(action == "add"),
             base_layout_guid=None,
             empty_layout=False,
             clone_children=True,
@@ -240,7 +272,11 @@ def import_ui_from_workbench_bundles_to_gil(
             # 导出中心链路：暂不接入“固有控件初始显隐覆盖”（HUD builtin visibility overrides）。
             # 原因：目标 base `.gil` 可能不含这些固有控件，强制应用会 fail-fast 阻断整次导出。
             enable_builtin_widgets_visibility_overrides=False,
+            raw_dump_object_override=raw_dump_object,
+            defer_writeback=True,
         )
+        import_bundle_sec = float(perf_counter() - t0)
+        any_applied = True
 
         ui_key_to_guid_for_writeback = report.get("ui_key_to_guid_for_writeback")
         if isinstance(ui_key_to_guid_for_writeback, dict):
@@ -271,18 +307,34 @@ def import_ui_from_workbench_bundles_to_gil(
                 "action": str(action),
                 "skipped": False,
                 "target_layout_guid": (int(target_layout_guid) if target_layout_guid is not None else None),
+                "timings_sec": {
+                    "scan_existing_layout_guid_sec": float(scan_existing_layout_guid_sec),
+                    "import_bundle_sec": float(import_bundle_sec),
+                    "total_sec": float(perf_counter() - bundle_started_at),
+                },
                 "report": report,
             }
         )
-        current_input = step_output.resolve()
+        pass
 
     # 若全部跳过：仍需确保输出存在（保持“链式写回”的后续步骤可继续以 output 作为 current_input）
+    writeback_sec = 0.0
+    if bool(any_applied):
+        t_write = perf_counter()
+        _write_back_modified_gil_by_reencoding_payload(
+            raw_dump_object=raw_dump_object,
+            input_gil_path=Path(input_path),
+            output_gil_path=Path(output_path),
+        )
+        writeback_sec = float(perf_counter() - t_write)
     if not Path(output_path).is_file():
         output_path.parent.mkdir(parents=True, exist_ok=True)
         import shutil
 
         shutil.copyfile(input_path, output_path)
 
+    timings_sec["final_writeback_sec"] = float(writeback_sec)
+    timings_sec["total_sec"] = float(perf_counter() - started_at)
     return {
         "project_archive": str(project_root),
         "input_gil": str(input_path),
@@ -295,6 +347,7 @@ def import_ui_from_workbench_bundles_to_gil(
         "ui_key_to_guid_for_writeback_total": int(len(merged_ui_key_to_guid_for_writeback)),
         "ui_key_to_guid_for_writeback_conflicts_total": int(len(merged_conflicts)),
         "ui_key_to_guid_for_writeback_conflicts": merged_conflicts[:50],
+        "timings_sec": dict(timings_sec),
         "options": {
             "auto_sync_custom_variables": bool(auto_sync_custom_variables),
             "layout_conflict_resolutions_enabled": bool(bool(layout_conflict_resolutions)),

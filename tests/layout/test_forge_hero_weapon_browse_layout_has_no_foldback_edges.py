@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tests._helpers.project_paths import get_repo_root
+from typing import Final
 
 from engine.graph import GraphCodeParser
 from engine.layout import LayoutService
@@ -8,9 +8,11 @@ from engine.layout.internal.constants import PORT_EXIT_LOOP
 from engine.layout.utils.graph_query_utils import is_flow_edge
 from engine.nodes.node_registry import clear_all_registries_for_tests
 from engine.utils.runtime_scope import set_active_package_id
+from tests._helpers.project_paths import get_repo_root
 
 
 PROJECT_ROOT = get_repo_root()
+X_FOLDBACK_EPS: Final[float] = 1e-6
 
 
 def test_forge_hero_weapon_browse_and_select_has_no_foldback_edges() -> None:
@@ -71,7 +73,7 @@ def test_forge_hero_weapon_browse_and_select_has_no_foldback_edges() -> None:
 
         src_x = float(src_node.pos[0])
         dst_x = float(dst_node.pos[0])
-        if dst_x < src_x - 1e-6:
+        if dst_x < src_x - X_FOLDBACK_EPS:
             foldback_edges.append(
                 (
                     src_node_id,

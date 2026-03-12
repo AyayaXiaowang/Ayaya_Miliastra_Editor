@@ -3,9 +3,13 @@
 
 ## 当前状态
 - **块识别与顺序**
-  - `test_block_identification_bfs_ordering.py`：回归块识别采用 BFS 顺序，避免兄弟分支初始化节点被编号到最后一个块导致 UI 分块错位。
+  - `test_block_identification_bfs_ordering.py`：回归块识别采用 DFS 顺序（深度优先）：先走完一条分支再回头处理兄弟分支，块编号体现“从端口出发的阅读顺序”。
+  - `test_list_iter_loop_branch_block_order_matches_port_order.py`：回归“列表迭代循环”右侧多出口场景下，`循环体` 子块编号必须小于 `循环完成` 子块编号（避免端口上下顺序与块编号反序）；测试输入采用 `测试项目` 的压力回归图。
+  - `test_block_order_follows_strict_dfs_preorder_intervals.py`：回归“严格 DFS（走到底）”块编号：块 `order_index` 必须等于块关系图的严格 DFS preorder；并额外断言 spanning tree 子树在编号序列中形成连续区间，防止“从块8往下看但编号不连续”的问题漏检。
+  - `test_basic_blocks_expose_stable_order_index.py`：回归 UI 叠层使用的 `basic_blocks` 也携带稳定编号 `BasicBlock.order_index`，并与布局内部 `LayoutBlock.order_index / block_<n>` 对齐，避免“画面红色块号”与“节点详情所属块号”不一致。
 - **块间布局**
-  - `test_block_vertical_centering.py`：回归块间（多父合流/多子分叉）垂直居中与同列局部互换约束，避免整列重排破坏结构。
+  - `test_block_vertical_centering.py`：回归块间（多父合流/多子分叉）垂直居中与同列局部互换约束（无 UI/端口上下文时的几何基线口径）。
+  - `test_block_vertical_centering_end_to_end_regression.py`：端到端回归真实节点图（`测试项目` 压力图）下的块间垂直居中（**端口口径**）：对“父块的单父子块分叉（exclusive children，且子块数≥2）”断言“父块出边端口Y均值落在子块入边端口Y范围[min,max]内”，以匹配 UI 里连线扇出/汇入的视觉居中；并避免把合流/回边/循环完成等共享子块纳入居中约束导致巨大空白。
   - `test_block_column_x_avoids_data_foldback.py`：回归列左对齐模式下跨块 data 依赖不出现“右→左折返”边（跳出循环回边除外）。
   - `test_template_validation_edge_native_expr_mix_has_no_foldback_edges.py`：回归“测试_边界_原生表达式混合上限”在解析+排版后不出现折返边，覆盖链限流与复杂表达式混合场景。
   - `test_composite_int_list_slice_has_no_foldback_edges.py`：回归复合节点 `composite_整数列表_切片` 自动排版后不出现折返边（覆盖【获取局部变量】初始值上游归属场景）。

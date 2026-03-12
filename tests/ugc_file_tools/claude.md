@@ -10,6 +10,7 @@
 ## 当前状态
 
 - 已包含若干稳定回归：
+  - 自定义变量写回回归：整数默认值支持 `#...` / `0x...` 十六进制文本（常用于颜色/ID）。覆盖：`test_custom_variables_int_default_parses_hex_text.py`
   - project CLI 解析（例如 `--ui-export-record`）
   - project 节点图写回回归：base `.gil` 存在同名图时按 **(scope, graph_name)** 复用 `graph_id_int` 并覆盖写回（避免 server/client 同名互相覆盖）
   - `.gil` 节点图 overwrite 写回回归：覆盖写回必须“就地替换 entry”并保持 groups 顺序不变，避免 `group_index` 漂移导致官方侧目录/分组错位。覆盖：`test_gil_writeback_overwrite_preserves_group_order.py`
@@ -94,10 +95,13 @@
   - `.gil` 基础设施 bootstrap 回归：当“空壳/极简 base `.gil`”缺失 `root4/11` 初始阵营互斥字段（entries 缺 key=13；包含 base entries 的匹配键(key=3)漂移/缺失导致无法命中 bootstrap 的场景）或 `root4/35` 默认分组列表时，应能从 bootstrap `.gil` 复制缺失字段（只补缺失、不覆盖 base 其它业务段），使导出产物更贴近“校验成功”样本口径。见 `test_gil_infrastructure_bootstrap_patches_missing_root4_sections.py`。
   - project 写回回归：当 pipeline 触发基础设施 bootstrap 但 bootstrap 判定无需写盘（`changed=False`）时，后续步骤必须继续使用原始 base 作为输入（不得切换到不存在的中间产物导致导出中心失败）。见 `test_project_writeback_bootstrap_changed_false_does_not_break_pipeline.py`。
   - 导出中心预览/回填面板纯逻辑回归：预览摘要文本与回填依赖清单/签名（含 target 路径与关键开关字段）收口到 `ui_integration/export_center/preview_models.py` 与 `backfill_panel_models.py`，测试锁住关键输出片段。
+  - 导出中心失败复现文本回归：失败页复现信息文本需包含关键分段且 JSON 可解析（覆盖：`test_export_center_failure_repro_text.py`）。
   - 导出中心回归：GIA 模式支持“基底 `.gil` 作为占位符参考回退”（未填写占位符参考时使用基底用于 `entity_key/component_key` 回填）。见 `test_export_center_validate_gia_plan_uses_base_gil_as_id_ref_fallback.py`。
   - 导出中心回填识别进度回归：`identify_gil_backfill_comparison` 应发出 `progress_cb(current,total,label)` 进度事件，供 UI 进度条展示（见 `test_export_center_backfill_inspector.py`）。
   - 导出中心回填识别缓存回归：同一份 `.gil` 重复识别应命中运行期缓存；当 `.gil` 变化（size/mtime）时缓存应自动失效并重新解析（见 `test_export_center_backfill_inspector.py`）。
   - 导出中心回填识别（UI占位符变量自动同步）回归：当启用 `scan_ui_placeholder_variables` 且 UI源码引用变量但 base 缺失时，识别表应标为“一同导出”（写回会自动补齐；见 `test_export_center_backfill_inspector.py`）。
+  - 导出中心回填依赖扫描回归：Graph Code 头部 `mount:` metadata 的 entity_key/component_key 也应被纳入依赖清单，避免挂载写回阶段缺映射。见 `test_export_center_id_ref_placeholder_scan_includes_mount_metadata.py`。
+  - project 节点图挂载写回回归：当 `mount:` 声明引用缺失映射（实体名/元件名）时，写回应跳过挂载但继续导出，并在 write_report 中可见未解析项。覆盖：`test_project_import_graph_mount_missing_mapping_is_nonfatal.py`
   - `.gil` 元件/实体 ID 抽取回归：`test_list_gil_ids.py`（合成最小 `.gil`，校验 component template_id 与 entity instance_id 的提取与去重排序）
   - `.gil` 占位符参考映射回归：`test_id_ref_from_gil.py`（合成最小 `.gil`，校验 `component_key:` 回填使用模板条目ID而非类型码；并覆盖模板名以 `<binary_data> 0A ..`（嵌套 message bytes）形态出现时仍能解包得到可读名称，避免识别/候选列表出现 `<binary_data>` 噪音）
   - `.gil` 占位符手动 overrides 回归：`test_id_ref_overrides.py`（JSON loader/合并策略；导出侧占位符回填应用 overrides 后缺失列表应清空）
@@ -124,6 +128,7 @@
   - UI Workbench → `.gil` 写回回归：空/极简基底 `.gil` 缺失 UI 段（`root4/9=None`）时，“同名布局复用”预扫描不得崩溃，应继续进入后续写回/bootstrapping。见 `test_ui_workbench_importer_empty_base_does_not_crash.py`。
   - 同文件也覆盖：bootstrap 必须从 `ugc_file_tools/builtin_resources/*` 读取最小 UI 夹具/seed（而不是错误的 `ui_patchers/save/*`）。
   - UI Workbench → `.gil` 写回回归：当 base `.gil` 已存在同名布局时，workbench 写回支持按布局名逐条指定 `overwrite/add/skip` 冲突策略（新增布局需提供 `new_layout_name`）。见 `test_ui_workbench_importer_layout_conflict_resolutions.py`。
+  - 写回耗时可观测回归：`project_writeback` 与 `ui_html_workbench_importer` 的 report 必须包含 `timings_sec`（以及每步 `duration_sec` / 每页 `bundles[*].timings_sec`），用于定位“导出慢”的具体阶段。
 - UI 自定义变量自动补齐回归：当 UI 写回/补齐引用到 `玩家自身.*` 变量时，除玩家实体外，也应同步写入玩家模板（战斗预设）条目（root5 wrapper 的 `group_list_key=7` 与 root4 template 的 `group_list_key=8`）。见 `test_ui_custom_variables_sync_writes_player_template_vars.py`。
 - UI Workbench → `.gil` 批量写回回归：多页面导出到同一份 `.gil` 时，`4/9/502` 的 record GUID 必须唯一，且 layout 树 parent/children 不变量成立；并覆盖“以含组件组容器的 layout 作为 base_layout_guid clone_children”时不得跨布局引用旧 GUID（避免串页/共享控件）。
   - 额外护栏：当 base 为“极空存档”（root4 缺失大量段）时，写回后必须补齐关键 root4 段（例如 10/11/12），否则编辑器侧可能表现为“布局切换异常/页面叠加（看起来像串页）”。见 `test_web_ui_import_batch_layout_tree_invariants.py`。

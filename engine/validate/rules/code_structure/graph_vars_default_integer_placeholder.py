@@ -12,9 +12,11 @@ from ...issue import EngineIssue
 from ...pipeline import ValidationRule
 from ..ast_utils import create_rule_issue, get_cached_module, line_span_text
 from ..ui_key_registry_utils import (
+    extract_ui_key_placeholder_raw_key,
     parse_ui_key_placeholder,
     try_format_invalid_ui_state_group_placeholder_message,
     try_load_ui_html_ui_keys_for_ctx,
+    try_load_ui_workbench_ui_keys_for_ctx,
 )
 from ..entity_registry_utils import parse_entity_key_placeholder
 
@@ -49,6 +51,7 @@ def _is_entity_key_placeholder(text: str) -> bool:
 
 
 _NUMBER_TEXT_RE = re.compile(r"[+-]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[eE][+-]?\d+)?\Z")
+_UI_KEY_SUGGESTION_PREVIEW_LIMIT = 8
 
 
 class GraphVarsDefaultIntegerPlaceholderRule(ValidationRule):
@@ -72,6 +75,8 @@ class GraphVarsDefaultIntegerPlaceholderRule(ValidationRule):
         tree = get_cached_module(ctx)
         ui_view = try_load_ui_html_ui_keys_for_ctx(ctx)
         ui_key_set = set(ui_view.ui_keys) if ui_view is not None else set()
+        workbench_view = try_load_ui_workbench_ui_keys_for_ctx(ctx)
+        workbench_ui_key_set = set(workbench_view.ui_keys) if workbench_view is not None else set()
 
         issues: List[EngineIssue] = []
         list_nodes = _iter_graph_variables_list_nodes(tree)
@@ -141,6 +146,7 @@ class GraphVarsDefaultIntegerPlaceholderRule(ValidationRule):
 
                 def _check_ui_key_exists_or_report(placeholder_text: str) -> bool:
                     ui_key = parse_ui_key_placeholder(placeholder_text)
+                    raw_ui_key = extract_ui_key_placeholder_raw_key(str(placeholder_text))
                     if ui_key is None:
                         return True
                     # 仅当节点图位于资源库目录结构下时才强制存在性
@@ -188,6 +194,34 @@ class GraphVarsDefaultIntegerPlaceholderRule(ValidationRule):
                                     f"{('『' + name_text + '』') if name_text else ''} 的类型为『{var_type_display}』时，"
                                     f"占位符不存在：{placeholder_text!r}。"
                                     "请检查 HTML 中是否声明了该 ui_key（data-ui-key / data-ui-state-group），或修正占位符 key。"
+                                ),
+                            )
+                        )
+                        return False
+
+                    if (
+                        workbench_view is not None
+                        and workbench_ui_key_set
+                        and isinstance(raw_ui_key, str)
+                        and raw_ui_key != ""
+                        and (not str(raw_ui_key).startswith("UI_STATE_GROUP__"))
+                        and str(raw_ui_key) not in workbench_ui_key_set
+                    ):
+                        candidates = list(workbench_view.ui_keys_by_data_ui_key.get(str(ui_key), ()))
+                        preview = candidates[:_UI_KEY_SUGGESTION_PREVIEW_LIMIT]
+                        hint = f"；候选={preview}" if preview else ""
+                        issues.append(
+                            create_rule_issue(
+                                self,
+                                file_path,
+                                default_value_node,
+                                "CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE",
+                                (
+                                    f"{line_span_text(default_value_node)}: GRAPH_VARIABLES 中图变量"
+                                    f"{('『' + name_text + '』') if name_text else ''} 的类型为『{var_type_display}』时，"
+                                    f"ui_key 占位符未命中 UI Workbench bundle：{placeholder_text!r}。"
+                                    "当前项目存在 `管理配置/UI源码/__workbench_out__/*.ui_bundle.json`，写回/导出将以 bundle 的 `ui_key` 为准；"
+                                    f"请改用 bundle 内真实存在的 ui_key{hint}。"
                                 ),
                             )
                         )

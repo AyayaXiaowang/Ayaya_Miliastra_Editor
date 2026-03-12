@@ -20,6 +20,10 @@ from typing import Any, Dict, Optional, Tuple
 from ugc_file_tools.gil.name_unwrap import normalize_dump_json_name_text
 from ugc_file_tools.node_graph_writeback.gil_dump import dump_gil_to_raw_json_object, get_payload_root
 
+_MIN_TEMPLATE_ENTRY_ID_INT = 1_000_000_000
+_MIN_TEMPLATE_TYPE_CODE_INT = 1
+_MAX_TEMPLATE_TYPE_CODE_INT = 999_999_999
+
 
 def _first_dict(value: Any) -> Optional[Dict[str, Any]]:
     if isinstance(value, dict):
@@ -68,30 +72,34 @@ def _try_extract_component_name_from_record(record: Dict[str, Any]) -> Optional[
 
 
 def _collect_component_name_to_id_from_payload_root(payload_root: Dict[str, Any]) -> Dict[str, int]:
+    """
+    从 root4/4/1（模板 entry 列表）抽取 component_name -> template_entry_id。
+    """
     mapping: Dict[str, int] = {}
 
-    def visit(value: Any) -> None:
-        if isinstance(value, list):
-            for item in value:
-                visit(item)
-            return
-        if not isinstance(value, dict):
-            return
+    section_templates = payload_root.get("4")
+    if not isinstance(section_templates, dict):
+        return {}
 
-        # 候选：包含 (template_entry_id, template_type_code, name)
-        # 说明：节点图 `元件ID` 端口需要的是“模板条目 ID”（field_1），而不是“模板类型码”（field_2）。
-        template_type_code = value.get("2")
-        template_entry_id = value.get("1")
-        if isinstance(template_type_code, int) and isinstance(template_entry_id, int):
-            if int(template_entry_id) > 1_000_000_000 and 1 <= int(template_type_code) <= 999_999_999:
-                name = _try_extract_component_name_from_record(value)
-                if name is not None and name not in mapping:
-                    mapping[str(name)] = int(template_entry_id)
+    entries = _ensure_list_allow_scalar(section_templates.get("1"))
+    for entry0 in list(entries):
+        if not isinstance(entry0, dict):
+            continue
 
-        for _k, v in value.items():
-            visit(v)
+        template_type_code = entry0.get("2")
+        template_entry_id = entry0.get("1")
+        if not (isinstance(template_type_code, int) and isinstance(template_entry_id, int)):
+            continue
+        if int(template_entry_id) <= int(_MIN_TEMPLATE_ENTRY_ID_INT):
+            continue
+        if not (int(_MIN_TEMPLATE_TYPE_CODE_INT) <= int(template_type_code) <= int(_MAX_TEMPLATE_TYPE_CODE_INT)):
+            continue
 
-    visit(payload_root)
+        name = _try_extract_component_name_from_record(entry0)
+        if name is None:
+            continue
+        if name not in mapping:
+            mapping[str(name)] = int(template_entry_id)
     return mapping
 
 

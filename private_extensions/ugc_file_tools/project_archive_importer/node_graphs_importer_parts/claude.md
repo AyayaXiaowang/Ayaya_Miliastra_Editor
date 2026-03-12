@@ -15,6 +15,14 @@
 - 当全部节点图被 skip（冲突策略/strict 解析失败等）且输出文件尚不存在时，会先复制 base `.gil` 作为输出，保证导出产物与后续 copy 步骤可用。
 - 节点图写回支持可选信号策略：`prefer_signal_specific_type_id` 开启时，满足静态绑定且 base 映射可用的信号节点可将 runtime type_id 切换为 signal-specific runtime_id（常见 0x6000xxxx/0x6080xxxx；由 base `.gil` 的 node_def_id 0x4000xxxx/0x4080xxxx 推导），以对齐端口展开/绑定口径。
 - 节点图写回支持 `entity_key/component_key` 手动覆盖：当参考 `.gil` 按名称找不到时，可通过 `NodeGraphsImportOptions.id_ref_overrides_json_file` 注入占位符 name→ID 覆盖映射（导出中心缺失行双击选择会自动生成并透传）。
+- 节点图写回支持 Graph Code 头部 `mount:` metadata 声明挂载目标：
+  - `mount: entity_key:<实体名>` / `mount: entity:<实体名>`
+  - `mount: component_key:<元件名>` / `mount: component:<元件名>`
+  - 写回阶段会按名称映射解析为实例 ID，并将挂载关系写入输出 `.gil` 的实体摆放段；当映射缺失/写入失败时采用 best-effort：跳过该项并在 per-graph write_report 中记录 `graph_mount_unresolved_targets`/`graph_mount_apply_failures`（同时通过 progress_cb 输出 WARN）。
+- 节点图写回支持实时的导入进度反馈，通过接受 `progress_cb` 参数可以报告当前正在处理的节点图文件和处理进度（形如 `[当前/总数] 图文件名`），用于提升导出中心写回慢速节点图时的过程可见性。
+- GraphModel 导出不会无条件触发 `invalidate_graph_for_reparse`：优先命中内存/持久化 graph_cache，仅在缓存不兼容时才回退到重解析/自动布局（显著降低批量写回耗时）。
+- 节点图写回采用批处理（template-clone 模式）：base `.gil` 仅 decode 一次，在内存 `payload_root['10']` 上按图依次应用变更，最后只做一次 wire-level 写盘，避免“每图一次 decode+写盘”导致的线性放大耗时。
+- selection-json 显式选图写回（`graph_code_files`）会直接基于选中列表构造 specs（不再全量扫描 roots），避免大项目下“先扫全量再过滤”带来的额外耗时。
 
 ## 注意事项
 - 整体以 fail-fast 为主：结构/模板/路径不符合预期直接抛错；但批处理写回允许对单图解析失败做显式 skip 并回报到 report（不静默吞错）。

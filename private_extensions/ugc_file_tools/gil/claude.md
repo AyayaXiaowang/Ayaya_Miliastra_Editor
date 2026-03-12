@@ -8,9 +8,11 @@
 
 - `builtin_empty_base.py`：提供“程序内置空存档 base `.gil`”的定位函数 `get_builtin_empty_base_gil_path()`，供导出中心的“导出为空存档”选项复用（当前指向 `builtin_resources/empty_base_samples/empty_base_with_infra.gil`）。
 - `infrastructure_bootstrap.py`：补齐“空壳/极简 base `.gil`”缺失的基础设施段（当前覆盖：`root4/11` 初始阵营互斥字段 key=13、`root4/35` 默认分组列表、以及常见缺口的 `root4/6` 与 `root4/22`），用于降低“编辑器可渲染但官方侧严格校验失败”的风险。
-  - `root4/11` 的 key=13 补齐优先按条目内稳定键（常见为 key=3）匹配 bootstrap 样本；当 base 条目的匹配键漂移/缺失导致无法命中时，会退化为“按 index 对齐补齐”（entries 长度一致时）并提供保守兜底，避免单条缺失导致官方侧解析失败。
+  - 写盘策略：优先采用 wire-level patch（只替换被修改的段，如 field_2/6/11/22/35），避免整份 payload 重编码引入其它段的 bytes 漂移导致外部 base `.gil` 被拒识。
+  - `root4/11` 的 key=13 补齐以“可验证补齐”为主：优先按条目内稳定键（常见为 key=3）匹配 bootstrap/seed 样本；当 seed 覆盖不足但 base 内其它条目的 `13` 值完全一致时，也允许用该一致值补齐缺失条目；对“样本覆盖范围内”的条目若仍存在缺口会 fail-fast 抛错并给出缺口索引/匹配键；对样本未覆盖且无法从 base 推导的未知条目不做强制补齐/强制校验（避免跨版本结构差异被误判为缺口）。
   - `root4/35` 默认分组列表仅补齐“已观测的最小可用口径”（16 项 canonical 分组），**不会**整段克隆 bootstrap 存档里可能携带的业务噪音分组。
   - `root4/6` 与 `root4/22` 不再从 `save/test.gil` 拷贝（其口径可能与校验成功样本不一致），而是从“内置空存档 base”（`builtin_resources/empty_base_samples/empty_base_with_infra.gil`）提取 canonical 口径做最小补齐。
+  - `root4/22` 兼容外部 base 形态：当 base 存档的 `payload_root['22']` 在 dump 视图中保留为 `"<binary_data> ..."` 时，视为“已存在”，不会因“非 dict”而强行覆盖为 seed 的 canonical dict，避免跨版本基础设施段不兼容导致官方拒识。
   - 兼容输入形态：允许调用侧以 `int` 或 `str` 数值键传入 numeric_message（内部统一归一化为 `str(key)`），避免桥接层/不同 dump 路径导致的键类型漂移。
 - `id_listing.py`：只读列出 `.gil` 内的元件/实体 ID（诊断/对照用）。
 - `name_unwrap.py`：名字字段归一化：将 dump-json 中形如 `"<binary_data> 0A .."` 的“嵌套 message(field_1=string) bytes”解包为可读文本名，避免回填识别/候选列表出现 `<binary_data>` 噪音项（例如 `飞机头`）。

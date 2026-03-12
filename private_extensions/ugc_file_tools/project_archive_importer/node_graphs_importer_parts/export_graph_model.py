@@ -30,7 +30,8 @@ def _export_graph_model_json_from_graph_code_with_context(
         raise ValueError(f"节点图源码未声明 graph_id（docstring metadata）：{str(code_path)!r}")
 
     # 解析并确保 graph_cache 生成（不重建索引）
-    ctx.resource_manager.invalidate_graph_for_reparse(graph_id)
+    # 性能：不要无条件 invalidate，否则会强制每次都重解析/自动布局，导致批量写回非常慢；
+    # 让 ResourceManager 自行命中内存/持久化缓存，仅在确实不兼容时才会回退到重解析路径。
     loaded = ctx.resource_manager.load_resource(ctx.ResourceType.GRAPH, graph_id)
     if not isinstance(loaded, dict):
         raise RuntimeError(f"加载节点图失败或不在当前作用域索引中：graph_id={graph_id!r}")

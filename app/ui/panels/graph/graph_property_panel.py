@@ -8,6 +8,7 @@ from typing import Any, Optional, List, Tuple, Dict, Set
 from PyQt6 import QtCore, QtWidgets, QtGui
 
 from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.foundation import fonts as ui_fonts
 from app.ui.foundation.theme_manager import ThemeManager, Colors, Sizes
 from app.ui.panels.panel_scaffold import PanelScaffold
@@ -25,6 +26,21 @@ from app.ui.widgets.graph_variable_table_widget import GraphVariableTableWidget
 from app.ui.foundation.info_snippets import GRAPH_VARIABLE_INFO
 from app.runtime.services.graph_data_service import GraphDataService, GraphLoadPayload, get_shared_graph_data_service
 from app.ui.panels.graph.graph_async_loader import get_shared_graph_loader, GraphAsyncLoader
+
+
+_MISSING_GRAPH_TOAST_TYPE = "info"
+_MISSING_GRAPH_KEYWORDS = ("不存在", "已被删除", "FileNotFoundError", "No such file")
+
+
+def _is_missing_graph_error_text(*, graph_id: str, error_text: str) -> bool:
+    graph_id_text = str(graph_id or "").strip()
+    message = str(error_text or "").strip()
+    if not graph_id_text or not message:
+        return False
+    if graph_id_text not in message:
+        # 允许极少数情况图 ID 未包含在错误文本中，但关键词命中仍可视为“缺失图”
+        return any(keyword in message for keyword in _MISSING_GRAPH_KEYWORDS)
+    return any(keyword in message for keyword in _MISSING_GRAPH_KEYWORDS)
 
 
 class GraphPropertyPanel(PanelScaffold):
@@ -607,7 +623,15 @@ class GraphPropertyPanel(PanelScaffold):
         if self._preview_mode_active:
             return
         if payload.error:
-            show_warning_dialog(self, "加载失败", payload.error)
+            # 缺失/已删除节点图：属于“后台噪音”而非可操作错误，避免模态弹窗打断用户。
+            if _is_missing_graph_error_text(graph_id=str(graph_id or ""), error_text=str(payload.error or "")):
+                ToastNotification.show_message(
+                    self,
+                    f"节点图已被删除或不可用：{str(graph_id or '').strip()}（已清空右侧面板）",
+                    _MISSING_GRAPH_TOAST_TYPE,
+                )
+            else:
+                show_warning_dialog(self, "加载失败", payload.error)
             self.set_empty_state()
             return
         if not payload.graph_config or not payload.graph_model:

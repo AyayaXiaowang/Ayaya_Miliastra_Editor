@@ -12,6 +12,7 @@ from app.ui.graph.graph_scene import GraphScene
 from app.ui.graph.graph_canvas_host import GraphCanvasHost
 from app.ui.graph.graph_view.shared_graph_view_lease import get_shared_graph_view_lease_manager
 from app.ui.foundation.dialog_utils import show_warning_dialog
+from app.ui.foundation.toast_notification import ToastNotification
 from app.ui.todo.misc.todo_config import TodoStyles, LayoutConstants, StepTypeRules
 from app.ui.todo.preview.todo_preview_controller import TodoPreviewController
 from app.ui.todo.preview.preview_graph_context_resolver import resolve_graph_preview_context
@@ -20,6 +21,20 @@ from app.ui.todo.list.todo_widgets import create_execute_button
 from engine.configs.settings import settings
 from app.models.edit_session_capabilities import EditSessionCapabilities
 from app.ui.todo.list.todo_ui_context import TodoUiContext
+
+
+_MISSING_GRAPH_TOAST_TYPE = "info"
+_MISSING_GRAPH_KEYWORDS = ("不存在", "已被删除", "FileNotFoundError", "No such file")
+
+
+def _is_missing_graph_error_text(*, graph_id: str, error_text: str) -> bool:
+    graph_id_text = str(graph_id or "").strip()
+    message = str(error_text or "").strip()
+    if not graph_id_text or not message:
+        return False
+    if graph_id_text not in message:
+        return any(keyword in message for keyword in _MISSING_GRAPH_KEYWORDS)
+    return any(keyword in message for keyword in _MISSING_GRAPH_KEYWORDS)
 
 
 class _GraphPreviewLoadWorker(QtCore.QThread):
@@ -676,7 +691,16 @@ class TodoPreviewPanel(QtWidgets.QWidget):
             if shared_view is not None and hasattr(shared_view, "hide_loading_overlay"):
                 shared_view.hide_loading_overlay()
             self._pending_focus_after_graph_loaded = None
-            show_warning_dialog(self, "无法加载节点图预览", str(error_text or "加载失败"))
+            message = str(error_text or "加载失败").strip()
+            # 缺失/已删除节点图：不弹模态框（背景噪音），改为轻量提示并保持预览空态。
+            if _is_missing_graph_error_text(graph_id=str(failed_graph_id or ""), error_text=message):
+                ToastNotification.show_message(
+                    self,
+                    f"节点图已被删除或不可用：{str(failed_graph_id or '').strip()}（预览已清空）",
+                    _MISSING_GRAPH_TOAST_TYPE,
+                )
+                return
+            show_warning_dialog(self, "无法加载节点图预览", message)
 
         worker = self._graph_preview_load_worker
         worker.succeeded.connect(_on_succeeded)
