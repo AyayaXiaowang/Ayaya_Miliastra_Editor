@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from .export_center.state import (
-    _load_last_resource_picker_expanded_node_ids,
-    _save_last_resource_picker_expanded_node_ids,
+    load_last_resource_picker_expanded_node_ids,
+    save_last_resource_picker_expanded_node_ids,
 )
 from .export_center_dialog_types import ExportCenterLeftPane
 
@@ -63,10 +63,10 @@ def build_export_center_left_pane(
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         header.resizeSection(1, 70)
 
-    expanded_ids = set(_load_last_resource_picker_expanded_node_ids(workspace_root=Path(workspace_root)))
+    expanded_ids = set(load_last_resource_picker_expanded_node_ids(workspace_root=Path(workspace_root)))
 
     def _persist_picker_expanded_state() -> None:
-        _save_last_resource_picker_expanded_node_ids(
+        save_last_resource_picker_expanded_node_ids(
             workspace_root=Path(workspace_root),
             node_ids=sorted(picker.get_expanded_node_ids(), key=lambda t: t.casefold()),
         )

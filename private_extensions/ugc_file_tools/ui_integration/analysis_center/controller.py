@@ -116,8 +116,8 @@ class _AnalysisCenterController:
         from app.ui.foundation.theme_manager import Colors, Sizes
         from ugc_file_tools.ui_integration.resource_picker import build_resource_selection_items, make_resource_picker_widget_cls
         from ugc_file_tools.ui_integration.export_center.state import (
-            _load_last_resource_picker_expanded_node_ids,
-            _save_last_resource_picker_expanded_node_ids,
+            load_last_resource_picker_expanded_node_ids,
+            save_last_resource_picker_expanded_node_ids,
         )
 
         scope = self._scope()
@@ -175,10 +175,10 @@ class _AnalysisCenterController:
         )
 
         # 复用导出中心的“展开状态持久化”口径。
-        expanded_ids = set(_load_last_resource_picker_expanded_node_ids(workspace_root=Path(self._workspace_root)))
+        expanded_ids = set(load_last_resource_picker_expanded_node_ids(workspace_root=Path(self._workspace_root)))
 
         def _persist_picker_expanded_state() -> None:
-            _save_last_resource_picker_expanded_node_ids(
+            save_last_resource_picker_expanded_node_ids(
                 workspace_root=Path(self._workspace_root),
                 node_ids=sorted(picker.get_expanded_node_ids(), key=lambda t: t.casefold()),
             )
