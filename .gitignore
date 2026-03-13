@@ -82,6 +82,22 @@ assets/资源库/项目存档/*
 
 # UI Workbench bundle 输出（构建产物；写回端会读取，但应由 HTML 重新生成，避免把旧产物提交进仓库）
 assets/资源库/项目存档/**/管理配置/UI源码/__workbench_out__/*.ui_bundle.json
+
+
+
+# 项目存档归档快照（原始解析/二进制数据块/大体量 dump；默认不对外）
+assets/资源库/项目存档/_archive/**
+
+# 对外开源发布：内容/授权未确认前，默认不上传（Need Confirm）
+
+assets/资源库/项目存档/锻刀/**
+assets/资源库/项目存档/第七关/**
+# 项目存档下的临时/对比/验证包：一律视为临时产物，不入库
+assets/资源库/项目存档/__tmp_*/
+assets/资源库/项目存档/_tmp_*/
+assets/资源库/项目存档/verify_*/
+assets/资源库/项目存档/cmp_*/
+assets/资源库/项目存档/临时诊断_*/
 projects/**
 # Release artifacts (local build outputs)
 release/**
