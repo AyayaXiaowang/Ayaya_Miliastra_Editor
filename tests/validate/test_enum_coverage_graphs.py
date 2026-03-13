@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 
 from engine.validate.rules.node_index import callable_node_defs_by_name
+from tests._helpers.project_paths import get_repo_root
 
 
 def _collect_string_literals(file_path: Path) -> set[str]:
@@ -32,14 +33,11 @@ def _expected_enum_literals(workspace_path: Path, *, scope: str) -> set[str]:
 
 def test_enum_coverage_graphs_include_all_enum_literals():
     """确保枚举覆盖图中包含节点库声明的全部枚举候选文本（server/client 分开统计）。"""
-    workspace_path = Path(__file__).resolve().parents[2]
+    workspace_path = get_repo_root()
+    graph_root_dir = workspace_path / "assets/资源库/项目存档/测试项目/节点图"
 
-    server_graph_dir = (
-        workspace_path / "assets/资源库/项目存档/test_enum_coverage/节点图/server/实体节点图/校准_枚举覆盖_v1"
-    )
-    client_graph_dir = (
-        workspace_path / "assets/资源库/项目存档/test_enum_coverage/节点图/client/技能节点图/校准_枚举覆盖_v1"
-    )
+    server_graph_dir = graph_root_dir / "server/实体节点图/校准_枚举覆盖_v1"
+    client_graph_dir = graph_root_dir / "client/技能节点图/校准_枚举覆盖_v1"
 
     server_graph_paths = sorted(server_graph_dir.glob("*.py"))
     client_graph_paths = sorted(client_graph_dir.glob("*.py"))

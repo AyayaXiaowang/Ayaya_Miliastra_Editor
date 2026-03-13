@@ -49,6 +49,9 @@ def prepare_web_ui_import_context(
     pc_canvas_size: Tuple[float, float],
     mobile_canvas_size: Tuple[float, float],
     ui_guid_registry_file_path: Optional[Path],
+    resolve_existing_layout_by_name: bool = False,
+    require_new_layout_name: bool = False,
+    raw_dump_object_override: Dict[str, Any] | None = None,
 ) -> Tuple[WebUiImportContext, Dict[str, Any]]:
     input_path = Path(input_gil_file_path).resolve()
     output_path = resolve_output_file_path_in_out_dir(Path(output_gil_file_path))
@@ -151,7 +154,13 @@ def prepare_web_ui_import_context(
             return (bw, bh)
         return best
 
-    raw_dump_object = _dump_gil_to_raw_json_object(input_path)
+    raw_dump_object: Dict[str, Any]
+    if raw_dump_object_override is None:
+        raw_dump_object = _dump_gil_to_raw_json_object(input_path)
+    else:
+        if not isinstance(raw_dump_object_override, dict):
+            raise TypeError("raw_dump_object_override must be dict or None")
+        raw_dump_object = raw_dump_object_override
     # -------------------------------------------------------------- 基底兼容：空/极简存档缺失 UI 段
     #
     # 现象：
@@ -455,6 +464,48 @@ def prepare_web_ui_import_context(
         ui_key_to_guid = load_ui_guid_registry(registry_path)
         ui_key_to_guid, registry_guid_dedup_report = dedup_ui_guid_registry_by_guid(ui_key_to_guid)
         registry_loaded = True
+
+    # 可选：按 layout_name 在同一次 decode 的 record_list 内解析 target_layout_guid，避免上层做二次 dump-decode 扫描。
+    if target_layout_guid is None and (bool(resolve_existing_layout_by_name) or bool(require_new_layout_name)):
+        from ugc_file_tools.ui.readable_dump import extract_primary_guid as _extract_primary_guid
+        from ugc_file_tools.ui.readable_dump import extract_primary_name as _extract_primary_name
+
+        target = str(new_layout_name or "").strip()
+        if target != "":
+            matched_guids: List[int] = []
+            for rec in ui_record_list:
+                if not isinstance(rec, dict):
+                    continue
+                # layout root：无 parent（504）
+                if "504" in rec:
+                    continue
+                name_text = _extract_primary_name(rec)
+                if not isinstance(name_text, str) or str(name_text).strip() != target:
+                    continue
+                guid = _extract_primary_guid(rec)
+                if isinstance(guid, int) and int(guid) > 0:
+                    matched_guids.append(int(guid))
+
+            unique: List[int] = []
+            seen: set[int] = set()
+            for g in matched_guids:
+                if int(g) in seen:
+                    continue
+                seen.add(int(g))
+                unique.append(int(g))
+
+            if bool(require_new_layout_name) and unique:
+                raise ValueError(
+                    f"新增布局名与目标 gil 已存在布局冲突：new_layout_name={target!r}, existing_guids={unique!r}"
+                )
+            if bool(resolve_existing_layout_by_name):
+                if len(unique) == 1:
+                    target_layout_guid = int(unique[0])
+                elif len(unique) > 1:
+                    raise ValueError(
+                        "base .gil 存在多个同名布局 root，无法确定 overwrite 目标："
+                        f"layout_name={target!r}, guids={unique!r}"
+                    )
 
     layout_guid: int
     created_layout: Optional[Dict[str, Any]] = None

@@ -1,0 +1,11 @@
+{
+  "id": "player_template_test_workbench_catalog_01",
+  "template_id": "player_template_test_workbench_catalog_01",
+  "template_name": "测试_变量清单_玩家模板",
+  "name": "测试_变量清单_玩家模板",
+  "description": "测试夹具：Workbench 变量清单冒烟用。",
+  "metadata": {
+    "custom_variable_file": "auto_custom_vars__player__测试项目"
+  }
+}
+

@@ -1,0 +1,21 @@
+from __future__ import annotations
+
+from engine.nodes.node_spec import node_spec
+from plugins.nodes.shared.client_查询节点_impl_helpers import *  # noqa: F401,F403
+
+
+@node_spec(
+    name="查询字典是否包含特定键",
+    category="查询节点",
+    inputs=[("字典", "泛型字典"), ("键", "泛型")],
+    outputs=[("是否包含", "布尔值")],
+    description="查询指定字典是否包含特定的键",
+    doc_reference="客户端节点/查询节点/查询节点.md",
+    input_generic_constraints={
+        "键": ["实体", "GUID", "整数", "字符串", "阵营", "配置ID", "元件ID"],
+    },
+)
+def 查询字典是否包含特定键(game, 字典, 键):
+    """查询指定字典是否包含特定的键。"""
+    return 键 in 字典
+

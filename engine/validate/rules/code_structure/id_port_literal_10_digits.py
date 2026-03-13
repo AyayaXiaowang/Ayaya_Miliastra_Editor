@@ -14,9 +14,11 @@ from ...pipeline import ValidationRule
 from ..ast_utils import get_cached_module, infer_graph_scope, iter_class_methods, line_span_text
 from ..node_index import input_types_by_func
 from ..ui_key_registry_utils import (
+    extract_ui_key_placeholder_raw_key,
     parse_ui_key_placeholder,
     try_format_invalid_ui_state_group_placeholder_message,
     try_load_ui_html_ui_keys_for_ctx,
+    try_load_ui_workbench_ui_keys_for_ctx,
 )
 from ..component_registry_utils import (
     parse_component_key_placeholder,
@@ -24,6 +26,7 @@ from ..component_registry_utils import (
 from ..entity_registry_utils import parse_entity_key_placeholder
 
 _ID_TYPES: Set[str] = {TYPE_GUID, TYPE_CONFIG_ID, TYPE_COMPONENT_ID}
+_UI_KEY_SUGGESTION_PREVIEW_LIMIT = 8
 
 
 def _is_ui_key_guid_placeholder(value: object) -> bool:
@@ -95,6 +98,8 @@ class IdPortLiteralTenDigitsRule(ValidationRule):
         scope = infer_graph_scope(ctx)
         ui_view = try_load_ui_html_ui_keys_for_ctx(ctx)
         ui_key_set = set(ui_view.ui_keys) if ui_view is not None else set()
+        workbench_view = try_load_ui_workbench_ui_keys_for_ctx(ctx)
+        workbench_ui_key_set = set(workbench_view.ui_keys) if workbench_view is not None else set()
 
         expected_types_by_func = input_types_by_func(ctx.workspace_path, scope)
         module_constants = collect_module_constants(tree)
@@ -134,6 +139,7 @@ class IdPortLiteralTenDigitsRule(ValidationRule):
                     # 工程化：允许 GUID 端口使用 ui_key 占位符，写回阶段会解析为真实 GUID
                     if expected == TYPE_GUID and _is_ui_key_guid_placeholder(resolved):
                         ui_key = parse_ui_key_placeholder(str(resolved))
+                        raw_ui_key = extract_ui_key_placeholder_raw_key(str(resolved))
                         if ui_key is not None:
                             if ui_view is not None and (not ui_view.html_files):
                                 issues.append(
@@ -189,6 +195,41 @@ class IdPortLiteralTenDigitsRule(ValidationRule):
                                             f"{line_span_text(value_node or call)}: 函数『{func_name}』输入端口『{port_name}』"
                                             f"期望类型『{expected}』时使用的 ui_key 占位符不存在：{str(resolved)!r}。"
                                             "请检查 HTML 中是否声明了该 ui_key（data-ui-key / data-ui-state-group），或修正占位符 key。"
+                                        ),
+                                        file=str(file_path),
+                                        line_span=line_span_text(value_node or call),
+                                        port=str(port_name),
+                                        detail={
+                                            "func_name": func_name,
+                                            "port_name": port_name,
+                                            "expected_type": expected,
+                                            "resolved_value": resolved,
+                                        },
+                                    )
+                                )
+                                continue
+
+                            if (
+                                workbench_view is not None
+                                and workbench_ui_key_set
+                                and isinstance(raw_ui_key, str)
+                                and raw_ui_key != ""
+                                and (not str(raw_ui_key).startswith("UI_STATE_GROUP__"))
+                                and str(raw_ui_key) not in workbench_ui_key_set
+                            ):
+                                candidates = list(workbench_view.ui_keys_by_data_ui_key.get(str(ui_key), ()))
+                                preview = candidates[:_UI_KEY_SUGGESTION_PREVIEW_LIMIT]
+                                hint = f"；候选={preview}" if preview else ""
+                                issues.append(
+                                    EngineIssue(
+                                        level=self.default_level,
+                                        category=self.category,
+                                        code="CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE",
+                                        message=(
+                                            f"{line_span_text(value_node or call)}: 函数『{func_name}』输入端口『{port_name}』"
+                                            f"期望类型『{expected}』时使用的 ui_key 占位符未命中 UI Workbench bundle：{str(resolved)!r}。"
+                                            "当前项目存在 `管理配置/UI源码/__workbench_out__/*.ui_bundle.json`，写回/导出将以 bundle 的 `ui_key` 为准；"
+                                            f"请改用 bundle 内真实存在的 ui_key{hint}。"
                                         ),
                                         file=str(file_path),
                                         line_span=line_span_text(value_node or call),

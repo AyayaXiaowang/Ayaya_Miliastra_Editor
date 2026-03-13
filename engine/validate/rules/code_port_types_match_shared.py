@@ -52,8 +52,12 @@ def collect_var_types(
     method: ast.FunctionDef,
     func_names: Set[str],
     out_types: Dict[str, List[str]],
+    *,
+    module_tree: Optional[ast.Module] = None,
 ) -> Dict[str, str]:
     var_types: Dict[str, str] = {}
+    if isinstance(module_tree, ast.Module):
+        var_types.update(collect_module_level_var_types(module_tree))
     # 入参注解：允许在方法签名处以中文类型字符串标注输入参数类型（复合节点入口常见）。
     # 例如：def 入口(self, 数值A: "浮点数", 数值B: "浮点数"): ...
     args = getattr(method, "args", None)
@@ -93,6 +97,33 @@ def collect_var_types(
                 if t and t not in (FLOW_PORT_TYPE, ""):
                     var_types.setdefault(target_name, t)
     return var_types
+
+
+def collect_module_level_var_types(tree: ast.Module) -> Dict[str, str]:
+    module_types: Dict[str, str] = {}
+    for node in getattr(tree, "body", []) or []:
+        if isinstance(node, ast.AnnAssign):
+            target = getattr(node, "target", None)
+            ann = getattr(node, "annotation", None)
+            if not isinstance(target, ast.Name):
+                continue
+            if isinstance(ann, ast.Constant) and isinstance(getattr(ann, "value", None), str):
+                module_types[target.id] = str(ann.value)
+            continue
+
+        if isinstance(node, ast.Assign):
+            target_name = single_target_name(getattr(node, "targets", []) or [])
+            if not target_name:
+                continue
+            value = getattr(node, "value", None)
+            if not isinstance(value, ast.Constant):
+                continue
+            inferred = _CONST_TYPE_MAP.get(type(getattr(value, "value", None)), "")
+            if inferred:
+                module_types.setdefault(target_name, inferred)
+            continue
+
+    return module_types
 
 
 def single_target_name(targets: List[ast.expr]) -> Optional[str]:

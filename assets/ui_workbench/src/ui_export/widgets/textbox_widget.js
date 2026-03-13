@@ -4,6 +4,15 @@ import { applyUiStateMetaToPayload } from "../ui_state.js";
 import { inferInitialVisibleFromSource } from "./visibility.js";
 import { ALLOWED_GAME_FONT_SIZES, SMALL_TEXT_DARK_LUMINANCE_WARN_LT, SMALL_TEXT_FONT_SIZE_WARN_LT, clampNumber, computeRelativeLuminanceFromCssColor, normalizeTextAlignment, parsePxNumber, pickNearestAllowedGameFontSize, pickUniformTextFontSizeOverride, shouldWarnSmallTextDarkColor } from "../color_font.js";
 
+var TEXTBOX_TINY_BOX_WIDTH_LT_PX = 48; // 小框更容易被引擎 TextBox 的描边/内边距裁字：用于触发更强的最小宽高兜底（单位：px）。
+var TEXTBOX_TINY_BOX_HEIGHT_LT_PX = 24; // 同上：用于判定“很矮”的小框（单位：px）。
+var TEXTBOX_VERY_SHORT_TEXT_LEN_LE = 2; // “极短文本”启发式阈值：去标签后的可见文本长度 ≤ 该值时，启用更强兜底。
+var TEXTBOX_SAFE_MIN_WIDTH_PX = 44; // TextBox 宽度兜底下限：避免导出后过窄导致引擎裁字/不显示。
+var TEXTBOX_SAFE_MIN_HEIGHT_PX = 22; // TextBox 高度兜底下限：避免导出后过矮导致引擎裁字/不显示。
+var TEXTBOX_SAFE_MIN_WIDTH_BY_FONT_MULT = 3.5; // 按字号放大的宽度兜底倍率：需比文字紧包围盒更宽（特别是小框/短文本）。
+var TEXTBOX_SAFE_MIN_HEIGHT_BY_FONT_MULT = 1.9; // 按字号放大的高度兜底倍率：需容纳描边与内边距（特别是小框/短文本）。
+
+// 构建 TextBox 控件导出 payload（含小尺寸兜底，避免引擎裁字）。
 export function buildTextBoxWidget(widgetId, widgetName, rect, zIndex, text, layer, warningList, exportOptions, uiKeyKind, backgroundColorName) {
     var rawFontSize = layer && layer.fontSize ? String(layer.fontSize || "") : "";
     var fontSizeNumber = parsePxNumber(rawFontSize);
@@ -107,13 +116,13 @@ export function buildTextBoxWidget(widgetId, widgetName, rect, zIndex, text, lay
     var visibleText = String((overrideText && overrideText.trim()) ? overrideText : String(text || ""));
     visibleText = visibleText.replace(/<[^>]+>/g, "").trim();
     var isDigitsOnly = /^[0-9]+$/.test(visibleText);
-    var isVerySmallBox = (rawWidth > 0 && rawWidth < 36) || (rawHeight > 0 && rawHeight < 18);
-    var isVeryShortText = visibleText.length > 0 && visibleText.length <= 2;
+    var isVerySmallBox = (rawWidth > 0 && rawWidth < TEXTBOX_TINY_BOX_WIDTH_LT_PX) || (rawHeight > 0 && rawHeight < TEXTBOX_TINY_BOX_HEIGHT_LT_PX);
+    var isVeryShortText = visibleText.length > 0 && visibleText.length <= TEXTBOX_VERY_SHORT_TEXT_LEN_LE;
 
     if ((isDigitsOnly && isVerySmallBox) || isVeryShortText) {
         // 最小宽高：按字号给一个“至少能容纳 2 位数字 + 描边”的保守值
-        var minW = Math.max(44, Math.round(gameFontSizeInt * 2.4));
-        var minH = Math.max(22, Math.round(gameFontSizeInt * 1.25));
+        var minW = Math.max(TEXTBOX_SAFE_MIN_WIDTH_PX, Math.round(gameFontSizeInt * TEXTBOX_SAFE_MIN_WIDTH_BY_FONT_MULT));
+        var minH = Math.max(TEXTBOX_SAFE_MIN_HEIGHT_PX, Math.round(gameFontSizeInt * TEXTBOX_SAFE_MIN_HEIGHT_BY_FONT_MULT));
         safeWidth = Math.max(rawWidth, minW);
         safeHeight = Math.max(rawHeight, minH);
     }

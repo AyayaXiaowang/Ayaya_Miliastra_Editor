@@ -69,28 +69,19 @@ runtime/name_sync_state.json
 
 # 打包与分发脚本（版本化；产物仍写入 release/ 并保持忽略）
 
-# ---------- 资源库（版本化） ----------
-# `assets/资源库/` 需要被程序员开发与协作：不做默认忽略。
-# 编译产物与缓存仍应忽略（已由全局规则覆盖：__pycache__/ *.pyc 等）。
+# 忽略项目存档下的所有一级子文件和文件夹
+assets/资源库/项目存档/*
+
+# 【例外】不忽略以下特定项目（注意结尾的斜杠）
+!assets/资源库/项目存档/测试项目/
+!assets/资源库/项目存档/示例项目_第七关/
+!assets/资源库/项目存档/示例项目模板/
+
+# 注意：因为上面已经用了 /* 忽略了所有其他目录（包含了 锻刀、_archive、临时包 等），
+# 所以之前针对那些具体文件夹的忽略规则其实已经不需要写了，它们已经被默认拦截了。
 
 # UI Workbench bundle 输出（构建产物；写回端会读取，但应由 HTML 重新生成，避免把旧产物提交进仓库）
 assets/资源库/项目存档/**/管理配置/UI源码/__workbench_out__/*.ui_bundle.json
-
-
-
-# 项目存档归档快照（原始解析/二进制数据块/大体量 dump；默认不对外）
-assets/资源库/项目存档/_archive/**
-
-# 对外开源发布：内容/授权未确认前，默认不上传（Need Confirm）
-
-assets/资源库/项目存档/锻刀/**
-assets/资源库/项目存档/第七关/**
-# 项目存档下的临时/对比/验证包：一律视为临时产物，不入库
-assets/资源库/项目存档/__tmp_*/
-assets/资源库/项目存档/_tmp_*/
-assets/资源库/项目存档/verify_*/
-assets/资源库/项目存档/cmp_*/
-assets/资源库/项目存档/临时诊断_*/
 projects/**
 # Release artifacts (local build outputs)
 release/**
@@ -158,6 +149,10 @@ tools/patch_level7_*.py
 # ---------- plugins（版本化） ----------
 # `plugins/` 需要程序员协作开发与维护：不做默认忽略。
 # 编译产物与缓存仍应忽略（已由全局规则覆盖：__pycache__/ *.pyc 等）。
+
+# Cursor agent 错误记录（临时诊断证据链，不进仓库；需放在放行规则之后）
+_ERROR_DUMP.md
+@_ERROR_DUMP.md
 
 # Git config
 

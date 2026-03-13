@@ -382,6 +382,9 @@ def _build_execute_tab(
     result_header_layout.setSpacing(Sizes.SPACING_SMALL)
     result_header_layout.addWidget(QtWidgets.QLabel("输出：", result_header))
     result_header_layout.addStretch(1)
+    copy_result_btn = QtWidgets.QPushButton("复制", result_header)
+    copy_result_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+    result_header_layout.addWidget(copy_result_btn)
     clear_result_btn = QtWidgets.QPushButton("清空", result_header)
     clear_result_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
     result_header_layout.addWidget(clear_result_btn)
@@ -436,6 +439,7 @@ def _build_execute_tab(
         result_text=result_text,
         clear_log_btn=clear_log_btn,
         clear_result_btn=clear_result_btn,
+        copy_result_btn=copy_result_btn,
     )
 
 
@@ -495,9 +499,42 @@ def _build_backfill_panel(
         table.verticalHeader().setVisible(False)
         table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         header = table.horizontalHeader()
-        header.setStretchLastSection(True)
-        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        # 列宽策略：短列自适应（类别/值/状态），长列吃剩余空间（依赖项/备注）。
+        # 之前全列 Stretch 会导致“依赖项”列即使窗口很宽也只拿到固定比例，从而被 Qt 自动省略为 `...`。
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)  # 类别
+        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)  # 值
+        header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)  # 状态
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)  # 依赖项
+        header.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeMode.Stretch)  # 备注
         table.setMinimumHeight(420)
+
+        class _CopySelectionFilter(QtCore.QObject):
+            def eventFilter(self, watched: object, event: object) -> bool:
+                """处理 Ctrl+C 并将选中行复制到剪贴板。"""
+
+                if event is not None and event.type() == QtCore.QEvent.Type.KeyPress:
+                    key = int(event.key())
+                    mods = event.modifiers()
+                    if key == int(QtCore.Qt.Key.Key_C) and bool(mods & QtCore.Qt.KeyboardModifier.ControlModifier):
+                        indexes = table.selectedIndexes()
+                        rows = sorted({int(idx.row()) for idx in indexes})
+                        if rows:
+                            col_count = int(table.columnCount())
+                            lines: list[str] = []
+                            for r in rows:
+                                cols: list[str] = []
+                                for c in range(col_count):
+                                    it = table.item(int(r), int(c))
+                                    cols.append(str(it.text() or "") if it is not None else "")
+                                lines.append("\t".join(cols))
+                            QtWidgets.QApplication.clipboard().setText("\n".join(lines))
+                        return True
+                return super().eventFilter(watched, event)
+
+        copy_filter = _CopySelectionFilter(table)
+        table.installEventFilter(copy_filter)
+        setattr(table, "_export_center_copy_filter", copy_filter)
         return table
 
     missing_tab = QtWidgets.QWidget(tabs)

@@ -14,7 +14,7 @@
   - 兼容：监听信号“事件节点”（GraphModel: `node_def_ref.kind=event` 且 title/key=信号名）在 prepare 阶段会回退使用【监听信号】NodeDef，以便后续阶段能按同口径修剪 records（尤其是禁止保留 OutParam 占位，避免端口错位）。
   - 对齐真源：当 base `.gil` 能提供 `signal_name -> signal_index` 映射时，发送信号/监听信号/向服务端发送信号三类节点在命中静态绑定后都会携带 `signal_binding_signal_index_int`，供后续阶段写入 `node.field_9(signal_index)`（signal-specific runtime 下必需）。
   - 对齐 after_game：为 `对字典设置或新增键值对` 补齐 `值` 端口的占位 InParam(index=2) pin（当模板样本缺失该 record 时），避免 missing pins。
-- `stage_inparam_constants.py`：input_constants → InParam pins 写回（含 enum 常量映射与结构体字段写回特例；端口类型读取兼容 `input_port_types/input_types`；信号静态绑定下会按信号规格覆写参数 VarType，并在 base 映射可用时写入参数 pins 的 compositePinIndex；同时对齐回归用例：信号参数 pin 的 i2(kernel) 固定为 0（shell=slot, kernel=0），且不依赖 `__signal_id`）；【获取局部变量】`初始值` 的“纯数字字符串→GUID 空占位”补丁为**按类型证据触发**（仅当端口已能确定为 GUID 时生效，避免误伤整数/布尔初始值）。
+- `stage_inparam_constants.py`：input_constants → InParam pins 写回（含 enum 常量映射与结构体字段写回特例；端口类型读取兼容 `input_port_types/input_types`；信号静态绑定下会按信号规格覆写参数 VarType，并在 base 映射可用时写入参数 pins 的 compositePinIndex；同时对齐回归用例：信号参数 pin 的 i2(kernel) 固定为 0（shell=slot, kernel=0），且不依赖 `__signal_id`）；【获取局部变量】`初始值` 的“纯数字字符串→GUID 空占位”补丁为**按类型证据触发**（仅当端口已能确定为 GUID 时生效，避免误伤整数/布尔初始值）；`设置自定义变量(Set_Custom_Variable)` 会将『是否触发事件』布尔常量镜像写入第二个 Bool 入参 pin（避免真源/UI 端口显示错位）。
   - Create_Prefab（`创建元件`）：对齐真源端口口径，补齐『是否覆写等级』InParam 的 PinIndex2(kernel)=7；当覆写等级为 False 时，跳过/删除 `等级/单位标签索引列表` 常量 pins，避免多余端口落盘导致编辑器/真源解释错位。
   - 反射/泛型端口常量写回：当端口在 NodeDef 中声明为 `R<T>`/泛型家族（declared generic）时，常量写回会落盘 `ConcreteBase + indexOfConcrete` 作为类型载体（即便最终 VarType 已能确定），避免“连线/常量混用”时运行态按错误类型解释 pin。
   - 复合节点/结构体等需要稳定 pin 映射的节点：会从 `record_id_by_node_type_id_and_inparam_index` 补齐常量 InParam record 的 `field_7`（persistent_uid/compositePinIndex），避免“仅连线端口有 field_7、常量端口缺失”导致端口映射错位。

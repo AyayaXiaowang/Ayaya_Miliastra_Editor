@@ -9,6 +9,7 @@
 - 模式体系：`ViewMode` + `mode_presenters/` + `ModeTransitionService` 负责进入模式副作用与切换顺序；选中上下文逐步收敛到 `MainWindowViewState`（`view_state.py`）。
 - 右侧面板：对外统一走 `RightPanelController`；内部用 `RightPanelPolicy` + `RightPanelRegistry` + `right_panel_contracts.py` 实现“模式/section → tabs”收敛。
 - 图画布复用：全局 `app_state.graph_view` 在图编辑器与任务清单预览间移动复用；进入 `ViewMode.TODO` 时切换为 `EditSessionCapabilities.read_only_preview()`，保证预览页只读。
+- 缺失/已删除节点图相关的交互提示避免使用模态弹窗打断用户：以轻量提示（Toast/控制台）替代，并保持页面进入可预期的空态。
 - 连接与跳转：`wiring/` 作为信号绑定/导航转发集中入口；新增功能优先收敛到 `features/`，避免在 `ui_setup_mixin.py` 或多个 mixin 中继续堆积分支与 `.connect(...)`。
 
 ## 注意事项

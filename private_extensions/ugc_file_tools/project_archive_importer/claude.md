@@ -1,10 +1,12 @@
 # project_archive_importer 目录说明
 
 ## 目录用途
+
 - 从 Graph_Generater 的“项目存档”目录读取资源（`assets/资源库/项目存档/<package_id>/` + 共享根），按“已支持的范围”写回生成新的 `.gil`（不覆盖输入文件）。
 - 为 UI/CLI 的“项目存档 → 写回 `.gil`”提供可复用实现；上层编排集中在 `ugc_file_tools/pipelines/project_writeback.py`。
 
 ## 当前状态
+
 - 大体量导入器已拆分为“薄门面 + parts 实现”，避免单文件膨胀：
   - `node_graphs_importer.py` → `node_graphs_importer_parts/`
   - `struct_definitions_importer.py` → `struct_definitions_importer_parts/`
@@ -48,24 +50,30 @@
     - 优先：`管理配置/结构体定义/原始解析/struct_def_*.decoded.json`
     - 补充/回退：`管理配置/结构体定义/基础结构体/**/*.py` 与 `管理配置/结构体定义/局内存档结构体/*.py`（支持按 `STRUCT_ID` 过滤）
   - **节点图**（`节点图/**.py` Graph Code）：GraphCode → GraphModel(JSON) → 写回 `.gil` 节点图段；依赖模板样本库覆盖（覆盖不足会 fail-fast）；支持 `ui_key:`/`entity_key:`/`component_key:` 回填；中间 GraphModel 与摘要输出到 `ugc_file_tools/out/`。
+    - Graph Code 头部 `mount:` metadata 的挂载写回采用 best-effort：当名称映射缺失或写入失败时，不阻断整次写回，并在 per-graph write_report 中记录未解析/失败项。
   - **界面 UI**：
     - 优先：`管理配置/UI源码/__workbench_out__/*.ui_bundle.json`（Workbench bundle）
     - 次选：`管理配置/UI控件模板/原始解析/*.raw.json`（raw_template）
     - 空/极简 base 会 bootstrap 最小 UI 段后再写回；同名布局冲突支持 `overwrite/add/skip`。
     - Workbench bundle 写回支持按 layout_name 过滤（由上层 selection-json 传入 `selected_ui_layout_names`，按 bundle 文件名推断 layout_name）。
+    - Workbench bundle 写回 report 会携带 `timings_sec`，并在 `bundles[*].timings_sec` 记录每页（含“复用布局预扫描/写回”）耗时，便于定位 UI 写回慢点。
+    - 性能：overwrite/add 的 layout_name 冲突/复用判定下沉到 UI 写回内部（复用同一次 `.gil` decode），避免上层在每页写回前额外 dump-decode 扫描一次 base `.gil`。
+    - 性能：Workbench bundle 写回采用批处理（导出中心场景）：复用同一份 `.gil` dump（raw_dump_object）在内存中依次导入多个 bundle，最后只做一次最小 wire-level 写盘，避免每页重复 dump+写盘导致耗时线性放大。
+    - overwrite 匹配同名布局时会对 base `.gil` 做布局 root 扫描；若发现 **多个同名布局 root GUID**（overwrite 目标不唯一），将 fail-fast 抛错并给出 GUID 列表，避免导出后仍残留同名布局导致困惑。
     - 导出中心链路（项目存档→写回 `.gil`）当前默认不接入“固有控件（HUD）初始显隐覆盖”，避免 base `.gil` 的布局内缺少固有控件时 fail-fast 阻断整次导出（report 会标记 skipped）。
   - **注册表自定义变量**（可选）：按 `selected_custom_variable_refs`（owner_ref+variable_id）补齐写入输出 `.gil` 的 override_variables(group1)。
     - 声明真源：项目存档 `管理配置/关卡变量/自定义变量注册表.py`（AutoCustomVariableDeclaration，AST 静态提取，不执行代码）。
     - 语义：仅补齐缺失；同名但类型不同默认不覆盖（报告列出）；可覆盖时需显式开启 overwrite（默认关闭）。
     - owner 覆盖范围：关卡实体(level)、玩家(player)、以及第三方 owner（优先按 owner_display 匹配实体/模板 name 写回）。
+    - 默认值一致性：若字典 value_type 声明为整数类但默认值出现 `#RRGGBB` 颜色字符串，将 fail-fast 并在异常中打印 variable_id/variable_name/type 与 bad key/value，便于定位注册表声明错误。
 
 - 统一入口：`python -X utf8 -m ugc_file_tools project import --dangerous ...`（以及 `import-ingame-save-structs` 等子命令）。
 
 ## 注意事项
+
 - 输出 `.gil` 统一写入 `ugc_file_tools/out/`（不覆盖输入）；路径计算统一使用 `ugc_file_tools.repo_paths`。
 - dump-json 口径兼容：DLL dump 与纯 Python dump 在“单值字段是否用 list 表达”等细节上可能不同，实现需兼容。
 - fail-fast：不使用 `try/except`；结构/模板不符合预期直接抛错。
 - 对外复用只走公开 API（无下划线），避免上层导入 `*_parts/` 内部模块导致边界坍塌。
 - VarType/type_id 单一真源：结构体字段类型表以 `ugc_file_tools.struct_type_id_registry` 为准（如存在 genshin-ts 对照报告，可在运行前做一致性校验）。
 - 本文件仅描述“目录用途/当前状态/注意事项”，不写修改历史。
-

@@ -72,6 +72,19 @@ def _try_extract_module_dict_constant_from_code(py_path: Path, *, const_name: st
 class ResourceManagerIoMixin:
     """ResourceManager 的资源读写/枚举相关方法。"""
 
+    def _rebuild_index_if_graph_path_is_stale(self, graph_id: str) -> bool:
+        """当 graph_id 的索引路径已失效（文件不存在）时触发一次索引重建。"""
+        graph_id_text = str(graph_id or "").strip()
+        if not graph_id_text:
+            return False
+        file_path = self._state.get_file_path(ResourceType.GRAPH, graph_id_text)
+        if file_path is None:
+            return False
+        if file_path.exists():
+            return False
+        self.rebuild_index()
+        return True
+
     @staticmethod
     def sanitize_filename(name: str) -> str:
         """清理文件名，移除Windows不允许的特殊字符。
@@ -270,7 +283,15 @@ class ResourceManagerIoMixin:
                 return None
             return self._load_code_resource_from_py_file(resource_type, resource_id_text)
         if resource_type == ResourceType.GRAPH:
-            return self._graph_service.load_graph(resource_id)
+            graph_id_text = str(resource_id or "").strip()
+            if not graph_id_text:
+                return None
+            graph_data = self._graph_service.load_graph(graph_id_text)
+            if graph_data is not None:
+                return graph_data
+            if self._rebuild_index_if_graph_path_is_stale(graph_id_text):
+                return self._graph_service.load_graph(graph_id_text)
+            return None
         return self._resource_store.load(resource_type, resource_id, copy_mode=copy_mode)
 
     def _load_code_resource_from_py_file(
@@ -336,7 +357,15 @@ class ResourceManagerIoMixin:
             - edge_count: 连线数量（估算）
             - modified_time: 修改时间（时间戳）
         """
-        return self._graph_service.load_graph_metadata(graph_id)
+        graph_id_text = str(graph_id or "").strip()
+        if not graph_id_text:
+            return None
+        metadata = self._graph_service.load_graph_metadata(graph_id_text)
+        if metadata is not None:
+            return metadata
+        if self._rebuild_index_if_graph_path_is_stale(graph_id_text):
+            return self._graph_service.load_graph_metadata(graph_id_text)
+        return None
 
     def list_resources(self, resource_type: ResourceType) -> List[str]:
         """列出某类型的所有资源ID
@@ -420,14 +449,22 @@ class ResourceManagerIoMixin:
             资源是否存在
         """
         if resource_type == ResourceType.GRAPH:
-            resource_file = self._state.get_file_path(resource_type, resource_id)
+            graph_id_text = str(resource_id or "").strip()
+            if not graph_id_text:
+                return False
+            resource_file = self._state.get_file_path(resource_type, graph_id_text)
             if resource_file is None:
                 resource_file = self._file_ops.get_resource_file_path(
                     resource_type,
-                    resource_id,
+                    graph_id_text,
                     self.id_to_filename_cache,
                 )
-            return resource_file.exists()
+            if resource_file.exists():
+                return True
+            if self._rebuild_index_if_graph_path_is_stale(graph_id_text):
+                refreshed_path = self._state.get_file_path(resource_type, graph_id_text)
+                return bool(refreshed_path and refreshed_path.exists())
+            return False
         return self._resource_store.exists(resource_type, resource_id)
 
 

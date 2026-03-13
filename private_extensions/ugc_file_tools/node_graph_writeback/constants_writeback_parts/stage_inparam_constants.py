@@ -50,6 +50,13 @@ CREATE_PREFAB_PORT_NAME_TAG_INDEX_LIST = "单位标签索引列表"
 # - 若写回侧缺失该 kernel index，官方侧可能按错误端口表解释该 pin，进而表现为“格式不对/端口错位”。
 CREATE_PREFAB_OVERRIDE_LEVEL_KERNEL_INDEX = 7
 
+# Set_Custom_Variable（node_type_id=22）在真源/NodeData 中有两个布尔入参（Bol,Bol）。
+# Graph_Generater 当前仅暴露一个『是否触发事件』端口；为避免导出到真源后出现“界面显示为 否”的错位，
+# 写回阶段会将该布尔常量同时写入 pin_index=3 与 pin_index=4（对齐用户修正样本）。
+SET_CUSTOM_VARIABLE_NODE_TYPE_ID = 22
+SET_CUSTOM_VARIABLE_TRIGGER_EVENT_PORT_NAME = "是否触发事件"
+SET_CUSTOM_VARIABLE_EXTRA_BOOL_PIN_INDEX = 4
+
 def _infer_dict_kv_var_types_from_constant_value(raw_value: Any) -> Optional[Tuple[int, int]]:
     """
     当端口类型文本无法提供字典 key/value 类型时，按常量字面量兜底推断。
@@ -239,7 +246,7 @@ def write_input_constants_inplace(
                 and str(port_name) == "值"
             ):
                 continue
-            existing_record_index: Optional[int] = None
+            existing_constant_record_index: Optional[int] = None
             for i, record in enumerate(list(state.records)):
                 if not isinstance(record, str) or not record.startswith("<binary_data>"):
                     continue
@@ -255,10 +262,10 @@ def write_input_constants_inplace(
                     continue
                 if "field_5" in decoded:
                     continue
-                existing_record_index = int(i)
+                existing_constant_record_index = int(i)
                 break
-            if isinstance(existing_record_index, int):
-                del state.records[existing_record_index]
+            if isinstance(existing_constant_record_index, int):
+                del state.records[existing_constant_record_index]
             continue
 
         signal_param_composite_pin_index = (
@@ -363,7 +370,7 @@ def write_input_constants_inplace(
                     pin_msg["3"] = dict(var_base)
                     record_text = format_binary_data_hex_text(encode_message(pin_msg))
 
-                    existing_record_index: Optional[int] = None
+                    guid_placeholder_record_index: Optional[int] = None
                     for i, record in enumerate(list(state.records)):
                         if not isinstance(record, str) or not record.startswith("<binary_data>"):
                             continue
@@ -379,11 +386,11 @@ def write_input_constants_inplace(
                             continue
                         if "field_5" in decoded:
                             continue
-                        existing_record_index = int(i)
+                        guid_placeholder_record_index = int(i)
                         break
 
-                    if isinstance(existing_record_index, int):
-                        state.records[existing_record_index] = record_text
+                    if isinstance(guid_placeholder_record_index, int):
+                        state.records[guid_placeholder_record_index] = record_text
                     else:
                         state.records.append(record_text)
                     state.variant_primary_vt_candidates.add(int(var_type_int))
@@ -488,6 +495,11 @@ def write_input_constants_inplace(
             break
 
         if int(var_type_int) == 27:
+            if dict_kv_var_types is None:
+                raise ValueError(
+                    "写回字典输入常量失败：无法确定 key/value 类型。"
+                    f" node={state.title!r} port={port_name!r} port_type={port_type_text!r} raw_value={raw_value!r}"
+                )
             key_vt, val_vt = dict_kv_var_types
             inner_var_base = _build_var_base_message_server_for_dict(
                 dict_key_var_type_int=int(key_vt),
@@ -615,6 +627,26 @@ def write_input_constants_inplace(
                 ),
                 record_id_int=desired_field_7,
             )
+
+            # Set_Custom_Variable：额外镜像写入第二个 Bool 入参（pin_index=4），避免 UI/真源对齐时出现“导出后变否”。
+            if (
+                int(node_type_id_int_for_pin) == SET_CUSTOM_VARIABLE_NODE_TYPE_ID
+                and str(port_name) == SET_CUSTOM_VARIABLE_TRIGGER_EVENT_PORT_NAME
+                and isinstance(raw_value, bool)
+            ):
+                extra_record_id_int: Optional[int] = None
+                if record_id_by_node_type_id_and_inparam_index is not None:
+                    extra_record_id_int = (record_id_by_node_type_id_and_inparam_index.get(int(node_type_id_int)) or {}).get(
+                        int(SET_CUSTOM_VARIABLE_EXTRA_BOOL_PIN_INDEX)
+                    )
+                _write_or_patch_inparam_constant_record(
+                    records=state.records,
+                    pin_index=int(SET_CUSTOM_VARIABLE_EXTRA_BOOL_PIN_INDEX),
+                    var_type_int=int(var_type_int),
+                    var_base_message=dict(var_base),
+                    index2=None,
+                    record_id_int=(int(extra_record_id_int) if isinstance(extra_record_id_int, int) else None),
+                )
 
         counters.input_constants_written += 1
         if enum_constant_written_this_port:

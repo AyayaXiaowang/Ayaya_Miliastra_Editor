@@ -5,6 +5,26 @@
 
 ## 当前状态
 
+### run_pytest_with_timeout.ps1
+- **功能**：以硬超时方式运行 pytest（Windows/PowerShell 友好），超时会强制终止子进程并抛错；用于避免测试卡死。
+- **运行**：`pwsh -NoProfile -File tools/run_pytest_with_timeout.ps1 -TimeoutSeconds 60 -q tests\\layout\\test_block_vertical_centering_end_to_end_regression.py`
+
+### inspect_block_connections.py
+- **功能**：诊断“UI 看到的块连边”与布局快照 `ordered_children` 是否一致：基于 `basic_blocks` + 任意 flow 边推导块级出边，并对比 `_layout_block_relationships['ordered_children']`；同时打印 UI-like block rect 的 center_y（使用节点 pos + 近似尺寸 + margin）。
+- **运行**：`python -X utf8 -m tools.inspect_block_connections --parent 21`
+
+### inspect_layout_y_extremes.py
+- **功能**：诊断“Y 坐标被拉得过大”的具体证据：解析图并统计节点 y/y2（y+height）的 min/max，同时列出 y 最大的 top-k 节点（节点高度按 UI 口径估算）。
+- **运行**：`python -X utf8 -m tools.inspect_layout_y_extremes --graph-file <path> --top-k 10`
+
+### inspect_block_port_centering.py
+- **功能**：按“端口坐标”诊断块间居中：对父块→每个子块挑一条代表性 flow 边，计算 src/dst 端口的全局 center_y，并判断父块的“端口均值Y”是否落在子块端口Y范围内；用于解释“块矩形居中但连线扇出视觉不居中”的差异。
+- **运行**：`python -X utf8 -m tools.inspect_block_port_centering --graph-file <path> --parent 43`
+
+### check_bool_pin_writeback_regression.py
+- **功能**：布尔常量/端口映射写回回归：Graph Code→GraphModel→写回 `.gil`（pure-json）→解析 `.gil payload` Graph IR，并断言 Bool InParam 常量不缺失/不翻转；重点覆盖 `Set_Custom_Variable` 双 Bol 槽位一致性。
+- **运行**：`python -X utf8 -m tools.check_bool_pin_writeback_regression`
+
 ### fix_level_variable_owner.py
 - **功能**：一次性迁移 `管理配置/关卡变量/**.py` 变量文件的 payload contract：补齐顶层 `owner(level|player|data)`，并移除 `metadata.auto_owner`（仅支持 dict literal / `LevelVariableDefinition(...)` 的静态可解析写法；不可解析直接 fail-fast）。
 - **运行**：
@@ -43,6 +63,12 @@
 - **运行**：`python -X utf8 -m tools.claude_md_audit [--scope private_extensions] [--output claude_md_audit_todolist.md]`
 - **可选**：`--auto-check-parse-status` 自动勾选 `private_extensions/ugc_file_tools/parse_status/*` 下“自动生成的解析状态目录”条目（避免手工逐个点选）。
 
+### export_claude_md_paths.py
+- **功能**：扫描仓库内所有 `claude.md` 并导出其**绝对路径清单**到 Markdown（用于在项目外层做目录索引/审计）。
+- **运行**：`python -X utf8 -m tools.export_claude_md_paths --repo-root <repo_root> [--output <out.md>]`
+- **路径解析**：`--output` 若为相对路径，则相对 `--repo-root` 解析（方便从项目外层运行）。
+- **输出默认值**：未指定 `--output` 时写入 `<repo_root>/tmp/claude_md_paths.md`（建议放 `tmp/` 避免误入库）。
+
 ### minimize_ugc_file_tools_seed_gils.py
 - **功能**：将 `private_extensions/ugc_file_tools/builtin_resources/seeds/*.gil` 裁剪为“最小必需 payload_root 顶层字段集合”，减少仓库体积并降低未授权/隐私内容误入风险（不改变写回逻辑）。
 - **运行**：
@@ -68,6 +94,18 @@
 ### inspect_gia_root_fields.py
 - **功能**：检查 `.gia` 的 root 顶层字段集合与粗略体积（便于决定最小裁剪保留字段）。
 - **运行**：`python -X utf8 -m tools.inspect_gia_root_fields --input <file.gia>`
+
+### diagnose_gil_ui_integrity.py
+- **功能**：体检 `.gil` 的 UI 段一致性（`payload_root['4']['9']`）：检查 GUID 唯一性、parent/children 引用一致性、layout registry(root GUID 列表) 指向合法性，并输出 report.json（用于“官方侧不报错但文件打不开”的定位）。
+- **运行**：`python -X utf8 -m tools.diagnose_gil_ui_integrity --input <file.gil>`
+
+### diagnose_gil_resource_integrity.py
+- **功能**：体检 `.gil` 的资源段一致性：检查 实例(root4/5)→模板(root4/4) 引用、装饰物(root27) 的 parent/def 引用、以及模板页签索引(root4/6) 是否具备可用的“未分类页签(kind=100/400)”节点；输出 report.json（用于“能写出文件但官方侧打不开/拒识”的定位）。
+- **运行**：`python -X utf8 -m tools.diagnose_gil_resource_integrity --input <file.gil>`
+
+### diagnose_gil_infrastructure_bootstrap.py
+- **功能**：对单个 base `.gil` 执行基础设施段 bootstrap（与写回管线同口径），并对输出 `.gil` 做“容器/完整解码”自检，用于定位“补齐后文件拒识/打不开”的问题。
+- **运行**：`python -X utf8 -m tools.diagnose_gil_infrastructure_bootstrap --input-gil <base.gil> --output-gil <out.gil> [--bootstrap-gil <seed.gil>]`
 
 ### md_txt_inventory_audit.py
 - **功能**：扫描仓库内所有非 `claude.md` 的 `.md/.txt` 文件，抽取用途摘要与内容预览，并基于根目录 `.gitignore` 做“可能被排除/可能会进仓库”的判定；输出本地待确认报告到 `docs/diagnostics/md_txt_inventory/`。
@@ -97,6 +135,18 @@
   - edges：基于 OutFlow/OutParam pins 的 connects 反推边集合，列出 missing/extra
   - pins：聚焦 `concrete_index_of_concrete_int` 差异（泛型/反射端口 concrete 收敛相关）
 - **运行**：`python -X utf8 -m tools.diff_graph_ir --a <a.json> --b <b.json> [--label-a A] [--label-b B]`
+
+### sync_ugc_tutorial_node_specs.py
+- **功能**：从 UGC 教程站点“节点介绍”栏目爬取节点参数表（端口名/输入输出/类型），与本仓库 `plugins/nodes/**` 的 `@node_spec` 对比并生成差异报告；可选 `--apply` 自动改写 `@node_spec(inputs/outputs)`。
+- **实现拆分**：HTML 抽取/参数表解析、以及 `@node_spec(inputs/outputs)` 文本改写等可复用逻辑收敛在 `tools/ugc_tutorial_node_sync/` 子目录。
+- **运行**：
+  - 仅生成报告：`python -X utf8 -m tools.sync_ugc_tutorial_node_specs`
+  - 仅 server 执行节点：`python -X utf8 -m tools.sync_ugc_tutorial_node_specs --scope server --category 执行节点`
+  - 写回（只改 `@node_spec` 端口定义）：`python -X utf8 -m tools.sync_ugc_tutorial_node_specs --apply`
+
+### review_ugc_tutorial_node_sync_report.py
+- **功能**：对 `sync_ugc_tutorial_node_specs.py` 生成的 `diff_full.json` 做“逐条人工复核辅助”，输出 `review_diff_full.md`（分类建议：哪些差异可信建议更新、哪些更像文档缺失/类型过粗不应更新、missing_locally 是否可能是别名误报等）。
+- **运行**：`python -X utf8 -m tools.review_ugc_tutorial_node_sync_report`
 
 ### extract_gia_template_names_for_graphs.py
 - **功能**：从 `.gia` 的 Root.field_1 抽取 `(resource_root_id_int -> name)` 映射；可选扫描指定节点图源码中的 10 位数字 ID，并反查出“这些 ID 在该 `.gia` 中对应的元件名清单”（用于把数字元件ID改成 `component_key:<元件名>` 占位符）。

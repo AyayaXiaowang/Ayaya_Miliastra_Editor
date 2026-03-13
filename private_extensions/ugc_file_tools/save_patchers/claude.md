@@ -10,7 +10,8 @@
 - 已提供基础模块：
   - `gil_codec.py`：`.gil` 容器读写 + protobuf-like 数值键 message 编解码（纯 Python）。
   - `gil_node_graph_injector.py`：`.gia` → `.gil` 的 **NodeGraph 注入**（文件级 patch，优先定位 10.1.1 blob，必要时回退全量扫描，并更新祖先 length；默认启用“非空且 name 非 `_GSTS*` 不覆盖”的安全检查；注入前会将 incoming NodeGraph 的 id/type 对齐到目标图，避免 ID 不一致导致无法注入）。
-  - `player_templates.py`：玩家模板段结构定位（root4/root5）、生效玩家 packed bytes 写回、自定义变量定义写回。
+  - `player_templates.py`：玩家模板写回 API 兼容层（旧 import 路径不变；对外 re-export）。
+  - `_player_templates/`：`player_templates.py` 的内部实现拆分（结构化定位/写回、变量定义写回、wire-level 补丁、报告/IO）。
   - `player_template_bootstrap.py`：空存档自举 section 外壳 + 从 seed 克隆创建“普通/角色编辑”两类条目。
   - `player_templates_tool.py`：命令行入口（dump/set-players/add-var/copy-vars/apply-vars/create）。
 

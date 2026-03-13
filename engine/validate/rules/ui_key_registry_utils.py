@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from .code_structure.resource_scope_utils import GraphResourceScope, try_build_g
 
 
 _UI_SOURCE_RELATIVE_PATH_PARTS = ("管理配置", "UI源码")
+_UI_WORKBENCH_OUT_DIRNAME = "__workbench_out__"
 
 # data-ui-key="xxx" / data-ui-key='xxx'
 _UI_KEY_ATTR_RE = re.compile(
@@ -123,12 +125,35 @@ def parse_ui_key_placeholder(text: str) -> Optional[str]:
     return None
 
 
+def extract_ui_key_placeholder_raw_key(text: str) -> Optional[str]:
+    """Extract raw ui_key text after `ui_key:` or `ui:` prefix."""
+    raw = str(text or "").strip()
+    lowered = raw.lower()
+    if lowered.startswith("ui_key:"):
+        key = raw[len("ui_key:") :].strip()
+        return key if key else None
+    if lowered.startswith("ui:"):
+        key = raw[len("ui:") :].strip()
+        return key if key else None
+    return None
+
+
 @dataclass(frozen=True)
 class UiHtmlUiKeyView:
     scope: GraphResourceScope
     ui_source_dirs: Tuple[Path, ...]
     html_files: Tuple[Path, ...]
     ui_keys: Tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class UiWorkbenchUiKeyView:
+    scope: GraphResourceScope
+    ui_source_dirs: Tuple[Path, ...]
+    workbench_out_dirs: Tuple[Path, ...]
+    ui_bundle_files: Tuple[Path, ...]
+    ui_keys: Tuple[str, ...]
+    ui_keys_by_data_ui_key: Dict[str, Tuple[str, ...]]
 
 
 def infer_ui_source_dirs_for_ctx(ctx: ValidationContext) -> Optional[Tuple[Path, ...]]:
@@ -157,6 +182,175 @@ def infer_ui_source_dirs_for_ctx(ctx: ValidationContext) -> Optional[Tuple[Path,
         seen.add(key)
         uniq.append(d)
     return tuple(uniq)
+
+
+def _infer_workbench_out_dirs(ui_source_dirs: Tuple[Path, ...]) -> Tuple[Path, ...]:
+    """Infer UI Workbench output directories under ui_source_dirs."""
+    dirs: List[Path] = []
+    for d in list(ui_source_dirs or ()):
+        out_dir = (Path(d).resolve() / _UI_WORKBENCH_OUT_DIRNAME).resolve()
+        if out_dir.is_dir():
+            dirs.append(out_dir)
+    uniq: List[Path] = []
+    seen: set[str] = set()
+    for d2 in dirs:
+        key = str(d2.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(d2)
+    return tuple(uniq)
+
+
+def _iter_ui_bundle_files_under_dir(workbench_out_dir: Path) -> List[Path]:
+    """Iterate ui_bundle.json files under a workbench output directory."""
+    d = Path(workbench_out_dir).resolve()
+    if not d.is_dir():
+        return []
+    files = [p.resolve() for p in d.glob("*.ui_bundle.json") if p.is_file()]
+    files.sort(key=lambda p: p.as_posix().casefold())
+    return files
+
+
+def _extract_ui_keys_from_ui_bundle_obj(obj: object) -> Set[str]:
+    """Extract ui_key fields from a UI Workbench bundle JSON object."""
+    if not isinstance(obj, dict):
+        return set()
+    templates = obj.get("templates")
+    if not isinstance(templates, list):
+        return set()
+    out: Set[str] = set()
+    for tpl in templates:
+        if not isinstance(tpl, dict):
+            continue
+        widgets = tpl.get("widgets")
+        if not isinstance(widgets, list):
+            continue
+        for w in widgets:
+            if not isinstance(w, dict):
+                continue
+            key = w.get("ui_key")
+            if isinstance(key, str):
+                s = key.strip()
+                if s:
+                    out.add(s)
+    return out
+
+
+def _compute_bundle_fingerprint(bundle_files: List[Path]) -> Tuple[int, float]:
+    """Compute a cheap fingerprint for bundle files by count and latest mtime."""
+    count = 0
+    latest = 0.0
+    for p in bundle_files:
+        if not p.exists() or not p.is_file():
+            continue
+        count += 1
+        mtime = float(p.stat().st_mtime)
+        if mtime > latest:
+            latest = mtime
+    return int(count), float(latest)
+
+
+# cache_key -> (fingerprint, ui_source_dirs, workbench_out_dirs, bundle_files, ui_keys, ui_keys_by_data_ui_key)
+_UI_WORKBENCH_KEYS_CACHE: Dict[
+    str,
+    Tuple[
+        Tuple[int, float],
+        Tuple[Path, ...],
+        Tuple[Path, ...],
+        Tuple[Path, ...],
+        Tuple[str, ...],
+        Dict[str, Tuple[str, ...]],
+    ],
+] = {}
+
+
+def try_load_ui_workbench_ui_keys_for_ctx(ctx: ValidationContext) -> Optional[UiWorkbenchUiKeyView]:
+    """Try loading ui_key set from UI Workbench bundles for current ctx scope."""
+    if ctx.file_path is None:
+        return None
+    scope = try_build_graph_resource_scope(ctx.workspace_path, ctx.file_path)
+    if scope is None:
+        return None
+
+    ui_source_dirs = infer_ui_source_dirs_for_ctx(ctx)
+    if not ui_source_dirs:
+        return UiWorkbenchUiKeyView(
+            scope=scope,
+            ui_source_dirs=tuple(),
+            workbench_out_dirs=tuple(),
+            ui_bundle_files=tuple(),
+            ui_keys=tuple(),
+            ui_keys_by_data_ui_key={},
+        )
+
+    workbench_out_dirs = _infer_workbench_out_dirs(tuple(ui_source_dirs))
+    all_bundle_files: List[Path] = []
+    for d in list(workbench_out_dirs or ()):
+        all_bundle_files.extend(_iter_ui_bundle_files_under_dir(Path(d)))
+
+    unique_files: List[Path] = []
+    seen_files: set[str] = set()
+    for p in all_bundle_files:
+        key = str(p.resolve())
+        if key in seen_files:
+            continue
+        seen_files.add(key)
+        unique_files.append(p)
+    unique_files.sort(key=lambda p: p.as_posix().casefold())
+
+    fingerprint = _compute_bundle_fingerprint(unique_files)
+    cache_key = "|".join(str(d.resolve()) for d in ui_source_dirs)
+    cached = _UI_WORKBENCH_KEYS_CACHE.get(cache_key)
+    if cached is not None:
+        cached_fp, cached_ui_dirs, cached_out_dirs, cached_files, cached_keys, cached_map = cached
+        if cached_fp == fingerprint:
+            return UiWorkbenchUiKeyView(
+                scope=scope,
+                ui_source_dirs=cached_ui_dirs,
+                workbench_out_dirs=cached_out_dirs,
+                ui_bundle_files=cached_files,
+                ui_keys=cached_keys,
+                ui_keys_by_data_ui_key=dict(cached_map),
+            )
+
+    key_set: Set[str] = set()
+    for bundle_file in unique_files:
+        obj = json.loads(bundle_file.read_text(encoding="utf-8"))
+        key_set.update(_extract_ui_keys_from_ui_bundle_obj(obj))
+
+    keys_sorted = tuple(sorted(key_set, key=lambda s: s.casefold()))
+    ui_dirs_tuple = tuple(ui_source_dirs)
+    out_dirs_tuple = tuple(workbench_out_dirs)
+    files_tuple = tuple(unique_files)
+
+    by_data: Dict[str, Set[str]] = {}
+    for k in keys_sorted:
+        parts = [p for p in str(k).split("__") if str(p)]
+        if len(parts) >= 3:
+            data_ui_key = str(parts[1]).strip()
+            if data_ui_key:
+                by_data.setdefault(data_ui_key, set()).add(str(k))
+    by_data_sorted: Dict[str, Tuple[str, ...]] = {
+        str(k): tuple(sorted(v, key=lambda s: s.casefold())) for k, v in by_data.items()
+    }
+
+    _UI_WORKBENCH_KEYS_CACHE[cache_key] = (
+        fingerprint,
+        ui_dirs_tuple,
+        out_dirs_tuple,
+        files_tuple,
+        keys_sorted,
+        dict(by_data_sorted),
+    )
+    return UiWorkbenchUiKeyView(
+        scope=scope,
+        ui_source_dirs=ui_dirs_tuple,
+        workbench_out_dirs=out_dirs_tuple,
+        ui_bundle_files=files_tuple,
+        ui_keys=keys_sorted,
+        ui_keys_by_data_ui_key=dict(by_data_sorted),
+    )
 
 
 def _iter_html_files_under_dir(ui_source_dir: Path) -> List[Path]:
@@ -285,9 +479,12 @@ def try_load_ui_html_ui_keys_for_ctx(ctx: ValidationContext) -> Optional[UiHtmlU
 
 __all__ = [
     "UiHtmlUiKeyView",
+    "UiWorkbenchUiKeyView",
     "infer_ui_source_dirs_for_ctx",
+    "extract_ui_key_placeholder_raw_key",
     "parse_ui_key_placeholder",
     "try_format_invalid_ui_state_group_placeholder_message",
     "try_load_ui_html_ui_keys_for_ctx",
+    "try_load_ui_workbench_ui_keys_for_ctx",
 ]
 

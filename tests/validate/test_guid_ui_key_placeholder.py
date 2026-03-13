@@ -16,6 +16,7 @@ _TMP_PACKAGE_IDS = (
     "__tmp_validate_ui_registry__",
     "__tmp_validate_ui_registry_missing_key__",
     "__tmp_validate_ui_registry_missing_registry__",
+    "__tmp_validate_ui_registry_workbench_bundle__",
 )
 
 
@@ -293,4 +294,93 @@ class UIKeyRegistry_Missing_Registry:
         "UI源码(HTML) 缺失时应报 CODE_UI_HTML_SOURCES_NOT_FOUND，实际："
         + repr([(i.code, i.message) for i in report.issues])
     )
+
+
+def test_ui_key_placeholder_should_match_workbench_bundle_ui_key_when_bundle_exists(tmp_path: Path) -> None:
+    """工程化：当项目存在 __workbench_out__ bundle 时，ui_key 占位符必须命中 bundle 的完整 ui_key。"""
+    workspace = _workspace_root()
+    package_root = workspace / "assets" / "资源库" / "项目存档" / "__tmp_validate_ui_registry_workbench_bundle__"
+    ui_source_dir = package_root / "管理配置" / "UI源码"
+    workbench_out_dir = ui_source_dir / "__workbench_out__"
+    workbench_out_dir.mkdir(parents=True, exist_ok=True)
+    (ui_source_dir / "test.html").write_text(
+        '<div data-ui-key="gear_btn_01"></div>\n',
+        encoding="utf-8",
+    )
+    (workbench_out_dir / "test.ui_bundle.json").write_text(
+        """
+        {
+          "layout": { "layout_name": "HTML导入_界面布局" },
+          "templates": [
+            {
+              "widgets": [
+                { "ui_key": "HTML导入_界面布局__gear_btn_01__btn_item" }
+              ]
+            }
+          ]
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    graph_dir = package_root / "节点图" / "server" / "实体节点图"
+    graph_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1) 错误写法：只写 data-ui-key（不会命中 bundle 的 ui_key）
+    bad_graph = graph_dir / "temp_ui_key_workbench_bundle_bad.py"
+    bad_graph.write_text(
+        '''
+"""
+graph_id: test_ui_key_workbench_bundle_bad
+graph_name: UIKey workbench bundle bad
+graph_type: server
+"""
+
+from __future__ import annotations
+
+from _prelude import *
+
+class UIKeyWorkbenchBundleBad:
+    def __init__(self, game, owner_entity):
+        self.game = game
+        self.owner_entity = owner_entity
+
+    def on_实体创建时(self, 事件源实体, 事件源GUID):
+        某控件: "GUID" = "ui_key:gear_btn_01"
+''',
+        encoding="utf-8",
+    )
+    report_bad = validate_files([bad_graph], workspace, strict_entity_wire_only=False, use_cache=False)
+    assert any(i.code == "CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE" for i in report_bad.issues), (
+        "存在 bundle 时，短 ui_key 应报 CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE，实际："
+        + repr([(i.code, i.message) for i in report_bad.issues])
+    )
+
+    # 2) 正确写法：使用 bundle 内的完整 ui_key
+    ok_graph = graph_dir / "temp_ui_key_workbench_bundle_ok.py"
+    ok_graph.write_text(
+        '''
+"""
+graph_id: test_ui_key_workbench_bundle_ok
+graph_name: UIKey workbench bundle ok
+graph_type: server
+"""
+
+from __future__ import annotations
+
+from _prelude import *
+
+class UIKeyWorkbenchBundleOk:
+    def __init__(self, game, owner_entity):
+        self.game = game
+        self.owner_entity = owner_entity
+
+    def on_实体创建时(self, 事件源实体, 事件源GUID):
+        某控件: "GUID" = "ui_key:HTML导入_界面布局__gear_btn_01__btn_item"
+''',
+        encoding="utf-8",
+    )
+    report_ok = validate_files([ok_graph], workspace, strict_entity_wire_only=False, use_cache=False)
+    unexpected = [i for i in report_ok.issues if i.code == "CODE_UI_KEY_NOT_FOUND_IN_UI_WORKBENCH_BUNDLE"]
+    assert not unexpected, f"正确的 bundle ui_key 不应报错，实际：{[(i.code, i.message) for i in unexpected]}"
 

@@ -6,12 +6,78 @@ import shutil
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Callable, Dict, Optional
 
 from ugc_file_tools.output_paths import resolve_output_file_path_in_out_dir
 
 
 ProgressCallback = Callable[[int, int, str], None]
+
+_INFRA_GAP_LABEL_MISSING_SECTION11 = "缺 root4/11（初始阵营基础设施段）"
+_INFRA_GAP_LABEL_MISSING_SECTION11_FACTION_ENTRIES = "root4/11 缺阵营 entries"
+_INFRA_GAP_LABEL_MISSING_SECTION11_FACTION_FIELD13 = "root4/11 阵营 entries 存在缺 key=13"
+_INFRA_GAP_LABEL_MISSING_SECTION35 = "缺 root4/35（默认分组段）"
+_INFRA_GAP_LABEL_MISSING_SECTION35_DEFAULT_GROUPS = "root4/35 缺默认分组列表"
+_INFRA_GAP_LABEL_MISSING_SECTION6 = "缺 root4/6（关键字段口径不完整）"
+_INFRA_GAP_LABEL_MISSING_SECTION22 = "缺 root4/22（关键字段口径不完整）"
+_INFRA_GAP_LABEL_MISSING_SECTION2 = "缺 root4/2（存档显示名/标识）"
+
+
+def _format_infrastructure_gaps_for_progress(gaps: object) -> str:
+    """将基础设施缺口摘要格式化为进度展示文本。"""
+    # 说明：避免在模块顶层强依赖 gil 域类型；这里使用 duck-typing 读取属性。
+    labels: list[str] = []
+    if bool(getattr(gaps, "missing_section11", False)):
+        labels.append(_INFRA_GAP_LABEL_MISSING_SECTION11)
+    if bool(getattr(gaps, "missing_section11_faction_entries", False)):
+        labels.append(_INFRA_GAP_LABEL_MISSING_SECTION11_FACTION_ENTRIES)
+    if bool(getattr(gaps, "missing_section11_faction_field13", False)):
+        labels.append(_INFRA_GAP_LABEL_MISSING_SECTION11_FACTION_FIELD13)
+    if bool(getattr(gaps, "missing_section35", False)):
+        labels.append(_INFRA_GAP_LABEL_MISSING_SECTION35)
+    if bool(getattr(gaps, "missing_section35_default_groups", False)):
+        labels.append(_INFRA_GAP_LABEL_MISSING_SECTION35_DEFAULT_GROUPS)
+    if bool(getattr(gaps, "missing_section6", False)):
+        labels.append(_INFRA_GAP_LABEL_MISSING_SECTION6)
+    if bool(getattr(gaps, "missing_section22", False)):
+        labels.append(_INFRA_GAP_LABEL_MISSING_SECTION22)
+    if bool(getattr(gaps, "missing_section2", False)):
+        labels.append(_INFRA_GAP_LABEL_MISSING_SECTION2)
+    if not labels:
+        return "未发现缺口"
+    return "；".join(labels)
+
+
+def _format_infrastructure_bootstrap_result_for_progress(report: object) -> str:
+    """将基础设施补齐结果格式化为进度展示文本。"""
+    if not bool(getattr(report, "changed", False)):
+        return "无需补齐（未发生写盘）"
+
+    patched: list[str] = []
+    patched_root4_11_faction_field13_count = int(getattr(report, "patched_root4_11_faction_field13_count", 0))
+    if patched_root4_11_faction_field13_count > 0:
+        patched.append(f"root4/11：补齐阵营 entries 的 key=13 共 {patched_root4_11_faction_field13_count} 条")
+    elif bool(getattr(report, "patched_root4_11_copied_from_bootstrap", False)):
+        patched.append("root4/11：整段复制自 bootstrap")
+    if bool(getattr(report, "patched_root4_35_copied_from_bootstrap", False)) or bool(
+        getattr(report, "patched_root4_35_default_groups_copied", False)
+    ):
+        groups_len = getattr(report, "patched_root4_35_default_groups_len", None)
+        if groups_len is None:
+            patched.append("root4/35：补齐默认分组列表")
+        else:
+            patched.append(f"root4/35：补齐默认分组 {int(groups_len)} 组")
+    if bool(getattr(report, "patched_root4_6_copied_from_bootstrap", False)):
+        patched.append("root4/6：补齐关键字段口径（item17['3']['5']）")
+    if bool(getattr(report, "patched_root4_22_copied_from_bootstrap", False)):
+        patched.append("root4/22：补齐关键字段口径（含 key=1/2）")
+    if bool(getattr(report, "patched_root4_2_copied_from_bootstrap", False)):
+        patched.append("root4/2：补齐存档显示名/标识")
+
+    if not patched:
+        return "补齐完成（changed=True 但未记录到具体 patched_* 字段）"
+    return "；".join(patched)
 
 
 def _emit_progress(cb: ProgressCallback | None, current: int, total: int, label: str) -> None:
@@ -168,106 +234,6 @@ def _collect_signal_ids_from_graph_model_payload(*, graph_model_payload: object)
     return out
 
 
-def _collect_signal_names_from_graph_model_payload(*, graph_model_payload: object) -> set[str]:
-    """
-    从 GraphModel.payload 中收集“信号名”（仅限静态绑定：信号名为字符串常量且该端口无 data 入边）。
-
-    背景：
-    - `.gil` 写回的信号 META binding 不应依赖隐藏字段 `__signal_id`；
-    - `.gia` 导出侧同样以“信号名字符串常量”为主证据做信号自包含收集；
-    - 因此这里补齐“按信号名反查 SIGNAL_ID”的依赖收集，用于自动启用信号写回闭包。
-    """
-    out: set[str] = set()
-    payload = graph_model_payload if isinstance(graph_model_payload, dict) else None
-    if not isinstance(payload, dict):
-        return out
-
-    nodes = payload.get("nodes")
-    if not isinstance(nodes, list):
-        return out
-
-    def _is_listen_signal_event_node_payload(node_payload: dict) -> bool:
-        """
-        兼容：监听信号“事件节点”（GraphModel: node_def_ref.kind=event 且 outputs 含“信号来源实体”）。
-
-        说明：
-        - 该节点在 GraphModel 中可能表现为：
-          - title="监听信号" 且 node_def_ref.key=信号名；也可能是 title/key=信号名（历史/兼容形态）。
-        - 此处仅做最小判定，避免把普通 event/builtin 事件节点误当作“信号监听”。
-        """
-        node_def_ref = node_payload.get("node_def_ref")
-        if not isinstance(node_def_ref, dict):
-            return False
-        if str(node_def_ref.get("kind") or "").strip().lower() != "event":
-            return False
-        outputs = node_payload.get("outputs")
-        return isinstance(outputs, list) and any(str(x) == "信号来源实体" for x in outputs)
-
-    nodes_with_signal_name_in_edge: set[str] = set()
-    edges = payload.get("edges")
-    if isinstance(edges, list):
-        for e in edges:
-            if not isinstance(e, dict):
-                continue
-            dst_node = str(e.get("dst_node") or "").strip()
-            dst_port = str(e.get("dst_port") or "").strip()
-            if dst_node != "" and dst_port == "信号名":
-                nodes_with_signal_name_in_edge.add(dst_node)
-
-    signal_titles = {"发送信号", "监听信号", "向服务器节点图发送信号", "发送信号到服务端"}
-    for node in nodes:
-        if not isinstance(node, dict):
-            continue
-        node_id = str(node.get("id") or node.get("node_id") or "").strip()
-        if node_id != "" and node_id in nodes_with_signal_name_in_edge:
-            continue
-        title = str(node.get("title") or "").strip()
-        input_constants = node.get("input_constants")
-        input_constants_dict = dict(input_constants) if isinstance(input_constants, dict) else None
-
-        # 1) 常规信号节点：从静态绑定的“信号名”常量收集
-        if title in signal_titles:
-            if input_constants_dict is not None:
-                sig_name = input_constants_dict.get("信号名")
-                if isinstance(sig_name, str):
-                    name = str(sig_name).strip()
-                    if name != "":
-                        out.add(name)
-                        continue
-
-            # 兼容：监听信号“事件节点”可能缺失 input_constants["信号名"]（仅在 node_def_ref.key 挂载信号名）。
-            if _is_listen_signal_event_node_payload(node):
-                node_def_ref = node.get("node_def_ref")
-                key = str(node_def_ref.get("key") or "").strip() if isinstance(node_def_ref, dict) else ""
-                if key != "":
-                    out.add(key)
-            continue
-
-        # 2) 兼容：监听信号“事件节点”（title/key=信号名 的历史形态）
-        if not _is_listen_signal_event_node_payload(node):
-            continue
-
-        if input_constants_dict is not None:
-            sig_name = input_constants_dict.get("信号名")
-            if isinstance(sig_name, str):
-                name = str(sig_name).strip()
-                if name != "":
-                    out.add(name)
-                    continue
-
-        node_def_ref = node.get("node_def_ref")
-        key = str(node_def_ref.get("key") or "").strip() if isinstance(node_def_ref, dict) else ""
-        if key != "":
-            out.add(key)
-            continue
-
-        # 最后兜底：部分历史 GraphModel 将 signal_name 直接写在 title 上
-        if title != "":
-            out.add(title)
-
-    return out
-
-
 def _collect_graph_signal_ids_for_plan(*, project_root: Path, plan: ProjectWritebackPlan) -> list[str]:
     from ugc_file_tools.project_archive_importer.node_graphs_importer import (
         build_graph_specs as _build_graph_specs,
@@ -278,6 +244,7 @@ def _collect_graph_signal_ids_for_plan(*, project_root: Path, plan: ProjectWrite
         resolve_graph_generater_root as _resolve_graph_generater_root,
     )
     from ugc_file_tools.output_paths import resolve_output_dir_path_in_out_dir
+    from ugc_file_tools.node_graph_semantics.signal_usage import collect_static_signal_names_from_graph_model_payload
     from engine.graph.graph_code_parser import GraphParseError
 
     package_id = str(Path(project_root).resolve().name or "").strip()
@@ -359,7 +326,7 @@ def _collect_graph_signal_ids_for_plan(*, project_root: Path, plan: ProjectWrite
             raise TypeError("graph_model_json must be dict")
         graph_payload = graph_json_object.get("data")
         required_signal_ids.update(_collect_signal_ids_from_graph_model_payload(graph_model_payload=graph_payload))
-        required_signal_names.update(_collect_signal_names_from_graph_model_payload(graph_model_payload=graph_payload))
+        required_signal_names.update(collect_static_signal_names_from_graph_model_payload(graph_model_payload=graph_payload))
 
     if required_signal_names:
         from ugc_file_tools.project_archive_importer.signals_importer import collect_signal_payloads_by_id_in_scope
@@ -457,9 +424,14 @@ def run_project_writeback_to_gil(
     plan: ProjectWritebackPlan,
     progress_cb: ProgressCallback | None = None,
 ) -> Dict[str, object]:
+    started_at = perf_counter()
     project_root = Path(plan.project_archive_path).resolve()
     if not project_root.is_dir():
         raise FileNotFoundError(str(project_root))
+
+    package_id = str(project_root.name).strip()
+    if package_id == "":
+        raise ValueError("package_id 不能为空（项目存档目录名为空）")
 
     input_gil_path = Path(plan.input_gil_file_path).resolve()
     if not input_gil_path.is_file():
@@ -470,8 +442,10 @@ def run_project_writeback_to_gil(
     output_tool_path.parent.mkdir(parents=True, exist_ok=True)
 
     output_user_abs: Optional[Path] = output_user_raw.resolve() if output_user_raw.is_absolute() else None
-    if output_user_abs is not None and output_user_abs.resolve() == input_gil_path.resolve():
-        raise ValueError(f"输出路径不能与输入路径相同（会覆盖 base gil）：{str(output_user_abs)}")
+    # 允许输出路径与输入 base `.gil` 相同：写回产物会先落到 ugc_file_tools/out/，最后用原子 replace 覆盖用户目标文件。
+    # 背景：导出中心/脚本场景常见“就地覆盖写回”（用户显式选择覆盖模式）。
+
+    timings_sec: Dict[str, float] = {}
 
     # 节点图里使用信号时：自动从 GraphModel 的 `input_constants.__signal_id` 收集依赖并补齐到信号写回选择集。
     # 设计目标：用户仅勾选“节点图”时也能产出可在游戏侧正确识别信号端口的 `.gil`。
@@ -482,7 +456,9 @@ def run_project_writeback_to_gil(
         [str(x or "").strip() for x in list(plan.selected_signal_ids or [])]
     )
     if bool(plan.export_graphs):
+        t0 = perf_counter()
         auto_signal_ids_from_graphs = _collect_graph_signal_ids_for_plan(project_root=project_root, plan=plan)
+        timings_sec["collect_graph_signal_ids_sec"] = float(perf_counter() - t0)
         if auto_signal_ids_from_graphs:
             effective_selected_signal_ids = _dedupe_text_list_keep_order(
                 list(effective_selected_signal_ids) + list(auto_signal_ids_from_graphs)
@@ -505,8 +481,10 @@ def run_project_writeback_to_gil(
             collect_ingame_save_struct_py_files_in_scope,
         )
 
+        t0 = perf_counter()
         has_basic_structs = bool(iter_struct_decoded_files(project_root) or collect_basic_struct_py_files_in_scope(project_root))
         has_ingame_structs = bool(collect_ingame_save_struct_py_files_in_scope(project_root))
+        timings_sec["scan_project_structs_sec"] = float(perf_counter() - t0)
 
     effective_export_instances = bool(plan.export_instances)
 
@@ -518,14 +496,30 @@ def run_project_writeback_to_gil(
     from ugc_file_tools.gil.infrastructure_bootstrap import detect_gil_infrastructure_gaps_in_payload_root
     from ugc_file_tools.gil_dump_codec.dump_json_tree import load_gil_payload_as_numeric_message
 
-    infrastructure_gaps = detect_gil_infrastructure_gaps_in_payload_root(
-        payload_root=load_gil_payload_as_numeric_message(input_gil_path, max_depth=64, prefer_raw_hex_for_utf8=True),
-    )
-    need_infrastructure_bootstrap = bool(infrastructure_gaps.needs_bootstrap)
+    t0 = perf_counter()
+    payload_root_for_infra_scan = load_gil_payload_as_numeric_message(input_gil_path, max_depth=64, prefer_raw_hex_for_utf8=True)
+    timings_sec["decode_base_gil_for_infra_scan_sec"] = float(perf_counter() - t0)
+
+    t0 = perf_counter()
+    infrastructure_gaps = detect_gil_infrastructure_gaps_in_payload_root(payload_root=payload_root_for_infra_scan)
+    timings_sec["scan_infrastructure_gaps_sec"] = float(perf_counter() - t0)
 
     # 计算步数：每个导出段 + 复制步骤（若需要 copy）
     need_copy = output_user_abs is not None and output_user_abs.resolve() != output_tool_path.resolve()
     want_custom_variables = bool(plan.selected_custom_variable_refs) or bool(plan.selected_level_custom_variable_ids)
+
+    # 基础设施补齐策略（避免“仅写回节点图”时意外改动 base 其它段）：
+    # - 当本次仅写回节点图（以及为节点图自动启用的信号写回）时：跳过基础设施补齐，只展示扫描缺口。
+    # - 当本次写回包含其它资源段（模板/实体/UI/结构体/自定义变量/显式信号等）时：按缺口检测结果决定是否补齐。
+    is_graph_only_writeback = bool(plan.export_graphs) and not (
+        bool(plan.export_templates)
+        or bool(effective_export_instances)
+        or bool(want_custom_variables)
+        or bool(plan.export_structs)
+        or bool(plan.export_ui_widget_templates)
+        or (bool(plan.export_signals) and not bool(auto_enabled_signals_for_graphs))
+    )
+    need_infrastructure_bootstrap = bool(infrastructure_gaps.needs_bootstrap) and (not bool(is_graph_only_writeback))
     total_steps = 0
     if need_infrastructure_bootstrap:
         total_steps += 1
@@ -556,17 +550,182 @@ def run_project_writeback_to_gil(
     _emit_progress(progress_cb, current_step, total_steps, "准备写回…")
 
     current_input = input_gil_path
+    steps: list[dict[str, object]] = []
     report: Dict[str, object] = {
         "project_archive": str(project_root),
         "input_gil": str(input_gil_path),
         "output_gil": str(output_tool_path),
         "output_gil_user": (str(output_user_abs) if output_user_abs is not None else str(output_user_raw)),
-        "steps": [],
+        "steps": steps,
     }
+
+    # ===== 预检：节点图 mount 依赖（尽早提示缺失映射；不阻断写回）=====
+    if bool(plan.export_graphs):
+        try:
+            from ugc_file_tools.id_ref_from_gil import (
+                build_id_ref_mappings_from_gil_file,
+                build_id_ref_mappings_from_payload_root,
+            )
+            from ugc_file_tools.id_ref_overrides import apply_id_ref_overrides, load_id_ref_overrides_json_file
+            from ugc_file_tools.project_archive_importer.node_graphs_importer import (
+                build_graph_specs,
+                build_graph_specs_by_scanning_roots,
+                build_overview_object_by_scanning_node_graph_dir,
+            )
+            from ugc_file_tools.project_archive_importer.node_graphs_importer_parts.graph_mounts import (
+                preflight_graph_mount_targets_for_graph_code_files,
+            )
+
+            scope = str(plan.graphs_scope or "").strip().lower() or "all"
+            if scope not in {"all", "server", "client"}:
+                raise ValueError(f"unsupported graphs_scope: {scope!r}")
+            include_server = scope in {"all", "server"}
+            include_client = scope in {"all", "client"}
+
+            explicit_files = [Path(p).resolve() for p in list(plan.selected_graph_code_files or []) if p is not None]
+            explicit_files = [p for p in explicit_files if str(p)]
+
+            skip_graph_code_files_casefold: set[str] = set()
+            raw_conflicts = list(plan.node_graph_conflict_resolutions or [])
+            for idx, item in enumerate(raw_conflicts):
+                if not isinstance(item, dict):
+                    continue
+                graph_code_file = str(item.get("graph_code_file") or "").strip()
+                if graph_code_file == "":
+                    continue
+                action = str(item.get("action") or "").strip().lower()
+                if action != "skip":
+                    continue
+                key = str(Path(graph_code_file).resolve()).casefold()
+                skip_graph_code_files_casefold.add(key)
+
+            if explicit_files:
+                roots = [Path(project_root).resolve()]
+                extra_roots = [Path(p).resolve() for p in list(plan.graph_source_roots or []) if p is not None]
+                for r in extra_roots:
+                    if r not in roots:
+                        roots.append(r)
+                all_specs = build_graph_specs_by_scanning_roots(
+                    graph_source_roots=roots,
+                    include_server=bool(include_server),
+                    include_client=bool(include_client),
+                    strict_graph_code_files=bool(plan.graph_strict_graph_code_files),
+                )
+                by_file = {Path(s.graph_code_file).resolve(): s for s in all_specs}
+                graph_code_files = [Path(p).resolve() for p in explicit_files if Path(p).resolve() in by_file]
+            else:
+                if bool(plan.graph_scan_all):
+                    overview_object = build_overview_object_by_scanning_node_graph_dir(package_root=Path(project_root).resolve())
+                else:
+                    overview_json = (Path(project_root).resolve() / f"{package_id}总览.json").resolve()
+                    if not overview_json.is_file():
+                        raise FileNotFoundError(f"overview_json 不存在：{str(overview_json)}")
+                    overview_object = json.loads(overview_json.read_text(encoding="utf-8"))
+                    if not isinstance(overview_object, dict):
+                        raise TypeError("overview_json root must be dict")
+                specs = build_graph_specs(
+                    package_root=Path(project_root).resolve(),
+                    overview_object=overview_object,
+                    include_server=bool(include_server),
+                    include_client=bool(include_client),
+                    strict_graph_code_files=bool(plan.graph_strict_graph_code_files),
+                )
+                graph_code_files = [Path(s.graph_code_file).resolve() for s in list(specs or [])]
+
+            if skip_graph_code_files_casefold:
+                graph_code_files = [p for p in graph_code_files if str(p).casefold() not in skip_graph_code_files_casefold]
+
+            id_ref_gil_path = Path(plan.id_ref_gil_file).resolve() if plan.id_ref_gil_file is not None else Path(current_input).resolve()
+            if id_ref_gil_path == Path(input_gil_path).resolve():
+                component_name_to_id, entity_name_to_guid = build_id_ref_mappings_from_payload_root(
+                    payload_root=payload_root_for_infra_scan
+                )
+            else:
+                component_name_to_id, entity_name_to_guid = build_id_ref_mappings_from_gil_file(gil_file_path=Path(id_ref_gil_path))
+
+            id_ref_overrides_path = plan.id_ref_overrides_json_file
+            if id_ref_overrides_path is not None:
+                overrides = load_id_ref_overrides_json_file(Path(id_ref_overrides_path))
+                component_name_to_id, entity_name_to_guid = apply_id_ref_overrides(
+                    component_name_to_id=component_name_to_id or None,
+                    entity_name_to_guid=entity_name_to_guid or None,
+                    overrides=overrides,
+                )
+
+            preflight = preflight_graph_mount_targets_for_graph_code_files(
+                graph_code_files=graph_code_files,
+                entity_name_to_guid=entity_name_to_guid or None,
+                component_name_to_id=component_name_to_id or None,
+            )
+            report["graph_mount_preflight"] = list(preflight)
+
+            unresolved_entities: dict[str, set[str]] = {}
+            unresolved_components: dict[str, set[str]] = {}
+            scan_errors: list[dict[str, str]] = []
+            for item in list(preflight or []):
+                if not isinstance(item, dict):
+                    continue
+                graph_code_file = str(item.get("graph_code_file") or "").strip()
+                scan_error = str(item.get("scan_error") or "").strip()
+                if scan_error != "":
+                    scan_errors.append({"graph_code_file": graph_code_file, "error": scan_error})
+                    continue
+                unresolved = item.get("unresolved_targets")
+                if not isinstance(unresolved, list):
+                    continue
+                for t in unresolved:
+                    if not isinstance(t, dict):
+                        continue
+                    kind = str(t.get("kind") or "").strip()
+                    name = str(t.get("name") or "").strip()
+                    if kind == "" or name == "" or graph_code_file == "":
+                        continue
+                    if kind == "entity":
+                        unresolved_entities.setdefault(name, set()).add(graph_code_file)
+                    elif kind == "component":
+                        unresolved_components.setdefault(name, set()).add(graph_code_file)
+
+            if scan_errors:
+                _emit_progress(
+                    progress_cb,
+                    current_step,
+                    total_steps,
+                    f"[WARN] mount 预检：存在无法扫描 mount metadata 的节点图文件：count={int(len(scan_errors))}",
+                )
+            if unresolved_entities:
+                names = sorted(list(unresolved_entities.keys()), key=lambda t: t.casefold())
+                _emit_progress(
+                    progress_cb,
+                    current_step,
+                    total_steps,
+                    f"[WARN] mount 预检：缺失实体映射（将跳过挂载但继续导出）：{names}",
+                )
+            if unresolved_components:
+                names = sorted(list(unresolved_components.keys()), key=lambda t: t.casefold())
+                _emit_progress(
+                    progress_cb,
+                    current_step,
+                    total_steps,
+                    f"[WARN] mount 预检：缺失元件映射（将跳过挂载但继续导出）：{names}",
+                )
+        except Exception as e:
+            report["graph_mount_preflight_error"] = f"{type(e).__name__}: {str(e)}"
+            _emit_progress(
+                progress_cb,
+                current_step,
+                total_steps,
+                f"[WARN] mount 预检失败（不阻断写回）：{type(e).__name__}: {str(e)}",
+            )
 
     if bool(need_infrastructure_bootstrap):
         current_step += 1
         _emit_progress(progress_cb, current_step, total_steps, "正在补齐 base 基础设施段…")
+        _emit_progress(
+            progress_cb,
+            current_step,
+            total_steps,
+            f"基础设施扫描结果：{_format_infrastructure_gaps_for_progress(infrastructure_gaps)}",
+        )
 
         from ugc_file_tools.gil.infrastructure_bootstrap import bootstrap_gil_infrastructure_sections
         from ugc_file_tools.repo_paths import ugc_file_tools_builtin_resources_root
@@ -574,21 +733,44 @@ def run_project_writeback_to_gil(
         # 说明：这里不直接依赖 writeback_defaults 的导入（避免在极简环境中出现 stale bytecode/导入不一致），
         # 默认 bootstrap 源固定选择“内置 seed”（仅用于复制缺失基础设施字段，不会覆盖业务段）。
         bootstrap_path = (ugc_file_tools_builtin_resources_root() / "seeds" / "infrastructure_bootstrap.gil").resolve()
+        t0 = perf_counter()
         step_report = bootstrap_gil_infrastructure_sections(
             input_gil_file_path=current_input,
             output_gil_file_path=output_tool_path,
             bootstrap_gil_file_path=bootstrap_path,
         )
-        report["steps"].append(
+        _emit_progress(
+            progress_cb,
+            current_step,
+            total_steps,
+            f"基础设施补齐结果：{_format_infrastructure_bootstrap_result_for_progress(step_report)}",
+        )
+        duration_sec = float(perf_counter() - t0)
+        timings_sec["step_bootstrap_infrastructure_sec"] = duration_sec
+        steps.append(
             {
                 "kind": "bootstrap_infrastructure",
+                "duration_sec": duration_sec,
                 "report": asdict(step_report),
+                "summary": {
+                    "gaps": _format_infrastructure_gaps_for_progress(step_report.gaps),
+                    "patched": _format_infrastructure_bootstrap_result_for_progress(step_report),
+                },
             }
         )
         # bootstrap 可能判定“无需写盘”（changed=False）；此时 output_tool_path 并不存在，
         # 不应切换 current_input，否则后续步骤会因 input_gil 不存在而直接失败。
         if bool(step_report.changed) and output_tool_path.is_file():
             current_input = output_tool_path.resolve()
+    else:
+        # 说明：仅写回节点图时，为避免改动 base 其它段，这里只展示缺口，不执行 bootstrap 写盘。
+        if bool(infrastructure_gaps.needs_bootstrap):
+            _emit_progress(
+                progress_cb,
+                current_step,
+                total_steps,
+                f"基础设施扫描结果：{_format_infrastructure_gaps_for_progress(infrastructure_gaps)}（本次仅写回节点图，跳过基础设施补齐）",
+            )
 
     # 当 “UI + 节点图” 同次写回时，由 UI 写回阶段产出的 ui_key→guid 映射（不落盘 registry），
     # 会在节点图写回阶段用于解析/回填 `ui_key:` 占位符。
@@ -605,6 +787,7 @@ def run_project_writeback_to_gil(
             import_templates_from_project_archive_to_gil,
         )
 
+        t0 = perf_counter()
         step_report = import_templates_from_project_archive_to_gil(
             project_archive_path=project_root,
             input_gil_file_path=current_input,
@@ -620,7 +803,9 @@ def run_project_writeback_to_gil(
                 ),
             ),
         )
-        report["steps"].append({"kind": "templates", "report": step_report})
+        duration_sec = float(perf_counter() - t0)
+        timings_sec["step_templates_sec"] = duration_sec
+        steps.append({"kind": "templates", "duration_sec": duration_sec, "report": step_report})
         current_input = output_tool_path.resolve()
 
     if bool(effective_export_instances):
@@ -632,6 +817,7 @@ def run_project_writeback_to_gil(
             import_instances_from_project_archive_to_gil,
         )
 
+        t0 = perf_counter()
         step_report = import_instances_from_project_archive_to_gil(
             project_archive_path=project_root,
             input_gil_file_path=current_input,
@@ -646,7 +832,9 @@ def run_project_writeback_to_gil(
                 ),
             ),
         )
-        report["steps"].append({"kind": "instances", "report": step_report})
+        duration_sec = float(perf_counter() - t0)
+        timings_sec["step_instances_sec"] = duration_sec
+        steps.append({"kind": "instances", "duration_sec": duration_sec, "report": step_report})
         current_input = output_tool_path.resolve()
 
     if want_custom_variables:
@@ -663,6 +851,7 @@ def run_project_writeback_to_gil(
         if not refs:
             refs = [{"owner_ref": "level", "variable_id": str(x)} for x in list(plan.selected_level_custom_variable_ids or [])]
 
+        t0 = perf_counter()
         step_report = import_selected_registry_custom_variables_from_project_archive_to_gil(
             project_archive_path=project_root,
             input_gil_file_path=current_input,
@@ -672,7 +861,9 @@ def run_project_writeback_to_gil(
                 overwrite_when_type_mismatched=False,
             ),
         )
-        report["steps"].append({"kind": "custom_variables_registry", "report": step_report})
+        duration_sec = float(perf_counter() - t0)
+        timings_sec["step_custom_variables_registry_sec"] = duration_sec
+        steps.append({"kind": "custom_variables_registry", "duration_sec": duration_sec, "report": step_report})
         current_input = output_tool_path.resolve()
 
     if bool(plan.export_structs):
@@ -688,6 +879,7 @@ def run_project_writeback_to_gil(
                 import_struct_definitions_from_project_archive_to_gil,
             )
 
+            t0 = perf_counter()
             step_report = import_struct_definitions_from_project_archive_to_gil(
                 project_archive_path=project_root,
                 input_gil_file_path=current_input,
@@ -697,7 +889,9 @@ def run_project_writeback_to_gil(
                     include_struct_ids=list(plan.selected_struct_ids or []) if plan.selected_struct_ids else None,
                 ),
             )
-            report["steps"].append({"kind": "struct_definitions", "report": step_report})
+            duration_sec = float(perf_counter() - t0)
+            timings_sec["step_struct_definitions_sec"] = duration_sec
+            steps.append({"kind": "struct_definitions", "duration_sec": duration_sec, "report": step_report})
             current_input = output_tool_path.resolve()
 
         if has_ingame_structs:
@@ -709,6 +903,7 @@ def run_project_writeback_to_gil(
                 import_ingame_save_structs_from_project_archive_to_gil,
             )
 
+            t0 = perf_counter()
             step_report = import_ingame_save_structs_from_project_archive_to_gil(
                 project_archive_path=project_root,
                 input_gil_file_path=current_input,
@@ -719,7 +914,9 @@ def run_project_writeback_to_gil(
                 ),
                 bootstrap_template_gil_file_path=None,
             )
-            report["steps"].append({"kind": "ingame_save_structs", "report": step_report})
+            duration_sec = float(perf_counter() - t0)
+            timings_sec["step_ingame_save_structs_sec"] = duration_sec
+            steps.append({"kind": "ingame_save_structs", "duration_sec": duration_sec, "report": step_report})
             current_input = output_tool_path.resolve()
 
     if bool(effective_export_signals):
@@ -731,6 +928,7 @@ def run_project_writeback_to_gil(
             import_signals_from_project_archive_to_gil,
         )
 
+        t0 = perf_counter()
         step_report = import_signals_from_project_archive_to_gil(
             project_archive_path=project_root,
             input_gil_file_path=current_input,
@@ -744,7 +942,9 @@ def run_project_writeback_to_gil(
                 emit_reserved_placeholder_signal=bool(plan.signals_emit_reserved_placeholder_signal),
             ),
         )
-        report["steps"].append({"kind": "signals", "report": step_report})
+        duration_sec = float(perf_counter() - t0)
+        timings_sec["step_signals_sec"] = duration_sec
+        steps.append({"kind": "signals", "duration_sec": duration_sec, "report": step_report})
         current_input = output_tool_path.resolve()
 
     if bool(plan.export_ui_widget_templates):
@@ -771,14 +971,18 @@ def run_project_writeback_to_gil(
         ui_dir = project_root / "管理配置" / "UI控件模板" / "原始解析"
         has_raw_template = bool(ui_dir.is_dir() and any(ui_dir.glob("ugc_ui_widget_template_*.raw.json")))
         if has_raw_template:
+            t0 = perf_counter()
             step_report = import_ui_widget_templates_from_project_archive_to_gil(
                 project_archive_path=project_root,
                 input_gil_file_path=current_input,
                 output_gil_file_path=output_tool_path,
                 options=UIWidgetTemplatesImportOptions(mode=str(plan.ui_widget_templates_mode)),
             )
-            report["steps"].append({"kind": "ui_widget_templates_raw_template", "report": step_report})
+            duration_sec = float(perf_counter() - t0)
+            timings_sec["step_ui_widget_templates_raw_template_sec"] = duration_sec
+            steps.append({"kind": "ui_widget_templates_raw_template", "duration_sec": duration_sec, "report": step_report})
         else:
+            t0 = perf_counter()
             step_report = import_ui_from_workbench_bundles_to_gil(
                 project_archive_path=project_root,
                 input_gil_file_path=current_input,
@@ -787,7 +991,9 @@ def run_project_writeback_to_gil(
                 include_layout_names=(list(plan.selected_ui_layout_names) if plan.selected_ui_layout_names else None),
                 layout_conflict_resolutions=(list(plan.ui_layout_conflict_resolutions) if plan.ui_layout_conflict_resolutions else None),
             )
-            report["steps"].append({"kind": "ui_html_workbench_bundles", "report": step_report})
+            duration_sec = float(perf_counter() - t0)
+            timings_sec["step_ui_html_workbench_bundles_sec"] = duration_sec
+            steps.append({"kind": "ui_html_workbench_bundles", "duration_sec": duration_sec, "report": step_report})
 
             # UI 回填记录元信息：按 bundle 文件名推断的 layout_name 列表（用于 `.gia` 导出侧的 LayoutIndex 辅助回填）
             try:
@@ -843,6 +1049,10 @@ def run_project_writeback_to_gil(
         if output_model_dir_name == "":
             output_model_dir_name = f"{project_root.name}_graph_models"
 
+        def _graph_progress_cb(inner_label: str) -> None:
+            _emit_progress(progress_cb, current_step, total_steps, f"正在写回节点图… {inner_label}")
+
+        t0 = perf_counter()
         step_report = import_node_graphs_from_project_archive_to_gil(
             project_archive_path=project_root,
             input_gil_file_path=current_input,
@@ -884,8 +1094,11 @@ def run_project_writeback_to_gil(
                     Path(plan.id_ref_overrides_json_file).resolve() if plan.id_ref_overrides_json_file is not None else None
                 ),
             ),
+            progress_cb=_graph_progress_cb,
         )
-        report["steps"].append({"kind": "node_graphs", "report": step_report})
+        duration_sec = float(perf_counter() - t0)
+        timings_sec["step_node_graphs_sec"] = duration_sec
+        steps.append({"kind": "node_graphs", "duration_sec": duration_sec, "report": step_report})
         current_input = output_tool_path.resolve()
 
     if need_copy:
@@ -893,7 +1106,9 @@ def run_project_writeback_to_gil(
         _emit_progress(progress_cb, current_step, total_steps, "正在复制导出产物…")
         if output_user_abs is None:
             raise RuntimeError("internal error: need_copy but output_user_abs is None")
+        t0 = perf_counter()
         _atomic_copy2(src=output_tool_path, dst=output_user_abs)
+        timings_sec["step_copy_output_sec"] = float(perf_counter() - t0)
 
     report["output_gil_resolved"] = str(output_tool_path.resolve())
     report["output_gil_user_resolved"] = str(output_user_abs.resolve()) if output_user_abs is not None else str(output_user_raw)
@@ -901,6 +1116,7 @@ def run_project_writeback_to_gil(
     report["effective_selected_signal_ids"] = list(effective_selected_signal_ids)
     report["auto_enabled_signals_for_graphs"] = bool(auto_enabled_signals_for_graphs)
     report["effective_export_signals"] = bool(effective_export_signals)
+    report["timings_sec"] = dict(timings_sec)
 
     # ===== 最近导出 gil 记录（供 UI 基底选择器复用）=====
     # 只记录真实存在的 .gil 文件；workspace_root 从 project_root 路径结构推断：
@@ -957,6 +1173,7 @@ def run_project_writeback_to_gil(
         # 记录失败不应影响导出主流程
         pass
 
+    report["timings_sec"]["total_sec"] = float(perf_counter() - started_at)
     return report
 
 

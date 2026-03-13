@@ -83,8 +83,11 @@ def test_block_with_multiple_parents_is_centered_between_parents_even_if_order_i
         parent_sets=parent_sets,
     )
 
-    expected_center = (_center_y(parent_a) + _center_y(parent_c) + _center_y(parent_d)) / 3.0
-    assert abs(_center_y(child_b) - expected_center) < 1e-6
+    # 新口径（紧密优先）：不要求严格等于均值，只要落在父块中心点的[min,max]范围内即可。
+    lo = min(_center_y(parent_a), _center_y(parent_c), _center_y(parent_d))
+    hi = max(_center_y(parent_a), _center_y(parent_c), _center_y(parent_d))
+    cy_child = _center_y(child_b)
+    assert lo <= cy_child <= hi
 
     # child_b 仍需位于同列前序块之下（非重叠约束）
     assert float(child_b.top_left_pos[1]) >= float(preceding_unconstrained.top_left_pos[1]) + float(preceding_unconstrained.height)
@@ -141,8 +144,11 @@ def test_block_with_multiple_children_is_centered_between_children_using_preview
         parent_sets=parent_sets,
     )
 
-    expected_center = (_center_y(child_b) + _center_y(child_c) + _center_y(child_d)) / 3.0
-    assert abs(_center_y(parent_a) - expected_center) < 1e-6
+    # 新口径（紧密优先）：不要求严格等于均值，只要落在子块中心点的[min,max]范围内即可。
+    lo = min(_center_y(child_b), _center_y(child_c), _center_y(child_d))
+    hi = max(_center_y(child_b), _center_y(child_c), _center_y(child_d))
+    cy_parent = _center_y(parent_a)
+    assert lo <= cy_parent <= hi
 
 
 def test_unique_parent_child_chain_aligns_top_y_even_if_child_column_has_other_blocks_below() -> None:

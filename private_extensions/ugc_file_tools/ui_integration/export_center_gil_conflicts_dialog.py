@@ -1,6 +1,88 @@
 from __future__ import annotations
 
 
+def _apply_dialog_style(dlg: object, table: object, Colors: object, Sizes: object, ok_btn: object) -> None:
+    dlg.setStyleSheet(f"""
+        QDialog {{ background-color: {Colors.BG_MAIN}; }}
+        QLabel {{ color: {Colors.TEXT_PRIMARY}; font-size: {Sizes.FONT_NORMAL}px; }}
+        QTableWidget {{
+            background-color: {Colors.BG_CARD};
+            alternate-background-color: {Colors.BG_MAIN};
+            border: 1px solid {Colors.BORDER};
+            border-radius: {Sizes.RADIUS_SMALL}px;
+            gridline-color: {Colors.DIVIDER};
+            color: {Colors.TEXT_PRIMARY};
+            outline: 0;
+            font-size: {Sizes.FONT_NORMAL}px;
+        }}
+        QHeaderView::section {{
+            background-color: {Colors.BG_HEADER};
+            color: {Colors.TEXT_SECONDARY};
+            padding: {Sizes.PADDING_SMALL}px {Sizes.PADDING_MEDIUM}px;
+            border: none;
+            border-right: 1px solid {Colors.DIVIDER};
+            border-bottom: 1px solid {Colors.DIVIDER};
+            font-weight: bold;
+            font-size: {Sizes.FONT_NORMAL}px;
+        }}
+        QLineEdit {{
+            background-color: {Colors.BG_INPUT};
+            border: 1px solid {Colors.BORDER};
+            border-radius: {Sizes.RADIUS_SMALL}px;
+            padding: {Sizes.PADDING_SMALL}px {Sizes.PADDING_MEDIUM}px;
+            color: {Colors.TEXT_PRIMARY};
+            font-size: {Sizes.FONT_NORMAL}px;
+        }}
+        QLineEdit:focus {{
+            border: 1px solid {Colors.PRIMARY};
+        }}
+        QPushButton {{
+            background-color: {Colors.BG_CARD};
+            border: 1px solid {Colors.BORDER};
+            border-radius: {Sizes.RADIUS_SMALL}px;
+            padding: {Sizes.PADDING_SMALL}px {Sizes.PADDING_LARGE}px;
+            color: {Colors.TEXT_PRIMARY};
+            font-size: {Sizes.FONT_NORMAL}px;
+        }}
+        QPushButton:hover {{
+            background-color: {Colors.BG_CARD_HOVER};
+        }}
+        QPushButton#primary_btn {{
+            background-color: {Colors.PRIMARY};
+            border: 1px solid {Colors.PRIMARY};
+            color: {Colors.TEXT_ON_PRIMARY};
+            font-weight: bold;
+        }}
+        QPushButton#primary_btn:hover {{
+            background-color: {Colors.PRIMARY_DARK};
+        }}
+        QComboBox {{
+            background-color: {Colors.BG_INPUT};
+            border: 1px solid {Colors.BORDER};
+            border-radius: {Sizes.RADIUS_SMALL}px;
+            padding: 4px 8px;
+            color: {Colors.TEXT_PRIMARY};
+            font-size: {Sizes.FONT_NORMAL}px;
+        }}
+        QComboBox::drop-down {{
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 20px;
+            border-left-width: 0px;
+        }}
+        QComboBox QAbstractItemView {{
+            background-color: {Colors.BG_CARD};
+            color: {Colors.TEXT_PRIMARY};
+            selection-background-color: {Colors.BG_SELECTED};
+            selection-color: {Colors.TEXT_PRIMARY};
+            border: 1px solid {Colors.BORDER};
+        }}
+    """)
+    if hasattr(table, "verticalHeader"):
+        table.verticalHeader().setDefaultSectionSize(44)
+    ok_btn.setObjectName("primary_btn")
+
+
 def open_export_center_gil_ui_layout_conflicts_dialog(
     *,
     QtCore: object,
@@ -67,7 +149,10 @@ def open_export_center_gil_ui_layout_conflicts_dialog(
     table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
     table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
     table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-    table.horizontalHeader().setStretchLastSection(True)
+    table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
+    table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
     table.verticalHeader().setVisible(False)
     root.addWidget(table, 1)
 
@@ -77,7 +162,6 @@ def open_export_center_gil_ui_layout_conflicts_dialog(
         existing_guid = it.get("existing_guid", None)
 
         item_type = QtWidgets.QTableWidgetItem("布局")
-        item_type.setForeground(QtCore.Qt.GlobalColor.white)
         table.setItem(row, 0, item_type)
 
         item_name = QtWidgets.QTableWidgetItem(layout_name)
@@ -145,6 +229,8 @@ def open_export_center_gil_ui_layout_conflicts_dialog(
 
     ok_btn.clicked.connect(dlg.accept)
     cancel_btn.clicked.connect(dlg.reject)
+
+    _apply_dialog_style(dlg, table, Colors, Sizes, ok_btn)
 
     if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
         return None
@@ -240,7 +326,10 @@ def open_export_center_gil_node_graph_conflicts_dialog(
     table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
     table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
     table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-    table.horizontalHeader().setStretchLastSection(True)
+    table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
+    table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
     table.verticalHeader().setVisible(False)
     root.addWidget(table, 1)
 
@@ -252,7 +341,6 @@ def open_export_center_gil_node_graph_conflicts_dialog(
         existing_id = it.get("existing_graph_id_int", None)
 
         item_type = QtWidgets.QTableWidgetItem(f"节点图({scope})")
-        item_type.setForeground(QtCore.Qt.GlobalColor.white)
         item_type.setToolTip(graph_code_file)
         table.setItem(row, 0, item_type)
 
@@ -323,6 +411,8 @@ def open_export_center_gil_node_graph_conflicts_dialog(
 
     ok_btn.clicked.connect(dlg.accept)
     cancel_btn.clicked.connect(dlg.reject)
+
+    _apply_dialog_style(dlg, table, Colors, Sizes, ok_btn)
 
     if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
         return None
@@ -413,7 +503,10 @@ def open_export_center_gil_template_conflicts_dialog(
     table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
     table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
     table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-    table.horizontalHeader().setStretchLastSection(True)
+    table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
+    table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
     table.verticalHeader().setVisible(False)
     root.addWidget(table, 1)
 
@@ -424,7 +517,6 @@ def open_export_center_gil_template_conflicts_dialog(
         existing_id = it.get("existing_template_id_int", None)
 
         item_type = QtWidgets.QTableWidgetItem("元件模板")
-        item_type.setForeground(QtCore.Qt.GlobalColor.white)
         item_type.setToolTip(template_json_file)
         table.setItem(row, 0, item_type)
 
@@ -495,6 +587,8 @@ def open_export_center_gil_template_conflicts_dialog(
 
     ok_btn.clicked.connect(dlg.accept)
     cancel_btn.clicked.connect(dlg.reject)
+
+    _apply_dialog_style(dlg, table, Colors, Sizes, ok_btn)
 
     if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
         return None
@@ -585,7 +679,10 @@ def open_export_center_gil_instance_conflicts_dialog(
     table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
     table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
     table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-    table.horizontalHeader().setStretchLastSection(True)
+    table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
+    table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
     table.verticalHeader().setVisible(False)
     root.addWidget(table, 1)
 
@@ -596,7 +693,6 @@ def open_export_center_gil_instance_conflicts_dialog(
         existing_id = it.get("existing_instance_id_int", None)
 
         item_type = QtWidgets.QTableWidgetItem("实体摆放")
-        item_type.setForeground(QtCore.Qt.GlobalColor.white)
         item_type.setToolTip(instance_json_file)
         table.setItem(row, 0, item_type)
 
@@ -667,6 +763,8 @@ def open_export_center_gil_instance_conflicts_dialog(
 
     ok_btn.clicked.connect(dlg.accept)
     cancel_btn.clicked.connect(dlg.reject)
+
+    _apply_dialog_style(dlg, table, Colors, Sizes, ok_btn)
 
     if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
         return None

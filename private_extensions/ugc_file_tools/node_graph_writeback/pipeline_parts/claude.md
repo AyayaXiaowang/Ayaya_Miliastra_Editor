@@ -50,6 +50,7 @@
 - `pipeline_parts/pipeline.py` 负责“主流程编排”（实现层）；`node_graph_writeback/pipeline.py` 负责对外稳定导入路径（re-export）。
   - 对外可复用的 helper 若需跨模块调用，应优先在 `node_graph_writeback/pipeline.py` 暴露为 **公开 API（无下划线）**，避免上层 `from ... import _xxx` 导入私有符号。
   - 写盘策略：写回完成后不再对整份 payload 做 decode→encode 全量重编码；改为读取 base `.gil` 的 payload raw bytes，并在 wire-level 仅替换 `payload_root.field_10`（NodeGraphs section；必要时附带 `field_5`），其余段 bytes 原样保留（用于规避 UI base 下 templates 等段发生 payload drift 导致官方侧拒识）。
+- 批处理写回（template-clone）：支持在同一轮写回中复用“base `.gil` decode 结果”，对多张图依次就地修改 `payload_root['10']`，最后只做一次 wire-level 写盘以显著降低批量写回耗时（实现位于 `pipeline_batch_template_clone.py`）。
 - UIKey 预检（`pipeline_ui_keys.py`）：
   - 缺失 UIKey 不再阻断写回：会在写回阶段回填为 0（包含 `UI_STATE_GROUP__*__*__group` 与普通 UIKey）。
   - 仍会输出缺失 keys 的增强诊断（出现位置/相似 key/对 state-group 的期望 record 名称提示），便于后续补齐 UI 导出或修正 HTML 标注。

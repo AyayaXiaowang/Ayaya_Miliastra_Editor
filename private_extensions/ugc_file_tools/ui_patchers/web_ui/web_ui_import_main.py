@@ -177,6 +177,10 @@ def import_web_ui_control_group_template_to_gil_layout(
     # 若 target_layout_guid=None，则会创建一个新布局并把控件放进去
     target_layout_guid: Optional[int] = None,
     new_layout_name: Optional[str] = None,
+    # 性能：当 overwrite 目标只按名称可确定时，允许在同一次 decode 内解析出目标 layout_guid，避免上层二次 dump-decode 扫描。
+    resolve_existing_layout_by_name: bool = False,
+    # 语义：新建布局（add）时要求 new_layout_name 在当前 gil 内不存在，否则 fail-fast（同样复用本次 decode 的 record_list）。
+    require_new_layout_name: bool = False,
     base_layout_guid: Optional[int] = None,
     empty_layout: bool = False,
     clone_children: bool = True,
@@ -202,6 +206,8 @@ def import_web_ui_control_group_template_to_gil_layout(
     # 固有控件（HUD）初始显隐覆盖：从 HTML `data-ui-builtin-visibility` 读取并写回到布局内固有控件 record。
     # 注意：导出中心“项目存档→写回 .gil”链路可能基于不含固有控件的 base `.gil`，因此允许上层显式关闭。
     enable_builtin_widgets_visibility_overrides: bool = True,
+    raw_dump_object_override: Dict[str, Any] | None = None,
+    defer_writeback: bool = False,
 ) -> Dict[str, Any]:
     ctx, raw_dump_object = prepare_web_ui_import_context(
         input_gil_file_path=input_gil_file_path,
@@ -209,12 +215,15 @@ def import_web_ui_control_group_template_to_gil_layout(
         template_json_file_path=template_json_file_path,
         target_layout_guid=target_layout_guid,
         new_layout_name=new_layout_name,
+        resolve_existing_layout_by_name=bool(resolve_existing_layout_by_name),
+        require_new_layout_name=bool(require_new_layout_name),
         base_layout_guid=base_layout_guid,
         empty_layout=empty_layout,
         clone_children=clone_children,
         pc_canvas_size=pc_canvas_size,
         mobile_canvas_size=mobile_canvas_size,
         ui_guid_registry_file_path=ui_guid_registry_file_path,
+        raw_dump_object_override=raw_dump_object_override,
     )
 
     widgets = ctx.template_obj.get("widgets")
@@ -536,11 +545,12 @@ def import_web_ui_control_group_template_to_gil_layout(
         layout_guid=int(ctx.layout_guid),
     )
 
-    _write_back_modified_gil_by_reencoding_payload(
-        raw_dump_object=raw_dump_object,
-        input_gil_path=ctx.input_path,
-        output_gil_path=ctx.output_path,
-    )
+    if not bool(defer_writeback):
+        _write_back_modified_gil_by_reencoding_payload(
+            raw_dump_object=raw_dump_object,
+            input_gil_path=ctx.input_path,
+            output_gil_path=ctx.output_path,
+        )
 
     # report: component groups detail
     component_group_details: List[Dict[str, Any]] = []

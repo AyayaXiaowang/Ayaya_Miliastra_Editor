@@ -202,6 +202,9 @@ class LayoutOrchestrator:
                 if orphan_node.id not in self._global_visited:
                     self._coordinator.identify_blocks_flow_only(orphan_node.id, self._global_visited)
 
+        # 阶段1后：块编号顺序由 BlockIdentificationCoordinator 的遍历策略（当前为 DFS）决定。
+        # 注意：此处不再做“后处理重编号”，避免破坏遍历顺序的直觉一致性。
+
     def _execute_global_copy(self) -> None:
         """全局复制阶段：分析跨块共享，统一创建副本和重定向边"""
         from ..utils.global_copy_manager import GlobalCopyManager

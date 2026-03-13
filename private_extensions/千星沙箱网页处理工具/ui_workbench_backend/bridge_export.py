@@ -53,6 +53,45 @@ class _UiWorkbenchBridgeExportMixin(
         if issues:
             raise RuntimeError(format_ui_issues_text(issues))
 
+    def _write_ui_bundle_json_to_current_package_workbench_out_or_raise(
+        self,
+        *,
+        bundle_payload: dict[str, Any],
+        html_stem: str,
+    ) -> Path:
+        # 将 bundle JSON 写入当前项目的 UI源码/__workbench_out__/，用于 sibling HTML（data-ui-builtin-visibility）读取契约。
+        main_window = self._main_window
+        package_controller = getattr(main_window, "package_controller", None) if main_window is not None else None
+        current_package_id = getattr(package_controller, "current_package_id", None) if package_controller is not None else None
+        package_id_text = str(current_package_id or "").strip() if current_package_id is not None else ""
+        if not package_id_text or package_id_text in {"global_view", "unclassified_view"}:
+            raise RuntimeError("未选择项目存档：无法定位 UI源码/__workbench_out__/ 以写入 bundle JSON。")
+
+        ui_source_dir = (
+            self._workspace_root
+            / "assets"
+            / "资源库"
+            / "项目存档"
+            / package_id_text
+            / "管理配置"
+            / "UI源码"
+        ).resolve()
+        workbench_out_dir = (ui_source_dir / "__workbench_out__").resolve()
+        workbench_out_dir.mkdir(parents=True, exist_ok=True)
+
+        stem = str(html_stem or "").strip()
+        if stem == "":
+            raise ValueError("html_stem 不能为空：无法写入 bundle JSON。")
+
+        expected_html = (ui_source_dir / f"{stem}.html").resolve()
+        if not expected_html.is_file():
+            raise FileNotFoundError(str(expected_html))
+
+        # 必须直接放在 __workbench_out__ 根目录：写回端会以 “p.parent.parent/<stem>.html” 定位 sibling HTML。
+        out_json = (workbench_out_dir / f"{stem}.ui_bundle.json").resolve()
+        out_json.write_text(json.dumps(bundle_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return out_json
+
     # --------------------------------------------------------------------- export: bundle -> gil (ugc_file_tools)
     def export_gil_from_bundle_payload(
         self,
@@ -195,8 +234,12 @@ class _UiWorkbenchBridgeExportMixin(
                 registry_file_name = f"ui_guid_registry__{safe_base_stem}.json"
                 registry_path = (self._workbench_dir.parent / "ugc_file_tools" / "out" / registry_file_name).resolve()
 
-            tmp_path = Path(tmpdir) / "ui_bundle.json"
-            tmp_path.write_text(json.dumps(bundle_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            # 写回端会从 `template_json_file_path` 的 sibling HTML 读取 data-ui-builtin-visibility：
+            # 因此这里必须将 bundle JSON 写入 `UI源码/__workbench_out__/`，以满足 fail-fast 契约。
+            tmp_path = self._write_ui_bundle_json_to_current_package_workbench_out_or_raise(
+                bundle_payload=bundle_payload,
+                html_stem=normalized_layout_name,
+            )
 
             need_textbox = False
             need_item_display = False
@@ -223,7 +266,7 @@ class _UiWorkbenchBridgeExportMixin(
                     / "ugc_file_tools"
                     / "builtin_resources"
                     / "空的界面控件组"
-                    / "文本框样式.gil"
+                    / "文本框样式_fixed.gil"
                 ).resolve()
                 if not candidate.is_file():
                     raise FileNotFoundError(str(candidate))
@@ -574,7 +617,7 @@ class _UiWorkbenchBridgeExportMixin(
                 / "ugc_file_tools"
                 / "builtin_resources"
                 / "空的界面控件组"
-                / "文本框样式.gil"
+                / "文本框样式_fixed.gil"
             ).resolve()
             if not candidate.is_file():
                 raise FileNotFoundError(str(candidate))
@@ -772,8 +815,12 @@ class _UiWorkbenchBridgeExportMixin(
                 )
                 mobile_canvas_size = (1280.0, 720.0)
 
-                tmp_path = Path(tmpdir) / f"ui_bundle_{idx}.json"
-                tmp_path.write_text(json.dumps(bundle_payload2, ensure_ascii=False, indent=2), encoding="utf-8")
+                # 写回端需要从 `UI源码/<stem>.html` 读取 data-ui-builtin-visibility（通过 template_json_file_path 推断）。
+                # 批量导出同样必须把 bundle JSON 写入 `UI源码/__workbench_out__/` 根目录。
+                tmp_path = self._write_ui_bundle_json_to_current_package_workbench_out_or_raise(
+                    bundle_payload=bundle_payload2,
+                    html_stem=layout_name2,
+                )
 
                 report = import_web_ui_control_group_template_to_gil_layout(
                     input_gil_file_path=Path(current_input),

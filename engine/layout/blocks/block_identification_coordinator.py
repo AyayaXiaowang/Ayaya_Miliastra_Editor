@@ -44,6 +44,12 @@ from .block_bounds_calculator import BlockBoundsCalculator
 
 SharedEdgeIndexMap = Dict[str, CopyOnWriteEdgeIndex]
 
+# 结构化控制流（列表迭代循环）端口与标题常量：
+# 注意：此处不从 graph_query_utils 导入，避免其缺失时导致启动期 ImportError。
+TITLE_LIST_ITER_LOOP: str = "列表迭代循环"
+PORT_LOOP_BODY: str = "循环体"
+PORT_LOOP_DONE: str = "循环完成"
+
 
 @dataclass(frozen=True)
 class _BlockLayoutScalars:
@@ -382,12 +388,9 @@ class BlockIdentificationCoordinator:
 
         重要：此阶段会为每个块分配稳定的 `order_index`（从 1 开始）。
 
-        设计要点（为何不使用递归 DFS）：
-        - 旧的 DFS 会“先走完某一分支的所有后续块，再回头处理另一分支”，
-          导致另一分支里的少量流程节点被分配到很大的块序号（例如 block_9），
-          进而在列内堆叠时被推到最下方，出现“分支初始化节点跑到整张图末尾”的观感问题；
-        - 这里改为 **BFS（按块层级）**：优先把同一层级的分支块识别出来，再继续向下展开，
-          从而让兄弟分支的块序号更接近，排版更符合读者直觉，同时保持完全确定性。
+        遍历策略：
+        - 本实现采用 **DFS（深度优先）**：按端口顺序优先走完第一条分支的后续块，再回头处理下一条分支。
+        - 目的：让块编号（order_index）体现“从端口出发的阅读顺序”，与用户对结构化控制流的直觉一致。
         
         Args:
             start_node_id: 起始节点ID
@@ -407,14 +410,10 @@ class BlockIdentificationCoordinator:
             metadata = (event_root_id, resolved_title)
             self._event_metadata_cache[event_root_id] = metadata
 
-        traversal_queue: deque[str] = deque()
-        enqueued: Set[str] = set()
-        traversal_queue.append(start_node_id)
-        enqueued.add(start_node_id)
+        traversal_stack: List[str] = [start_node_id]
 
-        while traversal_queue:
-            current_start_id = traversal_queue.popleft()
-            enqueued.discard(current_start_id)
+        while traversal_stack:
+            current_start_id = traversal_stack.pop()
 
             if current_start_id in global_visited:
                 continue
@@ -453,16 +452,17 @@ class BlockIdentificationCoordinator:
 
             self.layout_blocks.append(layout_block)
 
-            # BFS：将下一层块入口加入队列（保持端口顺序稳定，且避免重复入队）
-            for _, next_node_id in layout_block.last_node_branches:
+            # 严格 DFS：将下一层块入口加入栈（保持端口顺序稳定：先压后弹，因此需要反向入栈）。
+            #
+            # 注意：这里**不做 enqueued 去重**（仅依赖 global_visited 去重），以匹配递归 DFS 的语义：
+            # - 若某个块入口在更深路径上再次被发现，应优先沿当前路径“走到不能再往下走为止”；
+            # - 允许重复入栈，后续弹出时若已 visited 则自然跳过。
+            for _, next_node_id in reversed(list(layout_block.last_node_branches or [])):
                 if not next_node_id:
                     continue
                 if next_node_id in global_visited:
                     continue
-                if next_node_id in enqueued:
-                    continue
-                traversal_queue.append(next_node_id)
-                enqueued.add(next_node_id)
+                traversal_stack.append(next_node_id)
 
     def layout_block_data_phase(
         self,

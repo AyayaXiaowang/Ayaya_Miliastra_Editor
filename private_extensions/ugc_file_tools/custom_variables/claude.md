@@ -11,6 +11,7 @@
   - `defaults.py`：`variable_defaults` 归一化（含字典字段路径收敛）。
   - `specs.py`：自定义变量 spec（group/name/VarType/默认值）推断与显式类型标注解析；类型体系以 `engine/type_registry.py` 为真源（通过 bridge 加载）。
   - `value_message.py`：`.gil/.gia` 自定义变量条目中 `item['4']` 的值 message 构造（与 NodeGraph VarBase 区分）。
+    - 整数默认值解析支持 `0x...` 十六进制文本；`#RRGGBB` 视为颜色字符串约定，若类型声明为整数将 fail-fast 提示修正类型声明（也用于整数字典的 key/value）。
   - `apply.py`：将 spec 应用到 payload 的 override variables(group1)，负责“补齐缺失、不覆盖已存在”的工程化策略：
     - 实体条目：`root4/5/1[*].7`
     - 玩家模板（战斗预设）条目：同步写入 `root4/5/1(wrapper)[*].7` 与 `root4/4/1(template)[*].8`（按可解释结构特征识别，不依赖固定路径/模板名）。

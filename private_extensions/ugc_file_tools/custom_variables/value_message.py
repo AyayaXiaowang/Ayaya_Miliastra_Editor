@@ -5,12 +5,45 @@ from typing import Any, Mapping
 
 from ugc_file_tools.gil_dump_codec.protobuf_like import format_binary_data_hex_text
 
+_HEX_BASE = 16
+_HEX_PREFIX_HASH = "#"
+_HEX_PREFIX_0X_LOWER = "0x"
+_HEX_PREFIX_0X_UPPER = "0X"
+_HEX_DIGITS = set("0123456789abcdefABCDEF")
+
 __all__ = [
     "build_custom_variable_type_descriptor",
     "infer_dict_value_type_int",
     "build_custom_variable_value_message",
     "build_dict_custom_variable_item",
 ]
+
+
+def _is_hex_digits(text: str) -> bool:
+    """判断文本是否由十六进制数字组成。"""
+    if not isinstance(text, str):
+        return False
+    if text == "":
+        return False
+    return all((c in _HEX_DIGITS) for c in text)
+
+
+def _parse_int_text_or_raise(text: str) -> int:
+    """将文本默认值解析为整数（支持十进制/科学计数法与 #/0x 十六进制表示）。"""
+    s = str(text or "").strip()
+    if s == "":
+        return 0
+    if s.startswith(_HEX_PREFIX_HASH):
+        raise ValueError(
+            f"整数默认值不接受颜色样式文本：{s!r}。"
+            "若该值表示颜色（#RRGGBB），请将变量类型声明为“字符串”或“字符串-字符串字典”。"
+        )
+    if s.startswith(_HEX_PREFIX_0X_LOWER) or s.startswith(_HEX_PREFIX_0X_UPPER):
+        body2 = s[len(_HEX_PREFIX_0X_LOWER) :]
+        if not _is_hex_digits(body2):
+            raise ValueError(f"十六进制整数默认值格式无效：{s!r}")
+        return int(s, _HEX_BASE)
+    return int(float(s))
 
 
 def _pack_vector3_to_bytes(value: Any) -> bytes:
@@ -96,7 +129,7 @@ def _coerce_int_list(value: Any) -> list[int]:
             out.append(int(x))
             continue
         text = str(x).strip()
-        out.append(int(float(text))) if text else out.append(0)
+        out.append(_parse_int_text_or_raise(text)) if text else out.append(0)
     return out
 
 
@@ -228,7 +261,7 @@ def build_custom_variable_value_message(*, var_type_int: int, default_value: Any
             iv = int(default_value)
         else:
             text = str(default_value).strip()
-            iv = int(float(text)) if text else 0
+            iv = _parse_int_text_or_raise(text) if text else 0
         msg[value_key] = {} if iv == 0 else {"1": int(iv)}
         return msg
 
@@ -329,7 +362,7 @@ def build_dict_custom_variable_item(
     # sort keys for stable writeback
     keys_sorted: list[Any]
     if key_vt == 3:
-        keys_sorted = sorted({int(k) for k in default_map.keys() if str(k).strip() != ""})
+        keys_sorted = sorted({_parse_int_text_or_raise(str(k)) for k in default_map.keys() if str(k).strip() != ""})
     else:
         keys_sorted = sorted({str(k).strip() for k in default_map.keys() if str(k).strip() != ""}, key=lambda s: s.casefold())
 

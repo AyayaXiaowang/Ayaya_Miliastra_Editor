@@ -9,8 +9,11 @@ from ugc_file_tools.gil_dump_codec.dump_json_tree import load_gil_payload_as_num
 from ugc_file_tools.gil_dump_codec.gil_container import (
     build_gil_file_bytes_from_payload,
     read_gil_container_spec,
+    read_gil_payload_bytes,
 )
 from ugc_file_tools.gil_dump_codec.protobuf_like import encode_message
+from ugc_file_tools.gil_dump_codec.protobuf_like import parse_binary_data_hex_text
+from ugc_file_tools.wire import replace_length_delimited_fields_payload_bytes_in_message_bytes
 
 
 _CANONICAL_SECTION35_DEFAULT_GROUPS: list[Dict[str, Any]] = [
@@ -40,6 +43,15 @@ _CANONICAL_SECTION6_ITEM17_SUB3_FIELD5: Dict[str, Any] = {
     "1": 800,
     "2": 1073741825,
 }
+
+_FIELD_NUMBER_SECTION2_ARCHIVE_NAME = 2
+_FIELD_NUMBER_SECTION6 = 6
+_FIELD_NUMBER_SECTION11 = 11
+_FIELD_NUMBER_SECTION22 = 22
+_FIELD_NUMBER_SECTION35 = 35
+
+_VARINT_CONTINUATION_BIT = 0x80
+_VARINT_MASK = 0x7F
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +129,17 @@ def _as_dict_allow_binary_message(value: Any, *, path: str, max_depth: int) -> D
     raise TypeError(f"{path} expected dict or <binary_data>, got {type(value).__name__}")
 
 
+def _is_valid_section22(value: Any) -> bool:
+    """判断 section22 是否已存在且形态可用（dict 或可解码的 <binary_data>）。"""
+    if isinstance(value, Mapping):
+        return ("1" in value) and ("2" in value)
+    # 关键：部分真源/外部 base `.gil` 的 section22 在 dump 视图中会保留为 `<binary_data> ...`。
+    # 此时视为“已存在且不应强行 bootstrap 覆盖”，否则可能引入跨版本基础设施段不兼容而导致官方拒识。
+    if isinstance(value, str) and value.startswith("<binary_data>"):
+        return True
+    return False
+
+
 def _as_list_of_dicts(value: Any, *, path: str) -> list[Dict[str, Any]]:
     if isinstance(value, list):
         out: list[Dict[str, Any]] = []
@@ -192,9 +215,7 @@ def detect_gil_infrastructure_gaps_in_payload_root(*, payload_root: Mapping[str,
     # section22（dump-json path: 4/22）：
     # 校验成功样本稳定为 message(dict) 形态，且包含 key=1/2（见多份样本一致）。
     sec22 = payload_root.get("22")
-    missing_section22 = True
-    if isinstance(sec22, Mapping):
-        missing_section22 = not (("1" in sec22) and ("2" in sec22))
+    missing_section22 = not bool(_is_valid_section22(sec22))
 
     sec2 = payload_root.get("2")
     missing_section2 = not (isinstance(sec2, str) and str(sec2).strip() != "")
@@ -268,6 +289,12 @@ def apply_gil_infrastructure_bootstrap_inplace(
         bootstrap_sec11_2.get("1"),
         path="bootstrap_payload_root['11']['2']['1']",
     )
+    seed_sec11 = _as_dict(infra_seed_payload_root.get("11"), path="infra_seed_payload_root['11']")
+    seed_sec11_2 = _as_dict(seed_sec11.get("2"), path="infra_seed_payload_root['11']['2']")
+    seed_faction_entries = _as_list_of_dicts(
+        seed_sec11_2.get("1"),
+        path="infra_seed_payload_root['11']['2']['1']",
+    )
 
     # section35: default groups list
     bootstrap_35_g1 = _as_dict(bootstrap_sec35.get("1"), path="bootstrap_payload_root['35']['1']")
@@ -302,20 +329,92 @@ def apply_gil_infrastructure_bootstrap_inplace(
             base_sec11_2["1"] = copy.deepcopy(list(bootstrap_faction_entries))
             changed = True
         else:
-            bootstrap_by_key3: dict[str, Dict[str, Any]] = {}
+            faction_by_key3: dict[str, Dict[str, Any]] = {}
             for e in bootstrap_faction_entries:
                 k = str(e.get("3") or "").strip()
-                if k != "" and k not in bootstrap_by_key3:
-                    bootstrap_by_key3[k] = e
+                if k != "" and k not in faction_by_key3:
+                    faction_by_key3[k] = e
+            for e in seed_faction_entries:
+                k = str(e.get("3") or "").strip()
+                if k != "" and k not in faction_by_key3:
+                    faction_by_key3[k] = e
+
+            # 从 base 自身推导 field13（可验证）：若其它条目已给出“冲突集合”（packed varints），
+            # 则缺失条目的冲突集合可由“反向引用关系”唯一确定（保证互斥关系对称）。
+            base_faction_id_by_key3: dict[str, int] = {}
+            base_conflicts_by_faction_id: dict[int, set[int]] = {}
+            base_reverse_conflicts: dict[int, set[int]] = {}
+            for e in base_entries:
+                if not isinstance(e, dict):
+                    continue
+                key3_text = str(e.get("3") or "").strip()
+                if not (key3_text and key3_text.startswith("<binary_data>")):
+                    continue
+                key3_bytes = bytes(parse_binary_data_hex_text(key3_text))
+                try:
+                    key3_name = key3_bytes.decode("utf-8", errors="strict")
+                except UnicodeDecodeError:
+                    continue
+                suffix = str(key3_name).rsplit("_", 1)[-1]
+                if not suffix.isdigit():
+                    continue
+                faction_id = int(suffix) + 1
+                base_faction_id_by_key3[key3_text] = faction_id
+
+                field13_text = e.get("13")
+                if not (isinstance(field13_text, str) and field13_text.startswith("<binary_data>")):
+                    continue
+                raw = bytes(parse_binary_data_hex_text(field13_text))
+                # protobuf packed repeated int32: varint decode
+                conflicts: list[int] = []
+                value = 0
+                shift = 0
+                for b in raw:
+                    value |= (int(b) & _VARINT_MASK) << shift
+                    if (int(b) & _VARINT_CONTINUATION_BIT) == 0:
+                        conflicts.append(int(value))
+                        value = 0
+                        shift = 0
+                    else:
+                        shift += 7
+                if shift != 0:
+                    raise ValueError("section11 faction entry field13 packed varints ended with an incomplete varint")
+                base_conflicts_by_faction_id[int(faction_id)] = set(int(x) for x in conflicts)
+
+            for src_id, targets in base_conflicts_by_faction_id.items():
+                for dst_id in targets:
+                    if int(dst_id) not in base_reverse_conflicts:
+                        base_reverse_conflicts[int(dst_id)] = set()
+                    base_reverse_conflicts[int(dst_id)].add(int(src_id))
 
             for base_e in base_entries:
                 k = str(base_e.get("3") or "").strip()
                 if k == "":
                     continue
-                boot_e = bootstrap_by_key3.get(k)
-                if not isinstance(boot_e, dict):
-                    continue
+                boot_e = faction_by_key3.get(k)
                 if "13" in base_e:
+                    continue
+                base_faction_id = base_faction_id_by_key3.get(k)
+                if base_faction_id is not None:
+                    reverse = base_reverse_conflicts.get(int(base_faction_id), set())
+                    # protobuf varint encode (packed)
+                    out_bytes = bytearray()
+                    for n in sorted(int(x) for x in reverse):
+                        if n < 0:
+                            raise ValueError("section11 faction entry field13 expects non-negative ints")
+                        v = int(n)
+                        while v >= _VARINT_CONTINUATION_BIT:
+                            out_bytes.append((v & _VARINT_MASK) | _VARINT_CONTINUATION_BIT)
+                            v >>= 7
+                        out_bytes.append(v & _VARINT_MASK)
+                    if out_bytes:
+                        base_e["13"] = "<binary_data> " + " ".join(f"{b:02X}" for b in bytes(out_bytes))
+                    else:
+                        base_e["13"] = "<binary_data>"
+                    patched_root4_11_faction_field13_count += 1
+                    changed = True
+                    continue
+                if not isinstance(boot_e, dict):
                     continue
                 if "13" not in boot_e:
                     continue
@@ -323,43 +422,25 @@ def apply_gil_infrastructure_bootstrap_inplace(
                 patched_root4_11_faction_field13_count += 1
                 changed = True
 
-            # fallback：部分 base `.gil` 的 section11 entries 的 key=3（匹配键）可能漂移/缺失，
-            # 导致无法按 key=3 从 bootstrap 样本补齐 key=13。
-            #
-            # 已观测：缺失 key=13 会导致官方侧更严格校验失败；因此这里提供保守兜底：
-            # - 优先：当 entries 数量与 bootstrap 样本一致时，按 index 对齐补齐 key=13（避免改动其它字段）。
-            # - 最后：若仍存在缺失项，则使用 bootstrap 中第一个可用的 key=13 值做统一补齐（尽量只补缺失，不覆盖其它字段）。
-            missing_indices = [i for i, e in enumerate(base_entries) if isinstance(e, dict) and ("13" not in e)]
-            if missing_indices:
-                if len(base_entries) == len(bootstrap_faction_entries):
-                    for i in missing_indices:
-                        base_e2 = base_entries[i]
-                        boot_e2 = bootstrap_faction_entries[i]
-                        if not isinstance(base_e2, dict):
-                            continue
-                        if "13" in base_e2:
-                            continue
-                        if isinstance(boot_e2, dict) and ("13" in boot_e2):
-                            base_e2["13"] = copy.deepcopy(boot_e2["13"])
-                            patched_root4_11_faction_field13_count += 1
-                            changed = True
-
-                # 重新检查是否仍有缺口；若有则用 default_13 统一补齐
-                if any((isinstance(e, dict) and ("13" not in e)) for e in base_entries):
-                    default_13: Any | None = None
-                    for e in bootstrap_faction_entries:
-                        if isinstance(e, dict) and ("13" in e):
-                            default_13 = e.get("13")
-                            break
-                    if default_13 is not None:
-                        for base_e3 in base_entries:
-                            if not isinstance(base_e3, dict):
-                                continue
-                            if "13" in base_e3:
-                                continue
-                            base_e3["13"] = copy.deepcopy(default_13)
-                            patched_root4_11_faction_field13_count += 1
-                            changed = True
+            # 安全性：只允许“可验证匹配”的补齐（按 key=3 命中 bootstrap/seed 样本）。
+            # 若某个条目的 key=3 不在样本覆盖范围内，则视为“未知条目”，不对其做强制补齐/强制校验（避免跨版本结构差异被误判为缺口）。
+            missing_items: list[dict[str, object]] = []
+            for i, e in enumerate(base_entries):
+                if not isinstance(e, dict):
+                    continue
+                if "13" in e:
+                    continue
+                key3 = str(e.get("3") or "").strip()
+                if key3 == "":
+                    continue
+                if key3 not in faction_by_key3:
+                    continue
+                missing_items.append({"index": int(i), "key3": key3})
+            if missing_items:
+                raise ValueError(
+                    "base `.gil` 的 root4/11 faction entries 存在缺 key=13，且无法按 key=3 从 bootstrap/seed 样本可靠匹配补齐："
+                    f"{missing_items}"
+                )
 
     # ===== section35（dump-json path: 4/35）：默认分组列表 =====
     patched_root4_35_copied_from_bootstrap = False
@@ -446,7 +527,7 @@ def apply_gil_infrastructure_bootstrap_inplace(
     # ===== section22（dump-json path: 4/22）：基础设施段（dict）=====
     patched_root4_22_copied_from_bootstrap = False
     base_sec22 = base_payload_root.get("22")
-    if not isinstance(base_sec22, dict) or ("1" not in base_sec22) or ("2" not in base_sec22):
+    if not bool(_is_valid_section22(base_sec22)):
         base_payload_root["22"] = copy.deepcopy(seed_sec22)
         changed = True
         patched_root4_22_copied_from_bootstrap = True
@@ -481,6 +562,7 @@ def bootstrap_gil_infrastructure_sections(
     output_gil_file_path: Path,
     bootstrap_gil_file_path: Path,
 ) -> GilInfrastructureBootstrapReport:
+    """Bootstrap base `.gil` infrastructure sections by patching only required fields to avoid payload drift."""
     input_path = Path(input_gil_file_path).resolve()
     if not input_path.is_file():
         raise FileNotFoundError(str(input_path))
@@ -522,13 +604,58 @@ def bootstrap_gil_infrastructure_sections(
             patched_root4_2_copied_from_bootstrap=False,
         )
 
-    container_spec = read_gil_container_spec(input_path)
-    output_path.write_bytes(
-        build_gil_file_bytes_from_payload(
-            payload_bytes=encode_message(base_payload_root),
-            container_spec=container_spec,
-        )
+    # 说明：避免“整份 payload decode→encode”导致其它段发生 wire-level drift。
+    # 这里仿照 node_graph_writeback 的策略：读取 base payload raw bytes，只替换被 bootstrap 修改的段。
+
+    def _encode_length_delimited_scalar_text_or_binary(value: str) -> bytes:
+        # Encode scalar string as utf8 bytes, or decode "<binary_data> .." into raw bytes.
+        text = str(value)
+        if text.startswith("<binary_data>"):
+            return bytes(parse_binary_data_hex_text(text))
+        return text.encode("utf-8")
+
+    patched_sections: Dict[int, bytes] = {}
+    if bool(report.patched_root4_2_copied_from_bootstrap):
+        sec2_value = base_payload_root.get(str(_FIELD_NUMBER_SECTION2_ARCHIVE_NAME))
+        if not isinstance(sec2_value, str):
+            raise TypeError("payload_root['2'] must be str after infrastructure bootstrap")
+        patched_sections[int(_FIELD_NUMBER_SECTION2_ARCHIVE_NAME)] = _encode_length_delimited_scalar_text_or_binary(sec2_value)
+
+    if bool(report.patched_root4_6_copied_from_bootstrap):
+        sec6_obj = base_payload_root.get(str(_FIELD_NUMBER_SECTION6))
+        if not isinstance(sec6_obj, dict):
+            raise TypeError("payload_root['6'] must be dict after infrastructure bootstrap")
+        patched_sections[int(_FIELD_NUMBER_SECTION6)] = encode_message(dict(sec6_obj))
+
+    if bool(report.patched_root4_11_copied_from_bootstrap) or int(report.patched_root4_11_faction_field13_count) > 0:
+        sec11_obj = base_payload_root.get(str(_FIELD_NUMBER_SECTION11))
+        if not isinstance(sec11_obj, dict):
+            raise TypeError("payload_root['11'] must be dict after infrastructure bootstrap")
+        patched_sections[int(_FIELD_NUMBER_SECTION11)] = encode_message(dict(sec11_obj))
+
+    if bool(report.patched_root4_22_copied_from_bootstrap):
+        sec22_obj = base_payload_root.get(str(_FIELD_NUMBER_SECTION22))
+        if not isinstance(sec22_obj, dict):
+            raise TypeError("payload_root['22'] must be dict after infrastructure bootstrap")
+        patched_sections[int(_FIELD_NUMBER_SECTION22)] = encode_message(dict(sec22_obj))
+
+    if bool(report.patched_root4_35_copied_from_bootstrap) or bool(report.patched_root4_35_default_groups_copied):
+        sec35_obj = base_payload_root.get(str(_FIELD_NUMBER_SECTION35))
+        if not isinstance(sec35_obj, dict):
+            raise TypeError("payload_root['35'] must be dict after infrastructure bootstrap")
+        patched_sections[int(_FIELD_NUMBER_SECTION35)] = encode_message(dict(sec35_obj))
+
+    if not patched_sections:
+        raise RuntimeError("infrastructure bootstrap changed=True but no patched sections were collected")
+
+    base_payload_bytes = read_gil_payload_bytes(input_path)
+    patched_payload_bytes = replace_length_delimited_fields_payload_bytes_in_message_bytes(
+        message_bytes=base_payload_bytes,
+        payload_bytes_by_field_number=dict(patched_sections),
     )
+
+    container_spec = read_gil_container_spec(input_path)
+    output_path.write_bytes(build_gil_file_bytes_from_payload(payload_bytes=patched_payload_bytes, container_spec=container_spec))
 
     return GilInfrastructureBootstrapReport(
         changed=True,
